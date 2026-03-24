@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/hash"
 	"github.com/loft-sh/vcluster/config"
@@ -188,7 +189,7 @@ func CreateDocker(ctx context.Context, options *CreateOptions, globalFlags *flag
 			return err
 		}
 
-		platformArgs, err := addVClusterDocker(ctx, vClusterName, vConfig, options, globalFlags, vClusterJoinToken, log)
+		platformArgs, err := addVClusterDocker(ctx, vClusterName, vConfig, options, globalFlags, vClusterJoinToken, userValues, log)
 		if err != nil {
 			return err
 		}
@@ -269,7 +270,7 @@ func writeVClusterYAML(globalFlags *flags.GlobalFlags, vClusterName string, fina
 	return filepath.Dir(vClusterYAMLPath), nil
 }
 
-func addVClusterDocker(ctx context.Context, name string, vClusterConfig *config.Config, options *CreateOptions, globalFlags *flags.GlobalFlags, joinToken string, log log.Logger) ([]string, error) {
+func addVClusterDocker(ctx context.Context, name string, vClusterConfig *config.Config, options *CreateOptions, globalFlags *flags.GlobalFlags, joinToken string, userValues string, log log.Logger) ([]string, error) {
 	platformConfig := vClusterConfig.GetPlatformConfig()
 	if platformConfig.APIKey.SecretName != "" || platformConfig.APIKey.Namespace != "" {
 		return nil, nil
@@ -307,7 +308,11 @@ func addVClusterDocker(ctx context.Context, name string, vClusterConfig *config.
 	}
 
 	// try with the regular name first
-	created, accessKey, createdName, err := platform.CreateWithName(ctx, managementClient, project, name, extraLabels)
+	created, accessKey, createdName, err := platform.CreateWithName(ctx, managementClient, project, name, extraLabels, func(vci *managementv1.VirtualClusterInstance) {
+		vci.Spec.Template.VirtualClusterCommonSpec.HelmRelease.Chart.Version = options.ChartVersion
+		vci.Spec.Template.VirtualClusterCommonSpec.HelmRelease.Values = userValues
+		vci.Spec.Standalone = true
+	})
 	if err != nil {
 		return nil, fmt.Errorf("error creating platform access key: %w. If you don't want to use the platform, run this command with --add=false or run 'vcluster logout'", err)
 	} else if !created {
