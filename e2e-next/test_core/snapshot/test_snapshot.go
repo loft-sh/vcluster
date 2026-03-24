@@ -148,411 +148,396 @@ func (s *snapshotCtx) deployTestResources(ctx context.Context, testNS string) (
 	return configMapToRestore, configMapToDelete, secretToRestore, secretToDelete, deploymentToRestore, serviceToRestore
 }
 
-// DescribeSnapshotRestore registers snapshot+restore tests (destructive - restarts vCluster).
-// These are Ordered because restore is destructive and specs depend on prior state.
-func DescribeSnapshotRestore(vcluster suite.Dependency) bool {
-	return Describe("Snapshot restore",
+// DescribeSnapshotAll registers all snapshot tests in a single Ordered Describe.
+// Snapshot operations on one vCluster interfere with each other (shared configmaps/secrets),
+// so they must run sequentially on the same vCluster.
+func DescribeSnapshotAll(vcluster suite.Dependency) bool {
+	var s snapshotCtx
+	return Describe("Snapshot and restore",
 		Ordered,
 		labels.Core,
 		labels.Snapshots,
 		cluster.Use(vcluster),
 		cluster.Use(clusters.HostCluster),
 		func() {
-			var s *snapshotCtx
-
 			BeforeAll(func(ctx context.Context) {
-				s = newSnapshotCtx(ctx)
+				s = *newSnapshotCtx(ctx)
 			})
 
-			Describe("controller-based snapshot without volumes", Ordered, func() {
-				const (
-					testNS       = "ctrl-snapshot-test"
-					snapshotPath = "container:///snapshot-data/snapshot.tar.gz"
-				)
-				var (
-					configMapToRestore *corev1.ConfigMap
-					configMapToDelete  *corev1.ConfigMap
-					secretToRestore    *corev1.Secret
-					secretToDelete     *corev1.Secret
-				)
-
-				BeforeAll(func(ctx context.Context) {
-					var cmr *corev1.ConfigMap
-					var cmd *corev1.ConfigMap
-					var sr *corev1.Secret
-					var sd *corev1.Secret
-					cmr, cmd, sr, sd, _, _ = s.deployTestResources(ctx, testNS)
-					configMapToRestore = cmr
-					configMapToDelete = cmd
-					secretToRestore = sr
-					secretToDelete = sd
-				})
-
-				It("Creates the snapshot", func(ctx context.Context) {
-					createSnapshot(s.vClusterName, s.vClusterNS, true, snapshotPath, false)
-					waitForSnapshotToBeCreated(ctx, s.hostClient, s.vClusterNS)
-				})
-
-				It("Verifies only snapshot resources exist after restore", func(ctx context.Context) {
-					_, err := s.vClusterClient.CoreV1().ConfigMaps(testNS).Create(ctx, configMapToDelete, metav1.CreateOptions{})
-					Expect(err).NotTo(HaveOccurred())
-					_, err = s.vClusterClient.CoreV1().Secrets(testNS).Create(ctx, secretToDelete, metav1.CreateOptions{})
-					Expect(err).NotTo(HaveOccurred())
-					svcCreated, err := s.vClusterClient.CoreV1().Services(testNS).Create(ctx, &corev1.Service{
-						ObjectMeta: metav1.ObjectMeta{Name: "snapshot-delete", Namespace: testNS, Labels: map[string]string{"snapshot": "delete"}},
-						Spec:       corev1.ServiceSpec{Ports: []corev1.ServicePort{{Name: "http", Port: 80}}, Type: corev1.ServiceTypeClusterIP},
-					}, metav1.CreateOptions{})
-					Expect(err).NotTo(HaveOccurred())
-					oldRV := svcCreated.ResourceVersion
-
-					restoreVCluster(ctx, s.hostClient, s.vClusterName, s.vClusterNS, snapshotPath, true, false)
-					s.refreshClient(ctx)
-
-					// Verify pre-snapshot resources exist
-					configmaps, err := s.vClusterClient.CoreV1().ConfigMaps(testNS).List(ctx, metav1.ListOptions{LabelSelector: "snapshot=restore"})
-					Expect(err).NotTo(HaveOccurred())
-					Expect(configmaps.Items).To(HaveLen(1))
-					Expect(configmaps.Items[0].Data).To(Equal(configMapToRestore.Data))
-					newRV, _ := strconv.ParseInt(configmaps.Items[0].ResourceVersion, 10, 64)
-					oldRVi, _ := strconv.ParseInt(oldRV, 10, 64)
-					Expect(newRV).To(BeNumerically(">", oldRVi))
-
-					secrets, err := s.vClusterClient.CoreV1().Secrets(testNS).List(ctx, metav1.ListOptions{LabelSelector: "snapshot=restore"})
-					Expect(err).NotTo(HaveOccurred())
-					Expect(secrets.Items).To(HaveLen(1))
-					Expect(secrets.Items[0].Data).To(Equal(secretToRestore.Data))
-
-					deps, err := s.vClusterClient.AppsV1().Deployments(testNS).List(ctx, metav1.ListOptions{LabelSelector: "snapshot=restore"})
-					Expect(err).NotTo(HaveOccurred())
-					Expect(deps.Items).To(HaveLen(1))
-
-					// Verify post-snapshot resources are gone
-					Eventually(func(g Gomega) {
-						cms, err := s.vClusterClient.CoreV1().ConfigMaps(testNS).List(ctx, metav1.ListOptions{LabelSelector: "snapshot=delete"})
-						g.Expect(err).NotTo(HaveOccurred())
-						g.Expect(cms.Items).To(BeEmpty())
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
-
-					Eventually(func(g Gomega) {
-						secs, err := s.vClusterClient.CoreV1().Secrets(testNS).List(ctx, metav1.ListOptions{LabelSelector: "snapshot=delete"})
-						g.Expect(err).NotTo(HaveOccurred())
-						g.Expect(secs.Items).To(BeEmpty())
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
-
-					Eventually(func(g Gomega) {
-						svcs, err := s.vClusterClient.CoreV1().Services(testNS).List(ctx, metav1.ListOptions{LabelSelector: "snapshot=delete"})
-						g.Expect(err).NotTo(HaveOccurred())
-						g.Expect(svcs.Items).To(BeEmpty())
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
-				})
-
-				It("Verifies deleted resources are recreated after restore", func(ctx context.Context) {
-					err := s.vClusterClient.CoreV1().ConfigMaps(testNS).Delete(ctx, configMapToRestore.Name, metav1.DeleteOptions{})
-					Expect(err).NotTo(HaveOccurred())
-					err = s.vClusterClient.CoreV1().Secrets(testNS).Delete(ctx, secretToRestore.Name, metav1.DeleteOptions{})
-					Expect(err).NotTo(HaveOccurred())
-
-					restoreVCluster(ctx, s.hostClient, s.vClusterName, s.vClusterNS, snapshotPath, true, false)
-					s.refreshClient(ctx)
-
-					Eventually(func(g Gomega) {
-						cms, err := s.vClusterClient.CoreV1().ConfigMaps(testNS).List(ctx, metav1.ListOptions{LabelSelector: "snapshot=restore"})
-						g.Expect(err).NotTo(HaveOccurred())
-						g.Expect(cms.Items).To(HaveLen(1))
-						g.Expect(cms.Items[0].Data).To(Equal(configMapToRestore.Data))
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
-
-					Eventually(func(g Gomega) {
-						secs, err := s.vClusterClient.CoreV1().Secrets(testNS).List(ctx, metav1.ListOptions{LabelSelector: "snapshot=restore"})
-						g.Expect(err).NotTo(HaveOccurred())
-						g.Expect(secs.Items).To(HaveLen(1))
-						g.Expect(secs.Items[0].Data).To(Equal(secretToRestore.Data))
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
-				})
-
-				AfterAll(func(ctx context.Context) {
-					deleteSnapshotRequestConfigMaps(ctx, s.hostClient, s.vClusterNS)
-				})
-			})
-
-			Describe("controller-based snapshot with volumes", Ordered, func() {
-				const (
-					testNS           = "volume-snapshots-test"
-					snapshotPath     = "container:///snapshot-data/" + testNS + ".tar.gz"
-					pvcToRestoreName = "test-pvc-restore"
-					testFileName     = testNS + ".txt"
-					pvcData          = "Hello " + testNS
-				)
-
-				BeforeAll(func(ctx context.Context) {
-					s.deployTestResources(ctx, testNS)
-					createPVCWithData(ctx, s.vClusterClient, testNS, pvcToRestoreName, testFileName, pvcData)
-				})
-
-				It("Creates the snapshot", func(ctx context.Context) {
-					createSnapshot(s.vClusterName, s.vClusterNS, true, snapshotPath, true)
-					waitForSnapshotToBeCreated(ctx, s.hostClient, s.vClusterNS)
-				})
-
-				It("Verifies VolumeSnapshots are cleaned up", func(ctx context.Context) {
-					vClusterRelease, err := helm.NewSecrets(s.hostClient).Get(ctx, s.vClusterName, s.vClusterNS)
-					Expect(err).NotTo(HaveOccurred())
-					vConfigValues, err := yaml.Marshal(vClusterRelease.Config)
-					Expect(err).NotTo(HaveOccurred())
-					vClusterConfig, err := vclusterconfig.ParseConfigBytes(vConfigValues, s.vClusterName, nil)
-					Expect(err).NotTo(HaveOccurred())
-
-					var restConfig *rest.Config
-					var vsNS string
-					if vClusterConfig.PrivateNodes.Enabled {
-						currentClusterName := cluster.CurrentClusterNameFrom(ctx)
-						restConfig = cluster.From(ctx, currentClusterName).KubernetesRestConfig()
-						vsNS = testNS
-					} else {
-						restConfig = cluster.From(ctx, constants.GetHostClusterName()).KubernetesRestConfig()
-						vsNS = s.vClusterNS
-					}
-					snapshotClient, err := snapshotsv1.NewForConfig(restConfig)
-					Expect(err).NotTo(HaveOccurred())
-
-					vs, err := snapshotClient.SnapshotV1().VolumeSnapshots(vsNS).List(ctx, metav1.ListOptions{})
-					Expect(err).NotTo(HaveOccurred())
-					Expect(vs.Items).To(BeEmpty())
-
-					vsc, err := snapshotClient.SnapshotV1().VolumeSnapshotContents().List(ctx, metav1.ListOptions{})
-					Expect(err).NotTo(HaveOccurred())
-					Expect(vsc.Items).To(BeEmpty())
-				})
-
-				It("Restores vCluster with volumes and verifies PVC data", func(ctx context.Context) {
-					deletePVC(ctx, s.vClusterClient, s.hostClient, s.vClusterName, s.vClusterNS, testNS, pvcToRestoreName)
-					// PVC restored without data in previous specs; delete again for proper restore
-					deletePVC(ctx, s.vClusterClient, s.hostClient, s.vClusterName, s.vClusterNS, testNS, pvcToRestoreName)
-					restoreVCluster(ctx, s.hostClient, s.vClusterName, s.vClusterNS, snapshotPath, true, true)
-					s.refreshClient(ctx)
-
-					Eventually(func(g Gomega) {
-						pvc, err := s.vClusterClient.CoreV1().PersistentVolumeClaims(testNS).Get(ctx, pvcToRestoreName, metav1.GetOptions{})
-						g.Expect(err).NotTo(HaveOccurred())
-						g.Expect(pvc.Status.Phase).To(Equal(corev1.ClaimBound))
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
-
-					checkPVCData(ctx, s.vClusterClient, testNS, pvcToRestoreName, testFileName, pvcData)
-				})
-
-				AfterAll(func(ctx context.Context) {
-					deletePVC(ctx, s.vClusterClient, s.hostClient, s.vClusterName, s.vClusterNS, testNS, pvcToRestoreName)
-					deleteSnapshotRequestConfigMaps(ctx, s.hostClient, s.vClusterNS)
-				})
-			})
+			describeSnapshotRestore(&s)
+			describeSnapshotCanceling(&s)
+			describeSnapshotDeletion(&s)
 		},
 	)
 }
 
-// DescribeSnapshotCanceling registers snapshot cancellation tests (non-destructive - no restore).
-// Can run in parallel with DescribeSnapshotRestore on a different ginkgo process.
-func DescribeSnapshotCanceling(vcluster suite.Dependency) bool {
-	return Describe("Snapshot canceling",
-		Ordered,
-		labels.Core,
-		labels.Snapshots,
-		cluster.Use(vcluster),
-		cluster.Use(clusters.HostCluster),
-		func() {
-			var s *snapshotCtx
+func describeSnapshotRestore(s *snapshotCtx) {
+	Describe("controller-based snapshot without volumes", Ordered, func() {
+		const (
+			testNS       = "ctrl-snapshot-test"
+			snapshotPath = "container:///snapshot-data/snapshot.tar.gz"
+		)
+		var (
+			configMapToRestore *corev1.ConfigMap
+			configMapToDelete  *corev1.ConfigMap
+			secretToRestore    *corev1.Secret
+			secretToDelete     *corev1.Secret
+		)
 
-			const (
-				testNS       = "snapshot-canceling"
-				snapshotPath = "container:///snapshot-data/" + testNS + ".tar.gz"
-				appCount     = 3
-				appPrefix    = "test-app-"
-			)
+		BeforeAll(func(ctx context.Context) {
+			var cmr *corev1.ConfigMap
+			var cmd *corev1.ConfigMap
+			var sr *corev1.Secret
+			var sd *corev1.Secret
+			cmr, cmd, sr, sd, _, _ = s.deployTestResources(ctx, testNS)
+			configMapToRestore = cmr
+			configMapToDelete = cmd
+			secretToRestore = sr
+			secretToDelete = sd
+		})
 
-			BeforeAll(func(ctx context.Context) {
-				s = newSnapshotCtx(ctx)
-				_, err := s.vClusterClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
-					ObjectMeta: metav1.ObjectMeta{Name: testNS},
-				}, metav1.CreateOptions{})
-				Expect(err).NotTo(HaveOccurred())
+		It("Creates the snapshot", func(ctx context.Context) {
+			createSnapshot(s.vClusterName, s.vClusterNS, true, snapshotPath, false)
+			waitForSnapshotToBeCreated(ctx, s.hostClient, s.vClusterNS)
+		})
+
+		It("Verifies only snapshot resources exist after restore", func(ctx context.Context) {
+			_, err := s.vClusterClient.CoreV1().ConfigMaps(testNS).Create(ctx, configMapToDelete, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			_, err = s.vClusterClient.CoreV1().Secrets(testNS).Create(ctx, secretToDelete, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			svcCreated, err := s.vClusterClient.CoreV1().Services(testNS).Create(ctx, &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{Name: "snapshot-delete", Namespace: testNS, Labels: map[string]string{"snapshot": "delete"}},
+				Spec:       corev1.ServiceSpec{Ports: []corev1.ServicePort{{Name: "http", Port: 80}}, Type: corev1.ServiceTypeClusterIP},
+			}, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			oldRV := svcCreated.ResourceVersion
+
+			restoreVCluster(ctx, s.hostClient, s.vClusterName, s.vClusterNS, snapshotPath, true, false)
+			s.refreshClient(ctx)
+
+			// Verify pre-snapshot resources exist
+			configmaps, err := s.vClusterClient.CoreV1().ConfigMaps(testNS).List(ctx, metav1.ListOptions{LabelSelector: "snapshot=restore"})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(configmaps.Items).To(HaveLen(1))
+			Expect(configmaps.Items[0].Data).To(Equal(configMapToRestore.Data))
+			newRV, _ := strconv.ParseInt(configmaps.Items[0].ResourceVersion, 10, 64)
+			oldRVi, _ := strconv.ParseInt(oldRV, 10, 64)
+			Expect(newRV).To(BeNumerically(">", oldRVi))
+
+			secrets, err := s.vClusterClient.CoreV1().Secrets(testNS).List(ctx, metav1.ListOptions{LabelSelector: "snapshot=restore"})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(secrets.Items).To(HaveLen(1))
+			Expect(secrets.Items[0].Data).To(Equal(secretToRestore.Data))
+
+			deps, err := s.vClusterClient.AppsV1().Deployments(testNS).List(ctx, metav1.ListOptions{LabelSelector: "snapshot=restore"})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(deps.Items).To(HaveLen(1))
+
+			// Verify post-snapshot resources are gone
+			Eventually(func(g Gomega) {
+				cms, err := s.vClusterClient.CoreV1().ConfigMaps(testNS).List(ctx, metav1.ListOptions{LabelSelector: "snapshot=delete"})
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(cms.Items).To(BeEmpty())
+			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				secs, err := s.vClusterClient.CoreV1().Secrets(testNS).List(ctx, metav1.ListOptions{LabelSelector: "snapshot=delete"})
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(secs.Items).To(BeEmpty())
+			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				svcs, err := s.vClusterClient.CoreV1().Services(testNS).List(ctx, metav1.ListOptions{LabelSelector: "snapshot=delete"})
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(svcs.Items).To(BeEmpty())
+			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+		})
+
+		It("Verifies deleted resources are recreated after restore", func(ctx context.Context) {
+			err := s.vClusterClient.CoreV1().ConfigMaps(testNS).Delete(ctx, configMapToRestore.Name, metav1.DeleteOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			err = s.vClusterClient.CoreV1().Secrets(testNS).Delete(ctx, secretToRestore.Name, metav1.DeleteOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			restoreVCluster(ctx, s.hostClient, s.vClusterName, s.vClusterNS, snapshotPath, true, false)
+			s.refreshClient(ctx)
+
+			Eventually(func(g Gomega) {
+				cms, err := s.vClusterClient.CoreV1().ConfigMaps(testNS).List(ctx, metav1.ListOptions{LabelSelector: "snapshot=restore"})
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(cms.Items).To(HaveLen(1))
+				g.Expect(cms.Items[0].Data).To(Equal(configMapToRestore.Data))
+			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				secs, err := s.vClusterClient.CoreV1().Secrets(testNS).List(ctx, metav1.ListOptions{LabelSelector: "snapshot=restore"})
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(secs.Items).To(HaveLen(1))
+				g.Expect(secs.Items[0].Data).To(Equal(secretToRestore.Data))
+			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+		})
+
+		AfterAll(func(ctx context.Context) {
+			deleteSnapshotRequestConfigMaps(ctx, s.hostClient, s.vClusterNS)
+		})
+	})
+
+	Describe("controller-based snapshot with volumes", Ordered, func() {
+		const (
+			testNS           = "volume-snapshots-test"
+			snapshotPath     = "container:///snapshot-data/" + testNS + ".tar.gz"
+			pvcToRestoreName = "test-pvc-restore"
+			testFileName     = testNS + ".txt"
+			pvcData          = "Hello " + testNS
+		)
+
+		BeforeAll(func(ctx context.Context) {
+			s.deployTestResources(ctx, testNS)
+			createPVCWithData(ctx, s.vClusterClient, testNS, pvcToRestoreName, testFileName, pvcData)
+		})
+
+		It("Creates the snapshot", func(ctx context.Context) {
+			createSnapshot(s.vClusterName, s.vClusterNS, true, snapshotPath, true)
+			waitForSnapshotToBeCreated(ctx, s.hostClient, s.vClusterNS)
+		})
+
+		It("Verifies VolumeSnapshots are cleaned up", func(ctx context.Context) {
+			vClusterRelease, err := helm.NewSecrets(s.hostClient).Get(ctx, s.vClusterName, s.vClusterNS)
+			Expect(err).NotTo(HaveOccurred())
+			vConfigValues, err := yaml.Marshal(vClusterRelease.Config)
+			Expect(err).NotTo(HaveOccurred())
+			vClusterConfig, err := vclusterconfig.ParseConfigBytes(vConfigValues, s.vClusterName, nil)
+			Expect(err).NotTo(HaveOccurred())
+
+			var restConfig *rest.Config
+			var vsNS string
+			if vClusterConfig.PrivateNodes.Enabled {
+				currentClusterName := cluster.CurrentClusterNameFrom(ctx)
+				restConfig = cluster.From(ctx, currentClusterName).KubernetesRestConfig()
+				vsNS = testNS
+			} else {
+				restConfig = cluster.From(ctx, constants.GetHostClusterName()).KubernetesRestConfig()
+				vsNS = s.vClusterNS
+			}
+			snapshotClient, err := snapshotsv1.NewForConfig(restConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			vs, err := snapshotClient.SnapshotV1().VolumeSnapshots(vsNS).List(ctx, metav1.ListOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vs.Items).To(BeEmpty())
+
+			vsc, err := snapshotClient.SnapshotV1().VolumeSnapshotContents().List(ctx, metav1.ListOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vsc.Items).To(BeEmpty())
+		})
+
+		It("Restores vCluster with volumes and verifies PVC data", func(ctx context.Context) {
+			deletePVC(ctx, s.vClusterClient, s.hostClient, s.vClusterName, s.vClusterNS, testNS, pvcToRestoreName)
+			// PVC restored without data in previous specs; delete again for proper restore
+			deletePVC(ctx, s.vClusterClient, s.hostClient, s.vClusterName, s.vClusterNS, testNS, pvcToRestoreName)
+			restoreVCluster(ctx, s.hostClient, s.vClusterName, s.vClusterNS, snapshotPath, true, true)
+			s.refreshClient(ctx)
+
+			Eventually(func(g Gomega) {
+				pvc, err := s.vClusterClient.CoreV1().PersistentVolumeClaims(testNS).Get(ctx, pvcToRestoreName, metav1.GetOptions{})
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(pvc.Status.Phase).To(Equal(corev1.ClaimBound))
+			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+
+			checkPVCData(ctx, s.vClusterClient, testNS, pvcToRestoreName, testFileName, pvcData)
+		})
+
+		AfterAll(func(ctx context.Context) {
+			deletePVC(ctx, s.vClusterClient, s.hostClient, s.vClusterName, s.vClusterNS, testNS, pvcToRestoreName)
+			deleteSnapshotRequestConfigMaps(ctx, s.hostClient, s.vClusterNS)
+		})
+	})
+}
+
+func describeSnapshotCanceling(s *snapshotCtx) {
+	const (
+		testNS       = "snapshot-canceling"
+		snapshotPath = "container:///snapshot-data/" + testNS + ".tar.gz"
+		appCount     = 3
+		appPrefix    = "test-app-"
+	)
+
+	Describe("Snapshot canceling", Ordered, func() {
+		BeforeAll(func(ctx context.Context) {
+			_, err := s.vClusterClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{Name: testNS},
+			}, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			for i := range appCount {
+				createAppWithPVC(ctx, s.vClusterClient, testNS, fmt.Sprintf("%s%d", appPrefix, i))
+			}
+			Eventually(func(g Gomega) {
 				for i := range appCount {
-					createAppWithPVC(ctx, s.vClusterClient, testNS, fmt.Sprintf("%s%d", appPrefix, i))
-				}
-				Eventually(func(g Gomega) {
-					for i := range appCount {
-						dep, err := s.vClusterClient.AppsV1().Deployments(testNS).Get(ctx, fmt.Sprintf("%s%d", appPrefix, i), metav1.GetOptions{})
-						g.Expect(err).NotTo(HaveOccurred())
-						g.Expect(dep.Status.AvailableReplicas).To(Equal(int32(1)))
-					}
-				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
-
-				createSnapshot(s.vClusterName, s.vClusterNS, true, snapshotPath, true)
-				time.Sleep(time.Second)
-				createSnapshot(s.vClusterName, s.vClusterNS, true, snapshotPath, true)
-			})
-
-			It("Has 2 snapshot requests", func(ctx context.Context) {
-				Eventually(func(g Gomega) {
-					cms, err := s.hostClient.CoreV1().ConfigMaps(s.vClusterNS).List(ctx, metav1.ListOptions{
-						LabelSelector: pkgconstants.SnapshotRequestLabel,
-					})
+					dep, err := s.vClusterClient.AppsV1().Deployments(testNS).Get(ctx, fmt.Sprintf("%s%d", appPrefix, i), metav1.GetOptions{})
 					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(cms.Items).To(HaveLen(2))
-				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
-			})
-
-			It("Canceled the previous snapshot request", func(ctx context.Context) {
-				vClusterRelease, err := helm.NewSecrets(s.hostClient).Get(ctx, s.vClusterName, s.vClusterNS)
-				Expect(err).NotTo(HaveOccurred())
-				vConfigValues, err := yaml.Marshal(vClusterRelease.Config)
-				Expect(err).NotTo(HaveOccurred())
-				vClusterConfig, err := vclusterconfig.ParseConfigBytes(vConfigValues, s.vClusterName, nil)
-				Expect(err).NotTo(HaveOccurred())
-
-				var restConfig *rest.Config
-				var vsNS string
-				if vClusterConfig.PrivateNodes.Enabled {
-					currentClusterName := cluster.CurrentClusterNameFrom(ctx)
-					restConfig = cluster.From(ctx, currentClusterName).KubernetesRestConfig()
-					vsNS = testNS
-				} else {
-					restConfig = cluster.From(ctx, constants.GetHostClusterName()).KubernetesRestConfig()
-					vsNS = s.vClusterNS
+					g.Expect(dep.Status.AvailableReplicas).To(Equal(int32(1)))
 				}
-				snapshotClient, err := snapshotsv1.NewForConfig(restConfig)
-				Expect(err).NotTo(HaveOccurred())
+			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 
-				Eventually(func(g Gomega) {
-					previousReq, _ := getTwoSnapshotRequests(g, ctx, s.hostClient, s.vClusterNS)
-					for pvcName, vsStatus := range previousReq.Status.VolumeSnapshots.Snapshots {
-						pvcParts := strings.Split(pvcName, "/")
-						g.Expect(pvcParts).To(HaveLen(2))
-						vsName := fmt.Sprintf("%s-%s", pvcParts[1], previousReq.Name)
-						_, err := snapshotClient.SnapshotV1().VolumeSnapshots(vsNS).Get(ctx, vsName, metav1.GetOptions{})
-						g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
-						g.Expect(vsStatus.Phase).To(Equal(volumes.RequestPhaseCanceled))
-					}
-					g.Expect(previousReq.Status.VolumeSnapshots.Phase).To(Equal(volumes.RequestPhaseCanceled))
-					g.Expect(previousReq.Status.Phase).To(Equal(snapshot.RequestPhaseCanceled))
-				}).WithPolling(constants.PollingInterval).WithTimeout(5 * time.Minute).Should(Succeed())
-			})
+			createSnapshot(s.vClusterName, s.vClusterNS, true, snapshotPath, true)
+			time.Sleep(time.Second)
+			createSnapshot(s.vClusterName, s.vClusterNS, true, snapshotPath, true)
+		})
 
-			It("Completed the new snapshot request", func(ctx context.Context) {
-				Eventually(func(g Gomega) {
-					_, newerReq := getTwoSnapshotRequests(g, ctx, s.hostClient, s.vClusterNS)
-					for pvcName, vs := range newerReq.Status.VolumeSnapshots.Snapshots {
-						g.Expect(vs.Phase).To(Equal(volumes.RequestPhaseCompleted),
-							"volume snapshot for PVC %s not completed: %s", pvcName, toJSON(vs))
-					}
-					g.Expect(newerReq.Status.VolumeSnapshots.Phase).To(Equal(volumes.RequestPhaseCompleted))
-					g.Expect(newerReq.Status.Phase).To(Equal(snapshot.RequestPhaseCompleted))
-				}).WithPolling(constants.PollingInterval).WithTimeout(5 * time.Minute).Should(Succeed())
-			})
+		It("Has 2 snapshot requests", func(ctx context.Context) {
+			Eventually(func(g Gomega) {
+				cms, err := s.hostClient.CoreV1().ConfigMaps(s.vClusterNS).List(ctx, metav1.ListOptions{
+					LabelSelector: pkgconstants.SnapshotRequestLabel,
+				})
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(cms.Items).To(HaveLen(2))
+			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+		})
 
-			AfterAll(func(ctx context.Context) {
-				_ = s.vClusterClient.CoreV1().Namespaces().Delete(ctx, testNS, metav1.DeleteOptions{})
-				deleteSnapshotRequestConfigMaps(ctx, s.hostClient, s.vClusterNS)
-			})
-		},
+		It("Canceled the previous snapshot request", func(ctx context.Context) {
+			vClusterRelease, err := helm.NewSecrets(s.hostClient).Get(ctx, s.vClusterName, s.vClusterNS)
+			Expect(err).NotTo(HaveOccurred())
+			vConfigValues, err := yaml.Marshal(vClusterRelease.Config)
+			Expect(err).NotTo(HaveOccurred())
+			vClusterConfig, err := vclusterconfig.ParseConfigBytes(vConfigValues, s.vClusterName, nil)
+			Expect(err).NotTo(HaveOccurred())
+
+			var restConfig *rest.Config
+			var vsNS string
+			if vClusterConfig.PrivateNodes.Enabled {
+				currentClusterName := cluster.CurrentClusterNameFrom(ctx)
+				restConfig = cluster.From(ctx, currentClusterName).KubernetesRestConfig()
+				vsNS = testNS
+			} else {
+				restConfig = cluster.From(ctx, constants.GetHostClusterName()).KubernetesRestConfig()
+				vsNS = s.vClusterNS
+			}
+			snapshotClient, err := snapshotsv1.NewForConfig(restConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			Eventually(func(g Gomega) {
+				previousReq, _ := getTwoSnapshotRequests(g, ctx, s.hostClient, s.vClusterNS)
+				for pvcName, vsStatus := range previousReq.Status.VolumeSnapshots.Snapshots {
+					pvcParts := strings.Split(pvcName, "/")
+					g.Expect(pvcParts).To(HaveLen(2))
+					vsName := fmt.Sprintf("%s-%s", pvcParts[1], previousReq.Name)
+					_, err := snapshotClient.SnapshotV1().VolumeSnapshots(vsNS).Get(ctx, vsName, metav1.GetOptions{})
+					g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
+					g.Expect(vsStatus.Phase).To(Equal(volumes.RequestPhaseCanceled))
+				}
+				g.Expect(previousReq.Status.VolumeSnapshots.Phase).To(Equal(volumes.RequestPhaseCanceled))
+				g.Expect(previousReq.Status.Phase).To(Equal(snapshot.RequestPhaseCanceled))
+			}).WithPolling(constants.PollingInterval).WithTimeout(5 * time.Minute).Should(Succeed())
+		})
+
+		It("Completed the new snapshot request", func(ctx context.Context) {
+			Eventually(func(g Gomega) {
+				_, newerReq := getTwoSnapshotRequests(g, ctx, s.hostClient, s.vClusterNS)
+				for pvcName, vs := range newerReq.Status.VolumeSnapshots.Snapshots {
+					g.Expect(vs.Phase).To(Equal(volumes.RequestPhaseCompleted),
+						"volume snapshot for PVC %s not completed: %s", pvcName, toJSON(vs))
+				}
+				g.Expect(newerReq.Status.VolumeSnapshots.Phase).To(Equal(volumes.RequestPhaseCompleted))
+				g.Expect(newerReq.Status.Phase).To(Equal(snapshot.RequestPhaseCompleted))
+			}).WithPolling(constants.PollingInterval).WithTimeout(5 * time.Minute).Should(Succeed())
+		})
+
+		AfterAll(func(ctx context.Context) {
+			_ = s.vClusterClient.CoreV1().Namespaces().Delete(ctx, testNS, metav1.DeleteOptions{})
+			deleteSnapshotRequestConfigMaps(ctx, s.hostClient, s.vClusterNS)
+		})
+	},
 	)
 }
 
-// DescribeSnapshotDeletion registers snapshot deletion tests (non-destructive - no restore).
-func DescribeSnapshotDeletion(vcluster suite.Dependency) bool {
-	return Describe("Snapshot deletion",
-		Ordered,
-		labels.Core,
-		labels.Snapshots,
-		cluster.Use(vcluster),
-		cluster.Use(clusters.HostCluster),
-		func() {
-			var s *snapshotCtx
+func describeSnapshotDeletion(s *snapshotCtx) {
+	const (
+		testNS                    = "snapshot-deleting"
+		snapshotPath              = "container:///snapshot-data/" + testNS + ".tar.gz"
+		appCount                  = 3
+		appPrefix                 = "test-app-"
+		deleteSnapshotRequestName = "delete-request-" + testNS
+	)
 
-			const (
-				testNS                    = "snapshot-deleting"
-				snapshotPath              = "container:///snapshot-data/" + testNS + ".tar.gz"
-				appCount                  = 3
-				appPrefix                 = "test-app-"
-				deleteSnapshotRequestName = "delete-request-" + testNS
-			)
-
-			BeforeAll(func(ctx context.Context) {
-				s = newSnapshotCtx(ctx)
-				_, err := s.vClusterClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
-					ObjectMeta: metav1.ObjectMeta{Name: testNS},
-				}, metav1.CreateOptions{})
-				Expect(err).NotTo(HaveOccurred())
+	Describe("Snapshot deletion", Ordered, func() {
+		BeforeAll(func(ctx context.Context) {
+			_, err := s.vClusterClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{Name: testNS},
+			}, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			for i := range appCount {
+				createAppWithPVC(ctx, s.vClusterClient, testNS, fmt.Sprintf("%s%d", appPrefix, i))
+			}
+			Eventually(func(g Gomega) {
 				for i := range appCount {
-					createAppWithPVC(ctx, s.vClusterClient, testNS, fmt.Sprintf("%s%d", appPrefix, i))
+					dep, err := s.vClusterClient.AppsV1().Deployments(testNS).Get(ctx, fmt.Sprintf("%s%d", appPrefix, i), metav1.GetOptions{})
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(dep.Status.AvailableReplicas).To(Equal(int32(1)))
 				}
-				Eventually(func(g Gomega) {
-					for i := range appCount {
-						dep, err := s.vClusterClient.AppsV1().Deployments(testNS).Get(ctx, fmt.Sprintf("%s%d", appPrefix, i), metav1.GetOptions{})
-						g.Expect(err).NotTo(HaveOccurred())
-						g.Expect(dep.Status.AvailableReplicas).To(Equal(int32(1)))
-					}
-				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 
-				createSnapshot(s.vClusterName, s.vClusterNS, true, snapshotPath, true)
-			})
+			createSnapshot(s.vClusterName, s.vClusterNS, true, snapshotPath, true)
+		})
 
-			It("Creates snapshot deletion request", func(ctx context.Context) {
-				listOptions := metav1.ListOptions{LabelSelector: pkgconstants.SnapshotRequestLabel}
+		It("Creates snapshot deletion request", func(ctx context.Context) {
+			listOptions := metav1.ListOptions{LabelSelector: pkgconstants.SnapshotRequestLabel}
 
-				var snapshotOptions *snapshot.Options
-				Eventually(func(g Gomega) {
-					secrets, err := s.hostClient.CoreV1().Secrets(s.vClusterNS).List(ctx, listOptions)
-					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(secrets.Items).To(HaveLen(1))
-					snapshotOptions, err = snapshot.UnmarshalSnapshotOptions(&secrets.Items[0])
-					g.Expect(err).NotTo(HaveOccurred())
-				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+			var snapshotOptions *snapshot.Options
+			Eventually(func(g Gomega) {
+				secrets, err := s.hostClient.CoreV1().Secrets(s.vClusterNS).List(ctx, listOptions)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(secrets.Items).To(HaveLen(1))
+				snapshotOptions, err = snapshot.UnmarshalSnapshotOptions(&secrets.Items[0])
+				g.Expect(err).NotTo(HaveOccurred())
+			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 
-				waitForSnapshotToBeCreated(ctx, s.hostClient, s.vClusterNS)
+			waitForSnapshotToBeCreated(ctx, s.hostClient, s.vClusterNS)
 
-				snapshotRequestCMs, err := s.hostClient.CoreV1().ConfigMaps(s.vClusterNS).List(ctx, listOptions)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(snapshotRequestCMs.Items).To(HaveLen(1))
-				snapshotRequest, err := snapshot.UnmarshalSnapshotRequest(&snapshotRequestCMs.Items[0])
-				Expect(err).NotTo(HaveOccurred())
+			snapshotRequestCMs, err := s.hostClient.CoreV1().ConfigMaps(s.vClusterNS).List(ctx, listOptions)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(snapshotRequestCMs.Items).To(HaveLen(1))
+			snapshotRequest, err := snapshot.UnmarshalSnapshotRequest(&snapshotRequestCMs.Items[0])
+			Expect(err).NotTo(HaveOccurred())
 
-				snapshotRequest.Name = deleteSnapshotRequestName
-				snapshotRequest.CreationTimestamp = metav1.Now()
-				snapshotRequest.Status.Phase = snapshot.RequestPhaseDeleting
+			snapshotRequest.Name = deleteSnapshotRequestName
+			snapshotRequest.CreationTimestamp = metav1.Now()
+			snapshotRequest.Status.Phase = snapshot.RequestPhaseDeleting
 
-				deleteCM, err := snapshot.CreateSnapshotRequestConfigMap(s.vClusterNS, s.vClusterName, snapshotRequest)
-				Expect(err).NotTo(HaveOccurred())
-				deleteCM.Name = deleteSnapshotRequestName
+			deleteCM, err := snapshot.CreateSnapshotRequestConfigMap(s.vClusterNS, s.vClusterName, snapshotRequest)
+			Expect(err).NotTo(HaveOccurred())
+			deleteCM.Name = deleteSnapshotRequestName
 
-				deleteSecret, err := snapshot.CreateSnapshotOptionsSecret(
-					pkgconstants.SnapshotRequestLabel, s.vClusterNS, s.vClusterName, snapshotOptions)
-				Expect(err).NotTo(HaveOccurred())
-				deleteSecret.Name = deleteSnapshotRequestName
+			deleteSecret, err := snapshot.CreateSnapshotOptionsSecret(
+				pkgconstants.SnapshotRequestLabel, s.vClusterNS, s.vClusterName, snapshotOptions)
+			Expect(err).NotTo(HaveOccurred())
+			deleteSecret.Name = deleteSnapshotRequestName
 
-				_, err = s.hostClient.CoreV1().Secrets(s.vClusterNS).Create(ctx, deleteSecret, metav1.CreateOptions{})
-				Expect(err).NotTo(HaveOccurred())
-				_, err = s.hostClient.CoreV1().ConfigMaps(s.vClusterNS).Create(ctx, deleteCM, metav1.CreateOptions{})
-				Expect(err).NotTo(HaveOccurred())
-			})
+			_, err = s.hostClient.CoreV1().Secrets(s.vClusterNS).Create(ctx, deleteSecret, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			_, err = s.hostClient.CoreV1().ConfigMaps(s.vClusterNS).Create(ctx, deleteCM, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+		})
 
-			It("Has deleted the snapshot", func(ctx context.Context) {
-				Eventually(func(g Gomega) {
-					cm, err := s.hostClient.CoreV1().ConfigMaps(s.vClusterNS).Get(ctx, deleteSnapshotRequestName, metav1.GetOptions{})
-					g.Expect(err).NotTo(HaveOccurred())
-					req, err := snapshot.UnmarshalSnapshotRequest(cm)
-					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(req.Status.Phase).To(Equal(snapshot.RequestPhaseDeleted))
-					g.Expect(req.Status.VolumeSnapshots.Phase).To(Equal(volumes.RequestPhaseDeleted))
-					for pvcName, vs := range req.Status.VolumeSnapshots.Snapshots {
-						g.Expect(vs.Phase).To(Equal(volumes.RequestPhaseDeleted),
-							"volume snapshot for PVC %s not deleted: %s", pvcName, toJSON(vs))
-					}
-				}).WithPolling(constants.PollingInterval).WithTimeout(5 * time.Minute).Should(Succeed())
-			})
+		It("Has deleted the snapshot", func(ctx context.Context) {
+			Eventually(func(g Gomega) {
+				cm, err := s.hostClient.CoreV1().ConfigMaps(s.vClusterNS).Get(ctx, deleteSnapshotRequestName, metav1.GetOptions{})
+				g.Expect(err).NotTo(HaveOccurred())
+				req, err := snapshot.UnmarshalSnapshotRequest(cm)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(req.Status.Phase).To(Equal(snapshot.RequestPhaseDeleted))
+				g.Expect(req.Status.VolumeSnapshots.Phase).To(Equal(volumes.RequestPhaseDeleted))
+				for pvcName, vs := range req.Status.VolumeSnapshots.Snapshots {
+					g.Expect(vs.Phase).To(Equal(volumes.RequestPhaseDeleted),
+						"volume snapshot for PVC %s not deleted: %s", pvcName, toJSON(vs))
+				}
+			}).WithPolling(constants.PollingInterval).WithTimeout(5 * time.Minute).Should(Succeed())
+		})
 
-			AfterAll(func(ctx context.Context) {
-				_ = s.vClusterClient.CoreV1().Namespaces().Delete(ctx, testNS, metav1.DeleteOptions{})
-			})
-		},
+		AfterAll(func(ctx context.Context) {
+			_ = s.vClusterClient.CoreV1().Namespaces().Delete(ctx, testNS, metav1.DeleteOptions{})
+		})
+	},
 	)
 }
 

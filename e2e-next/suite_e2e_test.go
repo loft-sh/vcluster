@@ -15,9 +15,7 @@ import (
 )
 
 var (
-	_ = snapshot.DescribeSnapshotRestore(clusters.SnapshotVCluster)
-	_ = snapshot.DescribeSnapshotCanceling(clusters.SnapshotVCluster)
-	_ = snapshot.DescribeSnapshotDeletion(clusters.SnapshotVCluster)
+	_ = snapshot.DescribeSnapshotAll(clusters.SnapshotVCluster)
 	_ = test_core.DescribePodSync(clusters.CommonVCluster)
 	_ = test_core.DescribeNetworkPolicySync(clusters.CommonVCluster)
 	_ = test_core.DescribeNetworkPolicyEnforcement(clusters.CommonVCluster)
