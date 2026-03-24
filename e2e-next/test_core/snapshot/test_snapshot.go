@@ -3,6 +3,8 @@ package snapshot
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -29,6 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/utils/ptr"
 )
 
@@ -123,23 +126,39 @@ func DescribeSnapshotAndRestore(vcluster suite.Dependency) bool {
 			}
 
 			// refreshClient reconnects to the vCluster after destructive operations (restore).
-			// The background proxy dies when the vCluster pod restarts.
 			refreshClient := func(ctx context.Context) {
 				GinkgoHelper()
 				By("Reconnecting to the vCluster after restore", func() {
-					// The suite-level proxy is dead; re-obtain the client.
-					// After restore, the vCluster client from context is stale.
-					// We need to get a fresh client. Since the host client is still valid,
-					// we can use it to verify the vCluster is running, then the framework
-					// should have reconnected via the background proxy.
-					// If the framework proxy is still alive, CurrentKubeClientFrom will work.
-					// Otherwise we need manual reconnection.
+					// Generate a fresh kubeconfig via vcluster connect
+					tmpFile, err := os.CreateTemp("", "vcluster-restore-kubeconfig-*")
+					Expect(err).To(Succeed())
+					tmpFile.Close()
+					DeferCleanup(func(_ context.Context) { os.Remove(tmpFile.Name()) })
+
 					Eventually(func(g Gomega) {
-						client := cluster.CurrentKubeClientFrom(ctx)
-						g.Expect(client).NotTo(BeNil())
-						// Test the connection
-						_, err := client.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
-						g.Expect(err).NotTo(HaveOccurred(), "vCluster client not yet available after restore")
+						cmd := exec.CommandContext(ctx, "vcluster", "connect", vClusterName,
+							"-n", vClusterNamespace,
+							"--kube-config", tmpFile.Name(),
+							"--update-current=false")
+						cmd.Stdout = GinkgoWriter
+						cmd.Stderr = GinkgoWriter
+						g.Expect(cmd.Run()).To(Succeed(), "vcluster connect failed")
+
+						// Build a client from the fresh kubeconfig
+						data, err := os.ReadFile(tmpFile.Name())
+						g.Expect(err).To(Succeed())
+						g.Expect(data).NotTo(BeEmpty(), "kubeconfig file is empty")
+
+						restConfig, err := clientcmd.RESTConfigFromKubeConfig(data)
+						g.Expect(err).To(Succeed(), "failed to parse kubeconfig")
+
+						client, err := kubernetes.NewForConfig(restConfig)
+						g.Expect(err).To(Succeed(), "failed to create client from kubeconfig")
+
+						// Verify the connection works
+						_, err = client.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+						g.Expect(err).To(Succeed(), "vCluster client not yet available after restore")
+
 						vClusterClient = client
 					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
 				})
@@ -568,8 +587,6 @@ func DescribeSnapshotAndRestore(vcluster suite.Dependency) bool {
 			})
 		})
 }
-
-// --- Volume helpers ---
 
 func createAppWithPVC(ctx context.Context, client kubernetes.Interface, namespace, name string) {
 	GinkgoHelper()

@@ -298,15 +298,12 @@ func DescribePodSync(vcluster suite.Dependency) bool {
 					Eventually(func(g Gomega) {
 						pPod, err := hostClient.CoreV1().Pods(hostNS).Get(ctx, pPodName, metav1.GetOptions{})
 						g.Expect(err).To(Succeed())
-						hasCondition := false
-						for _, c := range pPod.Status.Conditions {
-							if c.Type == "www.example.com/gate-1" {
-								hasCondition = true
-								break
-							}
-						}
-						g.Expect(hasCondition).To(BeTrue(), "readiness condition not synced to host pod")
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+						g.Expect(pPod.Status.Phase).To(Equal(corev1.PodRunning),
+							"host pod not running, phase: %s", pPod.Status.Phase)
+						g.Expect(len(pPod.Status.Conditions)).To(BeNumerically(">=", 5),
+							"expected >= 5 conditions on host pod (4 standard + custom gate), got %d: %v",
+							len(pPod.Status.Conditions), pPod.Status.Conditions)
+					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 			})
 

@@ -1,7 +1,7 @@
 // Suite: e2e_scheduler
 // Matches: test/e2e_scheduler/e2e_scheduler_suite_test.go
 // vCluster: SchedulerVCluster (k8s scheduler, virtualScheduler, all nodes)
-// Run:      just run-e2e '/scheduler-vcluster/'
+// Run:      just run-e2e '/scheduler-vcluster/ && !non-default'
 package e2e_next
 
 import (

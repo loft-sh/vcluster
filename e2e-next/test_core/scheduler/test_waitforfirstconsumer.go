@@ -172,7 +172,6 @@ func DescribeSchedulerWaitForFirstConsumer(vcluster suite.Dependency) bool {
 					Eventually(func(g Gomega) {
 						ss, err := vClusterClient.AppsV1().StatefulSets("default").Get(ctx, ssName, metav1.GetOptions{})
 						g.Expect(err).To(Succeed(), "failed to fetch statefulset %q", ssName)
-						fmt.Fprintf(GinkgoWriter, "statefulset.status.readyreplicas: %d\n", ss.Status.ReadyReplicas)
 						g.Expect(ss.Status.ReadyReplicas).To(Equal(int32(1)),
 							"statefulset %q has %d ready replicas, waiting for 1", ssName, ss.Status.ReadyReplicas)
 					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())

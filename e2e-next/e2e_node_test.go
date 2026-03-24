@@ -1,7 +1,7 @@
 // Suite: e2e_node
 // Matches: test/e2e_node/e2e_node_suite_test.go
 // vCluster: NodeSyncVCluster (virtualScheduler, all host nodes synced)
-// Run:      just run-e2e '/node-sync-vcluster/'
+// Run:      just run-e2e '/node-sync-vcluster/ && !non-default'
 package e2e_next
 
 import (

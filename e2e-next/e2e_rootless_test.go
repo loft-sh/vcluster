@@ -1,7 +1,7 @@
 // Suite: e2e_rootless
 // Matches: test/e2e_rootless/e2e_rootless_mode_suite_test.go
 // vCluster: RootlessVCluster (runAsUser: 12345, fsGroup: 12345)
-// Run:      just run-e2e '/rootless-vcluster/'
+// Run:      just run-e2e '/rootless-vcluster/ && !non-default'
 package e2e_next
 
 import (

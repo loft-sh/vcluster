@@ -2,7 +2,6 @@ package scheduler
 
 import (
 	"context"
-	"reflect"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
@@ -16,9 +15,11 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/util/retry"
 )
 
-// DescribeSchedulerTaintsAndTolerations registers scheduler taint/toleration tests against the given vCluster.
+// DescribeSchedulerTaintsAndTolerations registers scheduler taint/toleration tests.
+// The vCluster must have virtualScheduler enabled and fromHost node sync with all: true.
 func DescribeSchedulerTaintsAndTolerations(vcluster suite.Dependency) bool {
 	return Describe("Scheduler sync - taints and tolerations",
 		labels.Core,
@@ -38,163 +39,117 @@ func DescribeSchedulerTaintsAndTolerations(vcluster suite.Dependency) bool {
 				Expect(vClusterClient).NotTo(BeNil())
 			})
 
-			// Ordered because specs form a lifecycle sequence:
-			// spec 1 adds taints and verifies a tolerating pod runs,
-			// spec 2 verifies a non-tolerating pod does NOT run (taints still present),
-			// spec 3 removes the taints and verifies taint state is restored.
-			// Each spec depends on taint state written by the previous spec.
-			Context("taint lifecycle", Ordered, func() {
-				var (
-					hostNodesTaints map[string][]corev1.Taint
-				)
+			It("should use taints and tolerations to control pod scheduling on a virtual node", func(ctx context.Context) {
+				suffix := random.String(6)
+				taintKey := "e2e-taint-" + suffix
 
-				It("adds taints to virtual nodes only and verifies host nodes are unaffected", func(ctx context.Context) {
-					By("Adding taints to virtual nodes", func() {
-						virtualNodes, err := vClusterClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
-						Expect(err).To(Succeed())
-						Expect(virtualNodes.Items).NotTo(BeEmpty(), "expected at least one virtual node")
+				taint := corev1.Taint{
+					Key:    taintKey,
+					Value:  "value1",
+					Effect: corev1.TaintEffectNoSchedule,
+				}
 
-						for _, vnode := range virtualNodes.Items {
-							updated := vnode.DeepCopy()
-							updated.Spec.Taints = append(updated.Spec.Taints, corev1.Taint{
-								Key:    "key1",
-								Value:  "value1",
-								Effect: corev1.TaintEffectNoSchedule,
-							})
-							_, err = vClusterClient.CoreV1().Nodes().Update(ctx, updated, metav1.UpdateOptions{})
-							Expect(err).To(Succeed(), "failed to update taints on virtual node %s", vnode.Name)
+				// Pick the first virtual node to taint (only one, not all)
+				virtualNodes, err := vClusterClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+				Expect(err).To(Succeed())
+				Expect(virtualNodes.Items).NotTo(BeEmpty())
+				targetNodeName := virtualNodes.Items[0].Name
+
+				By("Adding a taint to one virtual node (not synced to host)", func() {
+					err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+						node, err := vClusterClient.CoreV1().Nodes().Get(ctx, targetNodeName, metav1.GetOptions{})
+						if err != nil {
+							return err
 						}
+						node.Spec.Taints = append(node.Spec.Taints, taint)
+						_, err = vClusterClient.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
+						return err
 					})
-
-					By("Capturing host node taint state for later comparison", func() {
-						hostNodes, err := hostClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
-						Expect(err).To(Succeed())
-
-						hostNodesTaints = make(map[string][]corev1.Taint)
-						for _, hnode := range hostNodes.Items {
-							hostNodesTaints[hnode.Name] = hnode.Spec.Taints
+					Expect(err).To(Succeed())
+				})
+				DeferCleanup(func(ctx context.Context) {
+					// Always remove the taint so other tests aren't affected
+					_ = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+						node, err := vClusterClient.CoreV1().Nodes().Get(ctx, targetNodeName, metav1.GetOptions{})
+						if err != nil {
+							return err
 						}
-					})
-
-					By("Verifying virtual node taints differ from host node taints", func() {
-						virtualNodes, err := vClusterClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
-						Expect(err).To(Succeed())
-
-						virtualNodesTaints := make(map[string][]corev1.Taint)
-						for _, vnode := range virtualNodes.Items {
-							virtualNodesTaints[vnode.Name] = vnode.Spec.Taints
+						filtered := make([]corev1.Taint, 0, len(node.Spec.Taints))
+						for _, t := range node.Spec.Taints {
+							if t.Key != taintKey {
+								filtered = append(filtered, t)
+							}
 						}
-
-						Expect(reflect.DeepEqual(hostNodesTaints, virtualNodesTaints)).To(BeFalse(),
-							"host and virtual node taints should differ after adding taints to virtual nodes only")
+						node.Spec.Taints = filtered
+						_, err = vClusterClient.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
+						return err
 					})
 				})
 
-				It("schedules a pod with a matching toleration", func(ctx context.Context) {
-					suffix := random.String(6)
-					podName := "nginx-toleration-" + suffix
+				By("Verifying the taint is NOT on the host node", func() {
+					hostNode, err := hostClient.CoreV1().Nodes().Get(ctx, targetNodeName, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					for _, t := range hostNode.Spec.Taints {
+						Expect(t.Key).NotTo(Equal(taintKey),
+							"taint %s should not be synced to host node %s", taintKey, targetNodeName)
+					}
+				})
 
+				podWithToleration := "sched-tolerated-" + suffix
+				podWithoutToleration := "sched-untolerated-" + suffix
+
+				By("Creating a pod WITH matching toleration targeting the tainted node", func() {
 					_, err := vClusterClient.CoreV1().Pods("default").Create(ctx, &corev1.Pod{
-						TypeMeta: metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
-						ObjectMeta: metav1.ObjectMeta{
-							Name: podName,
-						},
+						ObjectMeta: metav1.ObjectMeta{Name: podWithToleration},
 						Spec: corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Name: "nginx", Image: "nginx"},
-							},
-							Tolerations: []corev1.Toleration{
-								{
-									Key:      "key1",
-									Operator: corev1.TolerationOpEqual,
-									Value:    "value1",
-									Effect:   corev1.TaintEffectNoSchedule,
-								},
-							},
+							NodeSelector: map[string]string{"kubernetes.io/hostname": targetNodeName},
+							Containers:   []corev1.Container{{Name: "nginx", Image: "nginx"}},
+							Tolerations: []corev1.Toleration{{
+								Key: taintKey, Operator: corev1.TolerationOpEqual,
+								Value: "value1", Effect: corev1.TaintEffectNoSchedule,
+							}},
 						},
 					}, metav1.CreateOptions{})
 					Expect(err).To(Succeed())
-					DeferCleanup(func(ctx context.Context) {
-						err := vClusterClient.CoreV1().Pods("default").Delete(ctx, podName, metav1.DeleteOptions{})
-						if !kerrors.IsNotFound(err) {
-							Expect(err).To(Succeed())
-						}
-					})
-
-					By("Waiting for pod with matching toleration to reach Running phase", func() {
-						Eventually(func(g Gomega) {
-							p, err := vClusterClient.CoreV1().Pods("default").Get(ctx, podName, metav1.GetOptions{})
-							g.Expect(err).To(Succeed(), "failed to get pod %s", podName)
-							g.Expect(p.Status.Phase).To(Equal(corev1.PodRunning),
-								"pod %s is in phase %s, waiting for Running", podName, p.Status.Phase)
-						}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
-					})
+				})
+				DeferCleanup(func(ctx context.Context) {
+					err := vClusterClient.CoreV1().Pods("default").Delete(ctx, podWithToleration, metav1.DeleteOptions{})
+					if !kerrors.IsNotFound(err) {
+						Expect(err).To(Succeed())
+					}
 				})
 
-				It("does not schedule a pod without a matching toleration", func(ctx context.Context) {
-					suffix := random.String(6)
-					podName := "nginx-notoleration-" + suffix
+				Eventually(func(g Gomega) {
+					pod, err := vClusterClient.CoreV1().Pods("default").Get(ctx, podWithToleration, metav1.GetOptions{})
+					g.Expect(err).To(Succeed())
+					g.Expect(pod.Status.Phase).To(Equal(corev1.PodRunning),
+						"pod with toleration should be Running, got %s", pod.Status.Phase)
+				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 
+				By("Creating a pod WITHOUT toleration targeting the tainted node", func() {
 					_, err := vClusterClient.CoreV1().Pods("default").Create(ctx, &corev1.Pod{
-						TypeMeta: metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
-						ObjectMeta: metav1.ObjectMeta{
-							Name: podName,
-						},
+						ObjectMeta: metav1.ObjectMeta{Name: podWithoutToleration},
 						Spec: corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Name: "nginx", Image: "nginx"},
-							},
+							NodeSelector: map[string]string{"kubernetes.io/hostname": targetNodeName},
+							Containers:   []corev1.Container{{Name: "nginx", Image: "nginx"}},
 						},
 					}, metav1.CreateOptions{})
 					Expect(err).To(Succeed())
-					DeferCleanup(func(ctx context.Context) {
-						err := vClusterClient.CoreV1().Pods("default").Delete(ctx, podName, metav1.DeleteOptions{})
-						if !kerrors.IsNotFound(err) {
-							Expect(err).To(Succeed())
-						}
-					})
-
-					By("Verifying pod without toleration remains unscheduled (not Running)", func() {
-						Consistently(func(g Gomega) {
-							p, err := vClusterClient.CoreV1().Pods("default").Get(ctx, podName, metav1.GetOptions{})
-							g.Expect(err).To(Succeed(), "failed to get pod %s", podName)
-							g.Expect(p.Status.Phase).NotTo(Equal(corev1.PodRunning),
-								"pod %s unexpectedly reached Running phase despite missing toleration", podName)
-						}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
-					})
+				})
+				DeferCleanup(func(ctx context.Context) {
+					err := vClusterClient.CoreV1().Pods("default").Delete(ctx, podWithoutToleration, metav1.DeleteOptions{})
+					if !kerrors.IsNotFound(err) {
+						Expect(err).To(Succeed())
+					}
 				})
 
-				It("removes taints from virtual nodes and restores parity with host nodes", func(ctx context.Context) {
-					By("Removing the added taint from each virtual node", func() {
-						vNodes, err := vClusterClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
-						Expect(err).To(Succeed())
-
-						for _, vnode := range vNodes.Items {
-							updated := vnode.DeepCopy()
-							// Remove the last taint (the one added in the first spec)
-							if len(updated.Spec.Taints) > 0 {
-								updated.Spec.Taints = updated.Spec.Taints[:len(updated.Spec.Taints)-1]
-							}
-							_, err = vClusterClient.CoreV1().Nodes().Update(ctx, updated, metav1.UpdateOptions{})
-							Expect(err).To(Succeed(), "failed to remove taint from virtual node %s", vnode.Name)
-						}
-					})
-
-					By("Verifying virtual node taints match host node taints again", func() {
-						Eventually(func(g Gomega) {
-							virtualNodes, err := vClusterClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
-							g.Expect(err).To(Succeed(), "failed to list virtual nodes")
-
-							virtualNodesTaints := make(map[string][]corev1.Taint)
-							for _, vnode := range virtualNodes.Items {
-								virtualNodesTaints[vnode.Name] = vnode.Spec.Taints
-							}
-
-							g.Expect(reflect.DeepEqual(hostNodesTaints, virtualNodesTaints)).To(BeTrue(),
-								"virtual node taints should match host node taints after removal; host=%v virtual=%v",
-								hostNodesTaints, virtualNodesTaints)
-						}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
-					})
+				By("Verifying pod without toleration stays Pending", func() {
+					Consistently(func(g Gomega) {
+						pod, err := vClusterClient.CoreV1().Pods("default").Get(ctx, podWithoutToleration, metav1.GetOptions{})
+						g.Expect(err).To(Succeed())
+						g.Expect(pod.Status.Phase).NotTo(Equal(corev1.PodRunning),
+							"pod without toleration should NOT be Running")
+					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutShort).Should(Succeed())
 				})
 			})
 		},

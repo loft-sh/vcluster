@@ -56,7 +56,7 @@ test-all: (test "")
 # Run e2e-next tests with JSON report
 [no-exit-message]
 test label="pr":
-  ginkgo --procs=4 -timeout=0 --silence-skips --succinct --no-color \
+  ginkgo --procs=6 -timeout=0 --silence-skips --succinct --no-color \
     --json-report={{report_file}} \
     --label-filter='{{label}}' ./e2e-next -- \
     --vcluster-image="{{image}}" \
@@ -65,7 +65,7 @@ test label="pr":
 # Run a single focused test within a label group (fast iteration)
 [no-exit-message]
 test-focus label focus:
-  ginkgo --procs=4 -timeout=0 --silence-skips --succinct --no-color \
+  ginkgo --procs=6 -timeout=0 --silence-skips --succinct --no-color \
     --json-report={{report_file}} \
     --label-filter='{{label}}' \
     --focus='{{focus}}' ./e2e-next -- \

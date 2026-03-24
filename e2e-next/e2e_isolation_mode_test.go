@@ -1,7 +1,7 @@
 // Suite: e2e_isolation_mode
 // Matches: test/e2e_isolation_mode/e2e_isolation_mode_test.go
 // vCluster: IsolationModeVCluster (podSecurityStandard, resourceQuota, limitRange)
-// Run:      just run-e2e '/isolation-mode/'
+// Run:      just run-e2e '/isolation-mode/ && !non-default'
 package e2e_next
 
 import (

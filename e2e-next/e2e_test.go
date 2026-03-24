@@ -1,7 +1,7 @@
-// Suite: e2e
+// Suite: e2e (main)
 // Matches: test/e2e/e2e_suite_test.go
-// vCluster: K8sDefaultEndpointVCluster (comprehensive config)
-// Run:      just run-e2e '/k8s-default-endpoint/'
+// vCluster: CommonVCluster (comprehensive config with all sync options)
+// Run:      just run-e2e '/common-vcluster/ && !non-default'
 package e2e_next
 
 import (
@@ -15,23 +15,23 @@ import (
 )
 
 var (
-	_ = test_core.DescribePodSync(clusters.K8sDefaultEndpointVCluster)
-	_ = test_core.DescribeNetworkPolicySync(clusters.K8sDefaultEndpointVCluster)
-	_ = test_core.DescribeNetworkPolicyEnforcement(clusters.K8sDefaultEndpointVCluster)
-	_ = test_core.DescribePVCSync(clusters.K8sDefaultEndpointVCluster)
-	_ = test_core.DescribeK8sDefaultEndpoint(clusters.K8sDefaultEndpointVCluster)
-	_ = test_core.DescribeNodeSyncLabelSelector(clusters.K8sDefaultEndpointVCluster)
+	_ = test_core.DescribePodSync(clusters.CommonVCluster)
+	_ = test_core.DescribeNetworkPolicySync(clusters.CommonVCluster)
+	_ = test_core.DescribeNetworkPolicyEnforcement(clusters.CommonVCluster)
+	_ = test_core.DescribePVCSync(clusters.CommonVCluster)
+	_ = test_core.DescribeK8sDefaultEndpoint(clusters.CommonVCluster)
+	_ = test_core.DescribeNodeSyncLabelSelector(clusters.CommonVCluster)
 	_ = test_core.DescribeServiceSync(clusters.ServiceSyncVCluster)
-	_ = fromhost.DescribeEventSync(clusters.K8sDefaultEndpointVCluster)
-	_ = fromhost.DescribeFromHostConfigMaps(clusters.K8sDefaultEndpointVCluster)
-	_ = fromhost.DescribeFromHostSecrets(clusters.K8sDefaultEndpointVCluster)
+	_ = fromhost.DescribeEventSync(clusters.CommonVCluster)
+	_ = fromhost.DescribeFromHostConfigMaps(clusters.CommonVCluster)
+	_ = fromhost.DescribeFromHostSecrets(clusters.CommonVCluster)
 	_ = fromhost.DescribeFromHostIngressClasses(clusters.FromHostLimitClassesVCluster)
 	_ = fromhost.DescribeFromHostStorageClasses(clusters.FromHostLimitClassesVCluster)
 	_ = fromhost.DescribeFromHostPriorityClasses(clusters.FromHostLimitClassesVCluster)
 	_ = fromhost.DescribeFromHostRuntimeClasses(clusters.FromHostLimitClassesVCluster)
-	_ = coredns.DescribeCoreDNS(clusters.K8sDefaultEndpointVCluster)
-	_ = webhook.DescribeAdmissionWebhook(clusters.K8sDefaultEndpointVCluster)
-	_ = test_deploy.DescribeHelmCharts(clusters.K8sDefaultEndpointVCluster)
-	_ = test_deploy.DescribeInitManifests(clusters.K8sDefaultEndpointVCluster)
+	_ = coredns.DescribeCoreDNS(clusters.CommonVCluster)
+	_ = webhook.DescribeAdmissionWebhook(clusters.CommonVCluster)
+	_ = test_deploy.DescribeHelmCharts(clusters.CommonVCluster)
+	_ = test_deploy.DescribeInitManifests(clusters.CommonVCluster)
 	_ = snapshot.DescribeSnapshotAndRestore(clusters.SnapshotVCluster)
 )
