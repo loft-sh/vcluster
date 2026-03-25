@@ -96,8 +96,16 @@ jobs:
         run: |
           set -x
           sudo apt-get install -y jq
-          paths=$(ls -d ./test/e2e*)
-          echo "matrix=$(printf '%s\n' "${paths}" | jq -R . | jq -cs .)" >> "$GITHUB_OUTPUT"
+          EXCLUDE="e2e e2e_ha e2e_isolation_mode e2e_node e2e_rootless e2e_scheduler"
+          paths=()
+          for dir in ./test/e2e*; do
+            suite_name=$(basename "$dir")
+            if echo "$EXCLUDE" | grep -qw "$suite_name"; then
+              continue
+            fi
+            paths+=("$dir")
+          done
+          echo "matrix=$(printf '%s\n' "${paths[@]}" | jq -R . | jq -cs .)" >> "$GITHUB_OUTPUT"
     outputs:
       matrix: ${{ steps.set-paths-matrix.outputs.matrix }}
 
@@ -277,13 +285,7 @@ jobs:
       matrix:
         distribution: ["k8s"]
         test-suite-path: ${{fromJson(needs.get-testsuites-dir.outputs.matrix)}}
-        ha: ["false", "true"]
-        include:
-          - distribution: "k8s"
-            ha: "true"
-            test-suite-path: "./test/e2e"
-        exclude:
-          - ha: "true"
+        ha: ["false"]
 
     steps:
       - name: Checkout repository
@@ -359,11 +361,6 @@ jobs:
 
           if [ "${{ matrix.ha }}" = "true" ]; then
             haValues="-f ./test/values_ha.yaml"
-          fi
-
-          if [ "${{ matrix.test-suite-path }}" = "./test/e2e" ]; then
-            kubectl create namespace from-host-sync-test
-            kubectl create namespace from-host-sync-test-2
           fi
 
           sed -i "s|REPLACE_REPOSITORY_NAME|${{ env.REPOSITORY_NAME }}|g" "${{ matrix.test-suite-path }}/../commonValues.yaml"

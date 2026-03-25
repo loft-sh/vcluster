@@ -23,6 +23,7 @@ var (
 	_ = test_core.DescribeK8sDefaultEndpoint(clusters.CommonVCluster)
 	_ = test_core.DescribeNodeSyncLabelSelector(clusters.CommonVCluster)
 	_ = test_core.DescribeServiceSync(clusters.ServiceSyncVCluster)
+	_ = test_core.DescribeServiceBasicSync(clusters.CommonVCluster)
 	_ = fromhost.DescribeEventSync(clusters.CommonVCluster)
 	_ = fromhost.DescribeFromHostConfigMaps(clusters.CommonVCluster)
 	_ = fromhost.DescribeFromHostSecrets(clusters.CommonVCluster)
