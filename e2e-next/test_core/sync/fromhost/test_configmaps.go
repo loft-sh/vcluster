@@ -288,7 +288,9 @@ func DescribeFromHostConfigMaps(vcluster suite.Dependency) bool {
 					Eventually(func(g Gomega) {
 						vpod, err := vClusterClient.CoreV1().Pods(virtualNS).Get(ctx, podName, metav1.GetOptions{})
 						g.Expect(err).To(Succeed())
-						g.Expect(vpod.Status.Phase).To(Equal(corev1.PodRunning))
+						g.Expect(vpod.Status.Phase).To(Equal(corev1.PodRunning),
+							"pod %s not Running: phase=%s, reason=%s, message=%s",
+							vpod.Name, vpod.Status.Phase, vpod.Status.Reason, vpod.Status.Message)
 					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
