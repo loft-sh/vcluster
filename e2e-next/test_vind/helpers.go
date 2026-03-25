@@ -162,14 +162,10 @@ func controlPlaneVolumePrefix(vClusterName string) string {
 	return constants.DockerControlPlanePrefix + vClusterName + "."
 }
 
-func kubeClientForContext(kubeContext string) (kubernetes.Interface, error) {
-	rules := clientcmd.NewDefaultClientConfigLoadingRules()
-	cfg, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		rules,
-		&clientcmd.ConfigOverrides{CurrentContext: kubeContext},
-	).ClientConfig()
+func kubeClientFromKubeConfig(raw []byte) (kubernetes.Interface, error) {
+	cfg, err := clientcmd.RESTConfigFromKubeConfig(raw)
 	if err != nil {
-		return nil, fmt.Errorf("build rest config for context %q: %w", kubeContext, err)
+		return nil, fmt.Errorf("build rest config from kubeconfig: %w", err)
 	}
 	return kubernetes.NewForConfig(cfg)
 }

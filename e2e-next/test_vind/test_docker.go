@@ -28,7 +28,7 @@ var _ = Describe("Docker driver", labels.Vind, labels.PR, func() {
 
 		DeferCleanup(func() {
 			cleanupCtx := context.Background()
-			_, _ = runVCluster(cleanupCtx, "delete", clusterName, "--driver", "docker", "--ignore-not-found", "--delete-context")
+			_, _ = runVCluster(cleanupCtx, "delete", clusterName, "--driver", "docker", "--ignore-not-found")
 		})
 	})
 
@@ -60,12 +60,10 @@ var _ = Describe("Docker driver", labels.Vind, labels.PR, func() {
 		})
 
 		By("Connecting to vcluster and verifying at least one node is ready", func() {
-			_, err := runVCluster(ctx, "connect", clusterName, "--driver", "docker", "--update-current")
-			Expect(err).To(Succeed())
-
-			kubeContext := "vcluster-docker_" + clusterName
 			Eventually(func(g Gomega) {
-				client, err := kubeClientForContext(kubeContext)
+				kubeConfig, err := runVCluster(ctx, "connect", clusterName, "--driver", "docker", "--print")
+				g.Expect(err).To(Succeed(), "failed to get kubeconfig")
+				client, err := kubeClientFromKubeConfig([]byte(kubeConfig))
 				g.Expect(err).To(Succeed(), "failed to create kube client")
 				nodeList, err := client.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 				g.Expect(err).To(Succeed(), "list nodes failed")
@@ -84,13 +82,8 @@ var _ = Describe("Docker driver", labels.Vind, labels.PR, func() {
 				Should(Succeed())
 		})
 
-		By("Disconnecting from vcluster", func() {
-			_, err := runVCluster(ctx, "disconnect")
-			Expect(err).To(Succeed())
-		})
-
 		By("Deleting vcluster", func() {
-			_, err := runVCluster(ctx, "delete", clusterName, "--driver", "docker", "--delete-context")
+			_, err := runVCluster(ctx, "delete", clusterName, "--driver", "docker")
 			Expect(err).To(Succeed())
 		})
 
