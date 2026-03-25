@@ -368,7 +368,8 @@ func IsKubeletMetrics(path string) bool {
 }
 
 func IsKubeletPods(path string) bool {
-	return strings.HasSuffix(path, "/pods")
+	p := strings.TrimRight(path, "/")
+	return strings.HasSuffix(p, "/pods") || strings.HasSuffix(p, "/runningpods")
 }
 
 func IsKubeletContainerLogs(path string) bool {

@@ -89,6 +89,37 @@ var _ = Describe("Kubelet proxy subpath access control",
 			})
 		})
 
+		It("GET /runningpods via node proxy returns only pods belonging to this vcluster", func(ctx context.Context) {
+			nodes, err := vClusterClientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(nodes.Items).NotTo(BeEmpty())
+
+			virtualPods, err := vClusterClientset.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			virtualPodKeys := make(map[string]bool, len(virtualPods.Items))
+			for _, p := range virtualPods.Items {
+				virtualPodKeys[p.Namespace+"/"+p.Name] = true
+			}
+
+			By("asserting every pod in the kubelet /runningpods response is a virtual pod", func() {
+				for _, node := range nodes.Items {
+					data, err := vClusterClientset.RESTClient().Get().
+						AbsPath(fmt.Sprintf("/api/v1/nodes/%s/proxy/runningpods", node.Name)).
+						DoRaw(ctx)
+					Expect(err).NotTo(HaveOccurred(), "GET /runningpods should succeed for node %s", node.Name)
+
+					podList := &corev1.PodList{}
+					Expect(json.Unmarshal(data, podList)).To(Succeed())
+
+					for _, pod := range podList.Items {
+						key := pod.Namespace + "/" + pod.Name
+						Expect(virtualPodKeys).To(HaveKey(key),
+							"kubelet /runningpods response contains pod %q which is not in this virtual cluster — cross-tenant leak detected", key)
+					}
+				}
+			})
+		})
+
 		It("GET /containerLogs for a non-existent pod returns 403 Forbidden", func(ctx context.Context) {
 			nodes, err := vClusterClientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 			Expect(err).NotTo(HaveOccurred())
