@@ -39,6 +39,8 @@ func DescribeServiceBasicSync(vcluster suite.Dependency) bool {
 				vClusterClient    kubernetes.Interface
 				vClusterClientset *kubernetes.Clientset
 				vClusterConfig    *rest.Config
+				vClusterName      string
+				hostNS            string
 			)
 
 			BeforeEach(func(ctx context.Context) {
@@ -46,6 +48,8 @@ func DescribeServiceBasicSync(vcluster suite.Dependency) bool {
 				Expect(hostClient).NotTo(BeNil())
 				vClusterClient = cluster.CurrentKubeClientFrom(ctx)
 				Expect(vClusterClient).NotTo(BeNil())
+				vClusterName = cluster.CurrentClusterNameFrom(ctx)
+				hostNS = "vcluster-" + vClusterName
 				vClusterConfig = cluster.CurrentClusterFrom(ctx).KubernetesRestConfig()
 				Expect(vClusterConfig).NotTo(BeNil())
 				var err error
@@ -91,14 +95,14 @@ func DescribeServiceBasicSync(vcluster suite.Dependency) bool {
 					Expect(err).To(Succeed())
 				})
 
-				pServiceName := translate.Default.HostName(nil, vService.Name, vService.Namespace)
+				pServiceName := translate.SingleNamespaceHostName(vService.Name, vService.Namespace, vClusterName)
 
 				var pService *corev1.Service
 				By("waiting for the service to be synced to the host cluster", func() {
 					Eventually(func(g Gomega) {
 						var err error
-						pService, err = hostClient.CoreV1().Services(pServiceName.Namespace).Get(ctx, pServiceName.Name, metav1.GetOptions{})
-						g.Expect(err).NotTo(HaveOccurred(), "host service %s/%s not yet available", pServiceName.Namespace, pServiceName.Name)
+						pService, err = hostClient.CoreV1().Services(hostNS).Get(ctx, pServiceName, metav1.GetOptions{})
+						g.Expect(err).NotTo(HaveOccurred(), "host service %s/%s not yet available", hostNS, pServiceName)
 					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
@@ -161,7 +165,7 @@ func DescribeServiceBasicSync(vcluster suite.Dependency) bool {
 					Expect(err).To(Succeed())
 				})
 
-				pServiceName := translate.Default.HostName(nil, service.Name, service.Namespace)
+				pServiceName := translate.SingleNamespaceHostName(service.Name, service.Namespace, vClusterName)
 
 				By("waiting for the service to appear in vCluster", func() {
 					Eventually(func(g Gomega) {
@@ -172,8 +176,8 @@ func DescribeServiceBasicSync(vcluster suite.Dependency) bool {
 
 				By("waiting for the service to be synced to the host cluster", func() {
 					Eventually(func(g Gomega) {
-						_, err := hostClient.CoreV1().Services(pServiceName.Namespace).Get(ctx, pServiceName.Name, metav1.GetOptions{})
-						g.Expect(err).NotTo(HaveOccurred(), "host service %s/%s not yet available", pServiceName.Namespace, pServiceName.Name)
+						_, err := hostClient.CoreV1().Services(hostNS).Get(ctx, pServiceName, metav1.GetOptions{})
+						g.Expect(err).NotTo(HaveOccurred(), "host service %s/%s not yet available", hostNS, pServiceName)
 					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 			})
@@ -364,19 +368,19 @@ func DescribeServiceBasicSync(vcluster suite.Dependency) bool {
 					Expect(err).To(Succeed())
 				})
 
-				pServiceName := translate.Default.HostName(nil, vService.Name, vService.Namespace)
+				pServiceName := translate.SingleNamespaceHostName(vService.Name, vService.Namespace, vClusterName)
 
 				By("waiting for the service to be synced to the host cluster", func() {
 					Eventually(func(g Gomega) {
-						_, err := hostClient.CoreV1().Services(pServiceName.Namespace).Get(ctx, pServiceName.Name, metav1.GetOptions{})
-						g.Expect(err).NotTo(HaveOccurred(), "host service %s/%s not yet available", pServiceName.Namespace, pServiceName.Name)
+						_, err := hostClient.CoreV1().Services(hostNS).Get(ctx, pServiceName, metav1.GetOptions{})
+						g.Expect(err).NotTo(HaveOccurred(), "host service %s/%s not yet available", hostNS, pServiceName)
 					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
 				By("updating the host service to add an annotation suffix and a label", func() {
 					Eventually(func(g Gomega) {
-						pService, err := hostClient.CoreV1().Services(pServiceName.Namespace).Get(ctx, pServiceName.Name, metav1.GetOptions{})
-						g.Expect(err).NotTo(HaveOccurred(), "host service %s/%s not yet available", pServiceName.Namespace, pServiceName.Name)
+						pService, err := hostClient.CoreV1().Services(hostNS).Get(ctx, pServiceName, metav1.GetOptions{})
+						g.Expect(err).NotTo(HaveOccurred(), "host service %s/%s not yet available", hostNS, pServiceName)
 
 						if pService.Annotations == nil {
 							pService.Annotations = map[string]string{}
@@ -388,9 +392,9 @@ func DescribeServiceBasicSync(vcluster suite.Dependency) bool {
 						}
 						pService.Labels["host-cluster-label"] = "some_host_label_value"
 
-						_, err = hostClient.CoreV1().Services(pServiceName.Namespace).Update(ctx, pService, metav1.UpdateOptions{})
+						_, err = hostClient.CoreV1().Services(hostNS).Update(ctx, pService, metav1.UpdateOptions{})
 						// Any error (including conflict) causes Eventually to retry.
-						g.Expect(err).NotTo(HaveOccurred(), "failed to update host service %s/%s", pServiceName.Namespace, pServiceName.Name)
+						g.Expect(err).NotTo(HaveOccurred(), "failed to update host service %s/%s", hostNS, pServiceName)
 					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
@@ -398,8 +402,8 @@ func DescribeServiceBasicSync(vcluster suite.Dependency) bool {
 					Eventually(func(g Gomega) {
 						updatedVService, err := vClusterClient.CoreV1().Services(nsName).Get(ctx, svcName, metav1.GetOptions{})
 						g.Expect(err).NotTo(HaveOccurred(), "vCluster service %s/%s not yet available", nsName, svcName)
-						updatedPService, err := hostClient.CoreV1().Services(pServiceName.Namespace).Get(ctx, pServiceName.Name, metav1.GetOptions{})
-						g.Expect(err).NotTo(HaveOccurred(), "host service %s/%s not yet available", pServiceName.Namespace, pServiceName.Name)
+						updatedPService, err := hostClient.CoreV1().Services(hostNS).Get(ctx, pServiceName, metav1.GetOptions{})
+						g.Expect(err).NotTo(HaveOccurred(), "host service %s/%s not yet available", hostNS, pServiceName)
 
 						g.Expect(updatedVService.Annotations["some-annotation"]).To(Equal(updatedPService.Annotations["some-annotation"]),
 							"expected vService annotation 'some-annotation' (%q) to equal pService annotation (%q)",
@@ -435,8 +439,8 @@ func DescribeServiceBasicSync(vcluster suite.Dependency) bool {
 					Eventually(func(g Gomega) {
 						updatedVService, err := vClusterClient.CoreV1().Services(nsName).Get(ctx, svcName, metav1.GetOptions{})
 						g.Expect(err).NotTo(HaveOccurred(), "vCluster service %s/%s not yet available", nsName, svcName)
-						updatedPService, err := hostClient.CoreV1().Services(pServiceName.Namespace).Get(ctx, pServiceName.Name, metav1.GetOptions{})
-						g.Expect(err).NotTo(HaveOccurred(), "host service %s/%s not yet available", pServiceName.Namespace, pServiceName.Name)
+						updatedPService, err := hostClient.CoreV1().Services(hostNS).Get(ctx, pServiceName, metav1.GetOptions{})
+						g.Expect(err).NotTo(HaveOccurred(), "host service %s/%s not yet available", hostNS, pServiceName)
 
 						g.Expect(updatedVService.Annotations["some-annotation"]).To(Equal(updatedPService.Annotations["some-annotation"]),
 							"expected vService annotation 'some-annotation' (%q) to equal pService annotation (%q)",
