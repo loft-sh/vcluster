@@ -73,12 +73,12 @@ func restoreVCluster(ctx context.Context, hostClient kubernetes.Interface, vClus
 	})
 
 	if restoreVolumes {
-		waitForRequestToFinish(ctx, hostClient, vClusterNamespace, pkgconstants.RestoreRequestLabel, snapshot.UnmarshalRestoreRequest, 5*time.Minute)
+		waitForRequestToFinish(ctx, hostClient, vClusterNamespace, pkgconstants.RestoreRequestLabel, snapshot.UnmarshalRestoreRequest, constants.PollingTimeoutVeryLong)
 	}
 }
 
 func waitForSnapshotToBeCreated(ctx context.Context, hostClient kubernetes.Interface, vClusterNamespace string) {
-	waitForRequestToFinish(ctx, hostClient, vClusterNamespace, pkgconstants.SnapshotRequestLabel, snapshot.UnmarshalSnapshotRequest, 5*time.Minute)
+	waitForRequestToFinish(ctx, hostClient, vClusterNamespace, pkgconstants.SnapshotRequestLabel, snapshot.UnmarshalSnapshotRequest, constants.PollingTimeoutVeryLong)
 }
 
 type unmarshalRequestFunc[T snapshot.LongRunningRequest] func(request *corev1.ConfigMap) (T, error)
@@ -118,8 +118,10 @@ func cleanupAllSnapshotArtifacts(ctx context.Context, hostClient kubernetes.Inte
 	GinkgoHelper()
 	for _, label := range []string{pkgconstants.SnapshotRequestLabel, pkgconstants.RestoreRequestLabel} {
 		opts := metav1.ListOptions{LabelSelector: label}
-		_ = hostClient.CoreV1().ConfigMaps(vClusterNamespace).DeleteCollection(ctx, metav1.DeleteOptions{}, opts)
-		_ = hostClient.CoreV1().Secrets(vClusterNamespace).DeleteCollection(ctx, metav1.DeleteOptions{}, opts)
+		err := hostClient.CoreV1().ConfigMaps(vClusterNamespace).DeleteCollection(ctx, metav1.DeleteOptions{}, opts)
+		Expect(err).To(Succeed())
+		err = hostClient.CoreV1().Secrets(vClusterNamespace).DeleteCollection(ctx, metav1.DeleteOptions{}, opts)
+		Expect(err).To(Succeed())
 	}
 	// Wait for configmaps to actually be gone
 	Eventually(func(g Gomega) {

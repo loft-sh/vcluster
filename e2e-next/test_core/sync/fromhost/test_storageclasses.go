@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
+	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
@@ -23,6 +24,7 @@ import (
 func DescribeFromHostStorageClasses(vcluster suite.Dependency) bool {
 	return Describe("StorageClasses sync from host",
 		labels.Core,
+		labels.PR,
 		labels.Sync,
 		labels.StorageClasses,
 		cluster.Use(vcluster),
@@ -73,7 +75,7 @@ func DescribeFromHostStorageClasses(vcluster suite.Dependency) bool {
 			}
 
 			It("only syncs storageClasses matching the label selector to vcluster", func(ctx context.Context) {
-				suffix := fmt.Sprintf("%d", GinkgoRandomSeed())
+				suffix := random.String(6)
 				matchingName := "sc-match-" + suffix
 				nonMatchingName := "sc-nomatch-" + suffix
 
@@ -101,7 +103,7 @@ func DescribeFromHostStorageClasses(vcluster suite.Dependency) bool {
 			})
 
 			It("does not sync PVCs created in vcluster using a storageClass not available in vcluster", func(ctx context.Context) {
-				suffix := fmt.Sprintf("%d", GinkgoRandomSeed())
+				suffix := random.String(6)
 				nonMatchingName := "sc-pvcreject-" + suffix
 				pvcName := "pvc-reject-" + suffix
 
@@ -124,18 +126,20 @@ func DescribeFromHostStorageClasses(vcluster suite.Dependency) bool {
 						},
 					}, metav1.CreateOptions{})
 					Expect(err).To(Succeed())
-					DeferCleanup(func(ctx context.Context) {
-						err := vClusterClient.CoreV1().PersistentVolumeClaims("default").Delete(ctx, pvcName, metav1.DeleteOptions{})
-						if !kerrors.IsNotFound(err) {
-							Expect(err).To(Succeed())
-						}
-					})
+				})
+				DeferCleanup(func(ctx context.Context) {
+					err := vClusterClient.CoreV1().PersistentVolumeClaims("default").Delete(ctx, pvcName, metav1.DeleteOptions{})
+					if !kerrors.IsNotFound(err) {
+						Expect(err).To(Succeed())
+					}
 				})
 
 				By("verifying the PVC is not synced to the host", func() {
 					translatedName := translate.SafeConcatName(pvcName, "x", "default", "x", vClusterName)
-					_, err := hostClient.CoreV1().PersistentVolumeClaims(vClusterHostNS).Get(ctx, translatedName, metav1.GetOptions{})
-					Expect(kerrors.IsNotFound(err)).To(BeTrue(), "PVC using non-synced storageClass should not appear on host")
+					Consistently(func(g Gomega) {
+						_, err := hostClient.CoreV1().PersistentVolumeClaims(vClusterHostNS).Get(ctx, translatedName, metav1.GetOptions{})
+						g.Expect(kerrors.IsNotFound(err)).To(BeTrue(), "PVC using non-synced storageClass should not appear on host")
+					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutShort).Should(Succeed())
 				})
 
 				By("waiting for a SyncWarning event on the PVC", func() {
@@ -163,7 +167,7 @@ func DescribeFromHostStorageClasses(vcluster suite.Dependency) bool {
 			})
 
 			It("syncs PVCs created in vcluster to host when using a storageClass synced from host", func(ctx context.Context) {
-				suffix := fmt.Sprintf("%d", GinkgoRandomSeed())
+				suffix := random.String(6)
 				matchingName := "sc-pvcsync-" + suffix
 				pvcName := "pvc-sync-" + suffix
 
@@ -193,12 +197,12 @@ func DescribeFromHostStorageClasses(vcluster suite.Dependency) bool {
 						},
 					}, metav1.CreateOptions{})
 					Expect(err).To(Succeed())
-					DeferCleanup(func(ctx context.Context) {
-						err := vClusterClient.CoreV1().PersistentVolumeClaims("default").Delete(ctx, pvcName, metav1.DeleteOptions{})
-						if !kerrors.IsNotFound(err) {
-							Expect(err).To(Succeed())
-						}
-					})
+				})
+				DeferCleanup(func(ctx context.Context) {
+					err := vClusterClient.CoreV1().PersistentVolumeClaims("default").Delete(ctx, pvcName, metav1.DeleteOptions{})
+					if !kerrors.IsNotFound(err) {
+						Expect(err).To(Succeed())
+					}
 				})
 
 				By("waiting for the PVC to appear in the host vcluster namespace", func() {

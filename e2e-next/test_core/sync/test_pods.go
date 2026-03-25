@@ -37,6 +37,7 @@ const (
 func DescribePodSync(vcluster suite.Dependency) bool {
 	return Describe("Pod sync from vCluster to host",
 		labels.Core,
+		labels.PR,
 		labels.Sync,
 		labels.Pods,
 		cluster.Use(vcluster),

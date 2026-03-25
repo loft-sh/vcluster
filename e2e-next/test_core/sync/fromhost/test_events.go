@@ -14,7 +14,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/reference"
@@ -24,6 +23,7 @@ import (
 func DescribeEventSync(vcluster suite.Dependency) bool {
 	return Describe("Events force-sync from host via annotation",
 		labels.Core,
+		labels.PR,
 		labels.Sync,
 		labels.Events,
 		cluster.Use(vcluster),
@@ -71,11 +71,8 @@ func DescribeEventSync(vcluster suite.Dependency) bool {
 				involvedObj, err := hostClient.CoreV1().ConfigMaps(vClusterNamespace).Get(ctx, cmName, metav1.GetOptions{})
 				Expect(err).To(Succeed())
 
-				ref, err := reference.GetReference(runtime.NewScheme(), involvedObj)
-				if err != nil {
-					ref, err = reference.GetReference(scheme.Scheme, involvedObj)
-					Expect(err).To(Succeed())
-				}
+				ref, err := reference.GetReference(scheme.Scheme, involvedObj)
+				Expect(err).To(Succeed(), "failed to get reference for configmap %s", cmName)
 
 				// Create force-synced event
 				event := &corev1.Event{

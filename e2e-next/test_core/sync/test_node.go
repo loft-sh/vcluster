@@ -18,6 +18,7 @@ import (
 func DescribeNodeSyncLabelSelector(vcluster suite.Dependency) bool {
 	return Describe("Node sync",
 		labels.Core,
+		labels.PR,
 		labels.Sync,
 		cluster.Use(vcluster),
 		cluster.Use(clusters.HostCluster),

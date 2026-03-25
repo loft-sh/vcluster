@@ -143,7 +143,7 @@ func DescribeIsolationMode(vcluster suite.Dependency) bool {
 						}
 
 						events, err := vClusterClient.CoreV1().Events("default").List(ctx, metav1.ListOptions{
-							TypeMeta: p.TypeMeta,
+							FieldSelector: "involvedObject.name=" + podName + ",involvedObject.kind=Pod",
 						})
 						g.Expect(err).To(Succeed(), "failed to list events for pod %s: %v", podName, err)
 

@@ -10,6 +10,7 @@ import (
 	"github.com/loft-sh/vcluster/e2e-next/clusters"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
+	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -65,7 +66,10 @@ func DescribeServiceSync(vcluster suite.Dependency) bool {
 				})
 				DeferCleanup(func(ctx context.Context) {
 					err := hostClient.CoreV1().Namespaces().Delete(ctx, fromNS, metav1.DeleteOptions{})
-					Expect(err).NotTo(HaveOccurred())
+					if kerrors.IsNotFound(err) {
+						return
+					}
+					Expect(err).To(Succeed())
 					Eventually(func(g Gomega) {
 						_, err := hostClient.CoreV1().Namespaces().Get(ctx, fromNS, metav1.GetOptions{})
 						g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
@@ -156,7 +160,10 @@ func DescribeServiceSync(vcluster suite.Dependency) bool {
 				})
 				DeferCleanup(func(ctx context.Context) {
 					err := vClusterClient.CoreV1().Namespaces().Delete(ctx, fromNS, metav1.DeleteOptions{})
-					Expect(err).NotTo(HaveOccurred())
+					if kerrors.IsNotFound(err) {
+						return
+					}
+					Expect(err).To(Succeed())
 					Eventually(func(g Gomega) {
 						_, err := vClusterClient.CoreV1().Namespaces().Get(ctx, fromNS, metav1.GetOptions{})
 						g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
@@ -232,7 +239,10 @@ func DescribeServiceSync(vcluster suite.Dependency) bool {
 				})
 				DeferCleanup(func(ctx context.Context) {
 					err := hostClient.CoreV1().Namespaces().Delete(ctx, fromNS, metav1.DeleteOptions{})
-					Expect(err).NotTo(HaveOccurred())
+					if kerrors.IsNotFound(err) {
+						return
+					}
+					Expect(err).To(Succeed())
 					Eventually(func(g Gomega) {
 						_, err := hostClient.CoreV1().Namespaces().Get(ctx, fromNS, metav1.GetOptions{})
 						g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
@@ -382,7 +392,10 @@ func DescribeServiceSync(vcluster suite.Dependency) bool {
 				})
 				DeferCleanup(func(ctx context.Context) {
 					err := vClusterClient.CoreV1().Namespaces().Delete(ctx, fromNS, metav1.DeleteOptions{})
-					Expect(err).NotTo(HaveOccurred())
+					if kerrors.IsNotFound(err) {
+						return
+					}
+					Expect(err).To(Succeed())
 					Eventually(func(g Gomega) {
 						_, err := vClusterClient.CoreV1().Namespaces().Get(ctx, fromNS, metav1.GetOptions{})
 						g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
@@ -515,7 +528,7 @@ func DescribeServiceSync(vcluster suite.Dependency) bool {
 
 			It("syncs Service, Endpoints, and EndpointSlice to host when Endpoint is created before Service", func(ctx context.Context) {
 				svcNS := "default"
-				svcName := fmt.Sprintf("test-svc-sync-%d", GinkgoRandomSeed())
+				svcName := "test-svc-sync-" + random.String(6)
 				translatedName := translate.SingleNamespaceHostName(svcName, svcNS, vClusterName)
 
 				By("creating Endpoint in vcluster before the Service exists", func() {
@@ -535,9 +548,10 @@ func DescribeServiceSync(vcluster suite.Dependency) bool {
 				DeferCleanup(func(ctx context.Context) {
 					//nolint:staticcheck
 					err := vClusterClient.CoreV1().Endpoints(svcNS).Delete(ctx, svcName, metav1.DeleteOptions{})
-					if !kerrors.IsNotFound(err) {
-						Expect(err).NotTo(HaveOccurred())
+					if kerrors.IsNotFound(err) {
+						return
 					}
+					Expect(err).To(Succeed())
 				})
 
 				By("creating headless Service in vcluster", func() {
@@ -554,9 +568,10 @@ func DescribeServiceSync(vcluster suite.Dependency) bool {
 				})
 				DeferCleanup(func(ctx context.Context) {
 					err := vClusterClient.CoreV1().Services(svcNS).Delete(ctx, svcName, metav1.DeleteOptions{})
-					if !kerrors.IsNotFound(err) {
-						Expect(err).NotTo(HaveOccurred())
+					if kerrors.IsNotFound(err) {
+						return
 					}
+					Expect(err).To(Succeed())
 				})
 
 				By("waiting for Service to appear on host with correct ports", func() {

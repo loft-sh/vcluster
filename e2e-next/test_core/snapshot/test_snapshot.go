@@ -470,7 +470,10 @@ func describeSnapshotCanceling(s *snapshotCtx) {
 		})
 
 		AfterAll(func(ctx context.Context) {
-			_ = s.vClusterClient.CoreV1().Namespaces().Delete(ctx, testNS, metav1.DeleteOptions{})
+			err := s.vClusterClient.CoreV1().Namespaces().Delete(ctx, testNS, metav1.DeleteOptions{})
+			if !kerrors.IsNotFound(err) {
+				Expect(err).To(Succeed())
+			}
 			deleteSnapshotRequestConfigMaps(ctx, s.hostClient, s.vClusterNS)
 		})
 	},
@@ -564,7 +567,10 @@ func describeSnapshotDeletion(s *snapshotCtx) {
 		})
 
 		AfterAll(func(ctx context.Context) {
-			_ = s.vClusterClient.CoreV1().Namespaces().Delete(ctx, testNS, metav1.DeleteOptions{})
+			err := s.vClusterClient.CoreV1().Namespaces().Delete(ctx, testNS, metav1.DeleteOptions{})
+			if !kerrors.IsNotFound(err) {
+				Expect(err).To(Succeed())
+			}
 		})
 	},
 	)

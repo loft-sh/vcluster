@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
+	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
@@ -22,6 +23,7 @@ import (
 func DescribeFromHostPriorityClasses(vcluster suite.Dependency) bool {
 	return Describe("PriorityClasses sync from host",
 		labels.Core,
+		labels.PR,
 		labels.Sync,
 		labels.PriorityClasses,
 		cluster.Use(vcluster),
@@ -66,7 +68,7 @@ func DescribeFromHostPriorityClasses(vcluster suite.Dependency) bool {
 			}
 
 			It("only syncs priorityClasses matching the label selector to vcluster", func(ctx context.Context) {
-				suffix := fmt.Sprintf("%d", GinkgoRandomSeed())
+				suffix := random.String(6)
 				matchingName := "pc-match-" + suffix
 				nonMatchingName := "pc-nomatch-" + suffix
 
@@ -94,7 +96,7 @@ func DescribeFromHostPriorityClasses(vcluster suite.Dependency) bool {
 			})
 
 			It("rejects pod creation in vcluster using a priorityClass not synced from host", func(ctx context.Context) {
-				suffix := fmt.Sprintf("%d", GinkgoRandomSeed())
+				suffix := random.String(6)
 				nonMatchingName := "pc-reject-" + suffix
 
 				createPriorityClass(ctx, nonMatchingName, 10000, map[string]string{"value": "two"})
@@ -119,7 +121,7 @@ func DescribeFromHostPriorityClasses(vcluster suite.Dependency) bool {
 			})
 
 			It("syncs pods created in vcluster to host when using a priorityClass synced from host", func(ctx context.Context) {
-				suffix := fmt.Sprintf("%d", GinkgoRandomSeed())
+				suffix := random.String(6)
 				matchingName := "pc-podsync-" + suffix
 				podName := "hp-pod-" + suffix
 
@@ -146,12 +148,12 @@ func DescribeFromHostPriorityClasses(vcluster suite.Dependency) bool {
 						},
 					}, metav1.CreateOptions{})
 					Expect(err).To(Succeed())
-					DeferCleanup(func(ctx context.Context) {
-						err := vClusterClient.CoreV1().Pods("default").Delete(ctx, podName, metav1.DeleteOptions{})
-						if !kerrors.IsNotFound(err) {
-							Expect(err).To(Succeed())
-						}
-					})
+				})
+				DeferCleanup(func(ctx context.Context) {
+					err := vClusterClient.CoreV1().Pods("default").Delete(ctx, podName, metav1.DeleteOptions{})
+					if !kerrors.IsNotFound(err) {
+						Expect(err).To(Succeed())
+					}
 				})
 
 				By("waiting for the pod to appear in the host vcluster namespace", func() {
@@ -172,7 +174,7 @@ func DescribeFromHostPriorityClasses(vcluster suite.Dependency) bool {
 			})
 
 			It("propagates description updates from host priorityClass to vcluster", func(ctx context.Context) {
-				suffix := fmt.Sprintf("%d", GinkgoRandomSeed())
+				suffix := random.String(6)
 				pcName := "pc-update-" + suffix
 				updatedDescription := "Updated description."
 
@@ -204,7 +206,7 @@ func DescribeFromHostPriorityClasses(vcluster suite.Dependency) bool {
 			})
 
 			It("removes synced priorityClass from vcluster when host label no longer matches selector", func(ctx context.Context) {
-				suffix := fmt.Sprintf("%d", GinkgoRandomSeed())
+				suffix := random.String(6)
 				pcName := "pc-labeldel-" + suffix
 
 				createPriorityClass(ctx, pcName, 1000000, map[string]string{"value": "one"})
