@@ -7,7 +7,7 @@ inputs:
   timeout:
     description: "Test timeout"
     required: false
-    default: "40m"
+    default: "60m"
   # Test selection strategy - mutually exclusive
   test-dir:
     description: "Directory containing tests relative to e2e-next/ (for directory-based testing)"
@@ -109,7 +109,7 @@ runs:
         GINKGO_ARGS=(
           "run"
           "--timeout=${{ inputs.timeout }}"
-          "--procs=4"
+          "--procs=8"
           "--show-node-events"
           "--poll-progress-after=20s"
           "--poll-progress-interval=10s"
