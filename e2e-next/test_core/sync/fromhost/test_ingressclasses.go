@@ -8,6 +8,7 @@ import (
 	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
+	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -22,6 +23,7 @@ import (
 func DescribeFromHostIngressClasses(vcluster suite.Dependency) bool {
 	return Describe("IngressClasses sync from host",
 		labels.Core,
+		labels.PR,
 		labels.Sync,
 		labels.IngressClasses,
 		cluster.Use(vcluster),
@@ -66,7 +68,7 @@ func DescribeFromHostIngressClasses(vcluster suite.Dependency) bool {
 			}
 
 			It("only syncs ingressClasses matching the label selector to vcluster", func(ctx context.Context) {
-				suffix := fmt.Sprintf("%d", GinkgoRandomSeed())
+				suffix := random.String(6)
 				matchingName := "ic-match-" + suffix
 				nonMatchingName := "ic-nomatch-" + suffix
 
@@ -94,7 +96,7 @@ func DescribeFromHostIngressClasses(vcluster suite.Dependency) bool {
 			})
 
 			It("does not sync ingresses created in vcluster using an ingressClass not available in vcluster", func(ctx context.Context) {
-				suffix := fmt.Sprintf("%d", GinkgoRandomSeed())
+				suffix := random.String(6)
 				nonMatchingName := "ic-ingressreject-" + suffix
 				ingressName := "ingress-reject-" + suffix
 				pathType := networkingv1.PathTypePrefix
@@ -133,18 +135,20 @@ func DescribeFromHostIngressClasses(vcluster suite.Dependency) bool {
 						},
 					}, metav1.CreateOptions{})
 					Expect(err).To(Succeed())
-					DeferCleanup(func(ctx context.Context) {
-						err := vClusterClient.NetworkingV1().Ingresses("default").Delete(ctx, ingressName, metav1.DeleteOptions{})
-						if !kerrors.IsNotFound(err) {
-							Expect(err).To(Succeed())
-						}
-					})
+				})
+				DeferCleanup(func(ctx context.Context) {
+					err := vClusterClient.NetworkingV1().Ingresses("default").Delete(ctx, ingressName, metav1.DeleteOptions{})
+					if !kerrors.IsNotFound(err) {
+						Expect(err).To(Succeed())
+					}
 				})
 
 				By("verifying the ingress is not synced to the host", func() {
 					translatedName := translate.SafeConcatName(ingressName, "x", "default", "x", vClusterName)
-					_, err := hostClient.NetworkingV1().Ingresses(vClusterHostNS).Get(ctx, translatedName, metav1.GetOptions{})
-					Expect(kerrors.IsNotFound(err)).To(BeTrue(), "ingress using non-synced ingressClass should not appear on host")
+					Consistently(func(g Gomega) {
+						_, err := hostClient.NetworkingV1().Ingresses(vClusterHostNS).Get(ctx, translatedName, metav1.GetOptions{})
+						g.Expect(kerrors.IsNotFound(err)).To(BeTrue(), "ingress using non-synced ingressClass should not appear on host")
+					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutShort).Should(Succeed())
 				})
 
 				By("waiting for a SyncWarning event on the ingress", func() {
@@ -172,7 +176,7 @@ func DescribeFromHostIngressClasses(vcluster suite.Dependency) bool {
 			})
 
 			It("syncs ingresses created in vcluster to host when using an ingressClass synced from host", func(ctx context.Context) {
-				suffix := fmt.Sprintf("%d", GinkgoRandomSeed())
+				suffix := random.String(6)
 				matchingName := "ic-ingresssync-" + suffix
 				ingressName := "ingress-sync-" + suffix
 				pathType := networkingv1.PathTypePrefix
@@ -218,12 +222,12 @@ func DescribeFromHostIngressClasses(vcluster suite.Dependency) bool {
 						},
 					}, metav1.CreateOptions{})
 					Expect(err).To(Succeed())
-					DeferCleanup(func(ctx context.Context) {
-						err := vClusterClient.NetworkingV1().Ingresses("default").Delete(ctx, ingressName, metav1.DeleteOptions{})
-						if !kerrors.IsNotFound(err) {
-							Expect(err).To(Succeed())
-						}
-					})
+				})
+				DeferCleanup(func(ctx context.Context) {
+					err := vClusterClient.NetworkingV1().Ingresses("default").Delete(ctx, ingressName, metav1.DeleteOptions{})
+					if !kerrors.IsNotFound(err) {
+						Expect(err).To(Succeed())
+					}
 				})
 
 				By("waiting for the ingress to appear in the host vcluster namespace", func() {

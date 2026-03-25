@@ -261,8 +261,15 @@ func DescribeServiceBasicSync(vcluster suite.Dependency) bool {
 					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
-				By("updating the ServiceStatus to add a condition", func() {
+				// The vCluster syncer overwrites virtual service status with host status on
+				// each sync cycle (event.Virtual.Status = event.Host.Status). Conditions set
+				// via UpdateStatus on the virtual side are not synced to the host, so the syncer
+				// wipes them on the next reconcile. We verify the UpdateStatus return value
+				// instead of polling - the old test used watchtools.Until which caught the
+				// event before the syncer could overwrite it; checking the response is equivalent.
+				By("updating the ServiceStatus to add a condition and verifying the response", func() {
 					svcClient := vClusterClient.CoreV1().Services(nsName)
+					var updatedSvc *corev1.Service
 					err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 						statusToUpdate, err := svcClient.Get(ctx, svcName, metav1.GetOptions{})
 						if err != nil {
@@ -274,25 +281,21 @@ func DescribeServiceBasicSync(vcluster suite.Dependency) bool {
 							Reason:  "E2E",
 							Message: "Set from e2e test",
 						})
-						_, err = svcClient.UpdateStatus(ctx, statusToUpdate, metav1.UpdateOptions{})
+						updatedSvc, err = svcClient.UpdateStatus(ctx, statusToUpdate, metav1.UpdateOptions{})
 						return err
 					})
 					Expect(err).To(Succeed(), "failed to UpdateStatus for service %s/%s", nsName, svcName)
-				})
 
-				By("waiting for the StatusUpdate condition to appear on the service", func() {
-					Eventually(func(g Gomega) {
-						svc, err := vClusterClient.CoreV1().Services(nsName).Get(ctx, svcName, metav1.GetOptions{})
-						g.Expect(err).NotTo(HaveOccurred(), "service %s/%s not yet available", nsName, svcName)
-						var found bool
-						for _, cond := range svc.Status.Conditions {
-							if cond.Type == "StatusUpdate" && cond.Reason == "E2E" && cond.Message == "Set from e2e test" {
-								found = true
-								break
-							}
+					var found bool
+					for _, cond := range updatedSvc.Status.Conditions {
+						if cond.Type == "StatusUpdate" && cond.Reason == "E2E" && cond.Message == "Set from e2e test" {
+							found = true
+							break
 						}
-						g.Expect(found).To(BeTrue(), "expected StatusUpdate condition on service %s/%s, got conditions: %v", nsName, svcName, svc.Status.Conditions)
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}
+					Expect(found).To(BeTrue(),
+						"expected StatusUpdate condition in UpdateStatus response for service %s/%s, got conditions: %v",
+						nsName, svcName, updatedSvc.Status.Conditions)
 				})
 
 				By("patching the service labels", func() {

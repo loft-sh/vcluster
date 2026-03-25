@@ -2,7 +2,6 @@ package test_deploy
 
 import (
 	"context"
-	_ "embed"
 	"fmt"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
@@ -19,27 +18,28 @@ import (
 )
 
 const (
-	ChartName            = "ingress-nginx"
-	ChartNamespace       = "ingress-nginx"
-	ChartOCIName         = "fluent-bit"
-	ChartOCIInstanceName = "fluent-bit"
-	ChartOCINamespace    = "fluent-bit"
+	chartName            = "ingress-nginx"
+	chartNamespace       = "ingress-nginx"
+	chartOCIName         = "fluent-bit"
+	chartOCIInstanceName = "fluent-bit"
+	chartOCINamespace    = "fluent-bit"
 )
 
 // DescribeHelmCharts registers helm chart deployment tests against the given vCluster.
 func DescribeHelmCharts(vcluster suite.Dependency) bool {
 	return Describe("Helm charts (regular and OCI) are synced and applied as expected",
 		labels.Deploy,
+		labels.PR,
 		cluster.Use(vcluster),
 		func() {
 			var (
 				HelmSecretLabels = map[string]string{
 					"owner": "helm",
-					"name":  ChartName,
+					"name":  chartName,
 				}
 				HelmOCIDeploymentLabels = map[string]string{
-					"app.kubernetes.io/instance": ChartOCIInstanceName,
-					"app.kubernetes.io/name":     ChartOCIName,
+					"app.kubernetes.io/instance": chartOCIInstanceName,
+					"app.kubernetes.io/name":     chartOCIName,
 				}
 				vClusterClient kubernetes.Interface
 			)
@@ -69,7 +69,7 @@ func DescribeHelmCharts(vcluster suite.Dependency) bool {
 
 			It("Test nginx release secret existence in vcluster (regular chart)", func(ctx context.Context) {
 				Eventually(func(g Gomega) {
-					secList, err := vClusterClient.CoreV1().Secrets(ChartNamespace).List(ctx, metav1.ListOptions{
+					secList, err := vClusterClient.CoreV1().Secrets(chartNamespace).List(ctx, metav1.ListOptions{
 						LabelSelector: k8slabels.SelectorFromSet(HelmSecretLabels).String(),
 					})
 					g.Expect(err).NotTo(HaveOccurred(), "Should be able to list secrets")
@@ -84,7 +84,7 @@ func DescribeHelmCharts(vcluster suite.Dependency) bool {
 
 			It("Test fluent-bit release deployment existence in vcluster (OCI chart)", func(ctx context.Context) {
 				Eventually(func(g Gomega) []appsv1.Deployment {
-					deployList, err := vClusterClient.AppsV1().Deployments(ChartOCINamespace).List(ctx, metav1.ListOptions{
+					deployList, err := vClusterClient.AppsV1().Deployments(chartOCINamespace).List(ctx, metav1.ListOptions{
 						LabelSelector: k8slabels.SelectorFromSet(HelmOCIDeploymentLabels).String(),
 					})
 					g.Expect(err).NotTo(HaveOccurred(), "Should be able to list deployments")

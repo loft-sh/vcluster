@@ -23,6 +23,7 @@ import (
 func DescribeFromHostConfigMaps(vcluster suite.Dependency) bool {
 	return Describe("ConfigMaps sync from host",
 		labels.Core,
+		labels.PR,
 		labels.Sync,
 		labels.ConfigMaps,
 		cluster.Use(vcluster),
@@ -47,11 +48,12 @@ func DescribeFromHostConfigMaps(vcluster suite.Dependency) bool {
 			// DeferCleanup for the namespace itself – callers that own the namespace must
 			// do so themselves. For shared/fixed namespaces leave deletion to vcluster teardown.
 			ensureNamespace := func(ctx context.Context, name string) {
+				GinkgoHelper()
 				_, err := hostClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 					ObjectMeta: metav1.ObjectMeta{Name: name},
 				}, metav1.CreateOptions{})
 				if !kerrors.IsAlreadyExists(err) {
-					Expect(err).NotTo(HaveOccurred())
+					Expect(err).To(Succeed())
 				}
 			}
 
@@ -66,56 +68,63 @@ func DescribeFromHostConfigMaps(vcluster suite.Dependency) bool {
 				// to vcluster teardown.
 				ensureNamespace(ctx, hostNS)
 
-				By("creating CM (dummy) in from-host-sync-test namespace on host")
-				_, err := hostClient.CoreV1().ConfigMaps(hostNS).Create(ctx, &corev1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      cmName,
-						Namespace: hostNS,
-					},
-					Data: map[string]string{
-						"BOO_BAR":     "hello-world",
-						"ANOTHER_ENV": "another-hello-world",
-					},
-				}, metav1.CreateOptions{})
-				Expect(err).NotTo(HaveOccurred())
-				DeferCleanup(func(ctx context.Context) {
-					Expect(hostClient.CoreV1().ConfigMaps(hostNS).Delete(ctx, cmName, metav1.DeleteOptions{})).To(Succeed())
+				By("creating CM (dummy) in from-host-sync-test namespace on host", func() {
+					_, err := hostClient.CoreV1().ConfigMaps(hostNS).Create(ctx, &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      cmName,
+							Namespace: hostNS,
+						},
+						Data: map[string]string{
+							"BOO_BAR":     "hello-world",
+							"ANOTHER_ENV": "another-hello-world",
+						},
+					}, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					DeferCleanup(func(ctx context.Context) {
+						err := hostClient.CoreV1().ConfigMaps(hostNS).Delete(ctx, cmName, metav1.DeleteOptions{})
+						if !kerrors.IsNotFound(err) {
+							Expect(err).To(Succeed())
+						}
+					})
 				})
 
-				By("waiting for CM to be synced to barfoo namespace in vcluster")
-				Eventually(func(g Gomega) {
-					cm, err := vClusterClient.CoreV1().ConfigMaps(virtualNS).Get(ctx, cmName, metav1.GetOptions{})
-					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(cm.Data).To(Equal(map[string]string{
-						"BOO_BAR":     "hello-world",
-						"ANOTHER_ENV": "another-hello-world",
-					}))
-				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+				By("waiting for CM to be synced to barfoo namespace in vcluster", func() {
+					Eventually(func(g Gomega) {
+						cm, err := vClusterClient.CoreV1().ConfigMaps(virtualNS).Get(ctx, cmName, metav1.GetOptions{})
+						g.Expect(err).To(Succeed())
+						g.Expect(cm.Data).To(Equal(map[string]string{
+							"BOO_BAR":     "hello-world",
+							"ANOTHER_ENV": "another-hello-world",
+						}))
+					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+				})
 
-				By("updating the host CM with new data, labels, and annotations")
-				freshHostCM, err := hostClient.CoreV1().ConfigMaps(hostNS).Get(ctx, cmName, metav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred())
+				By("updating the host CM with new data, labels, and annotations", func() {
+					freshHostCM, err := hostClient.CoreV1().ConfigMaps(hostNS).Get(ctx, cmName, metav1.GetOptions{})
+					Expect(err).To(Succeed())
 
-				freshHostCM.Data["UPDATED_ENV"] = "one"
-				if freshHostCM.Labels == nil {
-					freshHostCM.Labels = make(map[string]string, 1)
-				}
-				freshHostCM.Labels["updated-label"] = "updated-value"
-				if freshHostCM.Annotations == nil {
-					freshHostCM.Annotations = make(map[string]string, 1)
-				}
-				freshHostCM.Annotations["updated-annotation"] = "updated-value"
-				_, err = hostClient.CoreV1().ConfigMaps(hostNS).Update(ctx, freshHostCM, metav1.UpdateOptions{})
-				Expect(err).NotTo(HaveOccurred())
+					freshHostCM.Data["UPDATED_ENV"] = "one"
+					if freshHostCM.Labels == nil {
+						freshHostCM.Labels = make(map[string]string, 1)
+					}
+					freshHostCM.Labels["updated-label"] = "updated-value"
+					if freshHostCM.Annotations == nil {
+						freshHostCM.Annotations = make(map[string]string, 1)
+					}
+					freshHostCM.Annotations["updated-annotation"] = "updated-value"
+					_, err = hostClient.CoreV1().ConfigMaps(hostNS).Update(ctx, freshHostCM, metav1.UpdateOptions{})
+					Expect(err).To(Succeed())
+				})
 
-				By("waiting for the update to propagate to vcluster")
-				Eventually(func(g Gomega) {
-					updatedCM, err := vClusterClient.CoreV1().ConfigMaps(virtualNS).Get(ctx, cmName, metav1.GetOptions{})
-					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(updatedCM.Data["UPDATED_ENV"]).To(Equal("one"))
-					g.Expect(updatedCM.Labels["updated-label"]).To(Equal("updated-value"))
-					g.Expect(updatedCM.Annotations["updated-annotation"]).To(Equal("updated-value"))
-				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+				By("waiting for the update to propagate to vcluster", func() {
+					Eventually(func(g Gomega) {
+						updatedCM, err := vClusterClient.CoreV1().ConfigMaps(virtualNS).Get(ctx, cmName, metav1.GetOptions{})
+						g.Expect(err).To(Succeed())
+						g.Expect(updatedCM.Data["UPDATED_ENV"]).To(Equal("one"))
+						g.Expect(updatedCM.Labels["updated-label"]).To(Equal("updated-value"))
+						g.Expect(updatedCM.Annotations["updated-annotation"]).To(Equal("updated-value"))
+					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+				})
 			})
 
 			It("syncs exact-name configmap and restores vcluster mutations from host", func(ctx context.Context) {
@@ -125,63 +134,72 @@ func DescribeFromHostConfigMaps(vcluster suite.Dependency) bool {
 				virtualNS := "barfoo"
 				virtualCMName := "cm-my"
 
-				By("creating my.cm in default namespace on host")
-				_, err := hostClient.CoreV1().ConfigMaps(hostNS).Create(ctx, &corev1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      hostCMName,
-						Namespace: hostNS,
-					},
-					Data: map[string]string{
-						"ENV_FROM_DEFAULT_NS":         "one",
-						"ANOTHER_ENV_FROM_DEFAULT_NS": "two",
-					},
-				}, metav1.CreateOptions{})
-				Expect(err).NotTo(HaveOccurred())
-				DeferCleanup(func(ctx context.Context) {
-					Expect(hostClient.CoreV1().ConfigMaps(hostNS).Delete(ctx, hostCMName, metav1.DeleteOptions{})).To(Succeed())
+				By("creating my.cm in default namespace on host", func() {
+					_, err := hostClient.CoreV1().ConfigMaps(hostNS).Create(ctx, &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      hostCMName,
+							Namespace: hostNS,
+						},
+						Data: map[string]string{
+							"ENV_FROM_DEFAULT_NS":         "one",
+							"ANOTHER_ENV_FROM_DEFAULT_NS": "two",
+						},
+					}, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					DeferCleanup(func(ctx context.Context) {
+						err := hostClient.CoreV1().ConfigMaps(hostNS).Delete(ctx, hostCMName, metav1.DeleteOptions{})
+						if !kerrors.IsNotFound(err) {
+							Expect(err).To(Succeed())
+						}
+					})
 				})
 
-				By("waiting for CM to be synced as cm-my to barfoo namespace in vcluster")
-				Eventually(func(g Gomega) {
-					cm, err := vClusterClient.CoreV1().ConfigMaps(virtualNS).Get(ctx, virtualCMName, metav1.GetOptions{})
-					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(cm.Data).To(Equal(map[string]string{
-						"ENV_FROM_DEFAULT_NS":         "one",
-						"ANOTHER_ENV_FROM_DEFAULT_NS": "two",
-					}))
-				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+				By("waiting for CM to be synced as cm-my to barfoo namespace in vcluster", func() {
+					Eventually(func(g Gomega) {
+						cm, err := vClusterClient.CoreV1().ConfigMaps(virtualNS).Get(ctx, virtualCMName, metav1.GetOptions{})
+						g.Expect(err).To(Succeed())
+						g.Expect(cm.Data).To(Equal(map[string]string{
+							"ENV_FROM_DEFAULT_NS":         "one",
+							"ANOTHER_ENV_FROM_DEFAULT_NS": "two",
+						}))
+					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+				})
 
-				By("recording the UID of cm-my in vcluster before deletion")
-				oldCM, err := vClusterClient.CoreV1().ConfigMaps(virtualNS).Get(ctx, virtualCMName, metav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred())
-				uidBeforeDeletion := oldCM.UID
+				var uidBeforeDeletion string
+				By("recording the UID of cm-my in vcluster before deletion", func() {
+					oldCM, err := vClusterClient.CoreV1().ConfigMaps(virtualNS).Get(ctx, virtualCMName, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					uidBeforeDeletion = string(oldCM.UID)
+				})
 
-				By("deleting cm-my from vcluster; it should be re-synced from host")
-				Expect(vClusterClient.CoreV1().ConfigMaps(virtualNS).Delete(ctx, virtualCMName, metav1.DeleteOptions{})).To(Succeed())
+				By("deleting cm-my from vcluster; it should be re-synced from host", func() {
+					Expect(vClusterClient.CoreV1().ConfigMaps(virtualNS).Delete(ctx, virtualCMName, metav1.DeleteOptions{})).To(Succeed())
 
-				Eventually(func(g Gomega) {
-					newCM, err := vClusterClient.CoreV1().ConfigMaps(virtualNS).Get(ctx, virtualCMName, metav1.GetOptions{})
-					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(newCM.Data["ENV_FROM_DEFAULT_NS"]).To(Equal("one"))
-					g.Expect(newCM.Data["ANOTHER_ENV_FROM_DEFAULT_NS"]).To(Equal("two"))
-					g.Expect(newCM.UID).NotTo(Equal(uidBeforeDeletion))
-				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+					Eventually(func(g Gomega) {
+						newCM, err := vClusterClient.CoreV1().ConfigMaps(virtualNS).Get(ctx, virtualCMName, metav1.GetOptions{})
+						g.Expect(err).To(Succeed())
+						g.Expect(newCM.Data["ENV_FROM_DEFAULT_NS"]).To(Equal("one"))
+						g.Expect(newCM.Data["ANOTHER_ENV_FROM_DEFAULT_NS"]).To(Equal("two"))
+						g.Expect(string(newCM.UID)).NotTo(Equal(uidBeforeDeletion))
+					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+				})
 
-				By("overwriting cm-my data in vcluster; host should restore it")
-				vClusterMap, err := vClusterClient.CoreV1().ConfigMaps(virtualNS).Get(ctx, virtualCMName, metav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred())
-				vClusterMap.Data = map[string]string{"new-value": "will-be-overwritten"}
-				_, err = vClusterClient.CoreV1().ConfigMaps(virtualNS).Update(ctx, vClusterMap, metav1.UpdateOptions{})
-				Expect(err).NotTo(HaveOccurred())
+				By("overwriting cm-my data in vcluster; host should restore it", func() {
+					vClusterMap, err := vClusterClient.CoreV1().ConfigMaps(virtualNS).Get(ctx, virtualCMName, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					vClusterMap.Data = map[string]string{"new-value": "will-be-overwritten"}
+					_, err = vClusterClient.CoreV1().ConfigMaps(virtualNS).Update(ctx, vClusterMap, metav1.UpdateOptions{})
+					Expect(err).To(Succeed())
 
-				Eventually(func(g Gomega) {
-					cm, err := vClusterClient.CoreV1().ConfigMaps(virtualNS).Get(ctx, virtualCMName, metav1.GetOptions{})
-					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(cm.Data["ENV_FROM_DEFAULT_NS"]).To(Equal("one"))
-					g.Expect(cm.Data["ANOTHER_ENV_FROM_DEFAULT_NS"]).To(Equal("two"))
-					_, updatedKeyExists := cm.Data["new-value"]
-					g.Expect(updatedKeyExists).To(BeFalse())
-				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+					Eventually(func(g Gomega) {
+						cm, err := vClusterClient.CoreV1().ConfigMaps(virtualNS).Get(ctx, virtualCMName, metav1.GetOptions{})
+						g.Expect(err).To(Succeed())
+						g.Expect(cm.Data["ENV_FROM_DEFAULT_NS"]).To(Equal("one"))
+						g.Expect(cm.Data["ANOTHER_ENV_FROM_DEFAULT_NS"]).To(Equal("two"))
+						_, updatedKeyExists := cm.Data["new-value"]
+						g.Expect(updatedKeyExists).To(BeFalse())
+					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+				})
 			})
 
 			It("synced configmaps can be used as env source for a pod in vcluster", func(ctx context.Context) {
@@ -192,34 +210,40 @@ func DescribeFromHostConfigMaps(vcluster suite.Dependency) bool {
 
 				ensureNamespace(ctx, hostNS)
 
-				By("creating pod-env-test-cm with all env data on host")
-				_, err := hostClient.CoreV1().ConfigMaps(hostNS).Create(ctx, &corev1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      cmName,
-						Namespace: hostNS,
-					},
-					Data: map[string]string{
-						"BOO_BAR":     "hello-world",
-						"ANOTHER_ENV": "another-hello-world",
-						"UPDATED_ENV": "one",
-					},
-				}, metav1.CreateOptions{})
-				Expect(err).NotTo(HaveOccurred())
-				DeferCleanup(func(ctx context.Context) {
-					Expect(hostClient.CoreV1().ConfigMaps(hostNS).Delete(ctx, cmName, metav1.DeleteOptions{})).To(Succeed())
+				By("creating pod-env-test-cm with all env data on host", func() {
+					_, err := hostClient.CoreV1().ConfigMaps(hostNS).Create(ctx, &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      cmName,
+							Namespace: hostNS,
+						},
+						Data: map[string]string{
+							"BOO_BAR":     "hello-world",
+							"ANOTHER_ENV": "another-hello-world",
+							"UPDATED_ENV": "one",
+						},
+					}, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					DeferCleanup(func(ctx context.Context) {
+						err := hostClient.CoreV1().ConfigMaps(hostNS).Delete(ctx, cmName, metav1.DeleteOptions{})
+						if !kerrors.IsNotFound(err) {
+							Expect(err).To(Succeed())
+						}
+					})
 				})
 
-				By("waiting for CM to be synced to barfoo namespace in vcluster")
-				Eventually(func(g Gomega) {
-					_, err := vClusterClient.CoreV1().ConfigMaps(virtualNS).Get(ctx, cmName, metav1.GetOptions{})
-					g.Expect(err).NotTo(HaveOccurred())
-				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+				By("waiting for CM to be synced to barfoo namespace in vcluster", func() {
+					Eventually(func(g Gomega) {
+						_, err := vClusterClient.CoreV1().ConfigMaps(virtualNS).Get(ctx, cmName, metav1.GetOptions{})
+						g.Expect(err).To(Succeed())
+					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+				})
 
-				By("waiting for the default service account to be ready in barfoo namespace")
-				Eventually(func(g Gomega) {
-					_, err := vClusterClient.CoreV1().ServiceAccounts(virtualNS).Get(ctx, "default", metav1.GetOptions{})
-					g.Expect(err).NotTo(HaveOccurred())
-				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+				By("waiting for the default service account to be ready in barfoo namespace", func() {
+					Eventually(func(g Gomega) {
+						_, err := vClusterClient.CoreV1().ServiceAccounts(virtualNS).Get(ctx, "default", metav1.GetOptions{})
+						g.Expect(err).To(Succeed())
+					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+				})
 
 				optional := false
 				pod := &corev1.Pod{
@@ -249,42 +273,47 @@ func DescribeFromHostConfigMaps(vcluster suite.Dependency) bool {
 					},
 				}
 
-				By("creating the pod in vcluster")
-				_, err = vClusterClient.CoreV1().Pods(virtualNS).Create(ctx, pod, metav1.CreateOptions{})
-				Expect(err).NotTo(HaveOccurred())
-				DeferCleanup(func(ctx context.Context) {
-					err := vClusterClient.CoreV1().Pods(virtualNS).Delete(ctx, podName, metav1.DeleteOptions{})
-					if !kerrors.IsNotFound(err) {
-						Expect(err).NotTo(HaveOccurred())
-					}
+				By("creating the pod in vcluster", func() {
+					_, err := vClusterClient.CoreV1().Pods(virtualNS).Create(ctx, pod, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					DeferCleanup(func(ctx context.Context) {
+						err := vClusterClient.CoreV1().Pods(virtualNS).Delete(ctx, podName, metav1.DeleteOptions{})
+						if !kerrors.IsNotFound(err) {
+							Expect(err).To(Succeed())
+						}
+					})
 				})
 
-				By("waiting for the pod to reach Running phase in vcluster")
-				Eventually(func(g Gomega) {
-					vpod, err := vClusterClient.CoreV1().Pods(virtualNS).Get(ctx, podName, metav1.GetOptions{})
-					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(vpod.Status.Phase).To(Equal(corev1.PodRunning))
-				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+				By("waiting for the pod to reach Running phase in vcluster", func() {
+					Eventually(func(g Gomega) {
+						vpod, err := vClusterClient.CoreV1().Pods(virtualNS).Get(ctx, podName, metav1.GetOptions{})
+						g.Expect(err).To(Succeed())
+						g.Expect(vpod.Status.Phase).To(Equal(corev1.PodRunning),
+							"pod %s not Running: phase=%s, reason=%s, message=%s",
+							vpod.Name, vpod.Status.Phase, vpod.Status.Reason, vpod.Status.Message)
+					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+				})
 
-				By("exec-ing printenv in the pod to verify env vars from synced configmap")
-				currentClusterName := cluster.CurrentClusterNameFrom(ctx)
-				vClusterRestConfig := cluster.From(ctx, currentClusterName).KubernetesRestConfig()
-				stdout, _, err := podhelper.ExecBuffered(ctx, vClusterRestConfig, virtualNS, podName, "default", []string{"sh", "-c", "printenv"}, nil)
-				Expect(err).NotTo(HaveOccurred())
+				By("exec-ing printenv in the pod to verify env vars from synced configmap", func() {
+					currentClusterName := cluster.CurrentClusterNameFrom(ctx)
+					vClusterRestConfig := cluster.From(ctx, currentClusterName).KubernetesRestConfig()
+					stdout, _, err := podhelper.ExecBuffered(ctx, vClusterRestConfig, virtualNS, podName, "default", []string{"sh", "-c", "printenv"}, nil)
+					Expect(err).To(Succeed())
 
-				output := string(bytes.TrimSpace(stdout))
-				envVars := strings.Split(strings.TrimSpace(output), "\n")
-				envs := make(map[string]string, len(envVars))
-				for _, envVar := range envVars {
-					parts := strings.SplitN(envVar, "=", 2)
-					if len(parts) == 2 {
-						envs[parts[0]] = strings.ReplaceAll(parts[1], "\r", "")
+					output := string(bytes.TrimSpace(stdout))
+					envVars := strings.Split(strings.TrimSpace(output), "\n")
+					envs := make(map[string]string, len(envVars))
+					for _, envVar := range envVars {
+						parts := strings.SplitN(envVar, "=", 2)
+						if len(parts) == 2 {
+							envs[parts[0]] = strings.ReplaceAll(parts[1], "\r", "")
+						}
 					}
-				}
 
-				Expect(envs).To(HaveKeyWithValue("UPDATED_ENV", "one"))
-				Expect(envs).To(HaveKeyWithValue("ANOTHER_ENV", "another-hello-world"))
-				Expect(envs).To(HaveKeyWithValue("BOO_BAR", "hello-world"))
+					Expect(envs).To(HaveKeyWithValue("UPDATED_ENV", "one"))
+					Expect(envs).To(HaveKeyWithValue("ANOTHER_ENV", "another-hello-world"))
+					Expect(envs).To(HaveKeyWithValue("BOO_BAR", "hello-world"))
+				})
 			})
 
 			It("syncs configmaps from vcluster host namespace to configured virtual namespaces", func(ctx context.Context) {
@@ -316,34 +345,36 @@ func DescribeFromHostConfigMaps(vcluster suite.Dependency) bool {
 				}
 
 				for _, f := range fixtures {
-					By("creating " + f.name + " in vcluster host namespace on host")
-					_, err := hostClient.CoreV1().ConfigMaps(vClusterHostNS).Create(ctx, &corev1.ConfigMap{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      f.name,
-							Namespace: vClusterHostNS,
-						},
-						Data: f.data,
-					}, metav1.CreateOptions{})
-					Expect(err).NotTo(HaveOccurred())
-					name := f.name // capture for closure
-					DeferCleanup(func(ctx context.Context) {
-						err := hostClient.CoreV1().ConfigMaps(vClusterHostNS).Delete(ctx, name, metav1.DeleteOptions{})
-						if !kerrors.IsNotFound(err) {
-							Expect(err).NotTo(HaveOccurred())
-						}
+					By("creating "+f.name+" in vcluster host namespace on host", func() {
+						_, err := hostClient.CoreV1().ConfigMaps(vClusterHostNS).Create(ctx, &corev1.ConfigMap{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      f.name,
+								Namespace: vClusterHostNS,
+							},
+							Data: f.data,
+						}, metav1.CreateOptions{})
+						Expect(err).To(Succeed())
+						name := f.name // capture for closure
+						DeferCleanup(func(ctx context.Context) {
+							err := hostClient.CoreV1().ConfigMaps(vClusterHostNS).Delete(ctx, name, metav1.DeleteOptions{})
+							if !kerrors.IsNotFound(err) {
+								Expect(err).To(Succeed())
+							}
+						})
 					})
 				}
 
 				for _, f := range fixtures {
-					By("waiting for " + f.name + " to appear in " + f.virtualNS + " in vcluster")
-					expectedData := f.data
-					virtualNS := f.virtualNS
-					cmName := f.name
-					Eventually(func(g Gomega) {
-						cm, err := vClusterClient.CoreV1().ConfigMaps(virtualNS).Get(ctx, cmName, metav1.GetOptions{})
-						g.Expect(err).NotTo(HaveOccurred())
-						g.Expect(cm.Data).To(Equal(expectedData))
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+					By("waiting for "+f.name+" to appear in "+f.virtualNS+" in vcluster", func() {
+						expectedData := f.data
+						virtualNS := f.virtualNS
+						cmName := f.name
+						Eventually(func(g Gomega) {
+							cm, err := vClusterClient.CoreV1().ConfigMaps(virtualNS).Get(ctx, cmName, metav1.GetOptions{})
+							g.Expect(err).To(Succeed())
+							g.Expect(cm.Data).To(Equal(expectedData))
+						}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+					})
 				}
 			})
 
@@ -352,47 +383,52 @@ func DescribeFromHostConfigMaps(vcluster suite.Dependency) bool {
 				hostNS := "my-ns"
 				cmName := "to-be-deleted"
 
-				By("creating my-ns namespace on host")
-				_, err := hostClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
-					ObjectMeta: metav1.ObjectMeta{Name: hostNS},
-				}, metav1.CreateOptions{})
-				Expect(err).NotTo(HaveOccurred())
-				DeferCleanup(func(ctx context.Context) {
-					err := hostClient.CoreV1().Namespaces().Delete(ctx, hostNS, metav1.DeleteOptions{})
-					if !kerrors.IsNotFound(err) {
-						Expect(err).NotTo(HaveOccurred())
-					}
-					Eventually(func(g Gomega) {
-						_, err := hostClient.CoreV1().Namespaces().Get(ctx, hostNS, metav1.GetOptions{})
-						g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+				By("creating my-ns namespace on host", func() {
+					_, err := hostClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{Name: hostNS},
+					}, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					DeferCleanup(func(ctx context.Context) {
+						err := hostClient.CoreV1().Namespaces().Delete(ctx, hostNS, metav1.DeleteOptions{})
+						if !kerrors.IsNotFound(err) {
+							Expect(err).To(Succeed())
+						}
+						Eventually(func(g Gomega) {
+							_, err := hostClient.CoreV1().Namespaces().Get(ctx, hostNS, metav1.GetOptions{})
+							g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
+						}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					})
 				})
 
-				By("creating the to-be-deleted CM in my-ns on host")
-				_, err = hostClient.CoreV1().ConfigMaps(hostNS).Create(ctx, &corev1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      cmName,
-						Namespace: hostNS,
-					},
-					Data: map[string]string{"key6": "value6"},
-				}, metav1.CreateOptions{})
-				Expect(err).NotTo(HaveOccurred())
+				By("creating the to-be-deleted CM in my-ns on host", func() {
+					_, err := hostClient.CoreV1().ConfigMaps(hostNS).Create(ctx, &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      cmName,
+							Namespace: hostNS,
+						},
+						Data: map[string]string{"key6": "value6"},
+					}, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+				})
 
-				By("waiting for the CM to appear in vcluster")
-				Eventually(func(g Gomega) {
-					cm, err := vClusterClient.CoreV1().ConfigMaps(hostNS).Get(ctx, cmName, metav1.GetOptions{})
-					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(cm.Data["key6"]).To(Equal("value6"))
-				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+				By("waiting for the CM to appear in vcluster", func() {
+					Eventually(func(g Gomega) {
+						cm, err := vClusterClient.CoreV1().ConfigMaps(hostNS).Get(ctx, cmName, metav1.GetOptions{})
+						g.Expect(err).To(Succeed())
+						g.Expect(cm.Data["key6"]).To(Equal("value6"))
+					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+				})
 
-				By("deleting the CM from host")
-				Expect(hostClient.CoreV1().ConfigMaps(hostNS).Delete(ctx, cmName, metav1.DeleteOptions{})).To(Succeed())
+				By("deleting the CM from host", func() {
+					Expect(hostClient.CoreV1().ConfigMaps(hostNS).Delete(ctx, cmName, metav1.DeleteOptions{})).To(Succeed())
+				})
 
-				By("waiting for the CM to be deleted from vcluster")
-				Eventually(func(g Gomega) {
-					_, err := vClusterClient.CoreV1().ConfigMaps(hostNS).Get(ctx, cmName, metav1.GetOptions{})
-					g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
-				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+				By("waiting for the CM to be deleted from vcluster", func() {
+					Eventually(func(g Gomega) {
+						_, err := vClusterClient.CoreV1().ConfigMaps(hostNS).Get(ctx, cmName, metav1.GetOptions{})
+						g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
+					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+				})
 			})
 
 			It("syncs all configmaps from host namespace to the same namespace in vcluster", func(ctx context.Context) {
@@ -400,44 +436,47 @@ func DescribeFromHostConfigMaps(vcluster suite.Dependency) bool {
 				ns := "same-ns"
 				cmName := "cm-same-ns"
 
-				By("creating same-ns namespace on host")
-				_, err := hostClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
-					ObjectMeta: metav1.ObjectMeta{Name: ns},
-				}, metav1.CreateOptions{})
-				Expect(err).NotTo(HaveOccurred())
-				DeferCleanup(func(ctx context.Context) {
-					err := hostClient.CoreV1().Namespaces().Delete(ctx, ns, metav1.DeleteOptions{})
-					if !kerrors.IsNotFound(err) {
-						Expect(err).NotTo(HaveOccurred())
-					}
+				By("creating same-ns namespace on host", func() {
+					_, err := hostClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{Name: ns},
+					}, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					DeferCleanup(func(ctx context.Context) {
+						err := hostClient.CoreV1().Namespaces().Delete(ctx, ns, metav1.DeleteOptions{})
+						if !kerrors.IsNotFound(err) {
+							Expect(err).To(Succeed())
+						}
+						Eventually(func(g Gomega) {
+							_, err := hostClient.CoreV1().Namespaces().Get(ctx, ns, metav1.GetOptions{})
+							g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
+						}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					})
+				})
+
+				By("creating cm-same-ns CM in same-ns namespace on host", func() {
+					_, err := hostClient.CoreV1().ConfigMaps(ns).Create(ctx, &corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      cmName,
+							Namespace: ns,
+						},
+						Data: map[string]string{"key7": "value7"},
+					}, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					DeferCleanup(func(ctx context.Context) {
+						err := hostClient.CoreV1().ConfigMaps(ns).Delete(ctx, cmName, metav1.DeleteOptions{})
+						if !kerrors.IsNotFound(err) {
+							Expect(err).To(Succeed())
+						}
+					})
+				})
+
+				By("waiting for cm-same-ns to appear in same-ns namespace in vcluster", func() {
 					Eventually(func(g Gomega) {
-						_, err := hostClient.CoreV1().Namespaces().Get(ctx, ns, metav1.GetOptions{})
-						g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+						cm, err := vClusterClient.CoreV1().ConfigMaps(ns).Get(ctx, cmName, metav1.GetOptions{})
+						g.Expect(err).To(Succeed())
+						g.Expect(cm.Data["key7"]).To(Equal("value7"))
+					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 				})
-
-				By("creating cm-same-ns CM in same-ns namespace on host")
-				_, err = hostClient.CoreV1().ConfigMaps(ns).Create(ctx, &corev1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      cmName,
-						Namespace: ns,
-					},
-					Data: map[string]string{"key7": "value7"},
-				}, metav1.CreateOptions{})
-				Expect(err).NotTo(HaveOccurred())
-				DeferCleanup(func(ctx context.Context) {
-					err := hostClient.CoreV1().ConfigMaps(ns).Delete(ctx, cmName, metav1.DeleteOptions{})
-					if !kerrors.IsNotFound(err) {
-						Expect(err).NotTo(HaveOccurred())
-					}
-				})
-
-				By("waiting for cm-same-ns to appear in same-ns namespace in vcluster")
-				Eventually(func(g Gomega) {
-					cm, err := vClusterClient.CoreV1().ConfigMaps(ns).Get(ctx, cmName, metav1.GetOptions{})
-					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(cm.Data["key7"]).To(Equal("value7"))
-				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 			})
 		})
 }

@@ -59,7 +59,7 @@ func restoreVCluster(ctx context.Context, hostClient kubernetes.Interface, vClus
 			pods, err := hostClient.CoreV1().Pods(vClusterNamespace).List(ctx, metav1.ListOptions{
 				LabelSelector: "app=vcluster,release=" + vClusterName,
 			})
-			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(err).To(Succeed())
 			g.Expect(pods.Items).NotTo(BeEmpty(), "no vcluster pods found")
 			for _, pod := range pods.Items {
 				g.Expect(pod.Status.Phase).To(Equal(corev1.PodRunning),
@@ -73,12 +73,12 @@ func restoreVCluster(ctx context.Context, hostClient kubernetes.Interface, vClus
 	})
 
 	if restoreVolumes {
-		waitForRequestToFinish(ctx, hostClient, vClusterNamespace, pkgconstants.RestoreRequestLabel, snapshot.UnmarshalRestoreRequest, 5*time.Minute)
+		waitForRequestToFinish(ctx, hostClient, vClusterNamespace, pkgconstants.RestoreRequestLabel, snapshot.UnmarshalRestoreRequest, constants.PollingTimeoutVeryLong)
 	}
 }
 
 func waitForSnapshotToBeCreated(ctx context.Context, hostClient kubernetes.Interface, vClusterNamespace string) {
-	waitForRequestToFinish(ctx, hostClient, vClusterNamespace, pkgconstants.SnapshotRequestLabel, snapshot.UnmarshalSnapshotRequest, 5*time.Minute)
+	waitForRequestToFinish(ctx, hostClient, vClusterNamespace, pkgconstants.SnapshotRequestLabel, snapshot.UnmarshalSnapshotRequest, constants.PollingTimeoutVeryLong)
 }
 
 type unmarshalRequestFunc[T snapshot.LongRunningRequest] func(request *corev1.ConfigMap) (T, error)
@@ -89,7 +89,7 @@ func waitForRequestToFinish[T snapshot.LongRunningRequest](ctx context.Context, 
 		requestConfigMaps, err := hostClient.CoreV1().ConfigMaps(vClusterNamespace).List(ctx, metav1.ListOptions{
 			LabelSelector: requestLabel,
 		})
-		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(err).To(Succeed())
 		g.Expect(requestConfigMaps.Items).NotTo(BeEmpty(),
 			"no request configmap found with label %s", requestLabel)
 
@@ -104,7 +104,7 @@ func waitForRequestToFinish[T snapshot.LongRunningRequest](ctx context.Context, 
 		}
 
 		request, err := unmarshal(latest)
-		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(err).To(Succeed())
 		g.Expect(request).NotTo(BeNil())
 		g.Expect(request.GetPhase()).To(
 			Equal(snapshot.RequestPhaseCompleted),
@@ -118,15 +118,17 @@ func cleanupAllSnapshotArtifacts(ctx context.Context, hostClient kubernetes.Inte
 	GinkgoHelper()
 	for _, label := range []string{pkgconstants.SnapshotRequestLabel, pkgconstants.RestoreRequestLabel} {
 		opts := metav1.ListOptions{LabelSelector: label}
-		_ = hostClient.CoreV1().ConfigMaps(vClusterNamespace).DeleteCollection(ctx, metav1.DeleteOptions{}, opts)
-		_ = hostClient.CoreV1().Secrets(vClusterNamespace).DeleteCollection(ctx, metav1.DeleteOptions{}, opts)
+		err := hostClient.CoreV1().ConfigMaps(vClusterNamespace).DeleteCollection(ctx, metav1.DeleteOptions{}, opts)
+		Expect(err).To(Succeed())
+		err = hostClient.CoreV1().Secrets(vClusterNamespace).DeleteCollection(ctx, metav1.DeleteOptions{}, opts)
+		Expect(err).To(Succeed())
 	}
 	// Wait for configmaps to actually be gone
 	Eventually(func(g Gomega) {
 		cms, err := hostClient.CoreV1().ConfigMaps(vClusterNamespace).List(ctx, metav1.ListOptions{
 			LabelSelector: pkgconstants.SnapshotRequestLabel,
 		})
-		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(err).To(Succeed())
 		g.Expect(cms.Items).To(BeEmpty(), "snapshot request configmaps still exist after cleanup")
 	}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 }
@@ -137,10 +139,10 @@ func deleteSnapshotRequestConfigMaps(ctx context.Context, hostClient kubernetes.
 		LabelSelector: pkgconstants.SnapshotRequestLabel,
 	}
 	err := hostClient.CoreV1().ConfigMaps(vClusterNamespace).DeleteCollection(ctx, metav1.DeleteOptions{}, listOptions)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(err).To(Succeed())
 	Eventually(func(g Gomega) {
 		configMaps, err := hostClient.CoreV1().ConfigMaps(vClusterNamespace).List(ctx, listOptions)
-		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(err).To(Succeed())
 		g.Expect(configMaps.Items).To(BeEmpty(), "snapshot request configmaps not yet deleted")
 	}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 }

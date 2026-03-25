@@ -2,7 +2,6 @@ package test_deploy
 
 import (
 	"context"
-	_ "embed"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
@@ -15,15 +14,16 @@ import (
 )
 
 const (
-	TestManifestName      = "test-configmap"
-	TestManifestName2     = "test-configmap-2"
-	TestManifestNamespace = "default"
+	testManifestName      = "test-configmap"
+	testManifestName2     = "test-configmap-2"
+	testManifestNamespace = "default"
 )
 
 // DescribeInitManifests registers init manifest deployment tests against the given vCluster.
 func DescribeInitManifests(vcluster suite.Dependency) bool {
 	return Describe("Init manifests are synced and applied as expected",
 		labels.Deploy,
+		labels.PR,
 		cluster.Use(vcluster),
 		func() {
 			var (
@@ -39,7 +39,7 @@ func DescribeInitManifests(vcluster suite.Dependency) bool {
 
 			It("Test if manifest is synced with the vcluster", func(ctx context.Context) {
 				Eventually(func(g Gomega) {
-					manifest, err := vClusterClient.CoreV1().ConfigMaps(TestManifestNamespace).Get(ctx, TestManifestName, metav1.GetOptions{})
+					manifest, err := vClusterClient.CoreV1().ConfigMaps(testManifestNamespace).Get(ctx, testManifestName, metav1.GetOptions{})
 					g.Expect(err).NotTo(HaveOccurred(), "ConfigMap should exist")
 					g.Expect(manifest.Data).To(HaveKey("foo"), "ConfigMap should have the foo key")
 					g.Expect(manifest.Data["foo"]).To(Equal("bar"), "ConfigMap foo value should be 'bar'")
@@ -51,7 +51,7 @@ func DescribeInitManifests(vcluster suite.Dependency) bool {
 
 			It("Test if manifest template is synced with the vcluster", func(ctx context.Context) {
 				Eventually(func(g Gomega) {
-					manifest, err := vClusterClient.CoreV1().ConfigMaps(TestManifestNamespace).Get(ctx, TestManifestName2, metav1.GetOptions{})
+					manifest, err := vClusterClient.CoreV1().ConfigMaps(testManifestNamespace).Get(ctx, testManifestName2, metav1.GetOptions{})
 					g.Expect(err).NotTo(HaveOccurred(), "ConfigMap should exist")
 					g.Expect(manifest.Data).To(HaveKey("foo"), "ConfigMap should have the foo key")
 					g.Expect(manifest.Data["foo"]).To(Equal(vClusterName), "ConfigMap foo value should equal vcluster name")

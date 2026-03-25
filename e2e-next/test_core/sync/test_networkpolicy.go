@@ -22,6 +22,7 @@ import (
 func DescribeNetworkPolicySync(vcluster suite.Dependency) bool {
 	return Describe("NetworkPolicy sync from vCluster to host",
 		labels.Core,
+		labels.PR,
 		labels.Sync,
 		labels.NetworkPolicies,
 		cluster.Use(vcluster),
@@ -69,10 +70,6 @@ func DescribeNetworkPolicySync(vcluster suite.Dependency) bool {
 
 				DeferCleanup(func(ctx context.Context) {
 					err := vClusterClient.NetworkingV1().NetworkPolicies(vclusterNS).Delete(ctx, policyName, metav1.DeleteOptions{})
-					if !kerrors.IsNotFound(err) {
-						Expect(err).To(Succeed())
-					}
-					err = hostClient.NetworkingV1().NetworkPolicies(vClusterNamespace).Delete(ctx, hostPolicyName, metav1.DeleteOptions{})
 					if !kerrors.IsNotFound(err) {
 						Expect(err).To(Succeed())
 					}

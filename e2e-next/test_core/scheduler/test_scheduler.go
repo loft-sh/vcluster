@@ -69,7 +69,7 @@ func DescribeSchedulerTaintsAndTolerations(vcluster suite.Dependency) bool {
 				})
 				DeferCleanup(func(ctx context.Context) {
 					// Always remove the taint so other tests aren't affected
-					_ = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+					err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 						node, err := vClusterClient.CoreV1().Nodes().Get(ctx, targetNodeName, metav1.GetOptions{})
 						if err != nil {
 							return err
@@ -84,6 +84,7 @@ func DescribeSchedulerTaintsAndTolerations(vcluster suite.Dependency) bool {
 						_, err = vClusterClient.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
 						return err
 					})
+					Expect(err).To(Succeed(), "failed to remove taint from node")
 				})
 
 				By("Verifying the taint is NOT on the host node", func() {

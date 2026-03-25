@@ -8,6 +8,7 @@ import (
 	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
+	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -22,6 +23,7 @@ import (
 func DescribeFromHostRuntimeClasses(vcluster suite.Dependency) bool {
 	return Describe("RuntimeClasses sync from host",
 		labels.Core,
+		labels.PR,
 		labels.Sync,
 		labels.RuntimeClasses,
 		cluster.Use(vcluster),
@@ -65,7 +67,7 @@ func DescribeFromHostRuntimeClasses(vcluster suite.Dependency) bool {
 			}
 
 			It("only syncs runtimeClasses matching the label selector to vcluster", func(ctx context.Context) {
-				suffix := fmt.Sprintf("%d", GinkgoRandomSeed())
+				suffix := random.String(6)
 				matchingName := "rc-match-" + suffix
 				nonMatchingName := "rc-nomatch-" + suffix
 
@@ -93,7 +95,7 @@ func DescribeFromHostRuntimeClasses(vcluster suite.Dependency) bool {
 			})
 
 			It("rejects pod creation in vcluster using a runtimeClass not synced from host", func(ctx context.Context) {
-				suffix := fmt.Sprintf("%d", GinkgoRandomSeed())
+				suffix := random.String(6)
 				nonMatchingName := "rc-reject-" + suffix
 
 				createRuntimeClass(ctx, nonMatchingName, "runsc", map[string]string{"value": "two"})
@@ -118,7 +120,7 @@ func DescribeFromHostRuntimeClasses(vcluster suite.Dependency) bool {
 			})
 
 			It("syncs pods created in vcluster to host when using a runtimeClass synced from host", func(ctx context.Context) {
-				suffix := fmt.Sprintf("%d", GinkgoRandomSeed())
+				suffix := random.String(6)
 				matchingName := "rc-podsync-" + suffix
 				podName := "rc-pod-" + suffix
 
@@ -145,12 +147,12 @@ func DescribeFromHostRuntimeClasses(vcluster suite.Dependency) bool {
 						},
 					}, metav1.CreateOptions{})
 					Expect(err).To(Succeed())
-					DeferCleanup(func(ctx context.Context) {
-						err := vClusterClient.CoreV1().Pods("default").Delete(ctx, podName, metav1.DeleteOptions{})
-						if !kerrors.IsNotFound(err) {
-							Expect(err).To(Succeed())
-						}
-					})
+				})
+				DeferCleanup(func(ctx context.Context) {
+					err := vClusterClient.CoreV1().Pods("default").Delete(ctx, podName, metav1.DeleteOptions{})
+					if !kerrors.IsNotFound(err) {
+						Expect(err).To(Succeed())
+					}
 				})
 
 				By("waiting for the pod to appear in the host vcluster namespace", func() {

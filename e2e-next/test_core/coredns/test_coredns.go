@@ -26,6 +26,7 @@ import (
 func DescribeCoreDNS(vcluster suite.Dependency) bool {
 	return Describe("CoreDNS resolves host names correctly",
 		labels.Core,
+		labels.PR,
 		labels.CoreDNS,
 		cluster.Use(vcluster),
 		cluster.Use(clusters.HostCluster),

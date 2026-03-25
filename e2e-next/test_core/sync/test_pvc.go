@@ -23,6 +23,7 @@ import (
 func DescribePVCSync(vcluster suite.Dependency) bool {
 	return Describe("PVC sync from vCluster to host",
 		labels.Core,
+		labels.PR,
 		labels.Sync,
 		labels.PVCs,
 		labels.Storage,

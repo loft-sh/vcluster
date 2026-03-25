@@ -11,6 +11,7 @@ import (
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	pkgconstants "github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/util/podhelper"
+	"github.com/loft-sh/vcluster/pkg/util/random"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -52,7 +53,7 @@ func DescribeNetworkPolicyEnforcement(vcluster suite.Dependency) bool {
 			})
 
 			It("enforces egress NetworkPolicy rules between virtual namespaces", func(ctx context.Context) {
-				suffix := fmt.Sprintf("%d", GinkgoRandomSeed())
+				suffix := random.String(6)
 				nsNameA := "netpol-egress-a-" + suffix
 				nsNameB := "netpol-egress-b-" + suffix
 
