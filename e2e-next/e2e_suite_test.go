@@ -92,7 +92,7 @@ var _ = SynchronizedBeforeSuite(
 				var err error
 				By("Loading image to kind cluster...", func() {
 					ctx, err = cluster.LoadImage(clusterName, vclusterImage)(ctx)
-					Expect(err).NotTo(HaveOccurred())
+					Expect(err).To(Succeed())
 				})
 				return ctx, err
 			},
@@ -100,15 +100,15 @@ var _ = SynchronizedBeforeSuite(
 				var err error
 				By("Creating all virtual clusters...", func() {
 					ctx, err = setup.AllConcurrent(clusters.SetupFuncs()...)(ctx)
-					Expect(err).NotTo(HaveOccurred())
+					Expect(err).To(Succeed())
 				})
 				return ctx, err
 			},
 		)(ctx)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(err).To(Succeed())
 
 		data, err := cluster.ExportAll(ctx)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(err).To(Succeed())
 
 		return ctx, data
 	},
@@ -116,7 +116,7 @@ var _ = SynchronizedBeforeSuite(
 		var err error
 
 		ctx, err = cluster.ImportAll(ctx, data)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(err).To(Succeed())
 
 		return ctx
 	},
@@ -129,6 +129,6 @@ var _ = SynchronizedAfterSuite(
 		_, err := setup.All(
 			clusters.HostCluster.Teardown,
 		)(ctx)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(err).To(Succeed())
 	},
 )

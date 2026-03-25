@@ -53,7 +53,7 @@ func DescribeFromHostSecrets(vcluster suite.Dependency) bool {
 					ObjectMeta: metav1.ObjectMeta{Name: name},
 				}, metav1.CreateOptions{})
 				if !kerrors.IsAlreadyExists(err) {
-					Expect(err).NotTo(HaveOccurred())
+					Expect(err).To(Succeed())
 				}
 			}
 
@@ -78,11 +78,11 @@ func DescribeFromHostSecrets(vcluster suite.Dependency) bool {
 							"ANOTHER_ENV": []byte("another-hello-world"),
 						},
 					}, metav1.CreateOptions{})
-					Expect(err).NotTo(HaveOccurred())
+					Expect(err).To(Succeed())
 					DeferCleanup(func(ctx context.Context) {
 						err := hostClient.CoreV1().Secrets(hostNS).Delete(ctx, secretName, metav1.DeleteOptions{})
 						if !kerrors.IsNotFound(err) {
-							Expect(err).NotTo(HaveOccurred())
+							Expect(err).To(Succeed())
 						}
 					})
 				})
@@ -90,7 +90,7 @@ func DescribeFromHostSecrets(vcluster suite.Dependency) bool {
 				By("waiting for secret to be synced to barfoo2 namespace in vcluster", func() {
 					Eventually(func(g Gomega) {
 						secret, err := vClusterClient.CoreV1().Secrets(virtualNS).Get(ctx, secretName, metav1.GetOptions{})
-						g.Expect(err).NotTo(HaveOccurred())
+						g.Expect(err).To(Succeed())
 						g.Expect(secret.Data).To(Equal(map[string][]byte{
 							"BOO_BAR":     []byte("hello-world"),
 							"ANOTHER_ENV": []byte("another-hello-world"),
@@ -100,7 +100,7 @@ func DescribeFromHostSecrets(vcluster suite.Dependency) bool {
 
 				By("updating the host secret with new data, labels, and annotations", func() {
 					freshHostSecret, err := hostClient.CoreV1().Secrets(hostNS).Get(ctx, secretName, metav1.GetOptions{})
-					Expect(err).NotTo(HaveOccurred())
+					Expect(err).To(Succeed())
 
 					freshHostSecret.Data["UPDATED_ENV"] = []byte("one")
 					if freshHostSecret.Labels == nil {
@@ -112,13 +112,13 @@ func DescribeFromHostSecrets(vcluster suite.Dependency) bool {
 					}
 					freshHostSecret.Annotations["updated-annotation"] = "updated-value"
 					_, err = hostClient.CoreV1().Secrets(hostNS).Update(ctx, freshHostSecret, metav1.UpdateOptions{})
-					Expect(err).NotTo(HaveOccurred())
+					Expect(err).To(Succeed())
 				})
 
 				By("waiting for the update to propagate to vcluster", func() {
 					Eventually(func(g Gomega) {
 						updatedSecret, err := vClusterClient.CoreV1().Secrets(virtualNS).Get(ctx, secretName, metav1.GetOptions{})
-						g.Expect(err).NotTo(HaveOccurred())
+						g.Expect(err).To(Succeed())
 						g.Expect(string(updatedSecret.Data["UPDATED_ENV"])).To(Equal("one"))
 						g.Expect(updatedSecret.Labels["updated-label"]).To(Equal("updated-value"))
 						g.Expect(updatedSecret.Annotations["updated-annotation"]).To(Equal("updated-value"))
@@ -144,11 +144,11 @@ func DescribeFromHostSecrets(vcluster suite.Dependency) bool {
 							"ANOTHER_ENV_FROM_DEFAULT_NS": []byte("two"),
 						},
 					}, metav1.CreateOptions{})
-					Expect(err).NotTo(HaveOccurred())
+					Expect(err).To(Succeed())
 					DeferCleanup(func(ctx context.Context) {
 						err := hostClient.CoreV1().Secrets(hostNS).Delete(ctx, hostSecretName, metav1.DeleteOptions{})
 						if !kerrors.IsNotFound(err) {
-							Expect(err).NotTo(HaveOccurred())
+							Expect(err).To(Succeed())
 						}
 					})
 				})
@@ -156,7 +156,7 @@ func DescribeFromHostSecrets(vcluster suite.Dependency) bool {
 				By("waiting for secret to be synced as secret-my to barfoo2 namespace in vcluster", func() {
 					Eventually(func(g Gomega) {
 						secret, err := vClusterClient.CoreV1().Secrets(virtualNS).Get(ctx, virtualSecretName, metav1.GetOptions{})
-						g.Expect(err).NotTo(HaveOccurred())
+						g.Expect(err).To(Succeed())
 						g.Expect(secret.Data).To(Equal(map[string][]byte{
 							"ENV_FROM_DEFAULT_NS":         []byte("one"),
 							"ANOTHER_ENV_FROM_DEFAULT_NS": []byte("two"),
@@ -183,11 +183,11 @@ func DescribeFromHostSecrets(vcluster suite.Dependency) bool {
 							"dummy-2": []byte("two"),
 						},
 					}, metav1.CreateOptions{})
-					Expect(err).NotTo(HaveOccurred())
+					Expect(err).To(Succeed())
 					DeferCleanup(func(ctx context.Context) {
 						err := hostClient.CoreV1().Secrets(vClusterHostNS).Delete(ctx, secretName, metav1.DeleteOptions{})
 						if !kerrors.IsNotFound(err) {
-							Expect(err).NotTo(HaveOccurred())
+							Expect(err).To(Succeed())
 						}
 					})
 				})
@@ -195,7 +195,7 @@ func DescribeFromHostSecrets(vcluster suite.Dependency) bool {
 				By("waiting for secret to be synced as secret-from-default-ns to barfoo2 namespace in vcluster", func() {
 					Eventually(func(g Gomega) {
 						secret, err := vClusterClient.CoreV1().Secrets(virtualNS).Get(ctx, virtualSecretName, metav1.GetOptions{})
-						g.Expect(err).NotTo(HaveOccurred())
+						g.Expect(err).To(Succeed())
 						g.Expect(secret.Data).To(Equal(map[string][]byte{
 							"dummy":   []byte("one"),
 							"dummy-2": []byte("two"),
@@ -222,13 +222,13 @@ func DescribeFromHostSecrets(vcluster suite.Dependency) bool {
 						},
 						Data: map[string][]byte{"key": []byte("value")},
 					}, metav1.CreateOptions{})
-					Expect(err).NotTo(HaveOccurred())
+					Expect(err).To(Succeed())
 				})
 
 				By("waiting for secret to be synced to barfoo2 namespace in vcluster", func() {
 					Eventually(func(g Gomega) {
 						_, err := vClusterClient.CoreV1().Secrets(virtualNS).Get(ctx, secretName, metav1.GetOptions{})
-						g.Expect(err).NotTo(HaveOccurred())
+						g.Expect(err).To(Succeed())
 					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 				})
 
@@ -271,11 +271,11 @@ func DescribeFromHostSecrets(vcluster suite.Dependency) bool {
 							"UPDATED_ENV": []byte("one"),
 						},
 					}, metav1.CreateOptions{})
-					Expect(err).NotTo(HaveOccurred())
+					Expect(err).To(Succeed())
 					DeferCleanup(func(ctx context.Context) {
 						err := hostClient.CoreV1().Secrets(hostNS).Delete(ctx, secret1Name, metav1.DeleteOptions{})
 						if !kerrors.IsNotFound(err) {
-							Expect(err).NotTo(HaveOccurred())
+							Expect(err).To(Succeed())
 						}
 					})
 				})
@@ -291,11 +291,11 @@ func DescribeFromHostSecrets(vcluster suite.Dependency) bool {
 							"ANOTHER_ENV_FROM_DEFAULT_NS": []byte("two"),
 						},
 					}, metav1.CreateOptions{})
-					Expect(err).NotTo(HaveOccurred())
+					Expect(err).To(Succeed())
 					DeferCleanup(func(ctx context.Context) {
 						err := hostClient.CoreV1().Secrets(hostNS).Delete(ctx, secret2Name, metav1.DeleteOptions{})
 						if !kerrors.IsNotFound(err) {
-							Expect(err).NotTo(HaveOccurred())
+							Expect(err).To(Succeed())
 						}
 					})
 				})
@@ -303,16 +303,16 @@ func DescribeFromHostSecrets(vcluster suite.Dependency) bool {
 				By("waiting for both secrets to be synced to barfoo2 namespace in vcluster", func() {
 					Eventually(func(g Gomega) {
 						_, err := vClusterClient.CoreV1().Secrets(virtualNS).Get(ctx, secret1Name, metav1.GetOptions{})
-						g.Expect(err).NotTo(HaveOccurred())
+						g.Expect(err).To(Succeed())
 						_, err = vClusterClient.CoreV1().Secrets(virtualNS).Get(ctx, secret2Name, metav1.GetOptions{})
-						g.Expect(err).NotTo(HaveOccurred())
+						g.Expect(err).To(Succeed())
 					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 				})
 
 				By("waiting for the default service account to be ready in barfoo2 namespace", func() {
 					Eventually(func(g Gomega) {
 						_, err := vClusterClient.CoreV1().ServiceAccounts(virtualNS).Get(ctx, "default", metav1.GetOptions{})
-						g.Expect(err).NotTo(HaveOccurred())
+						g.Expect(err).To(Succeed())
 					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 				})
 
@@ -352,11 +352,11 @@ func DescribeFromHostSecrets(vcluster suite.Dependency) bool {
 
 				By("creating the pod in vcluster", func() {
 					_, err := vClusterClient.CoreV1().Pods(virtualNS).Create(ctx, pod, metav1.CreateOptions{})
-					Expect(err).NotTo(HaveOccurred())
+					Expect(err).To(Succeed())
 					DeferCleanup(func(ctx context.Context) {
 						err := vClusterClient.CoreV1().Pods(virtualNS).Delete(ctx, podName, metav1.DeleteOptions{})
 						if !kerrors.IsNotFound(err) {
-							Expect(err).NotTo(HaveOccurred())
+							Expect(err).To(Succeed())
 						}
 					})
 				})
@@ -364,7 +364,7 @@ func DescribeFromHostSecrets(vcluster suite.Dependency) bool {
 				By("waiting for the pod to reach Running phase in vcluster", func() {
 					Eventually(func(g Gomega) {
 						vpod, err := vClusterClient.CoreV1().Pods(virtualNS).Get(ctx, podName, metav1.GetOptions{})
-						g.Expect(err).NotTo(HaveOccurred())
+						g.Expect(err).To(Succeed())
 						g.Expect(vpod.Status.Phase).To(Equal(corev1.PodRunning))
 					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
@@ -373,7 +373,7 @@ func DescribeFromHostSecrets(vcluster suite.Dependency) bool {
 					currentClusterName := cluster.CurrentClusterNameFrom(ctx)
 					vClusterRestConfig := cluster.From(ctx, currentClusterName).KubernetesRestConfig()
 					stdout, _, err := podhelper.ExecBuffered(ctx, vClusterRestConfig, virtualNS, podName, "default", []string{"sh", "-c", "printenv"}, nil)
-					Expect(err).NotTo(HaveOccurred())
+					Expect(err).To(Succeed())
 
 					output := string(bytes.TrimSpace(stdout))
 					envVars := strings.Split(strings.TrimSpace(output), "\n")

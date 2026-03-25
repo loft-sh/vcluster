@@ -24,6 +24,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
+	"github.com/loft-sh/vcluster/pkg/util/random"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
@@ -188,8 +189,8 @@ func describeSnapshotRestore(s *snapshotCtx) {
 	// Ordered: create snapshot -> restore & verify resources exist -> restore & verify deleted resources recreated.
 	// Each spec depends on the snapshot created in spec 1 and the restore state from the prior spec.
 	Describe("controller-based snapshot without volumes", Ordered, func() {
-		const (
-			testNS       = "ctrl-snapshot-test"
+		var (
+			testNS       string
 			snapshotPath = "container:///snapshot-data/snapshot.tar.gz"
 		)
 		var (
@@ -200,6 +201,7 @@ func describeSnapshotRestore(s *snapshotCtx) {
 		)
 
 		BeforeAll(func(ctx context.Context) {
+			testNS = "ctrl-snapshot-" + random.String(6)
 			// Clean slate - remove any leftover snapshot artifacts from prior groups
 			cleanupAllSnapshotArtifacts(ctx, s.hostClient, s.vClusterNS)
 			var cmr *corev1.ConfigMap
@@ -303,16 +305,33 @@ func describeSnapshotRestore(s *snapshotCtx) {
 	// Ordered: create snapshot with volumes -> verify VolumeSnapshot cleanup -> delete PVC -> restore with volumes -> verify PVC bound + data.
 	// Each spec depends on snapshot/restore state from prior specs.
 	Describe("controller-based snapshot with volumes", Ordered, func() {
-		const (
-			testNS           = "volume-snapshots-test"
-			snapshotPath     = "container:///snapshot-data/" + testNS + ".tar.gz"
-			pvcToRestoreName = "test-pvc-restore"
-			testFileName     = testNS + ".txt"
-			pvcData          = "Hello " + testNS
+		var (
+			testNS, snapshotPath, testFileName, pvcData string
+			pvcToRestoreName                            = "test-pvc-restore"
 		)
 
 		BeforeAll(func(ctx context.Context) {
+			testNS = "vol-snapshot-" + random.String(6)
+			snapshotPath = "container:///snapshot-data/" + testNS + ".tar.gz"
+			testFileName = testNS + ".txt"
+			pvcData = "Hello " + testNS
 			cleanupAllSnapshotArtifacts(ctx, s.hostClient, s.vClusterNS)
+
+			// Clean up any VolumeSnapshots left by prior Ordered groups (canceling, deletion)
+			// so this group starts with a clean slate.
+			hostRestConfig := cluster.From(ctx, constants.GetHostClusterName()).KubernetesRestConfig()
+			vsClient, err := snapshotsv1.NewForConfig(hostRestConfig)
+			Expect(err).To(Succeed())
+			err = vsClient.SnapshotV1().VolumeSnapshots(s.vClusterNS).DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
+			Expect(err).To(Succeed())
+			err = vsClient.SnapshotV1().VolumeSnapshotContents().DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
+			Expect(err).To(Succeed())
+			Eventually(func(g Gomega) {
+				vs, err := vsClient.SnapshotV1().VolumeSnapshots(s.vClusterNS).List(ctx, metav1.ListOptions{})
+				g.Expect(err).To(Succeed())
+				g.Expect(vs.Items).To(BeEmpty(), "waiting for VolumeSnapshots cleanup")
+			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+
 			s.deployTestResources(ctx, testNS)
 			createPVCWithData(ctx, s.vClusterClient, testNS, pvcToRestoreName, testFileName, pvcData)
 		})
@@ -343,13 +362,21 @@ func describeSnapshotRestore(s *snapshotCtx) {
 			snapshotClient, err := snapshotsv1.NewForConfig(restConfig)
 			Expect(err).To(Succeed())
 
-			vs, err := snapshotClient.SnapshotV1().VolumeSnapshots(vsNS).List(ctx, metav1.ListOptions{})
-			Expect(err).To(Succeed())
-			Expect(vs.Items).To(BeEmpty())
+			// After a snapshot-restore cycle, the controller should clean up all
+			// VolumeSnapshots it created. Use Eventually because cleanup is async.
+			Eventually(func(g Gomega) {
+				vs, err := snapshotClient.SnapshotV1().VolumeSnapshots(vsNS).List(ctx, metav1.ListOptions{
+					LabelSelector: "vcluster.loft.sh/persistentvolumeclaim",
+				})
+				g.Expect(err).To(Succeed())
+				g.Expect(vs.Items).To(BeEmpty(), "VolumeSnapshots still exist: %d remaining", len(vs.Items))
+			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 
-			vsc, err := snapshotClient.SnapshotV1().VolumeSnapshotContents().List(ctx, metav1.ListOptions{})
-			Expect(err).To(Succeed())
-			Expect(vsc.Items).To(BeEmpty())
+			Eventually(func(g Gomega) {
+				vsc, err := snapshotClient.SnapshotV1().VolumeSnapshotContents().List(ctx, metav1.ListOptions{})
+				g.Expect(err).To(Succeed())
+				g.Expect(vsc.Items).To(BeEmpty(), "VolumeSnapshotContents still exist: %d remaining", len(vsc.Items))
+			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 		})
 
 		It("Restores vCluster with volumes and verifies PVC data", func(ctx context.Context) {
@@ -376,17 +403,21 @@ func describeSnapshotRestore(s *snapshotCtx) {
 }
 
 func describeSnapshotCanceling(s *snapshotCtx) {
+	var (
+		testNS       string
+		snapshotPath string
+	)
 	const (
-		testNS       = "snapshot-canceling"
-		snapshotPath = "container:///snapshot-data/" + testNS + ".tar.gz"
-		appCount     = 3
-		appPrefix    = "test-app-"
+		appCount  = 3
+		appPrefix = "test-app-"
 	)
 
 	// Ordered: BeforeAll creates 2 snapshots back-to-back -> spec 1 verifies 2 requests exist ->
 	// spec 2 verifies first was canceled -> spec 3 verifies second completed.
 	Describe("Snapshot canceling", Ordered, func() {
 		BeforeAll(func(ctx context.Context) {
+			testNS = "snap-cancel-" + random.String(6)
+			snapshotPath = "container:///snapshot-data/" + testNS + ".tar.gz"
 			cleanupAllSnapshotArtifacts(ctx, s.hostClient, s.vClusterNS)
 			_, err := s.vClusterClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{Name: testNS},
@@ -481,18 +512,23 @@ func describeSnapshotCanceling(s *snapshotCtx) {
 }
 
 func describeSnapshotDeletion(s *snapshotCtx) {
+	var (
+		testNS                    string
+		snapshotPath              string
+		deleteSnapshotRequestName string
+	)
 	const (
-		testNS                    = "snapshot-deleting"
-		snapshotPath              = "container:///snapshot-data/" + testNS + ".tar.gz"
-		appCount                  = 3
-		appPrefix                 = "test-app-"
-		deleteSnapshotRequestName = "delete-request-" + testNS
+		appCount  = 3
+		appPrefix = "test-app-"
 	)
 
 	// Ordered: BeforeAll creates a snapshot -> spec 1 creates a deletion request ->
 	// spec 2 verifies the snapshot was deleted.
 	Describe("Snapshot deletion", Ordered, func() {
 		BeforeAll(func(ctx context.Context) {
+			testNS = "snap-delete-" + random.String(6)
+			snapshotPath = "container:///snapshot-data/" + testNS + ".tar.gz"
+			deleteSnapshotRequestName = "delete-request-" + testNS
 			cleanupAllSnapshotArtifacts(ctx, s.hostClient, s.vClusterNS)
 			_, err := s.vClusterClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{Name: testNS},
