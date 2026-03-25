@@ -17,22 +17,13 @@ import (
 )
 
 var _ = Describe("Docker driver", labels.Vind, labels.PR, func() {
-	var (
-		clusterName string
-		ctx         context.Context
-	)
+	var clusterName string
 
 	BeforeEach(func() {
-		ctx = context.Background()
 		clusterName = "e2e-vind-" + random.String(6)
-
-		DeferCleanup(func() {
-			cleanupCtx := context.Background()
-			_, _ = runVCluster(cleanupCtx, "delete", clusterName, "--driver", "docker", "--ignore-not-found")
-		})
 	})
 
-	It("should create, connect, and delete a vcluster", func() {
+	It("should create, connect, and delete a vcluster", func(ctx context.Context) {
 		var (
 			cpContainer  string
 			network      string
