@@ -14,7 +14,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 type PauseOptions struct {
@@ -88,7 +87,7 @@ func PauseVCluster(
 // pauseWorkloadSleepModeIfConfigured detects whether workload sleep mode is configured and, if so,
 // updates the appropriate secret with the sleep type and sleeping-since annotations instead of
 // scaling down the control plane. Returns true if workload sleep mode was applied.
-func pauseWorkloadSleepModeIfConfigured(ctx context.Context, kubeClient *kubernetes.Clientset, vCluster *find.VCluster, log log.Logger) (bool, error) {
+func pauseWorkloadSleepModeIfConfigured(ctx context.Context, kubeClient kubernetes.Interface, vCluster *find.VCluster, log log.Logger) (bool, error) {
 	configSecret, vClusterConfig, configured, err := hostVClusterSleepModeConfig(ctx, kubeClient, vCluster.Namespace, vCluster.Name)
 	if err != nil {
 		return false, err
@@ -102,6 +101,12 @@ func pauseWorkloadSleepModeIfConfigured(ctx context.Context, kubeClient *kuberne
 	sleepingSince := strconv.FormatInt(time.Now().Unix(), 10)
 
 	if vClusterConfig.ControlPlane.Standalone.Enabled {
+		// Annotate the host config secret so find.go can detect StatusWorkloadSleeping,
+		// then also write to the virtual cluster's standalone sleep secret for the
+		// in-cluster sleep state controller.
+		if err := patchSecretWithSleepAnnotations(ctx, kubeClient, vCluster.Namespace, configSecret, sleepingSince, nil); err != nil {
+			return false, err
+		}
 		return true, pauseStandaloneWorkloadSleep(ctx, vCluster, sleepingSince)
 	}
 
@@ -112,31 +117,9 @@ func pauseWorkloadSleepModeIfConfigured(ctx context.Context, kubeClient *kuberne
 // cluster's default namespace. For standalone vClusters the sleep state controller watches
 // this secret inside the virtual cluster rather than the vc-config secret on a host cluster.
 func pauseStandaloneWorkloadSleep(ctx context.Context, vCluster *find.VCluster, sleepingSince string) error {
-	vClusterCtxName := find.VClusterContextName(vCluster.Name, vCluster.Namespace, vCluster.Context)
-
-	rawConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		clientcmd.NewDefaultClientConfigLoadingRules(), nil,
-	).RawConfig()
+	virtualKubeClient, err := standaloneSleepKubeClient(vCluster)
 	if err != nil {
-		return fmt.Errorf("load kubeconfig: %w", err)
-	}
-
-	if _, ok := rawConfig.Contexts[vClusterCtxName]; !ok {
-		return fmt.Errorf("cannot pause standalone vCluster %s/%s: context %q not found in kubeconfig, please run 'vcluster connect %s -n %s' first",
-			vCluster.Namespace, vCluster.Name, vClusterCtxName, vCluster.Name, vCluster.Namespace)
-	}
-
-	virtualRestConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		clientcmd.NewDefaultClientConfigLoadingRules(),
-		&clientcmd.ConfigOverrides{CurrentContext: vClusterCtxName},
-	).ClientConfig()
-	if err != nil {
-		return fmt.Errorf("create virtual cluster client config: %w", err)
-	}
-
-	virtualKubeClient, err := kubernetes.NewForConfig(withSleepModeIgnore(virtualRestConfig))
-	if err != nil {
-		return fmt.Errorf("create virtual cluster client: %w", err)
+		return err
 	}
 
 	return mutateSleepSecret(ctx, virtualKubeClient, "default", sleepmode.StandaloneSleepSecretName,

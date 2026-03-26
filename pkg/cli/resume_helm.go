@@ -9,6 +9,8 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/lifecycle"
+	"github.com/loft-sh/vcluster/pkg/platform/sleepmode"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -54,14 +56,38 @@ func ResumeHelm(ctx context.Context, globalFlags *flags.GlobalFlags, vClusterNam
 }
 
 // wakeWorkloadSleepHelm clears the sleep annotations from the vc-config secret, waking the
-// vCluster's workloads. StatusWorkloadSleeping is always detected via the host-cluster config
-// secret (standalone vClusters are not found via the helm path).
-func wakeWorkloadSleepHelm(ctx context.Context, kubeClient *kubernetes.Clientset, vCluster *find.VCluster) error {
+// vCluster's workloads. For standalone vClusters it also clears the sleep secret inside the
+// virtual cluster that the in-cluster sleep state controller watches.
+func wakeWorkloadSleepHelm(ctx context.Context, kubeClient kubernetes.Interface, vCluster *find.VCluster) error {
 	configSecret, err := kubeClient.CoreV1().Secrets(vCluster.Namespace).Get(ctx, "vc-config-"+vCluster.Name, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("get config secret: %w", err)
 	}
+
+	vClusterConfig, hasConfig, err := secretVClusterConfig(configSecret)
+	if err != nil {
+		return err
+	}
+	if hasConfig && vClusterConfig.ControlPlane.Standalone.Enabled {
+		if err := wakeStandaloneWorkloadSleep(ctx, vCluster); err != nil {
+			return err
+		}
+	}
+
 	return clearSecretSleepAnnotations(ctx, kubeClient, vCluster.Namespace, configSecret)
+}
+
+// wakeStandaloneWorkloadSleep clears sleep annotations from the vc-standalone-sleep-state
+// secret inside the virtual cluster's default namespace. Mirrors pauseStandaloneWorkloadSleep.
+func wakeStandaloneWorkloadSleep(ctx context.Context, vCluster *find.VCluster) error {
+	virtualKubeClient, err := standaloneSleepKubeClient(vCluster)
+	if err != nil {
+		return err
+	}
+	// nil initial: if the secret doesn't exist there is nothing to wake.
+	return mutateSleepSecret(ctx, virtualKubeClient, "default", sleepmode.StandaloneSleepSecretName, nil, func(s *corev1.Secret) {
+		clearSleepAnnotations(s)
+	})
 }
 
 func prepareResume(vCluster *find.VCluster, globalFlags *flags.GlobalFlags) (*kubernetes.Clientset, error) {

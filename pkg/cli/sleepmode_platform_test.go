@@ -155,10 +155,14 @@ func TestResumePlatformWorkloadSleepModeIfConfiguredClearsForceState(t *testing.
 
 	secret, err := clusterClient.CoreV1().Secrets("test-ns").Get(ctx, "vc-config-test", metav1.GetOptions{})
 	assert.NilError(t, err)
-	assert.Equal(t, secret.Annotations[clusterv1.SleepModeForceAnnotation], "")
-	assert.Equal(t, secret.Annotations[clusterv1.SleepModeSleepTypeAnnotation], "")
-	assert.Equal(t, secret.Annotations[clusterv1.SleepModeSleepingSinceAnnotation], "")
-	assert.Equal(t, secret.Annotations[clusterv1.SleepModeForceDurationAnnotation], "")
+	_, hasForce := secret.Annotations[clusterv1.SleepModeForceAnnotation]
+	assert.Assert(t, !hasForce)
+	_, hasSleepType := secret.Annotations[clusterv1.SleepModeSleepTypeAnnotation]
+	assert.Assert(t, !hasSleepType)
+	_, hasSleepingSince := secret.Annotations[clusterv1.SleepModeSleepingSinceAnnotation]
+	assert.Assert(t, !hasSleepingSince)
+	_, hasForceDuration := secret.Annotations[clusterv1.SleepModeForceDurationAnnotation]
+	assert.Assert(t, !hasForceDuration)
 	assert.Assert(t, secret.Annotations[clusterv1.SleepModeLastActivityAnnotation] != "")
 }
 
@@ -173,8 +177,27 @@ func TestPausePlatformStandaloneIfConfiguredUsesRenderedValuesAndResolvedProject
 	virtualClusterInstance.Status.VirtualCluster = &storagev1.VirtualClusterTemplateDefinition{}
 	virtualClusterInstance.Status.VirtualCluster.HelmRelease.Values = "sleep:\n  auto:\n    afterInactivity: 1h\n"
 
-	used, err := pausePlatformStandaloneIfConfigured(ctx, platformClient, "resolved-project", 900, log.GetInstance(), "test", virtualClusterInstance)
+	used, err := pausePlatformStandaloneIfConfigured(ctx, platformClient, "resolved/project", 900, log.GetInstance(), "test", virtualClusterInstance)
 	assert.Check(t, used)
 	assert.ErrorContains(t, err, sentinelErr.Error())
-	assert.Equal(t, platformClient.lastRestConfigHostSuffix, "/kubernetes/project/resolved-project/virtualcluster/test")
+	assert.Equal(t, platformClient.lastRestConfigHostSuffix, "/kubernetes/project/resolved%2Fproject/virtualcluster/test")
+}
+
+func TestResumePlatformStandaloneIfConfiguredUsesRenderedValuesAndResolvedProject(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	sentinelErr := errors.New("rest config error")
+	platformClient := &fakePlatformClient{restConfigErr: sentinelErr}
+
+	virtualClusterInstance := &managementv1.VirtualClusterInstance{}
+	virtualClusterInstance.Name = "test"
+	virtualClusterInstance.Spec.Standalone = true
+	virtualClusterInstance.Status.VirtualCluster = &storagev1.VirtualClusterTemplateDefinition{}
+	virtualClusterInstance.Status.VirtualCluster.HelmRelease.Values = "sleep:\n  auto:\n    afterInactivity: 1h\n"
+
+	used, err := resumePlatformStandaloneIfConfigured(ctx, platformClient, "resolved/project", log.GetInstance(), "test", virtualClusterInstance)
+	assert.Check(t, used)
+	assert.ErrorContains(t, err, sentinelErr.Error())
+	assert.Equal(t, platformClient.lastRestConfigHostSuffix, "/kubernetes/project/resolved%2Fproject/virtualcluster/test")
 }

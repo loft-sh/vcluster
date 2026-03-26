@@ -19,7 +19,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/yaml"
 )
 
@@ -92,6 +91,9 @@ func PausePlatform(ctx context.Context, options *PauseOptions, cfg *cliconfig.CL
 func workloadSleepOnly(ctx context.Context, platformClient platform.Client, options *PauseOptions, log log.Logger, vClusterName string, virtualClusterInstance *managementv1.VirtualClusterInstance) error {
 	log.Infof("This vCluster is configured to pause only workloads, control plane will be left running")
 	clusterName := virtualClusterInstance.Spec.ClusterRef.Cluster
+	if virtualClusterInstance.Spec.Standalone {
+		return fmt.Errorf("cannot pause workload-scope vcluster: virtual cluster instance is standalone and has no host cluster")
+	}
 	if clusterName == "" {
 		return fmt.Errorf("cannot pause workload-scope vcluster: virtual cluster instance has no cluster ref (host cluster unknown)")
 	}
@@ -117,10 +119,13 @@ func workloadSleepOnly(ctx context.Context, platformClient platform.Client, opti
 func pausePlatformWorkloadSleepModeIfConfigured(ctx context.Context, platformClient platform.Client, projectName string, forceDuration int64, log log.Logger, vClusterName string, virtualClusterInstance *managementv1.VirtualClusterInstance) (bool, error) {
 	clusterName := virtualClusterInstance.Spec.ClusterRef.Cluster
 
-	// Standalone vClusters have no clusterRef — they run without a host cluster.
-	// Parse the config from the instance's Helm values directly.
-	if clusterName == "" {
+	// Standalone vClusters run without a host cluster. Parse the config from the
+	// instance's Helm values directly.
+	if virtualClusterInstance.Spec.Standalone {
 		return pausePlatformStandaloneIfConfigured(ctx, platformClient, projectName, forceDuration, log, vClusterName, virtualClusterInstance)
+	}
+	if clusterName == "" {
+		return false, fmt.Errorf("create host cluster client: virtual cluster instance has no cluster ref")
 	}
 
 	vcNamespace := virtualClusterInstance.Spec.ClusterRef.Namespace
@@ -156,7 +161,7 @@ func pausePlatformStandaloneIfConfigured(ctx context.Context, platformClient pla
 
 	var vClusterConfig vclusterconfig.Config
 	if err := yaml.Unmarshal([]byte(valuesYAML), &vClusterConfig); err != nil {
-		return false, nil
+		return false, fmt.Errorf("unmarshal vcluster helm values: %w", err)
 	}
 
 	if !vClusterConfig.IsConfiguredForSleepMode() {
@@ -172,17 +177,9 @@ func pausePlatformStandaloneIfConfigured(ctx context.Context, platformClient pla
 // pausePlatformStandaloneWorkloadSleep updates the vc-standalone-sleep-state secret inside the
 // virtual cluster's default namespace via the platform proxy.
 func pausePlatformStandaloneWorkloadSleep(ctx context.Context, platformClient platform.Client, projectName, vClusterName, sleepingSince string, forceDuration int64) error {
-	if projectName == "" {
-		projectName = "default"
-	}
-	restConfig, err := platformClient.RestConfig("/kubernetes/project/" + projectName + "/virtualcluster/" + vClusterName)
+	virtualKubeClient, err := standalonePlatformSleepKubeClient(platformClient, projectName, vClusterName)
 	if err != nil {
-		return fmt.Errorf("create virtual cluster rest config: %w", err)
-	}
-
-	virtualKubeClient, err := kubernetes.NewForConfig(withSleepModeIgnore(restConfig))
-	if err != nil {
-		return fmt.Errorf("create virtual cluster client: %w", err)
+		return err
 	}
 
 	return mutateSleepSecret(ctx, virtualKubeClient, "default", sleepmode.StandaloneSleepSecretName,
