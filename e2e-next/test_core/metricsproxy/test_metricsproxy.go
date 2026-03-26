@@ -43,17 +43,17 @@ func DescribeMetricsProxy(vcluster suite.Dependency) bool {
 				Eventually(func(g Gomega) {
 					apiService, err := apiRegistrationClient.APIServices().Get(ctx, "v1beta1.metrics.k8s.io", metav1.GetOptions{})
 					g.Expect(err).To(Succeed(), "failed to get APIService v1beta1.metrics.k8s.io")
-					g.Expect(apiService.Status.Conditions).NotTo(BeEmpty(),
-						"APIService v1beta1.metrics.k8s.io has no status conditions")
-					g.Expect(apiService.Status.Conditions[0].Type).To(Equal(apiregistrationv1.Available),
-						"expected APIService condition type Available, got %s", apiService.Status.Conditions[0].Type)
+					g.Expect(apiService.Status.Conditions).To(ContainElement(SatisfyAll(
+						HaveField("Type", apiregistrationv1.Available),
+						HaveField("Status", apiregistrationv1.ConditionTrue),
+					)), "APIService v1beta1.metrics.k8s.io not yet Available=True, conditions: %v", apiService.Status.Conditions)
 				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 			})
 
 			It("should return non-empty node metrics and pod metrics from kube-system", func(ctx context.Context) {
 				metricsClient := metricsv1beta1client.NewForConfigOrDie(vClusterConfig)
 
-				By("Waiting for node metrics to be available", func() {
+				By("waiting for node metrics to be available", func() {
 					Eventually(func(g Gomega) {
 						nodeMetricsList, err := metricsClient.NodeMetricses().List(ctx, metav1.ListOptions{})
 						g.Expect(err).To(Succeed(), "failed to list node metrics")
@@ -62,7 +62,7 @@ func DescribeMetricsProxy(vcluster suite.Dependency) bool {
 					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
-				By("Waiting for pod metrics in kube-system to be available", func() {
+				By("waiting for pod metrics in kube-system to be available", func() {
 					Eventually(func(g Gomega) {
 						podMetricsList, err := metricsClient.PodMetricses("kube-system").List(ctx, metav1.ListOptions{})
 						g.Expect(err).To(Succeed(), "failed to list pod metrics in kube-system")
