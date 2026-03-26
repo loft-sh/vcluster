@@ -35,7 +35,7 @@ func ResumePlatform(ctx context.Context, options *ResumeOptions, config *config.
 	}
 
 	if virtualClusterInstance.Annotations[clusterv1.SleepScopeAnnotation] == "workloads-only" {
-		return workloadWakeOnly(ctx, platformClient, log, vClusterName, virtualClusterInstance)
+		return workloadWakeOnly(ctx, platformClient, vClusterName, virtualClusterInstance)
 	}
 
 	if !vCluster.IsInstanceSleeping() {
@@ -61,7 +61,7 @@ func ResumePlatform(ctx context.Context, options *ResumeOptions, config *config.
 	return nil
 }
 
-func workloadWakeOnly(ctx context.Context, platformClient platform.Client, log log.Logger, vClusterName string, virtualClusterInstance *managementv1.VirtualClusterInstance) error {
+func workloadWakeOnly(ctx context.Context, platformClient platform.Client, vClusterName string, virtualClusterInstance *managementv1.VirtualClusterInstance) error {
 	clusterName := virtualClusterInstance.Spec.ClusterRef.Cluster
 	if clusterName == "" {
 		return fmt.Errorf("cannot wake workload-scope vcluster: virtual cluster instance has no cluster ref (host cluster unknown)")

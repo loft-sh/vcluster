@@ -145,7 +145,7 @@ type platformWorkloadSleepSecretTarget struct {
 
 func getPlatformWorkloadSleepSecret(ctx context.Context, platformClient platform.Client, projectName string, virtualClusterInstance *managementv1.VirtualClusterInstance, fallbackVClusterName string) (*platformWorkloadSleepSecretTarget, error) {
 	if virtualClusterInstance == nil {
-		return nil, nil
+		return &platformWorkloadSleepSecretTarget{}, nil
 	}
 
 	if virtualClusterInstance.Spec.Standalone {
