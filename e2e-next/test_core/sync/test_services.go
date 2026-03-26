@@ -380,7 +380,7 @@ func DescribeServiceBasicSync(vcluster suite.Dependency) bool {
 					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
-				By("updating the host service to add an annotation suffix and a label", func() {
+				By("updating the host service to add a new annotation and label", func() {
 					Eventually(func(g Gomega) {
 						pService, err := hostClient.CoreV1().Services(hostNS).Get(ctx, pServiceName, metav1.GetOptions{})
 						g.Expect(err).NotTo(HaveOccurred(), "host service %s/%s not yet available", hostNS, pServiceName)
@@ -388,7 +388,7 @@ func DescribeServiceBasicSync(vcluster suite.Dependency) bool {
 						if pService.Annotations == nil {
 							pService.Annotations = map[string]string{}
 						}
-						pService.Annotations["some-annotation"] += " and update from the host cluster"
+						pService.Annotations["host-annotation"] = "set from the host cluster"
 
 						if pService.Labels == nil {
 							pService.Labels = map[string]string{}
@@ -405,19 +405,17 @@ func DescribeServiceBasicSync(vcluster suite.Dependency) bool {
 					Eventually(func(g Gomega) {
 						updatedVService, err := vClusterClient.CoreV1().Services(nsName).Get(ctx, svcName, metav1.GetOptions{})
 						g.Expect(err).NotTo(HaveOccurred(), "vCluster service %s/%s not yet available", nsName, svcName)
-						updatedPService, err := hostClient.CoreV1().Services(hostNS).Get(ctx, pServiceName, metav1.GetOptions{})
-						g.Expect(err).NotTo(HaveOccurred(), "host service %s/%s not yet available", hostNS, pServiceName)
 
-						g.Expect(updatedVService.Annotations["some-annotation"]).To(Equal(updatedPService.Annotations["some-annotation"]),
-							"expected vService annotation 'some-annotation' (%q) to equal pService annotation (%q)",
-							updatedVService.Annotations["some-annotation"], updatedPService.Annotations["some-annotation"])
-						g.Expect(updatedVService.Labels["host-cluster-label"]).To(Equal(updatedPService.Labels["host-cluster-label"]),
-							"expected vService label 'host-cluster-label' (%q) to equal pService label (%q)",
-							updatedVService.Labels["host-cluster-label"], updatedPService.Labels["host-cluster-label"])
+						g.Expect(updatedVService.Annotations).To(HaveKeyWithValue("host-annotation", "set from the host cluster"),
+							"expected vService to have host-annotation synced back, annotations: %v", updatedVService.Annotations)
+						g.Expect(updatedVService.Annotations).To(HaveKeyWithValue("some-annotation", "that is set from the vCluster"),
+							"original vCluster annotation should be preserved, annotations: %v", updatedVService.Annotations)
+						g.Expect(updatedVService.Labels).To(HaveKeyWithValue("host-cluster-label", "some_host_label_value"),
+							"expected vService to have host-cluster-label synced back, labels: %v", updatedVService.Labels)
 					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
-				By("updating the vCluster service to add an annotation suffix and a vCluster-specific label", func() {
+				By("updating the vCluster service to add a new annotation and label", func() {
 					Eventually(func(g Gomega) {
 						updatedVService, err := vClusterClient.CoreV1().Services(nsName).Get(ctx, svcName, metav1.GetOptions{})
 						g.Expect(err).NotTo(HaveOccurred(), "vCluster service %s/%s not yet available", nsName, svcName)
@@ -425,7 +423,7 @@ func DescribeServiceBasicSync(vcluster suite.Dependency) bool {
 						if updatedVService.Annotations == nil {
 							updatedVService.Annotations = map[string]string{}
 						}
-						updatedVService.Annotations["some-annotation"] += " and another update from the vCluster"
+						updatedVService.Annotations["vcluster-annotation"] = "set from the vCluster side"
 
 						if updatedVService.Labels == nil {
 							updatedVService.Labels = map[string]string{}
@@ -440,17 +438,15 @@ func DescribeServiceBasicSync(vcluster suite.Dependency) bool {
 
 				By("waiting for the vCluster annotation and label to be synced to the host service", func() {
 					Eventually(func(g Gomega) {
-						updatedVService, err := vClusterClient.CoreV1().Services(nsName).Get(ctx, svcName, metav1.GetOptions{})
-						g.Expect(err).NotTo(HaveOccurred(), "vCluster service %s/%s not yet available", nsName, svcName)
 						updatedPService, err := hostClient.CoreV1().Services(hostNS).Get(ctx, pServiceName, metav1.GetOptions{})
 						g.Expect(err).NotTo(HaveOccurred(), "host service %s/%s not yet available", hostNS, pServiceName)
 
-						g.Expect(updatedVService.Annotations["some-annotation"]).To(Equal(updatedPService.Annotations["some-annotation"]),
-							"expected vService annotation 'some-annotation' (%q) to equal pService annotation (%q)",
-							updatedVService.Annotations["some-annotation"], updatedPService.Annotations["some-annotation"])
-						g.Expect(updatedVService.Labels["vcluster-label"]).To(Equal(updatedPService.Labels["vcluster-label"]),
-							"expected vService label 'vcluster-label' (%q) to equal pService label (%q)",
-							updatedVService.Labels["vcluster-label"], updatedPService.Labels["vcluster-label"])
+						g.Expect(updatedPService.Annotations).To(HaveKeyWithValue("vcluster-annotation", "set from the vCluster side"),
+							"expected pService to have vcluster-annotation synced, annotations: %v", updatedPService.Annotations)
+						g.Expect(updatedPService.Annotations).To(HaveKeyWithValue("host-annotation", "set from the host cluster"),
+							"host-annotation should be preserved after vCluster update, annotations: %v", updatedPService.Annotations)
+						g.Expect(updatedPService.Labels).To(HaveKeyWithValue("vcluster-label", "some_vcluster_value"),
+							"expected pService to have vcluster-label synced, labels: %v", updatedPService.Labels)
 					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 			})
