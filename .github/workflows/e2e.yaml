@@ -96,7 +96,7 @@ jobs:
         run: |
           set -x
           sudo apt-get install -y jq
-          EXCLUDE="e2e e2e_ha e2e_isolation_mode e2e_node e2e_rootless e2e_scheduler"
+          EXCLUDE="e2e e2e_ha e2e_isolation_mode e2e_metrics_proxy e2e_node e2e_rootless e2e_scheduler"
           paths=()
           for dir in ./test/e2e*; do
             suite_name=$(basename "$dir")
