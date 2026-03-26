@@ -354,10 +354,6 @@ jobs:
           set -x
 
           extraArgs=()
-          if [ "${{ matrix.test-suite-path }}" = "./test/e2e_metrics_proxy" ]; then
-            helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
-            helm upgrade --install metrics-server metrics-server/metrics-server --set "args={--kubelet-insecure-tls}" --set containerPort=4443 -n kube-system
-          fi
 
           if [ "${{ matrix.ha }}" = "true" ]; then
             haValues="-f ./test/values_ha.yaml"
