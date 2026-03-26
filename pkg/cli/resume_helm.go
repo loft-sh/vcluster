@@ -9,6 +9,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/lifecycle"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -35,6 +36,14 @@ func ResumeHelm(ctx context.Context, globalFlags *flags.GlobalFlags, vClusterNam
 		return err
 	}
 
+	if vCluster.Status == find.StatusWorkloadSleeping {
+		if err := wakeWorkloadSleepHelm(ctx, kubeClient, vCluster); err != nil {
+			return err
+		}
+		log.Donef("Successfully woke vcluster %s in namespace %s", vClusterName, globalFlags.Namespace)
+		return nil
+	}
+
 	err = lifecycle.ResumeVCluster(ctx, kubeClient, vClusterName, globalFlags.Namespace, false, log)
 	if err != nil {
 		return err
@@ -42,6 +51,17 @@ func ResumeHelm(ctx context.Context, globalFlags *flags.GlobalFlags, vClusterNam
 
 	log.Donef("Successfully resumed vcluster %s in namespace %s", vClusterName, globalFlags.Namespace)
 	return nil
+}
+
+// wakeWorkloadSleepHelm clears the sleep annotations from the vc-config secret, waking the
+// vCluster's workloads. StatusWorkloadSleeping is always detected via the host-cluster config
+// secret (standalone vClusters are not found via the helm path).
+func wakeWorkloadSleepHelm(ctx context.Context, kubeClient *kubernetes.Clientset, vCluster *find.VCluster) error {
+	configSecret, err := kubeClient.CoreV1().Secrets(vCluster.Namespace).Get(ctx, "vc-config-"+vCluster.Name, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("get config secret: %w", err)
+	}
+	return clearSecretSleepAnnotations(ctx, kubeClient, vCluster.Namespace, configSecret)
 }
 
 func prepareResume(vCluster *find.VCluster, globalFlags *flags.GlobalFlags) (*kubernetes.Clientset, error) {
