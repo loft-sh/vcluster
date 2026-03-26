@@ -24,6 +24,12 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+const (
+	defaultPlatformProjectName = "default"
+	defaultSleepModeNamespace  = "default"
+	vClusterConfigSecretPrefix = "vc-config-"
+)
+
 // withSleepModeIgnore wraps the rest config to add X-Sleep-Mode-Ignore on every request.
 // This prevents the workload sleep mode controller from recording CLI traffic as user activity
 // or waking a sleeping cluster when the CLI only needs to read/update the sleep state secret.
@@ -57,6 +63,10 @@ func forceDurationPtr(forceDuration int64) *int64 {
 	return &forceDuration
 }
 
+func vClusterConfigSecretName(releaseName string) string {
+	return vClusterConfigSecretPrefix + releaseName
+}
+
 func platformVClusterValuesYAML(virtualClusterInstance *managementv1.VirtualClusterInstance) string {
 	if virtualClusterInstance == nil {
 		return ""
@@ -83,6 +93,9 @@ func applySleepAnnotations(secret *corev1.Secret, sleepingSince string, forceDur
 }
 
 func clearSleepAnnotations(secret *corev1.Secret) {
+	// Native workload sleep writes sleep-type/sleeping-since directly to the secret, while older
+	// and control-plane sleep flows may also leave the legacy force annotation behind. Clear both
+	// forms here so wake always resets the full sleep state regardless of which path set it.
 	delete(secret.Annotations, clusterv1.SleepModeForceAnnotation)
 	delete(secret.Annotations, clusterv1.SleepModeSleepTypeAnnotation)
 	delete(secret.Annotations, clusterv1.SleepModeSleepingSinceAnnotation)
@@ -92,7 +105,7 @@ func clearSleepAnnotations(secret *corev1.Secret) {
 
 func standaloneSleepKubeClient(vCluster *find.VCluster) (kubernetes.Interface, error) {
 	if vCluster.ClientFactory == nil {
-		return nil, fmt.Errorf("cannot access standalone vCluster %s/%s: kubeconfig is not available", vCluster.Namespace, vCluster.Name)
+		return nil, fmt.Errorf("cannot access standalone vCluster %s in namespace %s: kubeconfig is not available", vCluster.Name, vCluster.Namespace)
 	}
 
 	rawConfig, err := vCluster.ClientFactory.RawConfig()
@@ -102,8 +115,8 @@ func standaloneSleepKubeClient(vCluster *find.VCluster) (kubernetes.Interface, e
 
 	vClusterCtxName := find.VClusterContextName(vCluster.Name, vCluster.Namespace, vCluster.Context)
 	if _, ok := rawConfig.Contexts[vClusterCtxName]; !ok {
-		return nil, fmt.Errorf("cannot access standalone vCluster %s/%s: context %q not found in kubeconfig, please run 'vcluster connect %s -n %s' first",
-			vCluster.Namespace, vCluster.Name, vClusterCtxName, vCluster.Name, vCluster.Namespace)
+		return nil, fmt.Errorf("cannot access standalone vCluster %s in namespace %s: context %q not found in kubeconfig, please run 'vcluster connect %s -n %s' first",
+			vCluster.Name, vCluster.Namespace, vClusterCtxName, vCluster.Name, vCluster.Namespace)
 	}
 
 	virtualRestConfig, err := clientcmd.NewDefaultClientConfig(rawConfig, &clientcmd.ConfigOverrides{CurrentContext: vClusterCtxName}).ClientConfig()
@@ -121,7 +134,7 @@ func standaloneSleepKubeClient(vCluster *find.VCluster) (kubernetes.Interface, e
 
 func standalonePlatformSleepKubeClient(platformClient platform.Client, projectName, vClusterName string) (kubernetes.Interface, error) {
 	if projectName == "" {
-		projectName = "default"
+		projectName = defaultPlatformProjectName
 	}
 
 	restConfig, err := platformClient.RestConfig("/kubernetes/project/" + url.PathEscape(projectName) + "/virtualcluster/" + url.PathEscape(vClusterName))
@@ -159,20 +172,20 @@ func getPlatformWorkloadSleepSecret(ctx context.Context, platformClient platform
 			return nil, err
 		}
 
-		secret, err := virtualKubeClient.CoreV1().Secrets("default").Get(ctx, sleepmode.StandaloneSleepSecretName, metav1.GetOptions{})
+		secret, err := virtualKubeClient.CoreV1().Secrets(defaultSleepModeNamespace).Get(ctx, sleepmode.StandaloneSleepSecretName, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				return &platformWorkloadSleepSecretTarget{
 					kubeClient: virtualKubeClient,
-					namespace:  "default",
+					namespace:  defaultSleepModeNamespace,
 				}, nil
 			}
-			return nil, fmt.Errorf("get secret default/%s: %w", sleepmode.StandaloneSleepSecretName, err)
+			return nil, fmt.Errorf("get secret %s/%s: %w", defaultSleepModeNamespace, sleepmode.StandaloneSleepSecretName, err)
 		}
 
 		return &platformWorkloadSleepSecretTarget{
 			kubeClient: virtualKubeClient,
-			namespace:  "default",
+			namespace:  defaultSleepModeNamespace,
 			secret:     secret,
 		}, nil
 	}
@@ -186,7 +199,7 @@ func getPlatformWorkloadSleepSecret(ctx context.Context, platformClient platform
 	if releaseName == "" {
 		releaseName = fallbackVClusterName
 	}
-	secretName := "vc-config-" + releaseName
+	secretName := vClusterConfigSecretName(releaseName)
 	secret, err := kClient.CoreV1().Secrets(virtualClusterInstance.Spec.ClusterRef.Namespace).Get(ctx, secretName, metav1.GetOptions{})
 	if err != nil {
 		if kerrors.IsNotFound(err) {
@@ -210,8 +223,8 @@ func isWorkloadSleepSecretSleeping(secret *corev1.Secret) bool {
 		return false
 	}
 
-	_, sleeping := secret.Annotations[clusterv1.SleepModeSleepTypeAnnotation]
-	return sleeping
+	sleepType, sleeping := secret.Annotations[clusterv1.SleepModeSleepTypeAnnotation]
+	return sleeping && sleepType != ""
 }
 
 func isWorkloadSleepSecretAgentManaged(secret *corev1.Secret) bool {
@@ -240,7 +253,7 @@ func secretVClusterConfig(secret *corev1.Secret) (*vclusterconfig.Config, bool, 
 // hostVClusterSleepModeConfig loads the host vc-config secret and returns the parsed vCluster
 // config when native workload sleep mode is configured and not managed by the agent.
 func hostVClusterSleepModeConfig(ctx context.Context, kClient kubernetes.Interface, namespace, vClusterName string) (*corev1.Secret, *vclusterconfig.Config, bool, error) {
-	configSecret, err := kClient.CoreV1().Secrets(namespace).Get(ctx, "vc-config-"+vClusterName, metav1.GetOptions{})
+	configSecret, err := kClient.CoreV1().Secrets(namespace).Get(ctx, vClusterConfigSecretName(vClusterName), metav1.GetOptions{})
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return nil, nil, false, nil

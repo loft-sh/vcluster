@@ -122,8 +122,8 @@ func pauseStandaloneWorkloadSleep(ctx context.Context, vCluster *find.VCluster, 
 		return err
 	}
 
-	return mutateSleepSecret(ctx, virtualKubeClient, "default", sleepmode.StandaloneSleepSecretName,
-		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: sleepmode.StandaloneSleepSecretName, Namespace: "default"}},
+	return mutateSleepSecret(ctx, virtualKubeClient, defaultSleepModeNamespace, sleepmode.StandaloneSleepSecretName,
+		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: sleepmode.StandaloneSleepSecretName, Namespace: defaultSleepModeNamespace}},
 		func(s *corev1.Secret) {
 			applySleepAnnotations(s, sleepingSince, nil)
 		},

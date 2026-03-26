@@ -59,7 +59,7 @@ func ResumeHelm(ctx context.Context, globalFlags *flags.GlobalFlags, vClusterNam
 // vCluster's workloads. For standalone vClusters it also clears the sleep secret inside the
 // virtual cluster that the in-cluster sleep state controller watches.
 func wakeWorkloadSleepHelm(ctx context.Context, kubeClient kubernetes.Interface, vCluster *find.VCluster) error {
-	configSecret, err := kubeClient.CoreV1().Secrets(vCluster.Namespace).Get(ctx, "vc-config-"+vCluster.Name, metav1.GetOptions{})
+	configSecret, err := kubeClient.CoreV1().Secrets(vCluster.Namespace).Get(ctx, vClusterConfigSecretName(vCluster.Name), metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("get config secret: %w", err)
 	}
@@ -85,7 +85,7 @@ func wakeStandaloneWorkloadSleep(ctx context.Context, vCluster *find.VCluster) e
 		return err
 	}
 	// nil initial: if the secret doesn't exist there is nothing to wake.
-	return mutateSleepSecret(ctx, virtualKubeClient, "default", sleepmode.StandaloneSleepSecretName, nil, func(s *corev1.Secret) {
+	return mutateSleepSecret(ctx, virtualKubeClient, defaultSleepModeNamespace, sleepmode.StandaloneSleepSecretName, nil, func(s *corev1.Secret) {
 		clearSleepAnnotations(s)
 	})
 }

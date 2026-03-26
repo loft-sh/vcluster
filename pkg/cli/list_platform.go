@@ -40,7 +40,7 @@ func ListPlatform(ctx context.Context, options *ListOptions, globalFlags *flags.
 		return err
 	}
 
-	err = printProVClusters(ctx, options, proToVClusters(ctx, platformClient, proVClusters, currentContext), globalFlags, logger)
+	err = printProVClusters(ctx, options, proToVClusters(ctx, platformClient, proVClusters, currentContext, logger), globalFlags, logger)
 	if err != nil {
 		return err
 	}
@@ -48,10 +48,14 @@ func ListPlatform(ctx context.Context, options *ListOptions, globalFlags *flags.
 	return nil
 }
 
-func proToVClusters(ctx context.Context, platformClient platform.Client, vClusters []*platform.VirtualClusterInstanceProject, currentContext string) []ListProVCluster {
-	var output []ListProVCluster
-	for _, vCluster := range vClusters {
-		status := platformVClusterListStatus(ctx, platformClient, vCluster)
+func proToVClusters(ctx context.Context, platformClient platform.Client, vClusters []*platform.VirtualClusterInstanceProject, currentContext string, logger log.Logger) []ListProVCluster {
+	if len(vClusters) == 0 {
+		return nil
+	}
+
+	output := make([]ListProVCluster, len(vClusters))
+	for i, vCluster := range vClusters {
+		status := platformVClusterListStatus(ctx, platformClient, logger, vCluster)
 
 		version := ""
 		if vCluster.VirtualCluster.Status.VirtualCluster != nil && vCluster.VirtualCluster.Status.VirtualCluster.HelmRelease.Chart.Version != "" {
@@ -66,7 +70,7 @@ func proToVClusters(ctx context.Context, platformClient platform.Client, vCluste
 		}
 
 		connected := strings.HasPrefix(currentContext, "vcluster-platform_"+vCluster.VirtualCluster.Name+"_"+vCluster.Project.Name)
-		vClusterOutput := ListProVCluster{
+		output[i] = ListProVCluster{
 			ListVCluster{
 				Name:       name,
 				Namespace:  vCluster.VirtualCluster.Spec.ClusterRef.Namespace,
@@ -78,12 +82,12 @@ func proToVClusters(ctx context.Context, platformClient platform.Client, vCluste
 			},
 			vCluster.Project.Name,
 		}
-		output = append(output, vClusterOutput)
 	}
+
 	return output
 }
 
-func platformVClusterListStatus(ctx context.Context, platformClient platform.Client, vCluster *platform.VirtualClusterInstanceProject) string {
+func platformVClusterListStatus(ctx context.Context, platformClient platform.Client, logger log.Logger, vCluster *platform.VirtualClusterInstanceProject) string {
 	if vCluster == nil || vCluster.VirtualCluster == nil {
 		return "Pending"
 	}
@@ -97,7 +101,9 @@ func platformVClusterListStatus(ctx context.Context, platformClient platform.Cli
 	}
 
 	workloadSleeping, err := isPlatformVClusterWorkloadSleeping(ctx, platformClient, vCluster)
-	if err == nil && workloadSleeping {
+	if err != nil {
+		logger.Debugf("failed to determine workload sleep state for platform vCluster %s in project %s: %v", vCluster.VirtualCluster.Name, vCluster.Project.Name, err)
+	} else if workloadSleeping {
 		return string(find.StatusWorkloadSleeping)
 	}
 

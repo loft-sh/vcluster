@@ -201,3 +201,38 @@ func TestResumePlatformStandaloneIfConfiguredUsesRenderedValuesAndResolvedProjec
 	assert.ErrorContains(t, err, sentinelErr.Error())
 	assert.Equal(t, platformClient.lastRestConfigHostSuffix, "/kubernetes/project/resolved%2Fproject/virtualcluster/test")
 }
+
+func TestPausePlatformWorkloadSleepModeIfConfiguredWithoutClusterRefFallsBack(t *testing.T) {
+	t.Parallel()
+
+	used, err := pausePlatformWorkloadSleepModeIfConfigured(context.Background(), &fakePlatformClient{}, "test-project", 600, log.GetInstance(), "test", &managementv1.VirtualClusterInstance{})
+	assert.NilError(t, err)
+	assert.Assert(t, !used)
+}
+
+func TestResumePlatformWorkloadSleepModeIfConfiguredWithoutClusterRefFallsBack(t *testing.T) {
+	t.Parallel()
+
+	used, err := resumePlatformWorkloadSleepModeIfConfigured(context.Background(), &fakePlatformClient{}, "test-project", log.GetInstance(), "test", &managementv1.VirtualClusterInstance{})
+	assert.NilError(t, err)
+	assert.Assert(t, !used)
+}
+
+func TestIsWorkloadSleepSecretSleepingAcceptsInactivitySleep(t *testing.T) {
+	t.Parallel()
+
+	assert.Assert(t, !isWorkloadSleepSecretSleeping(&corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				clusterv1.SleepModeSleepTypeAnnotation: "",
+			},
+		},
+	}))
+	assert.Assert(t, isWorkloadSleepSecretSleeping(&corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				clusterv1.SleepModeSleepTypeAnnotation: clusterv1.SleepTypeInactivity,
+			},
+		},
+	}))
+}

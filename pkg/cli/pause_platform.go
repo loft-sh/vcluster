@@ -100,9 +100,9 @@ func workloadSleepOnly(ctx context.Context, platformClient platform.Client, opti
 
 	kClient, err := platformClient.Cluster(clusterName)
 	if err != nil {
-		return fmt.Errorf("failed to create client for host cluster %s: %w", clusterName, err)
+		return fmt.Errorf("create host cluster client for %s: %w", clusterName, err)
 	}
-	configSecretName := "vc-config-" + vClusterName
+	configSecretName := vClusterConfigSecretName(vClusterName)
 	vcNamespace := virtualClusterInstance.Spec.ClusterRef.Namespace
 	configSecret, err := kClient.CoreV1().Secrets(vcNamespace).Get(ctx, configSecretName, metav1.GetOptions{})
 	if err != nil {
@@ -125,7 +125,7 @@ func pausePlatformWorkloadSleepModeIfConfigured(ctx context.Context, platformCli
 		return pausePlatformStandaloneIfConfigured(ctx, platformClient, projectName, forceDuration, log, vClusterName, virtualClusterInstance)
 	}
 	if clusterName == "" {
-		return false, fmt.Errorf("create host cluster client: virtual cluster instance has no cluster ref")
+		return false, nil
 	}
 
 	vcNamespace := virtualClusterInstance.Spec.ClusterRef.Namespace
@@ -182,8 +182,8 @@ func pausePlatformStandaloneWorkloadSleep(ctx context.Context, platformClient pl
 		return err
 	}
 
-	return mutateSleepSecret(ctx, virtualKubeClient, "default", sleepmode.StandaloneSleepSecretName,
-		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: sleepmode.StandaloneSleepSecretName, Namespace: "default"}},
+	return mutateSleepSecret(ctx, virtualKubeClient, defaultSleepModeNamespace, sleepmode.StandaloneSleepSecretName,
+		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: sleepmode.StandaloneSleepSecretName, Namespace: defaultSleepModeNamespace}},
 		func(s *corev1.Secret) {
 			applySleepAnnotations(s, sleepingSince, forceDurationPtr(forceDuration))
 		},

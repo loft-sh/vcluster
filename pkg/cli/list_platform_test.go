@@ -10,6 +10,7 @@ import (
 	clusterv1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/cluster/v1"
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/sleepmode"
@@ -44,7 +45,7 @@ func TestProToVClustersDisplaysHostWorkloadSleep(t *testing.T) {
 	output := proToVClusters(ctx, &fakePlatformClient{clusterClient: clusterClient}, []*platform.VirtualClusterInstanceProject{{
 		VirtualCluster: virtualClusterInstance,
 		Project:        &managementv1.Project{ObjectMeta: metav1.ObjectMeta{Name: "test-project"}},
-	}}, "")
+	}}, "", log.Discard)
 
 	assert.Equal(t, len(output), 1)
 	assert.Equal(t, output[0].Status, string(find.StatusWorkloadSleeping))
@@ -91,7 +92,7 @@ func TestProToVClustersDisplaysStandaloneWorkloadSleep(t *testing.T) {
 	output := proToVClusters(ctx, &fakePlatformClient{restConfig: &rest.Config{Host: server.URL}}, []*platform.VirtualClusterInstanceProject{{
 		VirtualCluster: virtualClusterInstance,
 		Project:        &managementv1.Project{ObjectMeta: metav1.ObjectMeta{Name: "test-project"}},
-	}}, "")
+	}}, "", log.Discard)
 
 	assert.Equal(t, len(output), 1)
 	assert.Equal(t, output[0].Status, string(find.StatusWorkloadSleeping))

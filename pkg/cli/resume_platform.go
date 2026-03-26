@@ -69,10 +69,10 @@ func workloadWakeOnly(ctx context.Context, platformClient platform.Client, vClus
 
 	kClient, err := platformClient.Cluster(clusterName)
 	if err != nil {
-		return fmt.Errorf("create client for host cluster %s: %w", clusterName, err)
+		return fmt.Errorf("create host cluster client for %s: %w", clusterName, err)
 	}
 	vcNamespace := virtualClusterInstance.Spec.ClusterRef.Namespace
-	configSecret, err := kClient.CoreV1().Secrets(vcNamespace).Get(ctx, "vc-config-"+vClusterName, metav1.GetOptions{})
+	configSecret, err := kClient.CoreV1().Secrets(vcNamespace).Get(ctx, vClusterConfigSecretName(vClusterName), metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("load vcluster config secret: %w", err)
 	}
@@ -90,7 +90,7 @@ func resumePlatformWorkloadSleepModeIfConfigured(ctx context.Context, platformCl
 		return resumePlatformStandaloneIfConfigured(ctx, platformClient, projectName, log, vClusterName, virtualClusterInstance)
 	}
 	if clusterName == "" {
-		return false, fmt.Errorf("create host cluster client: virtual cluster instance has no cluster ref")
+		return false, nil
 	}
 
 	vcNamespace := virtualClusterInstance.Spec.ClusterRef.Namespace
