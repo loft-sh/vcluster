@@ -21,7 +21,7 @@ func GetDefaultSecretName(suffix string) string {
 }
 
 // ReadKubeConfig reads the kubeconfig from the vcluster's kubeconfig Secret.
-func ReadKubeConfig(ctx context.Context, client *kubernetes.Clientset, suffix, namespace string) (*clientcmdapi.Config, error) {
+func ReadKubeConfig(ctx context.Context, client kubernetes.Interface, suffix, namespace string) (*clientcmdapi.Config, error) {
 	secretName := GetDefaultSecretName(suffix)
 	secret, err := client.CoreV1().Secrets(namespace).Get(ctx, secretName, metav1.GetOptions{})
 	if err != nil {

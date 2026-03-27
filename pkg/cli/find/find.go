@@ -353,7 +353,7 @@ func VClusterFromContext(originalContext string) (name string, namespace string,
 }
 
 func findInContext(ctx context.Context, kubeClient kube.Interface, context, name, namespace string, timeout time.Duration) ([]VCluster, error) {
-	var vclusters []VCluster
+	vclusters := []VCluster{}
 	kubeClientConfig := kubeclient.HostClientConfig(context)
 
 	// statefulset based vclusters
