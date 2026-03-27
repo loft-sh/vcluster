@@ -14,6 +14,7 @@ import (
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/mappings/generic"
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
@@ -26,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apiserver/pkg/audit"
 	"k8s.io/apiserver/pkg/endpoints/handlers/negotiation"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
@@ -76,6 +78,11 @@ func WithMetricsProxy(h http.Handler, registerCtx *synccontext.RegisterContext) 
 			splitted[4] = targetNode
 			req.URL.Path = strings.Join(splitted, "/")
 
+			// allowlist: only permitted kubelet subpaths are forwarded
+			if !enforceKubeletSubpathAllowlist(registerCtx, s, w, req, registerCtx.Config.Sync.FromHost.Nodes.Enabled) {
+				return
+			}
+
 			// execute the request
 			_, err := handleNodeRequest(registerCtx, w, req)
 			if err != nil {
@@ -101,6 +108,133 @@ func rewritePrometheusMetrics(ctx *synccontext.SyncContext, req *http.Request, d
 	}
 
 	return MetricsEncode(metricsFamilies, expfmt.Negotiate(req.Header))
+}
+
+// enforceKubeletSubpathAllowlist checks req.URL.Path against the permitted kubelet subpaths.
+// Returns false (response already written) when the path is blocked or handled by streaming.
+// Returns true when the caller should proceed to call handleNodeRequest.
+// Must be called after req.URL.Path has been rewritten to the full /api/v1/nodes/{node}/proxy/... form.
+func enforceKubeletSubpathAllowlist(
+	registerCtx *synccontext.RegisterContext,
+	s serializer.CodecFactory,
+	w http.ResponseWriter,
+	req *http.Request,
+	sharedNodes bool,
+) bool {
+	reqPath := req.URL.Path
+	switch {
+	case IsKubeletHealthz(reqPath):
+		// allowed — health check, no tenant data, forward as-is in all modes
+		return true
+
+	case IsKubeletMetrics(reqPath), IsKubeletStats(reqPath), IsKubeletPods(reqPath):
+		// allowed — response is filtered tenant-scoped inside handleNodeRequest
+		return true
+
+	case IsKubeletContainerLogs(reqPath):
+		// allowed — but validate pod and container ownership before forwarding
+		// path format: /api/v1/nodes/{node}/proxy/containerLogs/{namespace}/{pod}/{container}
+		parts := strings.Split(reqPath, "/")
+		allowed := false
+		for i, seg := range parts {
+			if seg == "containerLogs" && i+3 < len(parts) {
+				vNamespace, vPodName, vContainer := parts[i+1], parts[i+2], parts[i+3]
+				if vNamespace == "" || vPodName == "" || vContainer == "" {
+					break // malformed path
+				}
+				syncCtx := registerCtx.ToSyncContext("container-logs-auth")
+				nsm, find := generic.VirtualToHostFromStore(
+					syncCtx,
+					types.NamespacedName{
+						Name:      vPodName,
+						Namespace: vNamespace,
+					},
+					mappings.Pods(),
+				)
+				if find {
+					// verify the requested container exists in the virtual pod so injected
+					// host-only sidecars (not present in the virtual spec) cannot be read
+					vPodObj := &corev1.Pod{}
+					getErr := syncCtx.VirtualClient.Get(
+						syncCtx,
+						types.NamespacedName{Name: vPodName, Namespace: vNamespace},
+						vPodObj,
+					)
+					if getErr != nil && !kerrors.IsNotFound(getErr) {
+						// transient API server error — do not conflate with an auth denial
+						responsewriters.ErrorNegotiated(getErr, s, corev1.SchemeGroupVersion, w, req)
+						return false
+					}
+					if getErr == nil {
+						for _, c := range vPodObj.Spec.Containers {
+							if c.Name == vContainer {
+								allowed = true
+								break
+							}
+						}
+						for _, c := range vPodObj.Spec.InitContainers {
+							if c.Name == vContainer {
+								allowed = true
+								break
+							}
+						}
+						for _, c := range vPodObj.Spec.EphemeralContainers {
+							if c.Name == vContainer {
+								allowed = true
+								break
+							}
+						}
+					}
+					if allowed {
+						// rewrite virtual -> host coordinates so the kubelet receives the physical pod name/namespace
+						parts[i+1] = nsm.Namespace
+						parts[i+2] = nsm.Name
+						req.URL.Path = strings.Join(parts, "/")
+					}
+				}
+				break
+			}
+		}
+		if !allowed {
+			responsewriters.ErrorNegotiated(
+				kerrors.NewForbidden(corev1.Resource("nodes"), "",
+					fmt.Errorf("access denied: pod does not belong to this virtual cluster")),
+				s, corev1.SchemeGroupVersion, w, req,
+			)
+			return false
+		}
+		// stream directly — bypasses httptest.NewRecorder buffering so kubectl logs -f works
+		if err := streamNodeRequest(registerCtx, w, req); err != nil {
+			responsewriters.ErrorNegotiated(err, s, corev1.SchemeGroupVersion, w, req)
+		}
+		return false
+
+	default:
+		if sharedNodes {
+			// shared host nodes: block unknown subpaths to prevent cross-tenant data exposure
+			responsewriters.ErrorNegotiated(
+				kerrors.NewForbidden(corev1.Resource("nodes"), "",
+					fmt.Errorf("proxy subpath not permitted in shared mode")),
+				s, corev1.SchemeGroupVersion, w, req,
+			)
+			return false
+		}
+		// dedicated/virtual nodes: forward unknown subpaths
+		return true
+	}
+}
+
+// streamNodeRequest proxies req directly to the host API server, writing to the ResponseWriter without buffering.
+// Use this for streaming responses (e.g. containerLogs) where ExecuteRequest/httptest.NewRecorder
+// would buffer the entire body and break kubectl logs -f.
+func streamNodeRequest(ctx *synccontext.RegisterContext, w http.ResponseWriter, req *http.Request) error {
+	req.Header.Del("Authorization")
+	h, err := handler.Handler("", ctx.HostManager.GetConfig(), nil)
+	if err != nil {
+		return err
+	}
+	h.ServeHTTP(w, req)
+	return nil
 }
 
 func handleNodeRequest(ctx *synccontext.RegisterContext, w http.ResponseWriter, req *http.Request) (bool, error) {
@@ -131,11 +265,24 @@ func handleNodeRequest(ctx *synccontext.RegisterContext, w http.ResponseWriter, 
 		if err != nil {
 			return false, err
 		}
+	} else if IsKubeletPods(req.URL.Path) {
+		newData, err = rewritePods(ctx.ToSyncContext("node-request"), data)
+		if err != nil {
+			return false, err
+		}
 	}
 
-	w.Header().Set("Content-Type", string(expfmt.Negotiate(req.Header)))
-	w.WriteHeader(code)
-	_, _ = w.Write(newData)
+	// only override Content-Type for Prometheus metrics — other paths (pods, stats) are JSON
+	// and must carry the kubelet's original headers so clients decode them correctly
+	if IsKubeletMetrics(req.URL.Path) {
+		w.Header().Set("Content-Type", string(expfmt.Negotiate(req.Header)))
+		w.WriteHeader(code)
+		_, _ = w.Write(newData)
+	} else {
+		// rewriting changes body size, so the kubelet's Content-Length is now wrong — strip it
+		header.Del("Content-Length")
+		WriteWithHeader(w, code, header, newData)
+	}
 	return true, nil
 }
 
@@ -208,12 +355,54 @@ func isNodesProxy(r *request.RequestInfo) bool {
 		r.Subresource == "proxy"
 }
 
+func IsKubeletHealthz(path string) bool {
+	return strings.HasSuffix(path, "/healthz")
+}
+
 func IsKubeletStats(path string) bool {
 	return strings.HasSuffix(path, "/stats/summary")
 }
 
 func IsKubeletMetrics(path string) bool {
 	return strings.HasSuffix(path, "/metrics") || strings.HasSuffix(path, "/metrics/cadvisor") || strings.HasSuffix(path, "/metrics/probes") || strings.HasSuffix(path, "/metrics/resource") || strings.HasSuffix(path, "/metrics/resource/v1alpha1") || strings.HasSuffix(path, "/metrics/resource/v1beta1")
+}
+
+func IsKubeletPods(path string) bool {
+	p := strings.TrimRight(path, "/")
+	return strings.HasSuffix(p, "/pods") || strings.HasSuffix(p, "/runningpods")
+}
+
+func IsKubeletContainerLogs(path string) bool {
+	return strings.Contains(path, "/proxy/containerLogs/")
+}
+
+func rewritePods(ctx *synccontext.SyncContext, data []byte) ([]byte, error) {
+	podList := &corev1.PodList{}
+	if err := json.Unmarshal(data, podList); err != nil {
+		return nil, err
+	}
+
+	filtered := podList.Items[:0]
+	for _, pod := range podList.Items {
+		name := mappings.HostToVirtual(ctx, pod.Name, pod.Namespace, nil, mappings.Pods())
+		if name.Name == "" {
+			continue
+		}
+
+		vPod := &corev1.Pod{}
+		if err := ctx.VirtualClient.Get(ctx, name, vPod); err != nil {
+			if kerrors.IsNotFound(err) {
+				continue
+			}
+			return nil, err
+		}
+
+		// use the virtual pod as-is: correct virtual spec/status, no host-cluster fields
+		filtered = append(filtered, *vPod.DeepCopy())
+	}
+	podList.Items = filtered
+
+	return json.MarshalIndent(podList, "", "  ")
 }
 
 func MetricsDecode(data []byte) ([]*dto.MetricFamily, error) {
