@@ -23,6 +23,12 @@ func WithFakeKubelet(h http.Handler, registerCtx *synccontext.RegisterContext) h
 			// construct the actual path
 			req.URL.Path = "/api/v1/nodes/" + nodeName + "/proxy" + req.URL.Path
 
+			// apply the same subpath allowlist as WithMetricsProxy so that
+			// proxyKubelets.byHostname/byIP traffic cannot reach unlisted kubelet paths
+			if !enforceKubeletSubpathAllowlist(registerCtx, s, w, req, registerCtx.Config.Sync.FromHost.Nodes.Enabled) {
+				return
+			}
+
 			// execute the request
 			_, err := handleNodeRequest(registerCtx, w, req)
 			if err != nil {
