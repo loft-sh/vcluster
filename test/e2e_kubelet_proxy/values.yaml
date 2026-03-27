@@ -1,0 +1,8 @@
+sync:
+  fromHost:
+    nodes:
+      enabled: true
+networking:
+  advanced:
+    proxyKubelets:
+      byHostname: true
