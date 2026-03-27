@@ -30,7 +30,7 @@ jobs:
   e2e-tests:
     name: Run Ginkgo E2E Tests
     if: github.repository_owner == 'loft-sh'
-    runs-on: ubuntu-latest
+    runs-on: large-8_32
     timeout-minutes: 180
 
     steps:
@@ -93,11 +93,21 @@ jobs:
           cp vcluster "$GOBIN/vcluster"
           echo "GOBIN=$GOBIN" >> "$GITHUB_ENV"
 
+      - name: Ensure bridge netfilter modules are loaded
+        run: |
+          if [[ ! -f /proc/sys/net/bridge/bridge-nf-call-iptables ]]; then
+            sudo modprobe -va bridge br_netfilter
+            echo "Enabled bridge netfilter modules successfully"
+          else
+            echo "Bridge netfilter modules are already enabled"
+          fi
+
       - name: Run e2e-next tests
         run: |
           LABEL_FILTER="${{ inputs.ginkgo-label || '!non-default' }}"
           ginkgo \
             -v \
+            --procs=8 \
             --timeout=0 \
             --poll-progress-after=20s \
             --poll-progress-interval=10s \
