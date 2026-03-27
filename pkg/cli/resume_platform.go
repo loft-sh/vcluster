@@ -28,7 +28,7 @@ func ResumePlatform(ctx context.Context, options *ResumeOptions, config *config.
 	projectName := vCluster.Project.Name
 	virtualClusterInstance := vCluster.VirtualCluster
 	// Check if the vCluster is in native workload sleep mode and wake it.
-	if used, err := resumePlatformWorkloadSleepModeIfConfigured(ctx, platformClient, projectName, log, vClusterName, virtualClusterInstance); err != nil {
+	if used, err := wakePlatformWorkloadSleep(ctx, platformClient, projectName, log, vClusterName, virtualClusterInstance); err != nil {
 		return err
 	} else if used {
 		return nil
@@ -80,14 +80,14 @@ func workloadWakeOnly(ctx context.Context, platformClient platform.Client, vClus
 	return clearSecretSleepAnnotations(ctx, kClient, vcNamespace, configSecret)
 }
 
-// resumePlatformWorkloadSleepModeIfConfigured detects whether the vCluster is in native workload
-// sleep mode and clears the sleep annotations to wake it. Mirrors pausePlatformWorkloadSleepModeIfConfigured.
-func resumePlatformWorkloadSleepModeIfConfigured(ctx context.Context, platformClient platform.Client, projectName string, log log.Logger, vClusterName string, virtualClusterInstance *managementv1.VirtualClusterInstance) (bool, error) {
+// wakePlatformWorkloadSleep detects whether the vCluster is in native workload
+// sleep mode and clears the sleep annotations to wake it. Mirrors sleepPlatformWorkloadSleep.
+func wakePlatformWorkloadSleep(ctx context.Context, platformClient platform.Client, projectName string, log log.Logger, vClusterName string, virtualClusterInstance *managementv1.VirtualClusterInstance) (bool, error) {
 	clusterName := virtualClusterInstance.Spec.ClusterRef.Cluster
 
 	// Standalone vClusters wake via the virtual cluster proxy.
 	if virtualClusterInstance.Spec.Standalone {
-		return resumePlatformStandaloneIfConfigured(ctx, platformClient, projectName, log, vClusterName, virtualClusterInstance)
+		return wakePlatformStandalone(ctx, platformClient, projectName, log, vClusterName, virtualClusterInstance)
 	}
 	if clusterName == "" {
 		return false, nil
@@ -117,10 +117,10 @@ func resumePlatformWorkloadSleepModeIfConfigured(ctx context.Context, platformCl
 	return true, clearSecretSleepAnnotations(ctx, target.kubeClient, target.namespace, target.secret)
 }
 
-// resumePlatformStandaloneIfConfigured wakes a standalone vCluster by reading rendered Helm
+// wakePlatformStandalone wakes a standalone vCluster by reading rendered Helm
 // values from status when available and clearing sleep annotations from the
 // vc-standalone-sleep-state secret via the platform proxy.
-func resumePlatformStandaloneIfConfigured(ctx context.Context, platformClient platform.Client, projectName string, log log.Logger, vClusterName string, virtualClusterInstance *managementv1.VirtualClusterInstance) (bool, error) {
+func wakePlatformStandalone(ctx context.Context, platformClient platform.Client, projectName string, log log.Logger, vClusterName string, virtualClusterInstance *managementv1.VirtualClusterInstance) (bool, error) {
 	valuesYAML := platformVClusterValuesYAML(virtualClusterInstance)
 	if valuesYAML == "" {
 		return false, nil
@@ -135,13 +135,18 @@ func resumePlatformStandaloneIfConfigured(ctx context.Context, platformClient pl
 		return false, nil
 	}
 
-	log.Infof("Waking standalone vCluster %s workloads (clearing workload sleep mode)", vClusterName)
 	target, err := getPlatformWorkloadSleepSecret(ctx, platformClient, projectName, virtualClusterInstance, vClusterName)
 	if err != nil {
 		return true, err
 	}
+	return wakePlatformStandaloneTarget(ctx, log, vClusterName, target)
+}
+
+func wakePlatformStandaloneTarget(ctx context.Context, log log.Logger, vClusterName string, target *platformWorkloadSleepSecretTarget) (bool, error) {
 	if target == nil || target.secret == nil {
-		return true, nil
+		return false, nil
 	}
+
+	log.Infof("Waking standalone vCluster %s workloads (clearing workload sleep mode)", vClusterName)
 	return true, clearSecretSleepAnnotations(ctx, target.kubeClient, target.namespace, target.secret)
 }

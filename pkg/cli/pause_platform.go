@@ -41,7 +41,7 @@ func PausePlatform(ctx context.Context, options *PauseOptions, cfg *cliconfig.CL
 	}
 
 	// Check if the vCluster config enables workload sleep mode natively (no agent).
-	if used, err := pausePlatformWorkloadSleepModeIfConfigured(ctx, platformClient, projectName, options.ForceDuration, log, vClusterName, virtualClusterInstance); err != nil {
+	if used, err := sleepPlatformWorkloadSleep(ctx, platformClient, projectName, options.ForceDuration, log, vClusterName, virtualClusterInstance); err != nil {
 		return err
 	} else if used {
 		return nil
@@ -113,10 +113,10 @@ func workloadSleepOnly(ctx context.Context, platformClient platform.Client, opti
 	return patchSecretWithSleepAnnotations(ctx, kClient, vcNamespace, configSecret, sleepingSince, forceDurationPtr(options.ForceDuration))
 }
 
-// pausePlatformWorkloadSleepModeIfConfigured detects whether workload sleep mode is configured
+// sleepPlatformWorkloadSleep detects whether workload sleep mode is configured
 // from the vCluster config (not the SleepScopeAnnotation) and applies it without scaling down
 // the control plane. Returns true if workload sleep mode was applied.
-func pausePlatformWorkloadSleepModeIfConfigured(ctx context.Context, platformClient platform.Client, projectName string, forceDuration int64, log log.Logger, vClusterName string, virtualClusterInstance *managementv1.VirtualClusterInstance) (bool, error) {
+func sleepPlatformWorkloadSleep(ctx context.Context, platformClient platform.Client, projectName string, forceDuration int64, log log.Logger, vClusterName string, virtualClusterInstance *managementv1.VirtualClusterInstance) (bool, error) {
 	clusterName := virtualClusterInstance.Spec.ClusterRef.Cluster
 
 	// Standalone vClusters run without a host cluster. Parse the config from the
@@ -177,7 +177,7 @@ func pausePlatformStandaloneIfConfigured(ctx context.Context, platformClient pla
 // pausePlatformStandaloneWorkloadSleep updates the vc-standalone-sleep-state secret inside the
 // virtual cluster's default namespace via the platform proxy.
 func pausePlatformStandaloneWorkloadSleep(ctx context.Context, platformClient platform.Client, projectName, vClusterName, sleepingSince string, forceDuration int64) error {
-	virtualKubeClient, err := standalonePlatformSleepKubeClient(platformClient, projectName, vClusterName)
+	virtualKubeClient, err := standalonePlatformKubeClient(platformClient, projectName, vClusterName)
 	if err != nil {
 		return err
 	}

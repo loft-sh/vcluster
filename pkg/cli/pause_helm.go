@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -13,8 +14,11 @@ import (
 	"github.com/loft-sh/vcluster/pkg/platform/sleepmode"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 )
+
+var errWorkloadSleep = errors.New("failed to sleep")
 
 type PauseOptions struct {
 	Driver string
@@ -60,7 +64,7 @@ func PauseVCluster(
 	}
 
 	// Check if workload sleep mode is configured and apply it instead of scaling down.
-	if used, err := pauseWorkloadSleepModeIfConfigured(ctx, kubeClient, vCluster, log); err != nil {
+	if used, err := workloadSleep(ctx, kubeClient, vCluster, log); err != nil {
 		return err
 	} else if used {
 		return nil
@@ -84,10 +88,10 @@ func PauseVCluster(
 	return nil
 }
 
-// pauseWorkloadSleepModeIfConfigured detects whether workload sleep mode is configured and, if so,
-// updates the appropriate secret with the sleep type and sleeping-since annotations instead of
-// scaling down the control plane. Returns true if workload sleep mode was applied.
-func pauseWorkloadSleepModeIfConfigured(ctx context.Context, kubeClient kubernetes.Interface, vCluster *find.VCluster, log log.Logger) (bool, error) {
+// workloadSleep checks if whether workload sleep mode is configured and
+// sets the appropriate secret with the sleep type and sleeping-since annotations
+// Returns true if workload sleep mode was applied.
+func workloadSleep(ctx context.Context, kubeClient kubernetes.Interface, vCluster *find.VCluster, log log.Logger) (applied bool, retErr error) {
 	configSecret, vClusterConfig, configured, err := hostVClusterSleepModeConfig(ctx, kubeClient, vCluster.Namespace, vCluster.Name)
 	if err != nil {
 		return false, err
@@ -96,32 +100,53 @@ func pauseWorkloadSleepModeIfConfigured(ctx context.Context, kubeClient kubernet
 		return false, nil
 	}
 
+	defer func() {
+		if retErr != nil {
+			log.Error(retErr, "Please try again.  If the problem persists, please contact support.")
+		}
+	}()
+
 	log.Infof("vCluster %s/%s is configured for workload sleep mode, sleeping workloads only (control plane stays running)", vCluster.Namespace, vCluster.Name)
 
 	sleepingSince := strconv.FormatInt(time.Now().Unix(), 10)
 
 	if vClusterConfig.ControlPlane.Standalone.Enabled {
-		// Annotate the host config secret so find.go can detect StatusWorkloadSleeping,
-		// then also write to the virtual cluster's standalone sleep secret for the
-		// in-cluster sleep state controller.
-		if err := patchSecretWithSleepAnnotations(ctx, kubeClient, vCluster.Namespace, configSecret, sleepingSince, nil); err != nil {
+		virtualKubeClient, err := standaloneKubeClient(vCluster)
+		if err != nil {
 			return false, err
 		}
-		return true, pauseStandaloneWorkloadSleep(ctx, vCluster, sleepingSince)
+
+		return true, sleepStandaloneWorkloadSleepOrRollback(ctx, kubeClient, virtualKubeClient, vCluster.Namespace, configSecret, sleepingSince)
 	}
 
 	return true, patchSecretWithSleepAnnotations(ctx, kubeClient, vCluster.Namespace, configSecret, sleepingSince, nil)
 }
 
-// pauseStandaloneWorkloadSleep updates the vc-standalone-sleep-state secret in the virtual
-// cluster's default namespace. For standalone vClusters the sleep state controller watches
-// this secret inside the virtual cluster rather than the vc-config secret on a host cluster.
-func pauseStandaloneWorkloadSleep(ctx context.Context, vCluster *find.VCluster, sleepingSince string) error {
-	virtualKubeClient, err := standaloneSleepKubeClient(vCluster)
-	if err != nil {
-		return err
+func sleepStandaloneWorkloadSleepOrRollback(ctx context.Context, hostKubeClient, virtualKubeClient kubernetes.Interface, namespace string, configSecret *corev1.Secret, sleepingSince string) error {
+	// Update the in-cluster sleep state first.
+	if err := sleepStandaloneWorkload(ctx, virtualKubeClient, sleepingSince); err != nil {
+		return errWorkloadSleep
 	}
 
+	// If the host config patch fails, try to rollback
+	if err := patchSecretWithSleepAnnotations(ctx, hostKubeClient, namespace, configSecret, sleepingSince, nil); err != nil {
+		if rollbackErr := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
+			if err := wakeStandalone(ctx, virtualKubeClient); err != nil {
+				return false, nil
+			}
+
+			return true, nil
+		}); rollbackErr != nil {
+			return errWorkloadSleep
+		}
+
+		return errWorkloadSleep
+	}
+
+	return nil
+}
+
+func sleepStandaloneWorkload(ctx context.Context, virtualKubeClient kubernetes.Interface, sleepingSince string) error {
 	return mutateSleepSecret(ctx, virtualKubeClient, defaultSleepModeNamespace, sleepmode.StandaloneSleepSecretName,
 		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: sleepmode.StandaloneSleepSecretName, Namespace: defaultSleepModeNamespace}},
 		func(s *corev1.Secret) {

@@ -117,7 +117,7 @@ func TestPausePlatformWorkloadSleepModeIfConfiguredSetsForceDuration(t *testing.
 	virtualClusterInstance.Spec.ClusterRef.Cluster = "host-cluster"
 	virtualClusterInstance.Spec.ClusterRef.Namespace = "test-ns"
 
-	used, err := pausePlatformWorkloadSleepModeIfConfigured(ctx, &fakePlatformClient{clusterClient: clusterClient}, "test-project", 600, log.GetInstance(), "test", virtualClusterInstance)
+	used, err := sleepPlatformWorkloadSleep(ctx, &fakePlatformClient{clusterClient: clusterClient}, "test-project", 600, log.GetInstance(), "test", virtualClusterInstance)
 	assert.NilError(t, err)
 	assert.Check(t, used)
 
@@ -149,7 +149,7 @@ func TestResumePlatformWorkloadSleepModeIfConfiguredClearsForceState(t *testing.
 	virtualClusterInstance.Spec.ClusterRef.Cluster = "host-cluster"
 	virtualClusterInstance.Spec.ClusterRef.Namespace = "test-ns"
 
-	used, err := resumePlatformWorkloadSleepModeIfConfigured(ctx, &fakePlatformClient{clusterClient: clusterClient}, "test-project", log.GetInstance(), "test", virtualClusterInstance)
+	used, err := wakePlatformWorkloadSleep(ctx, &fakePlatformClient{clusterClient: clusterClient}, "test-project", log.GetInstance(), "test", virtualClusterInstance)
 	assert.NilError(t, err)
 	assert.Check(t, used)
 
@@ -196,16 +196,24 @@ func TestResumePlatformStandaloneIfConfiguredUsesRenderedValuesAndResolvedProjec
 	virtualClusterInstance.Status.VirtualCluster = &storagev1.VirtualClusterTemplateDefinition{}
 	virtualClusterInstance.Status.VirtualCluster.HelmRelease.Values = "sleep:\n  auto:\n    afterInactivity: 1h\n"
 
-	used, err := resumePlatformStandaloneIfConfigured(ctx, platformClient, "resolved/project", log.GetInstance(), "test", virtualClusterInstance)
+	used, err := wakePlatformStandalone(ctx, platformClient, "resolved/project", log.GetInstance(), "test", virtualClusterInstance)
 	assert.Check(t, used)
 	assert.ErrorContains(t, err, sentinelErr.Error())
 	assert.Equal(t, platformClient.lastRestConfigHostSuffix, "/kubernetes/project/resolved%2Fproject/virtualcluster/test")
 }
 
+func TestWakePlatformStandaloneTargetWithoutSecretFallsBackToInstanceWake(t *testing.T) {
+	t.Parallel()
+
+	used, err := wakePlatformStandaloneTarget(context.Background(), log.GetInstance(), "test", &platformWorkloadSleepSecretTarget{})
+	assert.NilError(t, err)
+	assert.Assert(t, !used)
+}
+
 func TestPausePlatformWorkloadSleepModeIfConfiguredWithoutClusterRefFallsBack(t *testing.T) {
 	t.Parallel()
 
-	used, err := pausePlatformWorkloadSleepModeIfConfigured(context.Background(), &fakePlatformClient{}, "test-project", 600, log.GetInstance(), "test", &managementv1.VirtualClusterInstance{})
+	used, err := sleepPlatformWorkloadSleep(context.Background(), &fakePlatformClient{}, "test-project", 600, log.GetInstance(), "test", &managementv1.VirtualClusterInstance{})
 	assert.NilError(t, err)
 	assert.Assert(t, !used)
 }
@@ -213,7 +221,7 @@ func TestPausePlatformWorkloadSleepModeIfConfiguredWithoutClusterRefFallsBack(t 
 func TestResumePlatformWorkloadSleepModeIfConfiguredWithoutClusterRefFallsBack(t *testing.T) {
 	t.Parallel()
 
-	used, err := resumePlatformWorkloadSleepModeIfConfigured(context.Background(), &fakePlatformClient{}, "test-project", log.GetInstance(), "test", &managementv1.VirtualClusterInstance{})
+	used, err := wakePlatformWorkloadSleep(context.Background(), &fakePlatformClient{}, "test-project", log.GetInstance(), "test", &managementv1.VirtualClusterInstance{})
 	assert.NilError(t, err)
 	assert.Assert(t, !used)
 }

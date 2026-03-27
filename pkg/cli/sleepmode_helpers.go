@@ -103,7 +103,7 @@ func clearSleepAnnotations(secret *corev1.Secret) {
 	secret.Annotations[clusterv1.SleepModeLastActivityAnnotation] = strconv.FormatInt(time.Now().Unix(), 10)
 }
 
-func standaloneSleepKubeClient(vCluster *find.VCluster) (kubernetes.Interface, error) {
+func standaloneKubeClient(vCluster *find.VCluster) (kubernetes.Interface, error) {
 	if vCluster.ClientFactory == nil {
 		return nil, fmt.Errorf("cannot access standalone vCluster %s in namespace %s: kubeconfig is not available", vCluster.Name, vCluster.Namespace)
 	}
@@ -132,7 +132,7 @@ func standaloneSleepKubeClient(vCluster *find.VCluster) (kubernetes.Interface, e
 	return virtualKubeClient, nil
 }
 
-func standalonePlatformSleepKubeClient(platformClient platform.Client, projectName, vClusterName string) (kubernetes.Interface, error) {
+func standalonePlatformKubeClient(platformClient platform.Client, projectName, vClusterName string) (kubernetes.Interface, error) {
 	if projectName == "" {
 		projectName = defaultPlatformProjectName
 	}
@@ -167,7 +167,7 @@ func getPlatformWorkloadSleepSecret(ctx context.Context, platformClient platform
 			virtualClusterName = fallbackVClusterName
 		}
 
-		virtualKubeClient, err := standalonePlatformSleepKubeClient(platformClient, projectName, virtualClusterName)
+		virtualKubeClient, err := standalonePlatformKubeClient(platformClient, projectName, virtualClusterName)
 		if err != nil {
 			return nil, err
 		}
