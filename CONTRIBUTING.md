@@ -15,6 +15,7 @@ Thank you for contributing to vcluster! Here you can find common questions aroun
   - [Developing without DevSpace](#developing-without-devspace)
 
 - [Running vcluster Tests](#running-vcluster-tests)
+- [Working with github.com/loft-sh/api Types](#working-with-githubcomloft-shapi-types)
 - [License](#license)
 - [Copyright notice](#copyright-notice)
 
@@ -363,6 +364,63 @@ If [Ginkgo](https://github.com/onsi/ginkgo#global-installation) is already insta
 ## Run the Conformance Tests
 
 For running conformance tests, please take a look at [conformance tests](https://github.com/loft-sh/tree/vcluster/main/conformance/v1.21)
+
+# Working with github.com/loft-sh/api Types
+
+The vCluster Helm chart schema (`chart/values.schema.json`) is generated from Go types defined in both this repository and the `github.com/loft-sh/api/v4` package (maintained in the [loft-enterprise](https://github.com/loft-sh/loft-enterprise) repository). When making changes to types in `github.com/loft-sh/api/v4/pkg/vclusterconfig`, you need to follow a specific workflow to test your changes locally before merging.
+
+## Why This Matters
+
+The schema generation (`go run hack/schema/main.go`) reads type definitions from:
+- `github.com/loft-sh/vcluster/config` (this repository)
+- `vendor/github.com/loft-sh/api/v4/pkg/vclusterconfig` (vendored from loft-enterprise)
+
+If you add new fields or types in loft-enterprise that affect the vCluster configuration, those changes won't be reflected in the vCluster schema until the dependency is updated.
+
+## Local Development Workflow
+
+To test changes to `github.com/loft-sh/api/v4` types locally:
+
+### 1. Generate Types in loft-enterprise
+
+In the loft-enterprise repository, run the type generation:
+
+```bash
+just gen-go
+```
+
+This generates all API types, including those in `staging/src/github.com/loft-sh/api/v4/pkg/vclusterconfig`.
+
+### 2. Point vCluster to Local loft-enterprise
+
+In the vCluster repository, add a `replace` directive in `go.mod` to point to your local loft-enterprise repo:
+
+```go
+replace github.com/loft-sh/api/v4 => /path/to/loft-enterprise/staging/src/github.com/loft-sh/api/v4
+```
+
+### 3. Update Vendor and Regenerate Schema
+
+```bash
+go mod tidy
+go mod vendor
+go run hack/schema/main.go
+```
+
+### 4. Test Your Changes
+
+Deploy a vCluster with your schema changes and verify the new configuration options work as expected.
+
+### 5. Merging Changes
+
+When your changes are ready, merge PRs in the following order:
+
+1. **Platform first**: Merge your loft-enterprise PR with the API type changes
+2. **Release platform version**: A new platform release publishes the updated `github.com/loft-sh/api/v4` version
+3. **Bump in vCluster**: Create a PR in vCluster to update the `github.com/loft-sh/api/v4` dependency to the new version
+4. **Merge vCluster PR**: Remove any `replace` directives and merge
+
+This ensures the dependency chain is properly maintained and both repositories stay in sync.
 
 # License
 
