@@ -104,7 +104,7 @@ func execRotate(ctx context.Context, containerName, cmd string, kubeClient *kube
 
 		log.Infof("Waking vCluster %s after it was paused", vCluster.Name)
 		if err := lifecycle.ResumeVCluster(ctx, kubeClient, vCluster.Name, vCluster.Namespace, true, log); err != nil {
-			return fmt.Errorf("Waking virtual cluster %s: %w", vCluster.Name, err)
+			return fmt.Errorf("waking virtual cluster %s: %w", vCluster.Name, err)
 		}
 
 		// Won't do anything in case deployed etcd does not exist.
