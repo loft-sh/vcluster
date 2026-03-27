@@ -22,6 +22,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/strvals"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
+	authorizationv1 "k8s.io/api/authorization/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -376,7 +377,49 @@ func shouldCreateWithTemplate(ctx context.Context, platformClient platform.Clien
 		return false, nil
 	}
 
+	canSkip, err := canCreateVClusterWithoutTemplate(ctx, platformClient, projectutil.ProjectNamespace(options.Project))
+	if err != nil {
+		return false, fmt.Errorf("check create without template: %w", err)
+	}
+	if canSkip {
+		return false, nil
+	}
+
+	// project requires template and user does not have admin override;
+	// reject helm-style flags with a clear message before routing into template flow
+	if len(options.Values) > 0 {
+		return false, fmt.Errorf("cannot use --values because project %q requires a template. Please specify a template with --template and use --params instead", options.Project)
+	}
+	if len(options.SetValues) > 0 {
+		return false, fmt.Errorf("cannot use --set because project %q requires a template. Please specify a template with --template and use --set-param instead", options.Project)
+	}
+
 	return true, nil
+}
+
+func canCreateVClusterWithoutTemplate(ctx context.Context, platformClient platform.Client, projectNamespace string) (bool, error) {
+	managementClient, err := platformClient.Management()
+	if err != nil {
+		return false, err
+	}
+	review, err := managementClient.Loft().ManagementV1().SelfSubjectAccessReviews().Create(ctx, &managementv1.SelfSubjectAccessReview{
+		Spec: managementv1.SelfSubjectAccessReviewSpec{
+			SelfSubjectAccessReviewSpec: authorizationv1.SelfSubjectAccessReviewSpec{
+				ResourceAttributes: &authorizationv1.ResourceAttributes{
+					Verb:        "create",
+					Group:       managementv1.SchemeGroupVersion.Group,
+					Version:     managementv1.SchemeGroupVersion.Version,
+					Resource:    "virtualclusterinstances",
+					Subresource: "restricted",
+					Namespace:   projectNamespace,
+				},
+			},
+		},
+	}, metav1.CreateOptions{})
+	if err != nil {
+		return false, err
+	}
+	return review.Status.Allowed && !review.Status.Denied, nil
 }
 
 func createWithTemplate(ctx context.Context, platformClient platform.Client, options *CreateOptions, virtualClusterName string, targetNamespace string, log log.Logger) (*managementv1.VirtualClusterInstance, error) {
