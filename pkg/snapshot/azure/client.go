@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"os"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
@@ -74,54 +73,100 @@ func getBlobInfo(blobURL string) (BlobInfo, error) {
 	}, nil
 }
 
-// newBlobClient creates an Azure blob client from BlobInfo and a full blob URL with SAS token
-func newBlobClient(ctx context.Context, subscriptionID, resourceGroup string, info BlobInfo, blobURL string, useSASTokenFromBlobURL bool) (*blockblob.Client, error) {
-	var blobClient *blockblob.Client
-	var err error
+// newBlobClient creates an Azure blob client using the following priority:
+// 1. SAS token (from URL) → no credentials needed
+// 2. Storage key (from options, then env var) → shared key credential
+// 3. Service principal (from options) → client secret credential (data plane)
+// 4. Fallback: look up storage key via DefaultAzureCredential + ARM API (CLI path)
+func newBlobClient(ctx context.Context, options *Options, info BlobInfo, blobURL string, useSASTokenFromBlobURL bool) (*blockblob.Client, error) {
 	if useSASTokenFromBlobURL {
-		// Create the block blob client with SAS token (no credentials needed, token is in URL)
-		blobClient, err = blockblob.NewClientWithNoCredential(blobURL, nil)
+		blobClient, err := blockblob.NewClientWithNoCredential(blobURL, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create blob client with SAS token: %w", err)
 		}
-	} else {
-		var storageKey string
-		if key := os.Getenv(StorageKeyEnvVar); key != "" {
-			//
-			// Create a blob client with the specified storage key
-			//
-			storageKey = key
-		} else {
-			storageKey, err = getStorageKeyFromAzure(ctx, subscriptionID, resourceGroup, info.AccountName)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get storage key from Azure: %w", err)
-			}
-		}
+		return blobClient, nil
+	}
 
-		// Create shared key credential
+	// Storage key from options or env var
+	if storageKey := options.GetStorageKey(); storageKey != "" {
 		sharedKeyCredential, err := blob.NewSharedKeyCredential(info.AccountName, storageKey)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create shared key credential: %w", err)
 		}
-		// blobClient, err = blockblob.NewClient(blobURL, defaultCredential, nil)
-		blobClient, err = blockblob.NewClientWithSharedKeyCredential(blobURL, sharedKeyCredential, nil)
+		blobClient, err := blockblob.NewClientWithSharedKeyCredential(blobURL, sharedKeyCredential, nil)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create blob client with default Azure credentials: %w", err)
+			return nil, fmt.Errorf("failed to create blob client with shared key: %w", err)
 		}
+		return blobClient, nil
 	}
 
+	// Service principal from options
+	if options.HasServicePrincipal() {
+		cred, err := azidentity.NewClientSecretCredential(options.GetTenantID(), options.GetClientID(), options.GetClientSecret(), nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create client secret credential: %w", err)
+		}
+		blobClient, err := blockblob.NewClient(blobURL, cred, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create blob client with service principal: %w", err)
+		}
+		return blobClient, nil
+	}
+
+	// Fallback: look up storage key via DefaultAzureCredential (CLI path)
+	storageKey, err := getStorageKeyFromAzure(ctx, options.GetSubscriptionID(), options.GetResourceGroup(), info.AccountName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get storage key from Azure: %w", err)
+	}
+	sharedKeyCredential, err := blob.NewSharedKeyCredential(info.AccountName, storageKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create shared key credential: %w", err)
+	}
+	blobClient, err := blockblob.NewClientWithSharedKeyCredential(blobURL, sharedKeyCredential, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create blob client with storage key from Azure: %w", err)
+	}
 	return blobClient, nil
 }
 
-// newContainerClient creates an Azure container client for listing blobs, using DefaultAzureCredential.
-func newContainerClient(accountName, containerName string) (*container.Client, error) {
+// newContainerClient creates an Azure container client for listing blobs using the following priority:
+// 1. Storage key (from options or env var) → shared key credential
+// 2. Service principal (from options) → client secret credential
+// 3. Fallback → DefaultAzureCredential (CLI path)
+func newContainerClient(options *Options, accountName, containerName string) (*container.Client, error) {
 	containerURL := fmt.Sprintf("https://%s.blob.core.windows.net/%s", accountName, containerName)
 
+	// Storage key from options or env var
+	if storageKey := options.GetStorageKey(); storageKey != "" {
+		sharedKeyCredential, err := blob.NewSharedKeyCredential(accountName, storageKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create shared key credential: %w", err)
+		}
+		containerClient, err := container.NewClientWithSharedKeyCredential(containerURL, sharedKeyCredential, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create container client with shared key: %w", err)
+		}
+		return containerClient, nil
+	}
+
+	// Service principal from options
+	if options.HasServicePrincipal() {
+		cred, err := azidentity.NewClientSecretCredential(options.GetTenantID(), options.GetClientID(), options.GetClientSecret(), nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create client secret credential: %w", err)
+		}
+		containerClient, err := container.NewClient(containerURL, cred, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create container client with service principal: %w", err)
+		}
+		return containerClient, nil
+	}
+
+	// Fallback: DefaultAzureCredential (CLI path)
 	cred, err := azidentity.NewDefaultAzureCredential(nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create default Azure credential: %w", err)
 	}
-
 	containerClient, err := container.NewClient(containerURL, cred, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create container client: %w", err)
