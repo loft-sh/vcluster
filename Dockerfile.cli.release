@@ -1,7 +1,7 @@
 # we use alpine for easier debugging
 FROM alpine:3.23
 
-ARG HELM_VERSION="v3.17.3"
+ARG HELM_VERSION="v4.1.3"
 ARG TARGETARCH
 
 # Set root path as working directory
@@ -13,11 +13,11 @@ RUN wget -O devspace "https://github.com/loft-sh/devspace/releases/latest/downlo
 	&& mv devspace /usr/local/bin/devspace
 
 # Add helm
-RUN wget -O helm3.tar.gz "https://get.helm.sh/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz" \
-	&& tar -zxvf helm3.tar.gz "linux-${TARGETARCH}/helm" \
+RUN wget -O helm.tar.gz "https://get.helm.sh/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz" \
+	&& tar -zxvf helm.tar.gz "linux-${TARGETARCH}/helm" \
 	&& chmod +x "linux-${TARGETARCH}/helm" \
 	&& mv "linux-${TARGETARCH}/helm" /usr/local/bin/helm \
-	&& rm helm3.tar.gz \
+	&& rm helm.tar.gz \
 	&& rm -R "linux-${TARGETARCH}"
 
 # Add kubectl

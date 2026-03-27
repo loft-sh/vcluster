@@ -31,7 +31,7 @@ jobs:
           ref: ${{ inputs.ref }}
       - uses: azure/setup-helm@v4
         with:
-          version: "v3.0.2"
+          version: "v4.1.3"
       - name: Publish Helm chart
         run: |
           set -euo pipefail
