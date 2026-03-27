@@ -10,8 +10,8 @@ import (
 	"github.com/blang/semver"
 	clusterv1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/cluster/v1"
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
+	vcfg "github.com/loft-sh/vcluster/config"
 	vclusterconfig "github.com/loft-sh/vcluster/config"
-	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/sleepmode"
 	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
@@ -20,7 +20,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 )
@@ -68,9 +67,26 @@ func releaseName(virtualClusterInstance *managementv1.VirtualClusterInstance, fa
 	return fallback
 }
 
-func standalonePlatformSleepSupported(virtualClusterInstance *managementv1.VirtualClusterInstance) bool {
+func standAloneSleepCapable(virtualClusterInstance *managementv1.VirtualClusterInstance) error {
+	if virtualClusterInstance == nil {
+		return fmt.Errorf("no vCluster instance provided")
+	}
+
 	chartVersion, err := semver.ParseTolerant(chartVersion(virtualClusterInstance))
-	return err == nil && chartVersion.GE(semver.MustParse(standaloneSleepMinVersion))
+	if err != nil || !chartVersion.GE(semver.MustParse(standaloneSleepMinVersion)) {
+		return fmt.Errorf("sleep for standalone requires version %q or higher of the vcluster chart", standaloneSleepMinVersion)
+	}
+
+	vConfig := &vcfg.Config{}
+	if err := vcfg.UnmarshalYAMLStrict([]byte(virtualClusterInstance.Status.VirtualCluster.HelmRelease.Values), vConfig); err != nil {
+		return fmt.Errorf("unmarshal vcluster config: %w", err)
+	}
+
+	if vConfig.Sleep == nil {
+		return fmt.Errorf("sleepmode is not configured for vCluster: %q", virtualClusterInstance.Name)
+	}
+
+	return nil
 }
 
 func applySleepAnnotations(secret *corev1.Secret, sleepingSince string, forceDuration *int64) {
@@ -92,31 +108,12 @@ func clearSleepAnnotations(secret *corev1.Secret) {
 	secret.Annotations[clusterv1.SleepModeLastActivityAnnotation] = strconv.FormatInt(time.Now().Unix(), 10)
 }
 
-func standaloneKubeClient(vCluster *find.VCluster) (kubernetes.Interface, error) {
-	if vCluster.ClientFactory == nil {
-		return nil, fmt.Errorf("cannot access standalone vCluster %s in namespace %s: kubeconfig is not available", vCluster.Name, vCluster.Namespace)
-	}
-
-	rawConfig, err := vCluster.ClientFactory.RawConfig()
-	if err != nil {
-		return nil, fmt.Errorf("load kubeconfig: %w", err)
-	}
-
-	vClusterCtxName := find.VClusterContextName(vCluster.Name, vCluster.Namespace, vCluster.Context)
-	if _, ok := rawConfig.Contexts[vClusterCtxName]; !ok {
-		return nil, fmt.Errorf("cannot access standalone vCluster %s in namespace %s: context %q not found in kubeconfig, please run 'vcluster connect %s -n %s' first",
-			vCluster.Name, vCluster.Namespace, vClusterCtxName, vCluster.Name, vCluster.Namespace)
-	}
-
-	cfg := clientcmd.NewDefaultClientConfig(rawConfig, &clientcmd.ConfigOverrides{CurrentContext: vClusterCtxName})
-	return kubeclient.NewVClusterClient(cfg, "", kubeclient.WithWrapTransport(func(rt http.RoundTripper) http.RoundTripper { return &sleepModeIgnoreTransport{base: rt} }))
-}
-
 func standalonePlatformKubeClient(platformClient platform.Client, projectName, vClusterName string) (kubernetes.Interface, error) {
 	if projectName == "" {
 		projectName = defaultPlatformProjectName
 	}
 
+	fmt.Printf("Connecting to virtual cluster %s in project %s\n", vClusterName, projectName)
 	virtualKubeClient, _, err := kubeclient.NewPlatformProxyClient(platformClient, projectName, vClusterName, kubeclient.WithWrapTransport(func(rt http.RoundTripper) http.RoundTripper { return &sleepModeIgnoreTransport{base: rt} }))
 	return virtualKubeClient, err
 }

@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	clusterv1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/cluster/v1"
@@ -118,8 +117,8 @@ func tryWorkloadWakePlatform(ctx context.Context, platformClient platform.Client
 
 // wakePlatformStandalone wakes a standalone vCluster when its chart version is supported
 func wakePlatformStandalone(ctx context.Context, platformClient platform.Client, projectName string, log log.Logger, vClusterName string, virtualClusterInstance *managementv1.VirtualClusterInstance) (bool, error) {
-	if !standalonePlatformSleepSupported(virtualClusterInstance) {
-		return false, errors.New("vCluster is not supported for standalone workload sleep")
+	if supportErr := standAloneSleepCapable(virtualClusterInstance); supportErr != nil {
+		return false, supportErr
 	}
 
 	target, err := workloadSleepSecretTarget(ctx, platformClient, projectName, virtualClusterInstance, vClusterName)

@@ -157,11 +157,9 @@ func tryWorkloadSleepPlatform(ctx context.Context, platformClient platform.Clien
 // whose chart version supports native standalone sleep, then updates the
 // vc-standalone-sleep-state secret via the platform proxy.
 func sleepPlatformStandalone(ctx context.Context, platformClient platform.Client, projectName string, forceDuration int64, log log.Logger, vClusterName string, virtualClusterInstance *managementv1.VirtualClusterInstance) (bool, error) {
-	if !standalonePlatformSleepSupported(virtualClusterInstance) {
-		return false, nil
+	if err := standAloneSleepCapable(virtualClusterInstance); err != nil {
+		return false, err
 	}
-
-	log.Infof("vCluster %s supports standalone workload sleep, sleeping workloads only (control plane stays running)", vClusterName)
 
 	sleepingSince := strconv.FormatInt(time.Now().Unix(), 10)
 	virtualKubeClient, err := standalonePlatformKubeClient(platformClient, projectName, vClusterName)
