@@ -7,13 +7,13 @@ metadata:
   kubernetesVersion: v1.34
   platformName: "vCluster with Private Nodes"
   platformVersion: "v0.32.0"
-  vendorName: "vCluster"
+  vendorName: "vCluster Labs"
   websiteUrl: "https://www.vcluster.com/"
   repoUrl: "https://github.com/loft-sh/vcluster"
   documentationUrl: "https://www.vcluster.com/docs"
   productLogoUrl: "https://static.loft.sh/branding/logos/vcluster/square/vcluster_square.svg"
   description: "vCluster creates fully functional virtual Kubernetes clusters inside host cluster namespaces, with Private Nodes providing exclusive attachment of real physical GPU nodes directly to a virtual cluster for AI/ML workloads."
-  contactEmailAddress: "cncf@loft.sh"
+  contactEmailAddress: "cncf@vcluster.com"
   k8sConformanceUrl: "https://github.com/cncf/k8s-conformance/tree/master/v1.34/vcluster-private-nodes"
 
 spec:
