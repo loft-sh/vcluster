@@ -29,10 +29,10 @@ func PauseDocker(ctx context.Context, globalFlags *flags.GlobalFlags, vClusterNa
 	}
 
 	// stop the container
-	log.Infof("Pausing vCluster %s...", vClusterName)
+	log.Infof("SleepingvCluster %s...", vClusterName)
 	err = stopDockerContainer(ctx, containerName)
 	if err != nil {
-		return fmt.Errorf("failed to pause vCluster: %w", err)
+		return fmt.Errorf("failed tosleepvCluster: %w", err)
 	}
 
 	// stop the nodes
