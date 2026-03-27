@@ -9,8 +9,8 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
-	"github.com/loft-sh/vcluster/pkg/platform/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
+	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	"github.com/mgutz/ansi"
 	"github.com/spf13/cobra"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -102,13 +102,13 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 
 	// check if we should print or update the config
 	if cmd.Print {
-		err = kubeconfig.PrintKubeConfigTo(contextOptions, os.Stdout)
+		err = kubeclient.PrintKubeConfigTo(contextOptions, os.Stdout)
 		if err != nil {
 			return err
 		}
 	} else {
 		// update kube config
-		err = kubeconfig.UpdateKubeConfig(contextOptions, cfg)
+		err = kubeclient.UpdateKubeConfig(contextOptions, cfg)
 		if err != nil {
 			return err
 		}

@@ -22,6 +22,7 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
+	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -719,7 +720,7 @@ func (cmd *createHelm) prepare(ctx context.Context, vClusterName string) error {
 				if err != nil {
 					return fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
 				}
-				err = find.SwitchContext(&rawConfig, cmd.Context)
+				err = kubeclient.SwitchContext(&rawConfig, cmd.Context)
 				if err != nil {
 					return fmt.Errorf("switch context: %w", err)
 				}

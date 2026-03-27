@@ -8,6 +8,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/lifecycle"
+	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -80,14 +81,14 @@ func preparePause(vCluster *find.VCluster, globalFlags *flags.GlobalFlags) (*kub
 		return nil, err
 	}
 
-	currentContext, currentRawConfig, err := find.CurrentContext()
+	currentContext, currentRawConfig, err := kubeclient.CurrentContext()
 	if err != nil {
 		return nil, err
 	}
 
 	vClusterName, vClusterNamespace, vClusterContext := find.VClusterFromContext(currentContext)
 	if vClusterName == vCluster.Name && vClusterNamespace == vCluster.Namespace && vClusterContext == vCluster.Context {
-		err = find.SwitchContext(currentRawConfig, vCluster.Context)
+		err = kubeclient.SwitchContext(currentRawConfig, vCluster.Context)
 		if err != nil {
 			return nil, err
 		}

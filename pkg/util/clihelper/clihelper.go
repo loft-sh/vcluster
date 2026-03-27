@@ -13,14 +13,13 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/podprinter"
-	utilkubeconfig "github.com/loft-sh/vcluster/pkg/util/kubeconfig"
+	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	"github.com/pkg/errors"
 	"golang.org/x/mod/semver"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
@@ -84,7 +83,7 @@ func GetKubeConfig(ctx context.Context, kubeClient *kubernetes.Clientset, vclust
 			}
 		}
 
-		kubeConfig, err = utilkubeconfig.ReadKubeConfig(ctx, kubeClient, vclusterName, namespace)
+		kubeConfig, err = kubeclient.ReadKubeConfig(ctx, kubeClient, vclusterName, namespace)
 		if err != nil {
 			return false, nil
 		}
@@ -126,39 +125,6 @@ func CheckHelmVersion(output string) error {
 	}
 
 	return nil
-}
-
-func UpdateKubeConfig(contextName string, cluster *clientcmdapi.Cluster, authInfo *clientcmdapi.AuthInfo, setActive bool) error {
-	config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{}).RawConfig()
-	if err != nil {
-		return err
-	}
-
-	if config.Clusters == nil {
-		config.Clusters = map[string]*clientcmdapi.Cluster{}
-	}
-	if config.AuthInfos == nil {
-		config.AuthInfos = map[string]*clientcmdapi.AuthInfo{}
-	}
-	if config.Contexts == nil {
-		config.Contexts = map[string]*clientcmdapi.Context{}
-	}
-
-	config.Clusters[contextName] = cluster
-	config.AuthInfos[contextName] = authInfo
-
-	// Update kube context
-	newContext := clientcmdapi.NewContext()
-	newContext.Cluster = contextName
-	newContext.AuthInfo = contextName
-
-	config.Contexts[contextName] = newContext
-	if setActive {
-		config.CurrentContext = contextName
-	}
-
-	// Save the config
-	return clientcmd.ModifyConfig(clientcmd.NewDefaultClientConfigLoadingRules(), config, false)
 }
 
 func RandomPort() int {

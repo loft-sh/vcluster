@@ -23,8 +23,8 @@ import (
 	"github.com/loft-sh/api/v4/pkg/product"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
-	"github.com/loft-sh/vcluster/pkg/platform/kubeconfig"
 	utilhttp "github.com/loft-sh/vcluster/pkg/util/http"
+	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	"github.com/loft-sh/vcluster/pkg/util/portforward"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -35,8 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/transport/spdy"
 	"k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 )
@@ -113,38 +111,6 @@ func DisplayName(entityInfo *storagev1.EntityInfo) string {
 	}
 
 	return entityInfo.Name
-}
-
-// GetProKubeConfig builds a pro kube config from options and client
-func GetProKubeConfig(options kubeconfig.ContextOptions) (*clientcmdapi.Config, error) {
-	contextName := options.Name
-	cluster := clientcmdapi.NewCluster()
-	cluster.Server = options.Server
-	cluster.CertificateAuthorityData = options.CaData
-	cluster.InsecureSkipTLSVerify = options.InsecureSkipTLSVerify
-
-	authInfo := clientcmdapi.NewAuthInfo()
-	if options.Token != "" {
-		authInfo.Token = options.Token
-	}
-
-	config := clientcmdapi.NewConfig()
-	config.Clusters[contextName] = cluster
-	config.AuthInfos[contextName] = authInfo
-
-	// Update kube context
-	kubeContext := clientcmdapi.NewContext()
-	kubeContext.Cluster = contextName
-	kubeContext.AuthInfo = contextName
-	kubeContext.Namespace = options.CurrentNamespace
-
-	config.Contexts[contextName] = kubeContext
-	config.CurrentContext = contextName
-
-	// set kind & version
-	config.APIVersion = "v1"
-	config.Kind = "Config"
-	return config, nil
 }
 
 func GetLoftIngressHost(ctx context.Context, kubeClient kubernetes.Interface, namespace string) (string, error) {
@@ -461,16 +427,9 @@ func IsLoftAlreadyInstalled(ctx context.Context, kubeClient kubernetes.Interface
 var ErrPlatformNamespaceNotFound = errors.New("vCluster Platform installation namespace not found")
 
 func VClusterPlatformInstallationNamespace(ctx context.Context) (string, error) {
-	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
-
-	kubeConfig, err := kubeClientConfig.ClientConfig()
+	kubeClient, err := kubeclient.NewClientsetForContext("")
 	if err != nil {
-		return "", fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
-	}
-
-	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
-	if err != nil {
-		return "", fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
+		return "", err
 	}
 
 	deployments, err := kubeClient.AppsV1().Deployments(metav1.NamespaceAll).List(ctx, metav1.ListOptions{

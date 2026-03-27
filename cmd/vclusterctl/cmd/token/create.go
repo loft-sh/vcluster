@@ -10,12 +10,12 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	clientcmd "k8s.io/client-go/tools/clientcmd"
 	clientcertutil "k8s.io/client-go/util/cert"
 	bootstrapapi "k8s.io/cluster-bootstrap/token/api"
 	bootstraputil "k8s.io/cluster-bootstrap/token/util"
@@ -73,7 +73,7 @@ func (cmd *CreateCmd) Run(ctx context.Context) error {
 		return fmt.Errorf("--kubeadm and --control-plane are mutually exclusive")
 	}
 	// get the client
-	vClient, err := getClient(cmd.GlobalFlags)
+	vClient, err := kubeclient.NewClientsetForContext(cmd.GlobalFlags.Context)
 	if err != nil {
 		return err
 	}
@@ -214,19 +214,4 @@ func validateJoinScriptEndpoint(endpoint string) error {
 	}
 
 	return nil
-}
-
-func getClient(flags *flags.GlobalFlags) (*kubernetes.Clientset, error) {
-	// first load the kube config
-	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
-		CurrentContext: flags.Context,
-	})
-
-	// get the client config
-	restConfig, err := kubeClientConfig.ClientConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get client config: %w", err)
-	}
-
-	return kubernetes.NewForConfig(restConfig)
 }

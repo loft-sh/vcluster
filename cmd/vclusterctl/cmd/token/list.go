@@ -10,6 +10,7 @@ import (
 	"github.com/loft-sh/log/table"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -59,7 +60,7 @@ type Token struct {
 
 func (cmd *ListCmd) Run(ctx context.Context) error {
 	// get the client
-	vClient, err := getClient(cmd.GlobalFlags)
+	vClient, err := kubeclient.NewClientsetForContext(cmd.GlobalFlags.Context)
 	if err != nil {
 		return err
 	}

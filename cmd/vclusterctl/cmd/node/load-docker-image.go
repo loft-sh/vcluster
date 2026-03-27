@@ -9,6 +9,7 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
+	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -56,7 +57,7 @@ func (o *LoadImageOptions) Run(ctx context.Context, nodeName string) error {
 	}
 
 	// get kube client
-	kubeClient, err := getClient(o.GlobalFlags)
+	kubeClient, err := kubeclient.NewClientsetForContext(o.GlobalFlags.Context)
 	if err != nil {
 		return fmt.Errorf("failed to get vcluster client: %w", err)
 	}
