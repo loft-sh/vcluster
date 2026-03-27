@@ -30,7 +30,7 @@ jobs:
   e2e-tests:
     name: Run Ginkgo E2E Tests
     if: github.repository_owner == 'loft-sh'
-    runs-on: ubuntu-latest
+    runs-on: large-8_32
     timeout-minutes: 180
 
     steps:
