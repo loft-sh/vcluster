@@ -163,7 +163,7 @@ func (c *client) Save() error {
 }
 
 func (c *client) Delete() error {
-	return c.config.Delete()
+	return c.config.ClearPlatform()
 }
 
 func (c *client) ManagementConfig() (*rest.Config, error) {
