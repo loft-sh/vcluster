@@ -175,10 +175,10 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	if !cmd.Upgrade {
 		if isVClusterDeployed(release) {
 			if cmd.Restore != "" {
-				log.Infof("Resuming vCluster %s after it was paused", vClusterName)
+				log.Infof("Waking vCluster %s after it was paused", vClusterName)
 				err = lifecycle.ResumeVCluster(ctx, cmd.kubeClient, vClusterName, cmd.Namespace, true, log)
 				if err != nil {
-					log.Infof("Skipped resuming vCluster %s", vClusterName)
+					log.Infof("Skipped Waking vCluster %s", vClusterName)
 				}
 
 				log.Infof("Restore vCluster %s...", vClusterName)

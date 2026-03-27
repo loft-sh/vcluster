@@ -29,10 +29,10 @@ func ResumeDocker(ctx context.Context, globalFlags *flags.GlobalFlags, vClusterN
 	}
 
 	// start the container
-	log.Infof("Resuming vCluster %s...", vClusterName)
+	log.Infof("Waking vCluster %s...", vClusterName)
 	err = startDockerContainerByName(ctx, containerName)
 	if err != nil {
-		return fmt.Errorf("failed to resume vCluster: %w", err)
+		return fmt.Errorf("failed towakevCluster: %w", err)
 	}
 
 	// start the nodes
