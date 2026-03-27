@@ -8,6 +8,10 @@ metadata:
     chart: "{{ include "vcluster.version.label"  $ }}"
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
+  {{- $labels := merge dict .Values.controlPlane.statefulSet.labels }}
+  {{- if $labels }}
+{{ toYaml $labels | indent 4 }}
+  {{- end }}
   {{- if .Values.controlPlane.advanced.globalMetadata.annotations }}
   annotations:
 {{ toYaml .Values.controlPlane.advanced.globalMetadata.annotations | indent 4 }}

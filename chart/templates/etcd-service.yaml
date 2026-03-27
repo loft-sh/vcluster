@@ -1,5 +1,6 @@
 {{- if or .Values.controlPlane.backingStore.etcd.deploy.enabled (include "vcluster.etcd.embedded.migrate" .) }}
 {{- if .Values.controlPlane.backingStore.etcd.deploy.service.enabled }}
+{{- $externalEtcd := .Values.controlPlane.backingStore.etcd.deploy.statefulSet }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -10,6 +11,10 @@ metadata:
     chart: "{{ include "vcluster.version.label"  $ }}"
     release: "{{ .Release.Name }}"
     heritage: "{{ .Release.Service }}"
+  {{- $labels := merge dict $externalEtcd.labels }}
+  {{- if $labels }}
+{{ toYaml $labels | indent 4 }}
+  {{- end }}
   {{- $annotations := merge dict .Values.controlPlane.advanced.globalMetadata.annotations .Values.controlPlane.backingStore.etcd.deploy.service.annotations }}
   {{- if $annotations }}
   annotations:
