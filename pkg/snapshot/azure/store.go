@@ -14,23 +14,21 @@ import (
 )
 
 type ObjectStore struct {
-	log            logr.Logger
-	blobClient     *blockblob.Client
-	subscriptionID string
-	resourceGroup  string
-	accountName    string
-	containerName  string
-	blobName       string
-	blobURL        string
+	log           logr.Logger
+	blobClient    *blockblob.Client
+	options       *Options
+	accountName   string
+	containerName string
+	blobName      string
+	blobURL       string
 }
 
 var _ types.Storage = &ObjectStore{}
 
 func NewStore(ctx context.Context, options *Options, logger logr.Logger) (*ObjectStore, error) {
 	objectStore := &ObjectStore{
-		log:            logger,
-		subscriptionID: options.GetSubscriptionID(),
-		resourceGroup:  options.GetResourceGroup(),
+		log:     logger,
+		options: options,
 	}
 	err := objectStore.init(ctx, options)
 	if err != nil {
@@ -56,7 +54,7 @@ func (o *ObjectStore) init(ctx context.Context, options *Options) error {
 	}
 
 	// Create the blob client
-	o.blobClient, err = newBlobClient(ctx, o.subscriptionID, o.resourceGroup, info, o.blobURL, useSASToken)
+	o.blobClient, err = newBlobClient(ctx, options, info, o.blobURL, useSASToken)
 	if err != nil {
 		return fmt.Errorf("failed to create blob client: %w", err)
 	}
@@ -90,7 +88,7 @@ func (o *ObjectStore) GetObject(ctx context.Context) (io.ReadCloser, error) {
 }
 func (o *ObjectStore) List(ctx context.Context) ([]types.Snapshot, error) {
 	// Create the container client for listing blobs
-	containerClient, err := newContainerClient(o.accountName, o.containerName)
+	containerClient, err := newContainerClient(o.options, o.accountName, o.containerName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create container client: %w", err)
 	}
