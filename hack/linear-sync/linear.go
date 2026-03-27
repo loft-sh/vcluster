@@ -260,12 +260,23 @@ func (l *LinearClient) MoveIssueToState(ctx context.Context, dryRun bool, issueI
 
 	// If already in released state:
 	// - Pre-releases: skip entirely (already released in a previous pre-release)
-	// - Stable releases: skip state update but add "now available in stable" comment
+	// - Stable releases: skip state update but add "now available in stable" comment (only once)
 	if alreadyReleased {
 		if !isStable {
 			logger.Debug("Issue already has desired state", "issueID", issueID, "stateID", releasedStateID)
 			return nil
 		}
+
+		// Check if a stable release comment already exists to avoid duplicates
+		comments, err := l.ListIssueComments(ctx, issueID)
+		if err != nil {
+			return fmt.Errorf("list issue comments: %w", err)
+		}
+		if hasStableReleaseComment(comments) {
+			logger.Debug("Issue already has stable release comment, skipping", "issueID", issueID)
+			return nil
+		}
+
 		logger.Debug("Issue already released, adding stable release comment", "issueID", issueID)
 	} else {
 		// Skip issues not in ready for release state
@@ -324,6 +335,64 @@ func (l *LinearClient) updateIssueState(ctx context.Context, issueID, releasedSt
 	}
 
 	return nil
+}
+
+// stableReleaseCommentPrefix is the prefix used to identify stable release comments.
+const stableReleaseCommentPrefix = "Now available in stable release"
+
+// ListIssueComments returns the body text of all comments on the given issue.
+// It paginates through all comments to avoid missing any beyond the default page size.
+func (l *LinearClient) ListIssueComments(ctx context.Context, issueID string) ([]string, error) {
+	var bodies []string
+	var cursor *string
+
+	for {
+		var query struct {
+			Issue struct {
+				Comments struct {
+					Nodes []struct {
+						Body string
+					}
+					PageInfo struct {
+						HasNextPage bool
+						EndCursor   string
+					}
+				} `graphql:"comments(first: 100, after: $cursor)"`
+			} `graphql:"issue(id: $id)"`
+		}
+
+		variables := map[string]any{
+			"id":     graphql.String(issueID),
+			"cursor": (*graphql.String)(cursor),
+		}
+
+		if err := l.client.Query(ctx, &query, variables); err != nil {
+			return nil, fmt.Errorf("query issue comments: %w", err)
+		}
+
+		for _, c := range query.Issue.Comments.Nodes {
+			bodies = append(bodies, c.Body)
+		}
+
+		if !query.Issue.Comments.PageInfo.HasNextPage {
+			break
+		}
+		endCursor := query.Issue.Comments.PageInfo.EndCursor
+		cursor = &endCursor
+	}
+
+	return bodies, nil
+}
+
+// hasStableReleaseComment checks whether any of the given comment bodies
+// indicate that a stable release comment has already been posted.
+func hasStableReleaseComment(comments []string) bool {
+	for _, body := range comments {
+		if strings.HasPrefix(body, stableReleaseCommentPrefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // createComment creates a comment on the given issue.
