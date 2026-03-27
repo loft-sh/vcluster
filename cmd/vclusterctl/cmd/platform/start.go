@@ -17,6 +17,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/start"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
+	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -146,7 +147,7 @@ func (cmd *StartCmd) Run(ctx context.Context) error {
 				if err != nil {
 					return fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
 				}
-				err = find.SwitchContext(&rawConfig, cmd.Context)
+				err = kubeclient.SwitchContext(&rawConfig, cmd.Context)
 				if err != nil {
 					return fmt.Errorf("switch context: %w", err)
 				}

@@ -11,9 +11,9 @@ import (
 	"github.com/loft-sh/vcluster/pkg/platform"
 	pdefaults "github.com/loft-sh/vcluster/pkg/platform/defaults"
 	"github.com/loft-sh/vcluster/pkg/platform/kube"
-	"github.com/loft-sh/vcluster/pkg/platform/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/projectutil"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
+	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -103,7 +103,7 @@ func (cmd *NamespaceCmd) deleteSpace(ctx context.Context, platformClient platfor
 
 	// update kube config
 	if cmd.DeleteContext {
-		err = kubeconfig.DeleteContext(kubeconfig.SpaceInstanceContextName(cmd.Project, spaceName))
+		err = kubeclient.DeleteContext(kubeclient.SpaceInstanceContextName(cmd.Project, spaceName))
 		if err != nil {
 			return err
 		}

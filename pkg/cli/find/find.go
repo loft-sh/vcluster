@@ -15,6 +15,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/kube"
 	"github.com/loft-sh/vcluster/pkg/platform/sleepmode"
+	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -26,7 +27,6 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 const (
@@ -66,24 +66,6 @@ type VClusterNotFoundError struct {
 
 func (e *VClusterNotFoundError) Error() string {
 	return fmt.Sprintf("couldn't find vcluster %s", e.Name)
-}
-
-func SwitchContext(kubeConfig *clientcmdapi.Config, otherContext string) error {
-	if kubeConfig == nil {
-		return errors.New("nil kubeconfig")
-	}
-
-	kubeConfig.CurrentContext = otherContext
-	return clientcmd.ModifyConfig(clientcmd.NewDefaultClientConfigLoadingRules(), *kubeConfig, false)
-}
-
-func CurrentContext() (string, *clientcmdapi.Config, error) {
-	rawConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{}).RawConfig()
-	if err != nil {
-		return "", nil, err
-	}
-
-	return rawConfig.CurrentContext, &rawConfig, nil
 }
 
 func GetPlatformVCluster(ctx context.Context, platformClient platform.Client, name, project string, log log.Logger) (*platform.VirtualClusterInstanceProject, error) {
@@ -251,12 +233,12 @@ func ListVClusters(ctx context.Context, context, name, namespace string, log log
 	var err error
 	if context == "" {
 		var err error
-		context, _, err = CurrentContext()
+		context, _, err = kubeclient.CurrentContext()
 		if err != nil {
 			return nil, err
 		}
 	}
-	kubeClient, err := CreateKubeClient(context)
+	kubeClient, _, err := kubeclient.NewHostClusterClient(context)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kube client: %w", err)
 	}
@@ -327,7 +309,7 @@ func ListOSSVClusters(ctx context.Context, kubeClient kube.Interface, context, n
 	}
 
 	if vClusterName != "" {
-		parentContextClient, err := CreateKubeClient(vClusterContext)
+		parentContextClient, _, err := kubeclient.NewHostClusterClient(vClusterContext)
 		if err != nil {
 			logger := log.GetInstance()
 			logger.Warn("parent context unreachable - No vClusters listed from parent context")
@@ -345,66 +327,34 @@ func ListOSSVClusters(ctx context.Context, kubeClient kube.Interface, context, n
 }
 
 func VClusterContextName(vClusterName string, vClusterNamespace string, currentContext string) string {
-	return "vcluster_" + vClusterName + "_" + vClusterNamespace + "_" + currentContext
+	return kubeclient.ContextName(vClusterName, vClusterNamespace, currentContext)
 }
 
 func VClusterPlatformContextName(vClusterName string, projectName string, currentContext string) string {
-	return "vcluster-platform_" + vClusterName + "_" + projectName + "_" + currentContext
+	return kubeclient.PlatformContextName(vClusterName, projectName, currentContext)
 }
 
 func VClusterDockerFromContext(originalContext string) (name string, context string) {
-	if !strings.HasPrefix(originalContext, "vcluster-docker_") {
-		return "", ""
-	}
-
-	splitted := strings.Split(originalContext, "_")
-	// vcluster-docker_<name>
-	if len(splitted) == 2 {
-		return splitted[1], ""
-	}
-
-	return "", ""
+	return kubeclient.DockerFromContext(originalContext), ""
 }
 
 func VClusterPlatformFromContext(originalContext string) (name string, project string, context string) {
-	if !strings.HasPrefix(originalContext, "vcluster-platform_") {
-		return "", "", ""
-	}
-
-	splitted := strings.Split(originalContext, "_")
-	// vcluster-pro_<name>_<namespace>_<context>
-	if len(splitted) >= 4 {
-		return splitted[1], splitted[2], strings.Join(splitted[3:], "_")
-	}
-
-	// we don't know for sure, but most likely specified custom vcluster context name
-	return originalContext, "", ""
+	return kubeclient.PlatformFromContext(originalContext)
 }
 
 var NonAllowedCharactersRegEx = regexp.MustCompile(`[^a-zA-Z0-9\-_]+`)
 
 func VClusterConnectBackgroundProxyName(vClusterName string, vClusterNamespace string, currentContext string) string {
-	return NonAllowedCharactersRegEx.ReplaceAllString(VClusterContextName(vClusterName, vClusterNamespace, currentContext)+"_background_proxy", "")
+	return kubeclient.BackgroundProxyName(vClusterName, vClusterNamespace, currentContext)
 }
 
 func VClusterFromContext(originalContext string) (name string, namespace string, context string) {
-	if !strings.HasPrefix(originalContext, "vcluster_") {
-		return "", "", ""
-	}
-
-	splitted := strings.Split(originalContext, "_")
-	// vcluster_<name>_<namespace>_<context>
-	if len(splitted) >= 4 {
-		return splitted[1], splitted[2], strings.Join(splitted[3:], "_")
-	}
-
-	// we don't know for sure, but most likely specified custom vcluster context name
-	return originalContext, "", ""
+	return kubeclient.FromContext(originalContext)
 }
 
 func findInContext(ctx context.Context, kubeClient kube.Interface, context, name, namespace string, timeout time.Duration) ([]VCluster, error) {
-	vclusters := []VCluster{}
-	kubeClientConfig := createKubeClientConfig(context)
+	var vclusters []VCluster
+	kubeClientConfig := kubeclient.HostClientConfig(context)
 
 	// statefulset based vclusters
 	statefulSets, err := getStatefulSets(ctx, kubeClient, namespace, kubeClientConfig, timeout)

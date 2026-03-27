@@ -12,6 +12,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	debugshellutil "github.com/loft-sh/vcluster/pkg/util/debugshell"
+	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
@@ -70,7 +71,7 @@ func (cmd *DebugCmd) Run(ctx context.Context, args []string) error {
 	}
 	vClusterName := args[0]
 	// Resolve target vCluster and pick the pod to attach an ephemeral debug container to.
-	client, err := find.CreateKubeClient(cmd.Context)
+	client, _, err := kubeclient.NewHostClusterClient(cmd.Context)
 	if err != nil {
 		return fmt.Errorf("cannot create Kubernetes client: %w", err)
 	}

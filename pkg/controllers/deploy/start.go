@@ -8,13 +8,13 @@ import (
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
-	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
+	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"k8s.io/klog/v2"
 )
 
 func RegisterInitManifestsController(controllerCtx *synccontext.ControllerContext) error {
-	vConfig, err := kubeconfig.ConvertRestConfigToClientConfig(controllerCtx.VirtualManager.GetConfig())
+	vConfig, err := kubeclient.ConvertRestConfigToClientConfig(controllerCtx.VirtualManager.GetConfig())
 	if err != nil {
 		return err
 	}

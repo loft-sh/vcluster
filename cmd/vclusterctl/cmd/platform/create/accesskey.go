@@ -12,11 +12,10 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/cli/util"
 	"github.com/loft-sh/vcluster/pkg/platform"
-	"github.com/loft-sh/vcluster/pkg/platform/kube"
 	"github.com/loft-sh/vcluster/pkg/platform/random"
+	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 type AccessKeyCmd struct {
@@ -88,23 +87,8 @@ func (cmd *AccessKeyCmd) Run(ctx context.Context, args []string) error {
 	return nil
 }
 
-func getClient(flags *flags.GlobalFlags) (kube.Interface, error) {
-	// first load the kube config
-	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
-		CurrentContext: flags.Context,
-	})
-
-	// get the client config
-	restConfig, err := kubeClientConfig.ClientConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get client config: %w", err)
-	}
-
-	return kube.NewForConfig(restConfig)
-}
-
 func (cmd *AccessKeyCmd) createAccessKeyInCluster(ctx context.Context, accessKeyName string) (string, error) {
-	client, err := getClient(cmd.GlobalFlags)
+	client, _, err := kubeclient.NewHostClusterClient(cmd.GlobalFlags.Context)
 	if err != nil {
 		return "", err
 	}

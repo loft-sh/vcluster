@@ -21,6 +21,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/specialservices"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/util/serviceaccount"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -322,7 +323,7 @@ func WriteKubeConfigToSecret(ctx context.Context, virtualConfig *rest.Config, cu
 		return nil
 	}
 
-	err = kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, kubeconfig.GetDefaultSecretName(translate.VClusterName), currentNamespace, defaultKubeConfig, options.Name)
+	err = kubeconfig.WriteKubeConfig(ctx, currentNamespaceClient, kubeclient.GetDefaultSecretName(translate.VClusterName), currentNamespace, defaultKubeConfig, options.Name)
 	if err != nil {
 		return fmt.Errorf("creating the default kubeconfig secret in the %s ns failed: %w", currentNamespace, err)
 	}
@@ -343,7 +344,7 @@ func WriteKubeConfigToSecret(ctx context.Context, virtualConfig *rest.Config, cu
 		// if the additional secret name is not specified, fallback to the default secret name
 		secretName := additionalSecret.Name
 		if secretName == "" {
-			secretName = kubeconfig.GetDefaultSecretName(translate.VClusterName)
+			secretName = kubeclient.GetDefaultSecretName(translate.VClusterName)
 		}
 		// if the additional secret namespace is not specified, fallback to the current namespace
 		secretNamespace := additionalSecret.Namespace

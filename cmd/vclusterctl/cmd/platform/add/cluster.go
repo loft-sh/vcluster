@@ -22,12 +22,11 @@ import (
 	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
 	"github.com/loft-sh/vcluster/pkg/platform/kube"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
+	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	"github.com/spf13/cobra"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 type ClusterCmd struct {
@@ -255,25 +254,9 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 		helmArgs = append(helmArgs, "--kube-context", cmd.Context)
 	}
 
-	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
-
-	if cmd.Context != "" {
-		kubeConfig, err := kubeClientConfig.RawConfig()
-		if err != nil {
-			return fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
-		}
-
-		kubeClientConfig = clientcmd.NewNonInteractiveClientConfig(kubeConfig, cmd.Context, &clientcmd.ConfigOverrides{}, clientcmd.NewDefaultClientConfigLoadingRules())
-	}
-
-	config, err := kubeClientConfig.ClientConfig()
+	clientset, err := kubeclient.NewClientsetForContext(cmd.Context)
 	if err != nil {
-		return fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
-	}
-
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return fmt.Errorf("create kube client: %w", err)
+		return err
 	}
 
 	agentAlreadyInstalled := true

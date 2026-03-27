@@ -11,9 +11,9 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/util"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	pdefaults "github.com/loft-sh/vcluster/pkg/platform/defaults"
-	"github.com/loft-sh/vcluster/pkg/platform/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/projectutil"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
+	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	"github.com/mgutz/ansi"
 	"github.com/spf13/cobra"
 )
@@ -114,13 +114,13 @@ func (cmd *NamespaceCmd) connectSpace(ctx context.Context, platformClient platfo
 
 	// check if we should print or update the config
 	if cmd.Print {
-		err = kubeconfig.PrintKubeConfigTo(contextOptions, os.Stdout)
+		err = kubeclient.PrintKubeConfigTo(contextOptions, os.Stdout)
 		if err != nil {
 			return err
 		}
 	} else {
 		// update kube config
-		err = kubeconfig.UpdateKubeConfig(contextOptions, cfg)
+		err = kubeclient.UpdateKubeConfig(contextOptions, cfg)
 		if err != nil {
 			return err
 		}

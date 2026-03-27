@@ -22,10 +22,10 @@ import (
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
 	"github.com/loft-sh/vcluster/pkg/platform/kube"
-	"github.com/loft-sh/vcluster/pkg/platform/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/platform/sleepmode"
 	"github.com/loft-sh/vcluster/pkg/projectutil"
 	"github.com/loft-sh/vcluster/pkg/util"
+	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	"gopkg.in/yaml.v2"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -596,7 +596,7 @@ func WaitForSpaceInstance(ctx context.Context, managementClient kube.Interface, 
 	})
 }
 
-func CreateVirtualClusterInstanceOptions(ctx context.Context, client Client, config string, projectName string, virtualClusterInstance *managementv1.VirtualClusterInstance, setActive bool) (kubeconfig.ContextOptions, error) {
+func CreateVirtualClusterInstanceOptions(ctx context.Context, client Client, config string, projectName string, virtualClusterInstance *managementv1.VirtualClusterInstance, setActive bool) (kubeclient.ContextOptions, error) {
 	host := client.Config().Platform.Host
 	insecure := client.Config().Platform.Insecure
 	var caData []byte
@@ -605,7 +605,7 @@ func CreateVirtualClusterInstanceOptions(ctx context.Context, client Client, con
 	if virtualClusterInstance.Spec.ClusterRef.Cluster != "" {
 		cluster, err := findProjectCluster(ctx, client, projectName, virtualClusterInstance.Spec.ClusterRef.Cluster)
 		if err != nil {
-			return kubeconfig.ContextOptions{}, fmt.Errorf("find virtual cluster instance cluster: %w", err)
+			return kubeclient.ContextOptions{}, fmt.Errorf("find virtual cluster instance cluster: %w", err)
 		}
 		directHost, directInsecure := getDirectEndpointAndInsecureFromClusterAnnotations(cluster)
 
@@ -623,13 +623,13 @@ func CreateVirtualClusterInstanceOptions(ctx context.Context, client Client, con
 		if !insecure {
 			caData, err = RetrieveCaData(cluster)
 			if err != nil {
-				return kubeconfig.ContextOptions{}, err
+				return kubeclient.ContextOptions{}, err
 			}
 		}
 	}
 
-	return kubeconfig.ContextOptions{
-		Name:                  kubeconfig.VirtualClusterInstanceContextName(projectName, virtualClusterInstance.Name),
+	return kubeclient.ContextOptions{
+		Name:                  kubeclient.VirtualClusterInstanceContextName(projectName, virtualClusterInstance.Name),
 		ConfigPath:            config,
 		SetActive:             setActive,
 		Server:                host + "/kubernetes/project/" + projectName + "/virtualcluster/" + virtualClusterInstance.Name,
@@ -638,14 +638,14 @@ func CreateVirtualClusterInstanceOptions(ctx context.Context, client Client, con
 	}, nil
 }
 
-func CreateSpaceInstanceOptions(ctx context.Context, client Client, config string, projectName string, spaceInstance *managementv1.SpaceInstance, setActive, disableDirectEndpoint bool) (kubeconfig.ContextOptions, error) {
+func CreateSpaceInstanceOptions(ctx context.Context, client Client, config string, projectName string, spaceInstance *managementv1.SpaceInstance, setActive, disableDirectEndpoint bool) (kubeclient.ContextOptions, error) {
 	cluster, err := findProjectCluster(ctx, client, projectName, spaceInstance.Spec.ClusterRef.Cluster)
 	if err != nil {
-		return kubeconfig.ContextOptions{}, fmt.Errorf("find space instance cluster: %w", err)
+		return kubeclient.ContextOptions{}, fmt.Errorf("find space instance cluster: %w", err)
 	}
 
-	contextOptions := kubeconfig.ContextOptions{
-		Name:             kubeconfig.SpaceInstanceContextName(projectName, spaceInstance.Name),
+	contextOptions := kubeclient.ContextOptions{
+		Name:             kubeclient.SpaceInstanceContextName(projectName, spaceInstance.Name),
 		ConfigPath:       config,
 		CurrentNamespace: spaceInstance.Spec.ClusterRef.Namespace,
 		SetActive:        setActive,
@@ -668,15 +668,15 @@ func CreateSpaceInstanceOptions(ctx context.Context, client Client, config strin
 
 	data, err := RetrieveCaData(cluster)
 	if err != nil {
-		return kubeconfig.ContextOptions{}, err
+		return kubeclient.ContextOptions{}, err
 	}
 	contextOptions.CaData = data
 	return contextOptions, nil
 }
 
-func CreateClusterContextOptions(platformClient Client, config string, cluster *managementv1.Cluster, spaceName string, setActive bool) (kubeconfig.ContextOptions, error) {
-	contextOptions := kubeconfig.ContextOptions{
-		Name:             kubeconfig.SpaceContextName(cluster.Name, spaceName),
+func CreateClusterContextOptions(platformClient Client, config string, cluster *managementv1.Cluster, spaceName string, setActive bool) (kubeclient.ContextOptions, error) {
+	contextOptions := kubeclient.ContextOptions{
+		Name:             kubeclient.SpaceContextName(cluster.Name, spaceName),
 		ConfigPath:       config,
 		CurrentNamespace: spaceName,
 		SetActive:        setActive,
@@ -698,7 +698,7 @@ func CreateClusterContextOptions(platformClient Client, config string, cluster *
 
 	data, err := RetrieveCaData(cluster)
 	if err != nil {
-		return kubeconfig.ContextOptions{}, err
+		return kubeclient.ContextOptions{}, err
 	}
 	contextOptions.CaData = data
 	return contextOptions, nil
