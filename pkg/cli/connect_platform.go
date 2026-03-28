@@ -9,10 +9,9 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
-	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
+	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	"github.com/loft-sh/vcluster/pkg/util/serviceaccount"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
@@ -118,9 +117,7 @@ func (cmd *connectPlatform) getVClusterKubeConfig(ctx context.Context, platformC
 	}
 
 	// get current context
-	rawConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
-		CurrentContext: cmd.Context,
-	}).RawConfig()
+	rawConfig, err := kubeclient.HostClientConfig(cmd.Context).RawConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +142,7 @@ func (cmd *connectPlatform) getVClusterKubeConfig(ctx context.Context, platformC
 	}
 
 	// build kube config
-	kubeConfig, err := clihelper.GetProKubeConfig(contextOptions)
+	kubeConfig, err := kubeclient.GetKubeConfig(contextOptions)
 	if err != nil {
 		return nil, err
 	}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -51,7 +52,7 @@ func NewDeleteCommand(globalFlags *flags.GlobalFlags) *cobra.Command {
 func (o *DeleteOptions) Run(ctx context.Context, args []string) error {
 	// get the node name
 	nodeName := args[0]
-	kubeClient, err := getClient(o.GlobalFlags)
+	kubeClient, err := kubeclient.NewClientsetForContext(o.GlobalFlags.Context)
 	if err != nil {
 		return fmt.Errorf("failed to get vcluster client: %w", err)
 	}

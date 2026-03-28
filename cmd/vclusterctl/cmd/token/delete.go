@@ -5,6 +5,7 @@ import (
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,7 +46,7 @@ Delete a node bootstrap token for a vCluster with private nodes enabled.
 
 func (cmd *DeleteCmd) Run(ctx context.Context, args []string) error {
 	// get the client
-	vClient, err := getClient(cmd.GlobalFlags)
+	vClient, err := kubeclient.NewClientsetForContext(cmd.GlobalFlags.Context)
 	if err != nil {
 		return err
 	}

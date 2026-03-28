@@ -7,13 +7,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sirupsen/logrus"
-
+	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/table"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
+	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -39,7 +39,7 @@ func ListPlatform(ctx context.Context, options *ListOptions, globalFlags *flags.
 		return err
 	}
 
-	err = printProVClusters(ctx, options, proToVClusters(proVClusters, currentContext), globalFlags, logger)
+	err = printProVClusters(ctx, options, proToVClusters(ctx, platformClient, proVClusters, currentContext, logger), globalFlags, logger)
 	if err != nil {
 		return err
 	}
@@ -47,15 +47,10 @@ func ListPlatform(ctx context.Context, options *ListOptions, globalFlags *flags.
 	return nil
 }
 
-func proToVClusters(vClusters []*platform.VirtualClusterInstanceProject, currentContext string) []ListProVCluster {
+func proToVClusters(ctx context.Context, platformClient platform.Client, vClusters []*platform.VirtualClusterInstanceProject, currentContext string, logger log.Logger) []ListProVCluster {
 	var output []ListProVCluster
 	for _, vCluster := range vClusters {
-		status := string(vCluster.VirtualCluster.Status.Phase)
-		if vCluster.VirtualCluster.DeletionTimestamp != nil {
-			status = "Terminating"
-		} else if status == "" {
-			status = "Pending"
-		}
+		status := platformVClusterListStatus(ctx, platformClient, logger, vCluster)
 
 		version := ""
 		if vCluster.VirtualCluster.Status.VirtualCluster != nil && vCluster.VirtualCluster.Status.VirtualCluster.HelmRelease.Chart.Version != "" {
@@ -70,7 +65,7 @@ func proToVClusters(vClusters []*platform.VirtualClusterInstanceProject, current
 		}
 
 		connected := strings.HasPrefix(currentContext, "vcluster-platform_"+vCluster.VirtualCluster.Name+"_"+vCluster.Project.Name)
-		vClusterOutput := ListProVCluster{
+		output = append(output, ListProVCluster{
 			ListVCluster{
 				Name:       name,
 				Namespace:  vCluster.VirtualCluster.Spec.ClusterRef.Namespace,
@@ -81,10 +76,45 @@ func proToVClusters(vClusters []*platform.VirtualClusterInstanceProject, current
 				Version:    version,
 			},
 			vCluster.Project.Name,
-		}
-		output = append(output, vClusterOutput)
+		})
 	}
+
 	return output
+}
+
+func platformVClusterListStatus(ctx context.Context, platformClient platform.Client, logger log.Logger, vCluster *platform.VirtualClusterInstanceProject) string {
+	if vCluster == nil || vCluster.VirtualCluster == nil {
+		return "Pending"
+	}
+
+	status := string(vCluster.VirtualCluster.Status.Phase)
+	if vCluster.VirtualCluster.DeletionTimestamp != nil {
+		return "Terminating"
+	}
+	if status == string(storagev1.InstanceSleeping) {
+		return status
+	}
+
+	workloadSleeping, err := isPlatformWorkloadSleeping(ctx, platformClient, vCluster)
+	if err != nil {
+		logger.Debugf("failed to determine workload sleep state for platform vCluster %s in project %s: %v", vCluster.VirtualCluster.Name, vCluster.Project.Name, err)
+	} else if workloadSleeping {
+		return string(find.StatusWorkloadSleeping)
+	}
+
+	if status == "" {
+		return "Pending"
+	}
+
+	return status
+}
+
+func isPlatformWorkloadSleeping(ctx context.Context, platformClient platform.Client, vCluster *platform.VirtualClusterInstanceProject) (bool, error) {
+	target, err := workloadSleepSecretTarget(ctx, platformClient, vCluster.Project.Name, vCluster.VirtualCluster, "")
+	if err != nil {
+		return false, err
+	}
+	return isWorkloadSleeping(target.secret), nil
 }
 
 func printProVClusters(ctx context.Context, options *ListOptions, output []ListProVCluster, globalFlags *flags.GlobalFlags, logger log.Logger) error {

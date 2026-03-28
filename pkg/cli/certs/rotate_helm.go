@@ -88,10 +88,10 @@ func execRotate(ctx context.Context, containerName, cmd string, kubeClient *kube
 		return fmt.Errorf("checking for persistence: %w", err)
 	}
 
-	// If the vCluster has persistence we have to pause it in order to be able to mount
+	// If the vCluster has persistence we have tosleepit in order to be able to mount
 	// the data dir to the extra pod.
 	if pvc {
-		log.Infof("Pausing vCluster %s", vCluster.Name)
+		log.Infof("SleepingvCluster %s", vCluster.Name)
 		if err := lifecycle.PauseVCluster(ctx, kubeClient, vCluster.Name, vCluster.Namespace, true, log); err != nil {
 			return err
 		}
@@ -102,9 +102,9 @@ func execRotate(ctx context.Context, containerName, cmd string, kubeClient *kube
 			return fmt.Errorf("running %s pod: %w", containerName, err)
 		}
 
-		log.Infof("Resuming vCluster %s after it was paused", vCluster.Name)
+		log.Infof("Waking vCluster %s after it was paused", vCluster.Name)
 		if err := lifecycle.ResumeVCluster(ctx, kubeClient, vCluster.Name, vCluster.Namespace, true, log); err != nil {
-			return fmt.Errorf("resuming virtual cluster %s: %w", vCluster.Name, err)
+			return fmt.Errorf("waking virtual cluster %s: %w", vCluster.Name, err)
 		}
 
 		// Won't do anything in case deployed etcd does not exist.

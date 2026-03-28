@@ -10,7 +10,7 @@ import (
 
 	"github.com/loft-sh/vcluster/config/legacyconfig"
 	plugintypes "github.com/loft-sh/vcluster/pkg/plugin/types"
-	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
+	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/osutil"
 	"github.com/loft-sh/vcluster/pkg/util/random"
@@ -184,7 +184,7 @@ func (m *Manager) Start(
 	m.options = string(out)
 
 	// Virtual client config
-	convertedVirtualConfig, err := kubeconfig.ConvertRestConfigToClientConfig(virtualKubeConfig)
+	convertedVirtualConfig, err := kubeclient.ConvertRestConfigToClientConfig(virtualKubeConfig)
 	if err != nil {
 		return errors.Wrap(err, "convert virtual client config")
 	}
@@ -199,7 +199,7 @@ func (m *Manager) Start(
 	m.virtualKubeConfig = string(virtualConfigBytes)
 
 	// Physical client config
-	convertedPhysicalConfig, err := kubeconfig.ConvertRestConfigToClientConfig(physicalKubeConfig)
+	convertedPhysicalConfig, err := kubeclient.ConvertRestConfigToClientConfig(physicalKubeConfig)
 	if err != nil {
 		return errors.Wrap(err, "convert physical client config")
 	}

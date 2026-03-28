@@ -9,6 +9,7 @@ import (
 	"github.com/loft-sh/log/terminal"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -96,7 +97,7 @@ func (cmd *DisconnectCmd) Run() error {
 		}
 	}
 
-	err = find.SwitchContext(&rawConfig, otherContext)
+	err = kubeclient.SwitchContext(&rawConfig, otherContext)
 	if err != nil {
 		return fmt.Errorf("switch kube context: %w", err)
 	}

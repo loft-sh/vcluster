@@ -7,8 +7,8 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"
-	"github.com/loft-sh/vcluster/pkg/platform/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
+	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	"github.com/mgutz/ansi"
 	"github.com/spf13/cobra"
 )
@@ -69,13 +69,13 @@ func (cmd *ManagementCmd) run(cobraCmd *cobra.Command) error {
 
 	// check if we should print or update the config
 	if cmd.Print {
-		err = kubeconfig.PrintKubeConfigTo(contextOptions, os.Stdout)
+		err = kubeclient.PrintKubeConfigTo(contextOptions, os.Stdout)
 		if err != nil {
 			return err
 		}
 	} else {
 		// update kube config
-		err = kubeconfig.UpdateKubeConfig(contextOptions, cfg)
+		err = kubeclient.UpdateKubeConfig(contextOptions, cfg)
 		if err != nil {
 			return err
 		}
@@ -86,9 +86,9 @@ func (cmd *ManagementCmd) run(cobraCmd *cobra.Command) error {
 	return nil
 }
 
-func createManagementContextOptions(platformClient platform.Client, config string, setActive bool) (kubeconfig.ContextOptions, error) {
-	contextOptions := kubeconfig.ContextOptions{
-		Name:       kubeconfig.ManagementContextName(),
+func createManagementContextOptions(platformClient platform.Client, config string, setActive bool) (kubeclient.ContextOptions, error) {
+	contextOptions := kubeclient.ContextOptions{
+		Name:       kubeclient.ManagementContextName(),
 		ConfigPath: config,
 		SetActive:  setActive,
 	}
