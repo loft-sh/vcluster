@@ -87,6 +87,9 @@ type ConfigStatus struct {
 
 	// ImageBuilder holds the settings related to the image builder
 	ImageBuilder *ImageBuilder `json:"imageBuilder,omitempty"`
+
+	// Database represents the database connection settings when deploying the platform with an embedded Kubernetes backed by kine
+	Database *DatabaseKine `json:"database,omitempty"`
 }
 
 // Audit holds the audit configuration options for loft. Changing any options will require a loft restart
@@ -819,4 +822,32 @@ type ImageBuilder struct {
 
 	// Resources are compute resource required by the buildkit containers
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+}
+
+type DatabaseKine struct {
+	// Enabled defines if the database should be used.
+	Enabled bool `json:"enabled,omitempty"`
+
+	// DataSource is the kine dataSource to use for the database. This depends on the database format.
+	// This is optional for the external database. Examples:
+	// * mysql: mysql://username:password@tcp(hostname:3306)/k3s
+	// * postgres: postgres://username:password@hostname:5432/k3s
+	DataSource string `json:"dataSource,omitempty"`
+
+	// IdentityProvider is the kine identity provider to use when generating temporary authentication tokens for enhanced security.
+	// This is optional for the external database. Examples:
+	// * aws: RDS IAM Authentication
+	IdentityProvider string `json:"identityProvider,omitempty"`
+
+	// KeyFile is the key file to use for the database. This is optional.
+	KeyFile string `json:"keyFile,omitempty"`
+
+	// CertFile is the cert file to use for the database. This is optional.
+	CertFile string `json:"certFile,omitempty"`
+
+	// CaFile is the ca file to use for the database. This is optional.
+	CaFile string `json:"caFile,omitempty"`
+
+	// ExtraArgs are additional arguments to pass to Kine.
+	ExtraArgs []string `json:"extraArgs,omitempty"`
 }
