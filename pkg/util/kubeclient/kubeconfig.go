@@ -328,7 +328,7 @@ func buildContext(opts ContextOptions) (string, *clientcmdapi.Cluster, *clientcm
 	authInfo := clientcmdapi.NewAuthInfo()
 	if opts.Token != "" {
 		authInfo.Token = opts.Token
-	} else {
+	} else if opts.ConfigPath != "" {
 		command, err := os.Executable()
 		if err != nil {
 			return "", nil, nil, err
