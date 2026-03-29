@@ -18,9 +18,9 @@ import (
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
 	pdefaults "github.com/loft-sh/vcluster/pkg/platform/defaults"
-	"github.com/loft-sh/vcluster/pkg/platform/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/projectutil"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
+	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -323,7 +323,7 @@ func (cmd *NamespaceCmd) createSpace(ctx context.Context, platformClient platfor
 		}
 
 		// update kube config
-		err = kubeconfig.UpdateKubeConfig(contextOptions, cfg)
+		err = kubeclient.UpdateKubeConfig(contextOptions, cfg)
 		if err != nil {
 			return err
 		}

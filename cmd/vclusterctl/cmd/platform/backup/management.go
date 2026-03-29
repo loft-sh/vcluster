@@ -13,11 +13,11 @@ import (
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/backup"
 	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
+	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/tools/clientcmd"
 	clientpkg "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -76,16 +76,12 @@ vcluster platform backup management
 
 // run executes the functionality
 func (cmd *ManagementCmd) run(cobraCmd *cobra.Command) error {
-	// first load the kube config
-	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
-
-	// load the raw config
-	kubeConfig, err := kubeClientConfig.ClientConfig()
+	restConfig, err := kubeclient.HostClientConfig("").ClientConfig()
 	if err != nil {
 		return fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
 	}
 
-	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
+	kubeClient, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
 		return fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
 	}
@@ -110,7 +106,7 @@ func (cmd *ManagementCmd) run(cobraCmd *cobra.Command) error {
 		}
 	}
 
-	client, err := clientpkg.New(kubeConfig, clientpkg.Options{Scheme: scheme})
+	client, err := clientpkg.New(restConfig, clientpkg.Options{Scheme: scheme})
 	if err != nil {
 		return err
 	}

@@ -20,6 +20,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/localkubernetes"
 	"github.com/loft-sh/vcluster/pkg/lifecycle"
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
+	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	"github.com/loft-sh/vcluster/pkg/util/portforward"
 	"github.com/loft-sh/vcluster/pkg/util/serviceaccount"
 	"github.com/samber/lo"
@@ -155,18 +156,13 @@ func writeKubeConfig(kubeConfig *clientcmdapi.Config, vClusterName string, optio
 		return errors.New("nil kubeconfig")
 	}
 
-	// write kube config to buffer
-	out, err := clientcmd.Write(*kubeConfig)
-	if err != nil {
-		return err
-	}
-
-	// write kube config to file
 	if options.Print {
-		_, err = os.Stdout.Write(out)
+		out, err := clientcmd.Write(*kubeConfig)
 		if err != nil {
 			return err
 		}
+		_, err = os.Stdout.Write(out)
+		return err
 	} else if options.UpdateCurrent {
 		var clusterConfig *clientcmdapi.Cluster
 		for _, c := range kubeConfig.Clusters {
@@ -184,8 +180,7 @@ func writeKubeConfig(kubeConfig *clientcmdapi.Config, vClusterName string, optio
 			return errors.New("nil authConfig")
 		}
 
-		err = clihelper.UpdateKubeConfig(options.KubeConfigContextName, clusterConfig, authConfig, true)
-		if err != nil {
+		if err := kubeclient.MergeContext(options.KubeConfigContextName, clusterConfig, authConfig, "", true); err != nil {
 			return err
 		}
 
@@ -218,8 +213,7 @@ func writeKubeConfig(kubeConfig *clientcmdapi.Config, vClusterName string, optio
 			log.WriteString(logrus.InfoLevel, "- Use `kubectl get namespaces` to access the vcluster\n")
 		}
 	} else {
-		err = os.WriteFile(options.KubeConfig, out, 0666)
-		if err != nil {
+		if err := kubeclient.WriteToFile(kubeConfig, options.KubeConfig); err != nil {
 			return fmt.Errorf("write kube config: %w", err)
 		}
 
@@ -449,7 +443,7 @@ func (cmd *connectHelm) getVClusterKubeConfig(ctx context.Context, vclusterName 
 }
 
 func getServiceAccountClientAndName(kubeConfig clientcmdapi.Config, options *ConnectOptions) (kubernetes.Interface, string, string, error) {
-	vKubeClient, err := getLocalVClusterClient(kubeConfig, options)
+	vKubeClient, err := kubeclient.NewVClusterClientFromConfig(getLocalVClusterConfig(kubeConfig, options))
 	if err != nil {
 		return nil, "", "", err
 	}
@@ -684,22 +678,8 @@ func getLocalVClusterConfig(vKubeConfig clientcmdapi.Config, options *ConnectOpt
 	return vKubeConfig
 }
 
-func getLocalVClusterClient(vKubeConfig clientcmdapi.Config, options *ConnectOptions) (kubernetes.Interface, error) {
-	vRestConfig, err := clientcmd.NewDefaultClientConfig(getLocalVClusterConfig(vKubeConfig, options), &clientcmd.ConfigOverrides{}).ClientConfig()
-	if err != nil {
-		return nil, fmt.Errorf("create virtual rest config: %w", err)
-	}
-
-	vKubeClient, err := kubernetes.NewForConfig(vRestConfig)
-	if err != nil {
-		return nil, fmt.Errorf("create virtual kube client: %w", err)
-	}
-
-	return vKubeClient, nil
-}
-
 func (cmd *connectHelm) waitForVCluster(ctx context.Context, vKubeConfig clientcmdapi.Config, errorChan chan error) error {
-	vKubeClient, err := getLocalVClusterClient(vKubeConfig, cmd.ConnectOptions)
+	vKubeClient, err := kubeclient.NewVClusterClientFromConfig(getLocalVClusterConfig(vKubeConfig, cmd.ConnectOptions))
 	if err != nil {
 		return err
 	}
@@ -725,7 +705,7 @@ func (cmd *connectHelm) waitForVCluster(ctx context.Context, vKubeConfig clientc
 }
 
 func checkIfAlreadyConnected(ctx context.Context, vCluster *find.VCluster) (bool, error) {
-	currentContext, _, err := find.CurrentContext()
+	currentContext, _, err := kubeclient.CurrentContext()
 	if err != nil {
 		return false, err
 	}

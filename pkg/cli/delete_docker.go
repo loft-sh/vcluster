@@ -12,9 +12,9 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/platform"
+	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 type deleteDocker struct {
@@ -183,10 +183,7 @@ func (cmd *deleteDocker) deleteKubeContext(vClusterName string) error {
 	kubeContextName := "vcluster-docker_" + vClusterName
 
 	// Load the kubeconfig
-	kubeConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		clientcmd.NewDefaultClientConfigLoadingRules(),
-		&clientcmd.ConfigOverrides{},
-	).RawConfig()
+	_, kubeConfig, err := kubeclient.CurrentContext()
 	if err != nil {
 		return fmt.Errorf("failed to load kubeconfig: %w", err)
 	}
@@ -198,7 +195,7 @@ func (cmd *deleteDocker) deleteKubeContext(vClusterName string) error {
 	}
 
 	// Delete context using the shared deleteContext function
-	err = deleteContext(&kubeConfig, kubeContextName, "")
+	err = deleteContext(kubeConfig, kubeContextName, "")
 	if err != nil {
 		return fmt.Errorf("failed to delete context: %w", err)
 	}

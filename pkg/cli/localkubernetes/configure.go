@@ -13,7 +13,7 @@ import (
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
-	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
+	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -121,7 +121,7 @@ func CreateBackgroundProxyContainer(_ context.Context, vClusterName, vClusterNam
 		return "", err
 	}
 
-	physicalRawConfig, err := kubeconfig.ResolveKubeConfig(rawConfig)
+	physicalRawConfig, err := kubeclient.ResolveKubeConfig(rawConfig)
 	if err != nil {
 		return "", fmt.Errorf("resolve kube config: %w", err)
 	}

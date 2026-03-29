@@ -21,6 +21,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
+	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	"github.com/loft-sh/vcluster/pkg/util/stringutil"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
@@ -664,14 +665,14 @@ func getKubeConfig(vCluster *find.VCluster, globalFlags *flags.GlobalFlags) (*re
 		return nil, fmt.Errorf("there is an error loading your current kube config (%w), please make sure you have access to a kubernetes cluster and the command `kubectl get namespaces` is working", err)
 	}
 
-	currentContext, currentRawConfig, err := find.CurrentContext()
+	currentContext, currentRawConfig, err := kubeclient.CurrentContext()
 	if err != nil {
 		return nil, err
 	}
 
 	vClusterName, vClusterNamespace, vClusterContext := find.VClusterFromContext(currentContext)
 	if vClusterName == vCluster.Name && vClusterNamespace == vCluster.Namespace && vClusterContext == vCluster.Context {
-		err = find.SwitchContext(currentRawConfig, vCluster.Context)
+		err = kubeclient.SwitchContext(currentRawConfig, vCluster.Context)
 		if err != nil {
 			return nil, err
 		}

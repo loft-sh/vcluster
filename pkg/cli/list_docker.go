@@ -14,9 +14,9 @@ import (
 	"github.com/loft-sh/log/table"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/duration"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 // dockerVCluster holds information about a docker-based vCluster
@@ -35,14 +35,10 @@ func ListDocker(ctx context.Context, options *ListOptions, globalFlags *flags.Gl
 	}
 
 	// get current context to check if connected
-	rawConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		clientcmd.NewDefaultClientConfigLoadingRules(),
-		&clientcmd.ConfigOverrides{},
-	).RawConfig()
+	currentContext, _, err := kubeclient.CurrentContext()
 	if err != nil {
 		log.Debugf("Failed to load kubeconfig: %v", err)
 	}
-	currentContext := rawConfig.CurrentContext
 
 	// mark connected vclusters
 	for i := range vClusters {

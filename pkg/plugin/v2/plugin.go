@@ -21,7 +21,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/config"
 	plugintypes "github.com/loft-sh/vcluster/pkg/plugin/types"
 	"github.com/loft-sh/vcluster/pkg/plugin/v2/pluginv2"
-	"github.com/loft-sh/vcluster/pkg/util/kubeconfig"
+	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/tools/clientcmd"
@@ -637,7 +637,7 @@ func (m *Manager) buildInitRequest(
 	}
 
 	// Physical client config
-	convertedPhysicalConfig, err := kubeconfig.ConvertRestConfigToClientConfig(vConfig.HostConfig)
+	convertedPhysicalConfig, err := kubeclient.ConvertRestConfigToClientConfig(vConfig.HostConfig)
 	if err != nil {
 		return nil, fmt.Errorf("convert physical client config: %w", err)
 	}
@@ -649,7 +649,7 @@ func (m *Manager) buildInitRequest(
 	if err != nil {
 		return nil, fmt.Errorf("marshal physical client config: %w", err)
 	}
-	convertedControlPlaneConfig, err := kubeconfig.ConvertRestConfigToClientConfig(vConfig.HostConfig)
+	convertedControlPlaneConfig, err := kubeclient.ConvertRestConfigToClientConfig(vConfig.HostConfig)
 	if err != nil {
 		return nil, fmt.Errorf("convert control plane client config: %w", err)
 	}
