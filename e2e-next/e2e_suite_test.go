@@ -87,6 +87,7 @@ var _ = SynchronizedBeforeSuite(
 		DeferCleanup(clusters.HelmChartsVClusterYAMLCleanup)
 		DeferCleanup(clusters.InitManifestsVClusterYAMLCleanup)
 		DeferCleanup(clusters.ServiceSyncVClusterYAMLCleanup)
+		DeferCleanup(clusters.KubeletProxyVClusterYAMLCleanup)
 
 		ctx, err = setup.All(
 			clusters.HostCluster.Setup,
@@ -107,6 +108,7 @@ var _ = SynchronizedBeforeSuite(
 						clusters.HelmChartsVCluster.Setup,
 						clusters.InitManifestsVCluster.Setup,
 						clusters.ServiceSyncVCluster.Setup,
+						clusters.KubeletProxyVCluster.Setup,
 					)(ctx)
 					Expect(err).NotTo(HaveOccurred())
 				})

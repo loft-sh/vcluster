@@ -2,6 +2,7 @@ package kubeletauthorizer
 
 import (
 	"context"
+	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/authorization/delegatingauthorizer"
 	"github.com/loft-sh/vcluster/pkg/server/filters"
@@ -74,6 +75,17 @@ func (l *kubeletAuthorizer) Authorize(ctx context.Context, a authorizer.Attribut
 			Version:     corev1.SchemeGroupVersion.Version,
 			Resource:    "nodes",
 			Subresource: "metrics",
+			Name:        nodeName,
+		}
+	} else if filters.IsKubeletPods(a.GetPath()) || strings.HasPrefix(a.GetPath(), "/containerLogs/") {
+		// /pods and /containerLogs/... are accessed via the kubelet proxy; map to nodes/proxy
+		// so the existing ClusterRole grant (nodes/proxy) covers them
+		accessReview.Spec.ResourceAttributes = &authorizationv1.ResourceAttributes{
+			Verb:        "get",
+			Group:       corev1.SchemeGroupVersion.Group,
+			Version:     corev1.SchemeGroupVersion.Version,
+			Resource:    "nodes",
+			Subresource: "proxy",
 			Name:        nodeName,
 		}
 	} else {
