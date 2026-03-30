@@ -10,7 +10,7 @@ import (
 func NewSnapshotCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "snapshot",
-		Short: "snapshot a vCluster",
+		Short: "Manage vCluster snapshots",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			client := &snapshot.Client{}
