@@ -12,7 +12,7 @@ func NewRestoreCommand() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "restore",
-		Short: "restore a vCluster",
+		Short: "Restore a vCluster",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			envOptions, err := snapshot.ParseOptionsFromEnv()
