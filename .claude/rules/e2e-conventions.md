@@ -17,6 +17,7 @@ Ginkgo v2 + Gomega, running against vCluster instances on Kind. Read existing te
 5. **Ordered contexts** — See the decision table below. Default to `BeforeEach`; only use `Ordered` for true sequential dependencies.
 6. **Package registration** — Test packages self-register via `var _ = Describe(...)`. The suite imports them as blank imports in `e2e_suite_test.go`.
 7. **Error assertion** — Prefer `ginkgo.Expect(...).To(ginkgo.Succeed())` over `ginkgo.Expect(...).NotTo(ginkgo.HaveOccurred())`
+8. **gstruct usage** — Do not use `gstruct` for simple field assertions (use `Expect(obj.Field).To(Equal(...))` instead). Use `gstruct` with `ContainElement` or similar matchers when asserting on elements within a collection (slice, map) to avoid manual loops.
 
 ## Setup Helpers
 
