@@ -32,7 +32,7 @@ func DescribeKubeletProxy(vcluster suite.Dependency) bool {
 				cfg := cluster.CurrentClusterFrom(ctx).KubernetesRestConfig()
 				var err error
 				vClusterClientset, err = kubernetes.NewForConfig(cfg)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).To(Succeed())
 				return ctx
 			})
 
@@ -42,7 +42,7 @@ func DescribeKubeletProxy(vcluster suite.Dependency) bool {
 					Eventually(func(g Gomega) {
 						var err error
 						nodes, err = vClusterClientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
-						g.Expect(err).NotTo(HaveOccurred())
+						g.Expect(err).To(Succeed(), "failed to list virtual nodes")
 						g.Expect(nodes.Items).NotTo(BeEmpty(), "expected at least one virtual node")
 					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 				})
@@ -52,7 +52,7 @@ func DescribeKubeletProxy(vcluster suite.Dependency) bool {
 						data, err := vClusterClientset.RESTClient().Get().
 							AbsPath(fmt.Sprintf("/api/v1/nodes/%s/proxy/healthz", node.Name)).
 							DoRaw(ctx)
-						Expect(err).NotTo(HaveOccurred(), "GET /healthz should succeed for node %s", node.Name)
+						Expect(err).To(Succeed(), "GET /healthz should succeed for node %s", node.Name)
 						Expect(string(data)).To(Equal("ok"), "GET /healthz should return ok for node %s", node.Name)
 					}
 				})
@@ -60,24 +60,25 @@ func DescribeKubeletProxy(vcluster suite.Dependency) bool {
 
 			It("GET /pods via node proxy returns only pods belonging to this vcluster", func(ctx context.Context) {
 				nodes, err := vClusterClientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).To(Succeed())
 				Expect(nodes.Items).NotTo(BeEmpty())
 
-				By("collecting all virtual pod identities", func() {})
-
-				virtualPods, err := vClusterClientset.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
-				Expect(err).NotTo(HaveOccurred())
-				virtualPodKeys := make(map[string]bool, len(virtualPods.Items))
-				for _, p := range virtualPods.Items {
-					virtualPodKeys[p.Namespace+"/"+p.Name] = true
-				}
+				var virtualPodKeys map[string]bool
+				By("collecting all virtual pod identities", func() {
+					virtualPods, err := vClusterClientset.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
+					Expect(err).To(Succeed())
+					virtualPodKeys = make(map[string]bool, len(virtualPods.Items))
+					for _, p := range virtualPods.Items {
+						virtualPodKeys[p.Namespace+"/"+p.Name] = true
+					}
+				})
 
 				By("asserting every pod in the kubelet /pods response is a virtual pod", func() {
 					for _, node := range nodes.Items {
 						data, err := vClusterClientset.RESTClient().Get().
 							AbsPath(fmt.Sprintf("/api/v1/nodes/%s/proxy/pods", node.Name)).
 							DoRaw(ctx)
-						Expect(err).NotTo(HaveOccurred(), "GET /pods should succeed for node %s", node.Name)
+						Expect(err).To(Succeed(), "GET /pods should succeed for node %s", node.Name)
 
 						podList := &corev1.PodList{}
 						Expect(json.Unmarshal(data, podList)).To(Succeed())
@@ -93,11 +94,11 @@ func DescribeKubeletProxy(vcluster suite.Dependency) bool {
 
 			It("GET /runningpods via node proxy returns only pods belonging to this vcluster", func(ctx context.Context) {
 				nodes, err := vClusterClientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).To(Succeed())
 				Expect(nodes.Items).NotTo(BeEmpty())
 
 				virtualPods, err := vClusterClientset.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).To(Succeed())
 				virtualPodKeys := make(map[string]bool, len(virtualPods.Items))
 				for _, p := range virtualPods.Items {
 					virtualPodKeys[p.Namespace+"/"+p.Name] = true
@@ -108,7 +109,7 @@ func DescribeKubeletProxy(vcluster suite.Dependency) bool {
 						data, err := vClusterClientset.RESTClient().Get().
 							AbsPath(fmt.Sprintf("/api/v1/nodes/%s/proxy/runningpods", node.Name)).
 							DoRaw(ctx)
-						Expect(err).NotTo(HaveOccurred(), "GET /runningpods should succeed for node %s", node.Name)
+						Expect(err).To(Succeed(), "GET /runningpods should succeed for node %s", node.Name)
 
 						podList := &corev1.PodList{}
 						Expect(json.Unmarshal(data, podList)).To(Succeed())
@@ -124,7 +125,7 @@ func DescribeKubeletProxy(vcluster suite.Dependency) bool {
 
 			It("GET /containerLogs for a non-existent pod returns 403 Forbidden", func(ctx context.Context) {
 				nodes, err := vClusterClientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).To(Succeed())
 				Expect(nodes.Items).NotTo(BeEmpty())
 
 				By("requesting container logs for a pod that does not exist in the virtual cluster", func() {
@@ -152,16 +153,14 @@ func DescribeKubeletProxy(vcluster suite.Dependency) bool {
 					nsName = "kubelet-proxy-test-" + suffix
 					podName = "logger-" + suffix
 
-					By("creating the test namespace", func() {
-						_, err := vClusterClientset.CoreV1().Namespaces().Create(ctx,
-							&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nsName}},
-							metav1.CreateOptions{})
-						Expect(err).NotTo(HaveOccurred())
-					})
+					_, err := vClusterClientset.CoreV1().Namespaces().Create(ctx,
+						&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nsName}},
+						metav1.CreateOptions{})
+					Expect(err).To(Succeed())
 					DeferCleanup(func(ctx context.Context) {
 						err := vClusterClientset.CoreV1().Namespaces().Delete(ctx, nsName, metav1.DeleteOptions{})
 						if !kerrors.IsNotFound(err) {
-							Expect(err).NotTo(HaveOccurred())
+							Expect(err).To(Succeed())
 						}
 					})
 
@@ -179,13 +178,13 @@ func DescribeKubeletProxy(vcluster suite.Dependency) bool {
 								},
 							},
 						}, metav1.CreateOptions{})
-						Expect(err).NotTo(HaveOccurred())
+						Expect(err).To(Succeed())
 					})
 
 					By("waiting for the pod to reach Running phase", func() {
 						Eventually(func(g Gomega) {
 							pod, err := vClusterClientset.CoreV1().Pods(nsName).Get(ctx, podName, metav1.GetOptions{})
-							g.Expect(err).NotTo(HaveOccurred())
+							g.Expect(err).To(Succeed(), "failed to get pod %s/%s", nsName, podName)
 							g.Expect(pod.Status.Phase).To(Equal(corev1.PodRunning),
 								"pod phase: %s, conditions: %v", pod.Status.Phase, pod.Status.Conditions)
 						}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
@@ -193,7 +192,7 @@ func DescribeKubeletProxy(vcluster suite.Dependency) bool {
 
 					By("capturing the node the pod was scheduled to", func() {
 						pod, err := vClusterClientset.CoreV1().Pods(nsName).Get(ctx, podName, metav1.GetOptions{})
-						Expect(err).NotTo(HaveOccurred())
+						Expect(err).To(Succeed())
 						nodeName = pod.Spec.NodeName
 						Expect(nodeName).NotTo(BeEmpty(), "pod should be scheduled to a node")
 					})
@@ -205,7 +204,7 @@ func DescribeKubeletProxy(vcluster suite.Dependency) bool {
 							AbsPath(fmt.Sprintf("/api/v1/nodes/%s/proxy/containerLogs/%s/%s/logger",
 								nodeName, nsName, podName)).
 							DoRaw(ctx)
-						Expect(err).NotTo(HaveOccurred(), "GET /containerLogs should succeed for a running pod")
+						Expect(err).To(Succeed(), "GET /containerLogs should succeed for a running pod")
 						Expect(string(data)).To(ContainSubstring("kubelet-proxy-test-ok"),
 							"expected log output to contain the known log line")
 					})
