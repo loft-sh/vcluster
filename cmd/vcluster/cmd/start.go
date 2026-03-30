@@ -36,7 +36,7 @@ func NewStartCommand() *cobra.Command {
 	startOptions := &StartOptions{}
 	cmd := &cobra.Command{
 		Use:   "start",
-		Short: "Execute the vcluster",
+		Short: "Start a vCluster",
 		Args:  cobra.NoArgs,
 		RunE: func(cobraCmd *cobra.Command, _ []string) (err error) {
 			// execute command
