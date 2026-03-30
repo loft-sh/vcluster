@@ -33,6 +33,7 @@ var (
 	_ = fromhost.DescribeFromHostRuntimeClasses(clusters.FromHostLimitClassesVCluster)
 	_ = coredns.DescribeCoreDNS(clusters.CommonVCluster)
 	_ = webhook.DescribeAdmissionWebhook(clusters.CommonVCluster)
+	_ = test_core.DescribeKubeletProxy(clusters.KubeletProxyVCluster)
 	_ = test_deploy.DescribeHelmCharts(clusters.CommonVCluster)
 	_ = test_deploy.DescribeInitManifests(clusters.CommonVCluster)
 )
