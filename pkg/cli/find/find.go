@@ -57,6 +57,7 @@ const (
 	StatusRunning          Status = "Running"
 	StatusPaused           Status = "Paused"
 	StatusWorkloadSleeping Status = "Sleeping (workloads only)"
+	StatusScaledDown       Status = "ScaledDown"
 	StatusUnknown          Status = "Unknown"
 )
 
@@ -416,18 +417,6 @@ func findInContext(ctx context.Context, kubeClient kube.Interface, context, name
 			if name != "" && name != release {
 				continue
 			}
-
-			if p.Spec.Replicas != nil && *p.Spec.Replicas == 0 && !isPaused(&p) {
-				// if the stateful set has been scaled down we'll ignore it -- this happens when
-				// using devspace to do vcluster plugin dev for example, devspace scales down the
-				// vcluster stateful set and re-creates a deployment for "dev mode" so we end up
-				// with a duplicate vcluster in the list, one for the statefulset and one for the
-				// deployment. Of course if the vcluster is paused (via `vcluster pause`), we *do*
-				// still need to care about it even if replicas == 0.
-
-				continue
-			}
-
 			vCluster, err := getVCluster(ctx, &p, context, release, kubeClient, kubeClientConfig)
 			if err != nil {
 				logger := log.GetInstance()
@@ -498,8 +487,13 @@ func getVCluster(ctx context.Context, object client.Object, context, release str
 			return VCluster{}, err
 		}
 		pods = podList.Items
-		for _, pod := range podList.Items {
-			status = GetPodStatus(&pod)
+
+		if len(podList.Items) > 0 {
+			for _, pod := range podList.Items {
+				status = GetPodStatus(&pod)
+			}
+		} else {
+			status = string(StatusScaledDown)
 		}
 	}
 
