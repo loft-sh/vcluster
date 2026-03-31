@@ -407,11 +407,43 @@ go mod vendor
 go run hack/schema/main.go
 ```
 
-### 4. Test Your Changes
+### 4. Build a Custom vCluster Image
 
-Deploy a vCluster with your schema changes and verify the new configuration options work as expected.
+Build a Docker image containing your local changes:
 
-### 5. Merging Changes
+```bash
+docker build . -t my-vcluster:0.0.1
+```
+
+If using Kind, load the image into the cluster:
+
+```bash
+kind load docker-image my-vcluster:0.0.1
+```
+
+### 5. Test Your Changes from the Platform
+
+To test your custom vCluster image when creating a virtual cluster from the platform (loft-enterprise), configure the platform to use your locally built image. Create a `vcluster.yaml` values override:
+
+```yaml
+controlPlane:
+  statefulSet:
+    imagePullPolicy: Never
+    image:
+      registry: ""
+      repository: my-vcluster
+      tag: 0.0.1
+```
+
+Then create a virtual cluster using the local chart (which includes the regenerated schema):
+
+```bash
+vcluster create my-vcluster -n my-vcluster -f ./vcluster.yaml --local-chart-dir chart
+```
+
+This ensures the platform deploys a vCluster using both your updated schema and your locally built syncer image.
+
+### 6. Merging Changes
 
 When your changes are ready, merge PRs in the following order:
 
