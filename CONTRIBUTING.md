@@ -407,23 +407,18 @@ go mod vendor
 go run hack/schema/main.go
 ```
 
-### 4. Build a Custom vCluster Image
+### 4. Test with the Helm Driver (without the platform)
 
-Build a Docker image containing your local changes:
+If you only need to test vCluster schema changes without the platform, you can build a custom image and deploy with the local chart:
 
 ```bash
 docker build . -t my-vcluster:0.0.1
-```
 
-If using Kind, load the image into the cluster:
-
-```bash
+# For Kind users:
 kind load docker-image my-vcluster:0.0.1
 ```
 
-### 5. Test Your Changes from the Platform
-
-To test your custom vCluster image when creating a virtual cluster from the platform (loft-enterprise), configure the platform to use your locally built image. Create a `vcluster.yaml` values override:
+Create a `vcluster.yaml` values override:
 
 ```yaml
 controlPlane:
@@ -435,24 +430,44 @@ controlPlane:
       tag: 0.0.1
 ```
 
-Then create a virtual cluster using the local chart (which includes the regenerated schema):
+Deploy using the Helm driver with `--local-chart-dir` to use the regenerated schema:
 
 ```bash
 vcluster create my-vcluster -n my-vcluster -f ./vcluster.yaml --local-chart-dir chart
 ```
 
-This ensures the platform deploys a vCluster using both your updated schema and your locally built syncer image.
+**Note:** `--local-chart-dir` only works with the Helm driver. It is **not** supported when deploying virtual clusters through the platform driver.
+
+### 5. Test with the Platform Driver
+
+When you need to test schema changes by creating virtual clusters through the platform, you cannot use a local chart directly. The platform fetches the vCluster Helm chart from a release, so you need to create intermediate releases:
+
+1. **Create a platform pre-release** with your API type changes in loft-enterprise (e.g. `v4.8.1-next.0`). The platform CI will publish a corresponding `github.com/loft-sh/api/v4` release.
+
+2. **Bump the API dependency in vCluster** to the newly published version:
+   ```bash
+   go get github.com/loft-sh/api/v4@v4.8.1-next.0
+   go mod tidy
+   go mod vendor
+   go run hack/schema/main.go
+   ```
+
+3. **Create an internal vCluster pre-release** (e.g. `v0.33.1-next.internal.1`) in both the vcluster and vcluster-pro repositories. Wait for the release CI to complete.
+
+4. **Test from the platform** by creating a virtual cluster that uses the internal vCluster version from step 3.
+
+This workflow is more involved but is necessary because the platform resolves vCluster charts from published releases, not from local directories.
 
 ### 6. Merging Changes
 
-When your changes are ready, merge PRs in the following order:
+When your changes are tested and ready, merge PRs in the following order:
 
 1. **Platform first**: Merge your loft-enterprise PR with the API type changes
 2. **Release platform version**: A new platform release publishes the updated `github.com/loft-sh/api/v4` version
-3. **Bump in vCluster**: Create a PR in vCluster to update the `github.com/loft-sh/api/v4` dependency to the new version
-4. **Merge vCluster PR**: Remove any `replace` directives and merge
+3. **Bump in vCluster**: Create a PR in vCluster to update the `github.com/loft-sh/api/v4` dependency to the new version, regenerate the schema, and remove any `replace` directives
+4. **Merge vCluster PR**
 
-This ensures the dependency chain is properly maintained and both repositories stay in sync.
+**Important:** This means that platform changes requiring new schema fields will only work with the vCluster version where the schema was updated. For example, a platform `v4.8.1` release using new config fields would require at least vCluster `v0.33.1` (where the schema includes those fields).
 
 # License
 
