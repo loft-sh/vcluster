@@ -178,7 +178,7 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 				log.Infof("Waking vCluster %s after it was paused", vClusterName)
 				err = lifecycle.ResumeVCluster(ctx, cmd.kubeClient, vClusterName, cmd.Namespace, true, log)
 				if err != nil {
-					log.Infof("Skipped Waking vCluster %s", vClusterName)
+					log.Infof("Skipped waking vCluster %s", vClusterName)
 				}
 
 				log.Infof("Restore vCluster %s...", vClusterName)

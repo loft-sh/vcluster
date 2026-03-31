@@ -88,10 +88,10 @@ func execRotate(ctx context.Context, containerName, cmd string, kubeClient *kube
 		return fmt.Errorf("checking for persistence: %w", err)
 	}
 
-	// If the vCluster has persistence we have tosleepit in order to be able to mount
+	// If the vCluster has persistence we have to sleep it to be able to mount
 	// the data dir to the extra pod.
 	if pvc {
-		log.Infof("SleepingvCluster %s", vCluster.Name)
+		log.Infof("Sleeping vCluster %s", vCluster.Name)
 		if err := lifecycle.PauseVCluster(ctx, kubeClient, vCluster.Name, vCluster.Namespace, true, log); err != nil {
 			return err
 		}

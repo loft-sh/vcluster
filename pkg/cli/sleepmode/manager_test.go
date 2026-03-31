@@ -1,4 +1,4 @@
-package cli
+package sleepmode
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	loftvcconfig "github.com/loft-sh/api/v4/pkg/vclusterconfig"
 	vclusterconfig "github.com/loft-sh/vcluster/config"
-	"github.com/loft-sh/vcluster/pkg/platform/sleepmode"
+	platformsleepmode "github.com/loft-sh/vcluster/pkg/platform/sleepmode"
 	"github.com/samber/lo"
 	"gotest.tools/v3/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -23,11 +23,11 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-// --- vClusterConfigSecretName ---
+// --- VClusterConfigSecretName ---
 
 func TestVClusterConfigSecretName(t *testing.T) {
-	assert.Equal(t, vClusterConfigSecretName("my-vcluster"), "vc-config-my-vcluster")
-	assert.Equal(t, vClusterConfigSecretName(""), "vc-config-")
+	assert.Equal(t, VClusterConfigSecretName("my-vcluster"), "vc-config-my-vcluster")
+	assert.Equal(t, VClusterConfigSecretName(""), "vc-config-")
 }
 
 // --- standAloneSleepCapable ---
@@ -166,7 +166,7 @@ func TestIsAgentManaged(t *testing.T) {
 		{
 			name: "agent annotation present",
 			secret: secretWithAnnotations(map[string]string{
-				sleepmode.AnnotationAgentInstalled: "true",
+				platformsleepmode.AnnotationAgentInstalled: "true",
 			}),
 			want: true,
 		},
@@ -220,62 +220,107 @@ func TestRetryable(t *testing.T) {
 	assert.Assert(t, !retryable(kerrors.NewBadRequest("bad")))
 }
 
-// --- hostSleepModeConfig ---
+// --- usesWorkloadSleep (via NewManager) ---
 
-func TestHostSleepModeConfig(t *testing.T) {
+func TestLoadConfig(t *testing.T) {
 	ctx := context.Background()
 	ns := "vcluster-ns"
 	name := "my-vcluster"
-	secretName := vClusterConfigSecretName(name)
+	secretName := VClusterConfigSecretName(name)
 
 	t.Run("secret not found returns no config", func(t *testing.T) {
-		client := fakeclientset.NewClientset()
-		secret, cfg, ok, err := hostSleepModeConfig(ctx, client, ns, name)
+		c := fakeclientset.NewClientset()
+		waker, ok, err := NewManager(ctx, WithKubeClient(c), WithNamespace(ns), WithVClusterName(name))
 		assert.NilError(t, err)
 		assert.Assert(t, !ok)
-		assert.Assert(t, secret == nil)
-		assert.Assert(t, cfg == nil)
+		assert.Assert(t, waker == nil)
 	})
 
 	t.Run("agent-managed secret skipped", func(t *testing.T) {
-		s := buildConfigSecret(ns, secretName, nil, map[string]string{sleepmode.AnnotationAgentInstalled: "true"})
-		client := fakeclientset.NewClientset(s)
-		_, _, ok, err := hostSleepModeConfig(ctx, client, ns, name)
+		s := buildConfigSecret(ns, secretName, nil, map[string]string{platformsleepmode.AnnotationAgentInstalled: "true"})
+		c := fakeclientset.NewClientset(s)
+		waker, ok, err := NewManager(ctx, WithKubeClient(c), WithNamespace(ns), WithVClusterName(name))
 		assert.NilError(t, err)
 		assert.Assert(t, !ok)
+		assert.Assert(t, waker == nil)
 	})
 
 	t.Run("secret without config.yaml returns no config", func(t *testing.T) {
 		s := buildConfigSecret(ns, secretName, nil, nil)
-		client := fakeclientset.NewClientset(s)
-		_, _, ok, err := hostSleepModeConfig(ctx, client, ns, name)
+		c := fakeclientset.NewClientset(s)
+		waker, ok, err := NewManager(ctx, WithKubeClient(c), WithNamespace(ns), WithVClusterName(name))
 		assert.NilError(t, err)
 		assert.Assert(t, !ok)
+		assert.Assert(t, waker == nil)
 	})
 
 	t.Run("sleep not configured in vcluster config returns no config", func(t *testing.T) {
 		data := mustMarshalConfig(t, &vclusterconfig.Config{})
 		s := buildConfigSecret(ns, secretName, data, nil)
-		client := fakeclientset.NewClientset(s)
-		_, _, ok, err := hostSleepModeConfig(ctx, client, ns, name)
+		c := fakeclientset.NewClientset(s)
+		waker, ok, err := NewManager(ctx, WithKubeClient(c), WithNamespace(ns), WithVClusterName(name))
 		assert.NilError(t, err)
 		assert.Assert(t, !ok)
+		assert.Assert(t, waker == nil)
 	})
 
-	t.Run("sleep configured returns secret and config", func(t *testing.T) {
+	t.Run("sleep configured returns waker with secret", func(t *testing.T) {
 		cfg := &vclusterconfig.Config{Sleep: &loftvcconfig.Sleep{}}
 		data := mustMarshalConfig(t, cfg)
 		s := buildConfigSecret(ns, secretName, data, nil)
-		client := fakeclientset.NewClientset(s)
-		secret, resultCfg, ok, err := hostSleepModeConfig(ctx, client, ns, name)
+		c := fakeclientset.NewClientset(s)
+		waker, ok, err := NewManager(ctx, WithKubeClient(c), WithNamespace(ns), WithVClusterName(name))
 		assert.NilError(t, err)
 		assert.Assert(t, ok)
-		assert.Assert(t, secret != nil)
-		assert.Assert(t, resultCfg != nil)
+		assert.Assert(t, waker != nil)
+		assert.Assert(t, waker.configSecret != nil)
+	})
+
+	t.Run("vci without sleep configured returns no config", func(t *testing.T) {
+		data := mustMarshalConfig(t, &vclusterconfig.Config{})
+		s := buildConfigSecret(ns, secretName, data, nil)
+		c := fakeclientset.NewClientset(s)
+		vci := nativePlatformVClusterInstance(ns, name, nil)
+		waker, ok, err := NewManager(ctx, WithKubeClient(c), WithVirtualClusterInstance(vci), WithVClusterName(name))
+		assert.NilError(t, err)
+		assert.Assert(t, !ok)
+		assert.Assert(t, waker == nil)
+	})
+
+	t.Run("vci with sleep configured derives namespace and returns manager", func(t *testing.T) {
+		cfg := &vclusterconfig.Config{Sleep: &loftvcconfig.Sleep{}}
+		data := mustMarshalConfig(t, cfg)
+		s := buildConfigSecret(ns, secretName, data, nil)
+		c := fakeclientset.NewClientset(s)
+		vci := nativePlatformVClusterInstance(ns, name, nil)
+		waker, ok, err := NewManager(ctx, WithKubeClient(c), WithVirtualClusterInstance(vci), WithVClusterName(name))
+		assert.NilError(t, err)
+		assert.Assert(t, ok)
+		assert.Assert(t, waker != nil)
+		assert.Assert(t, waker.configSecret != nil)
+		assert.Equal(t, waker.configSecret.Namespace, ns)
+	})
+
+	t.Run("agent-managed vci secret skipped", func(t *testing.T) {
+		cfg := &vclusterconfig.Config{Sleep: &loftvcconfig.Sleep{}}
+		data := mustMarshalConfig(t, cfg)
+		s := buildConfigSecret(ns, secretName, data, map[string]string{platformsleepmode.AnnotationAgentInstalled: "true"})
+		c := fakeclientset.NewClientset(s)
+		vci := nativePlatformVClusterInstance(ns, name, nil)
+		waker, ok, err := NewManager(ctx, WithKubeClient(c), WithVirtualClusterInstance(vci), WithVClusterName(name))
+		assert.NilError(t, err)
+		assert.Assert(t, !ok)
+		assert.Assert(t, waker == nil)
 	})
 }
 
-// --- ensureAndUpdateSecret ---
+// --- EnsureAndUpdateSecret ---
+
+func TestSleepDuration(t *testing.T) {
+	assert.Assert(t, SleepDuration(-1) == nil)
+	assert.DeepEqual(t, SleepDuration(0), ptr.To(int64(0)))
+	assert.DeepEqual(t, SleepDuration(42), ptr.To(int64(42)))
+}
 
 func TestEnsureAndUpdateSecret(t *testing.T) {
 	ctx := context.Background()
@@ -283,26 +328,26 @@ func TestEnsureAndUpdateSecret(t *testing.T) {
 	name := "my-secret"
 
 	t.Run("creates secret when not found and initial provided", func(t *testing.T) {
-		client := fakeclientset.NewClientset()
+		c := fakeclientset.NewClientset()
 		initial := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns}}
-		err := ensureAndUpdateSecret(ctx, client, ns, name, initial, func(s *corev1.Secret) {
+		err := EnsureAndUpdateSecret(ctx, c, ns, name, initial, func(s *corev1.Secret) {
 			s.Annotations["key"] = "value"
 		})
 		assert.NilError(t, err)
 
-		created, err := client.CoreV1().Secrets(ns).Get(ctx, name, metav1.GetOptions{})
+		created, err := c.CoreV1().Secrets(ns).Get(ctx, name, metav1.GetOptions{})
 		assert.NilError(t, err)
 		assert.Equal(t, created.Annotations["key"], "value")
 	})
 
 	t.Run("does nothing when secret not found and initial is nil", func(t *testing.T) {
-		client := fakeclientset.NewClientset()
-		err := ensureAndUpdateSecret(ctx, client, ns, name, nil, func(s *corev1.Secret) {
+		c := fakeclientset.NewClientset()
+		err := EnsureAndUpdateSecret(ctx, c, ns, name, nil, func(s *corev1.Secret) {
 			s.Annotations["key"] = "value"
 		})
 		assert.NilError(t, err)
 
-		_, err = client.CoreV1().Secrets(ns).Get(ctx, name, metav1.GetOptions{})
+		_, err = c.CoreV1().Secrets(ns).Get(ctx, name, metav1.GetOptions{})
 		assert.Assert(t, kerrors.IsNotFound(err))
 	})
 
@@ -314,13 +359,13 @@ func TestEnsureAndUpdateSecret(t *testing.T) {
 				Annotations: map[string]string{"old": "value"},
 			},
 		}
-		client := fakeclientset.NewClientset(existing)
-		err := ensureAndUpdateSecret(ctx, client, ns, name, nil, func(s *corev1.Secret) {
+		c := fakeclientset.NewClientset(existing)
+		err := EnsureAndUpdateSecret(ctx, c, ns, name, nil, func(s *corev1.Secret) {
 			s.Annotations["new"] = "added"
 		})
 		assert.NilError(t, err)
 
-		updated, err := client.CoreV1().Secrets(ns).Get(ctx, name, metav1.GetOptions{})
+		updated, err := c.CoreV1().Secrets(ns).Get(ctx, name, metav1.GetOptions{})
 		assert.NilError(t, err)
 		assert.Equal(t, updated.Annotations["new"], "added")
 	})
@@ -360,7 +405,7 @@ func mustMarshalConfig(t *testing.T, cfg *vclusterconfig.Config) []byte {
 }
 
 func instanceWithStatusVersion(version string, enabled bool) *managementv1.VirtualClusterInstance {
-	sleepConfig := lo.Ternary(enabled, `## sleepenabled
+	sleepConfig := lo.Ternary(enabled, `# sleep: enabled
 sleep:
   auto:
     afterInactivity: 1h`, "")
@@ -375,6 +420,26 @@ sleep:
 							Values: sleepConfig,
 						},
 					},
+				},
+			},
+		},
+	}
+}
+
+func nativePlatformVClusterInstance(namespace, name string, annotations map[string]string) *managementv1.VirtualClusterInstance {
+	return &managementv1.VirtualClusterInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        name,
+			Namespace:   "project-ns",
+			Annotations: annotations,
+		},
+		Spec: managementv1.VirtualClusterInstanceSpec{
+			VirtualClusterInstanceSpec: storagev1.VirtualClusterInstanceSpec{
+				ClusterRef: storagev1.VirtualClusterClusterRef{
+					ClusterRef: storagev1.ClusterRef{
+						Namespace: namespace,
+					},
+					VirtualCluster: name,
 				},
 			},
 		},

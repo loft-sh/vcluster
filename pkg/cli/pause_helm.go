@@ -9,6 +9,7 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/cli/sleepmode"
 	"github.com/loft-sh/vcluster/pkg/lifecycle"
 	"github.com/loft-sh/vcluster/pkg/util/kubeclient"
 	"k8s.io/client-go/kubernetes"
@@ -85,12 +86,14 @@ func PauseVCluster(
 // tryWorkloadSleepHelm checks if whether workload sleep mode is configured and sets annotations for the instance to put itself to sleep
 // Returns true if workload sleep mode was applied.
 func tryWorkloadSleepHelm(ctx context.Context, kubeClient kubernetes.Interface, vCluster *find.VCluster, log log.Logger) (applied bool, retErr error) {
-	configSecret, _, configured, err := hostSleepModeConfig(ctx, kubeClient, vCluster.Namespace, vCluster.Name)
-	if err != nil {
-		return false, err
-	}
-	if !configured {
-		return false, nil
+	sleepMgr, ok, err := sleepmode.NewManager(ctx,
+		sleepmode.WithKubeClient(kubeClient),
+		sleepmode.WithNamespace(vCluster.Namespace),
+		sleepmode.WithVClusterName(vCluster.Name),
+		sleepmode.WithLogger(log),
+	)
+	if err != nil || !ok {
+		return ok, err
 	}
 
 	// Ultimately print a user friendly error message
@@ -104,7 +107,7 @@ func tryWorkloadSleepHelm(ctx context.Context, kubeClient kubernetes.Interface, 
 
 	sleepingSince := strconv.FormatInt(time.Now().Unix(), 10)
 
-	return true, setSleepAnnotations(ctx, kubeClient, vCluster.Namespace, configSecret, sleepingSince, nil)
+	return true, sleepMgr.Sleep(ctx, sleepingSince, nil)
 }
 
 func preparePause(vCluster *find.VCluster, globalFlags *flags.GlobalFlags) (*kubernetes.Clientset, error) {

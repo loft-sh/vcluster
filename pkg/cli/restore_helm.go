@@ -32,8 +32,8 @@ func Restore(ctx context.Context, args []string, globalFlags *flags.GlobalFlags,
 }
 
 func restoreVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, restConfig *rest.Config, vCluster *find.VCluster, snapshotOpts *snapshot.Options, podOptions *pod.Options, newVCluster bool, restoreVolumes bool, log log.Logger) error {
-	//sleepvCluster
-	log.Infof("SleepingvCluster %s", vCluster.Name)
+	// sleep vCluster
+	log.Infof("Sleeping vCluster %s", vCluster.Name)
 	err := pauseVCluster(ctx, kubeClient, vCluster, log)
 	if err != nil {
 		return fmt.Errorf("pause vCluster %s: %w", vCluster.Name, err)
@@ -44,7 +44,7 @@ func restoreVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, rest
 		log.Infof("Waking vCluster %s after it was paused", vCluster.Name)
 		err = lifecycle.ResumeVCluster(ctx, kubeClient, vCluster.Name, vCluster.Namespace, true, log)
 		if err != nil {
-			log.Warnf("Error Waking vCluster %s: %v", vCluster.Name, err)
+			log.Warnf("Error waking vCluster %s: %v", vCluster.Name, err)
 		}
 	}()
 
@@ -61,7 +61,7 @@ func restoreVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, rest
 }
 
 func pauseVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, vCluster *find.VCluster, log log.Logger) error {
-	//sleepthe vCluster
+	// sleep the vCluster
 	err := lifecycle.PauseVCluster(ctx, kubeClient, vCluster.Name, vCluster.Namespace, true, log)
 	if err != nil {
 		return err

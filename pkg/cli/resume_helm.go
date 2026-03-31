@@ -8,6 +8,7 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/cli/sleepmode"
 	"github.com/loft-sh/vcluster/pkg/lifecycle"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -20,8 +21,7 @@ type ResumeOptions struct {
 }
 
 var (
-	ErrPlatformDriverRequired = errors.New("cannotwakea virtual cluster that is paused by the platform, please run 'vcluster use driver platform' or use the '--driver platform' flag")
-	errWorkloadWake           = errors.New("failed to wake")
+	ErrPlatformDriverRequired = errors.New("cannot wake a virtual cluster that is paused by the platform, please run 'vcluster use driver platform' or use the '--driver platform' flag")
 )
 
 func ResumeHelm(ctx context.Context, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
@@ -60,12 +60,12 @@ func ResumeHelm(ctx context.Context, globalFlags *flags.GlobalFlags, vClusterNam
 // vCluster's workloads. For standalone vClusters it also clears the sleep secret inside the
 // virtual cluster that the in-cluster sleep state controller watches.
 func workloadWake(ctx context.Context, kubeClient kubernetes.Interface, vCluster *find.VCluster) (retErr error) {
-	configSecret, err := kubeClient.CoreV1().Secrets(vCluster.Namespace).Get(ctx, vClusterConfigSecretName(vCluster.Name), metav1.GetOptions{})
+	configSecret, err := kubeClient.CoreV1().Secrets(vCluster.Namespace).Get(ctx, sleepmode.VClusterConfigSecretName(vCluster.Name), metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("get config secret: %w", err)
 	}
 
-	return patchSecret(ctx, kubeClient, vCluster.Namespace, configSecret, clearSleepAnnotations)
+	return sleepmode.ClearSecretSleepAnnotations(ctx, kubeClient, configSecret)
 }
 
 func prepareResume(vCluster *find.VCluster, globalFlags *flags.GlobalFlags) (*kubernetes.Clientset, error) {

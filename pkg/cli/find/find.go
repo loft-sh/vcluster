@@ -55,7 +55,7 @@ type Status string
 
 const (
 	StatusRunning          Status = "Running"
-	StatusPaused           Status = "Paused"
+	StatusSleeping         Status = "Sleeping"
 	StatusWorkloadSleeping Status = "Sleeping (workloads only)"
 	StatusUnknown          Status = "Unknown"
 )
@@ -425,8 +425,8 @@ func getVCluster(ctx context.Context, object client.Object, context, release str
 	version := ""
 	var pods []corev1.Pod
 
-	if object.GetAnnotations()[constants.PausedAnnotation(false)] == "true" {
-		status = string(StatusPaused)
+	if isPaused(object) {
+		status = string(StatusSleeping)
 	} else {
 		releaseName = "release=" + release
 	}
@@ -474,6 +474,10 @@ func getVCluster(ctx context.Context, object client.Object, context, release str
 				break
 			}
 		}
+	}
+
+	if status == "" {
+		status = string(StatusUnknown)
 	}
 
 	return VCluster{

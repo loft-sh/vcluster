@@ -12,6 +12,7 @@ import (
 	"github.com/loft-sh/log/table"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
+	"github.com/loft-sh/vcluster/pkg/cli/sleepmode"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/duration"
@@ -110,11 +111,22 @@ func platformVClusterListStatus(ctx context.Context, platformClient platform.Cli
 }
 
 func isPlatformWorkloadSleeping(ctx context.Context, platformClient platform.Client, vCluster *platform.VirtualClusterInstanceProject) (bool, error) {
-	target, err := workloadSleepSecretTarget(ctx, platformClient, vCluster.Project.Name, vCluster.VirtualCluster, "")
+	sleepMgr, used, err := sleepmode.NewManager(ctx,
+		sleepmode.WithPlatformClient(platformClient),
+		sleepmode.WithProjectName(vCluster.Project.Name),
+		sleepmode.WithVClusterName(vCluster.VirtualCluster.Name),
+		sleepmode.WithVirtualClusterInstance(vCluster.VirtualCluster),
+	)
+
 	if err != nil {
 		return false, err
 	}
-	return isWorkloadSleeping(target.secret), nil
+
+	if !used {
+		return false, nil
+	}
+
+	return sleepMgr.IsSleeping(), nil
 }
 
 func printProVClusters(ctx context.Context, options *ListOptions, output []ListProVCluster, globalFlags *flags.GlobalFlags, logger log.Logger) error {
