@@ -693,13 +693,6 @@ func GetPodStatus(pod *corev1.Pod) string {
 	return reason
 }
 
-func isPaused(v client.Object) bool {
-	annotations := v.GetAnnotations()
-	labels := v.GetLabels()
-
-	return annotations[constants.PausedAnnotation(false)] == "true" || labels[sleepmode.Label] == "true"
-}
-
 // isVirtualClusterInstanceResourceAvailable checks if VirtualClusterInstance resources from storage.loft.sh/v1 exist
 // on the server.
 func isVirtualClusterInstanceResourceAvailable(discoveryClient discovery.DiscoveryInterface) (bool, error) {
