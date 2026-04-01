@@ -24,6 +24,7 @@ jobs:
       # Use vendored dependencies so fork PRs (which lack access to
       # GH_ACCESS_TOKEN) can still compile against private modules.
       GOFLAGS: -mod=vendor
+      GOPRIVATE: "github.com/loft-sh/*"
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
