@@ -123,13 +123,16 @@ func PrepareAndDeferCleanup(deferCleanup func(args ...interface{})) error {
 
 // SetupFuncs returns the Setup function for every registered vCluster.
 // Only vClusters whose label matches the current --label-filter are provisioned.
+// Each function is wrapped with setup.Named so concurrent setup logs identify
+// which vCluster is starting, finishing, or failing.
 func SetupFuncs() []setup.Func {
 	fns := make([]setup.Func, len(registry))
 	for i, e := range registry {
+		name := e.definition.Label()
 		if e.preSetup != nil {
 			pre := e.preSetup
 			def := e.definition
-			fns[i] = func(ctx context.Context) (context.Context, error) {
+			fns[i] = setup.Named(name, func(ctx context.Context) (context.Context, error) {
 				if !def.IsFocused() {
 					return ctx, nil
 				}
@@ -137,9 +140,9 @@ func SetupFuncs() []setup.Func {
 					return ctx, fmt.Errorf("pre-setup: %w", err)
 				}
 				return def.Setup(ctx)
-			}
+			})
 		} else {
-			fns[i] = e.definition.Setup
+			fns[i] = setup.Named(name, e.definition.Setup)
 		}
 	}
 	return fns
