@@ -58,6 +58,8 @@ var resourceOrder = []string{
 	"nodeenvironments",
 	"nodeproviders",
 	"nodetypes",
+	"osimages",
+	"sshkeys",
 
 	// access
 	"teams",
