@@ -33,6 +33,20 @@ func SetTeardownOnly(b bool) {
 
 type ContextMiddleware func(context.Context) context.Context
 
+// DeferCleanupCtx registers a cleanup function that receives the caller's
+// context values merged into the Ginkgo defer context. This ensures that values
+// on ctx at the call site (e.g. clients added in BeforeAll or resources created
+// in It) are available when the cleanup runs.
+//
+// Usage:
+//
+//	e2e.DeferCleanupCtx(ctx, cluster.Destroy(name))
+func DeferCleanupCtx(ctx context.Context, fn func(context.Context) (context.Context, error)) {
+	ginkgo.DeferCleanup(func(deferCtx context.Context) (context.Context, error) {
+		return fn(e2econtext.WithValues(deferCtx, ctx))
+	})
+}
+
 func ContextualAroundNode(ctx context.Context) context.Context {
 	report := ginkgo.CurrentSpecReport()
 	events := report.SpecEvents.WithType(types.SpecEventNodeStart)
