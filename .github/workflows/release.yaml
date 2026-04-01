@@ -198,3 +198,42 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
           LINEAR_TOKEN: ${{ secrets.LINEAR_TOKEN }}
+
+  notify_failure:
+    if: ${{ failure() && github.repository_owner == 'loft-sh' }}
+    needs:
+      - check_minimum_version_tag
+      - publish
+      - publish-chart
+      - sync_linear
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Slack of release pipeline failure
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook-type: incoming-webhook
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL_PRODUCT_RELEASES }}
+          payload: |
+            {
+              "text": ":rotating_light: vCluster release pipeline failed for ${{ github.event.release.tag_name }}",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": { "type": "plain_text", "text": ":rotating_light: Release Pipeline Failed" }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    { "type": "mrkdwn", "text": "*Product:*\nvCluster" },
+                    { "type": "mrkdwn", "text": "*Version:*\n${{ github.event.release.tag_name }}" }
+                  ]
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    { "type": "mrkdwn", "text": "*Triggered by:*\n${{ github.actor }}" },
+                    { "type": "mrkdwn", "text": "*Run:*\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View details>" }
+                  ]
+                }
+              ]
+            }
