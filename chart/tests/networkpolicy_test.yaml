@@ -57,7 +57,7 @@ tests:
           value: vc-cp-my-release
         lengthEqual:
           path: spec.ingress
-          count: 4
+          count: 5
       - documentSelector:
           path: metadata.name
           value: vc-kube-dns-my-release
@@ -163,5 +163,87 @@ tests:
           path: metadata.name
           value: vc-cp-my-release
         equal:
-          path: spec.ingress[4].ports[0].port
+          path: spec.ingress[5].ports[0].port
           value: 12340
+
+  - it: should allow external API ingress by default
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      policies:
+        networkPolicy:
+          enabled: true
+    asserts:
+      # First ingress rule allows port 8443 from any source
+      - documentSelector:
+          path: metadata.name
+          value: vc-cp-my-release
+        equal:
+          path: spec.ingress[0].ports[0].port
+          value: 8443
+      - documentSelector:
+          path: metadata.name
+          value: vc-cp-my-release
+        equal:
+          path: spec.ingress[0].ports[0].protocol
+          value: TCP
+      # No 'from' field means allow from all sources
+      - documentSelector:
+          path: metadata.name
+          value: vc-cp-my-release
+        isNull:
+          path: spec.ingress[0].from
+
+  - it: should not create workload or dns policy when privateNodes enabled
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      policies:
+        networkPolicy:
+          enabled: true
+      privateNodes:
+        enabled: true
+    asserts:
+      # Only 2 documents: cp + snapshot (workload and dns are skipped)
+      - hasDocuments:
+          count: 2
+      - documentIndex: &cpIndexPN 0
+        equal:
+          path: metadata.name
+          value: vc-cp-my-release
+      - documentIndex: &snapshotIndexPN 1
+        equal:
+          path: metadata.name
+          value: vc-snapshot-my-release
+
+  - it: should create all policies when privateNodes disabled (default)
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      policies:
+        networkPolicy:
+          enabled: true
+      privateNodes:
+        enabled: false
+    asserts:
+      - hasDocuments:
+          count: 4
+      - documentIndex: &workIndex 0
+        equal:
+          path: metadata.name
+          value: vc-work-my-release
+      - documentIndex: &cpIndex 1
+        equal:
+          path: metadata.name
+          value: vc-cp-my-release
+      - documentIndex: &dnsIndex 2
+        equal:
+          path: metadata.name
+          value: vc-kube-dns-my-release
+      - documentIndex: &snapshotIndex 3
+        equal:
+          path: metadata.name
+          value: vc-snapshot-my-release
