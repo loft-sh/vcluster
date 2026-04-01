@@ -37,7 +37,7 @@ jobs:
           set -euo pipefail
           CHART_VERSION=$(echo "${{ inputs.release_version }}" | sed -nE 's!^v(.*)!\1!p')
           echo "Publishing Helm chart for version $CHART_VERSION"
-          helm plugin install https://github.com/chartmuseum/helm-push.git || true
+          helm plugin install https://github.com/chartmuseum/helm-push.git --verify=false || true
           helm repo add chartmuseum "$CHART_MUSEUM_URL" --username "$CHART_MUSEUM_USER" --password "$CHART_MUSEUM_PASSWORD"
           helm cm-push --force --version="$CHART_VERSION" --app-version="$CHART_VERSION" chart chartmuseum
         env:
