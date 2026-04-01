@@ -200,16 +200,17 @@ jobs:
           LINEAR_TOKEN: ${{ secrets.LINEAR_TOKEN }}
 
   notify_failure:
-    if: ${{ failure() && github.repository_owner == 'loft-sh' }}
+    if: ${{ always() && contains(needs.*.result, 'failure') && github.repository_owner == 'loft-sh' }}
     needs:
       - check_minimum_version_tag
       - publish
       - publish-chart
       - sync_linear
     runs-on: ubuntu-latest
+    permissions: {}
     steps:
       - name: Notify Slack of release pipeline failure
-        uses: slackapi/slack-github-action@v2.1.1
+        uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a  # v2.1.1
         with:
           webhook-type: incoming-webhook
           webhook: ${{ secrets.SLACK_WEBHOOK_URL_PRODUCT_RELEASES }}
