@@ -2,6 +2,9 @@ package suite
 
 import (
 	"context"
+	"fmt"
+	"runtime"
+	"strings"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup"
 	. "github.com/onsi/ginkgo/v2"
@@ -152,13 +155,18 @@ func AddDependency(dep Dependency) Options {
 	}
 }
 
+// Define registers a new dependency. If a dependency with the same label
+// already exists, the existing instance is returned. This allows multiple
+// Go packages (e.g. an OSS test library and a pro wrapper) to independently
+// call Define with the same label without panicking - whoever initializes
+// first wins, and subsequent callers get the same instance.
 func Define(opts ...Options) Dependency {
 	d := &dependency{}
 	for _, opt := range opts {
 		opt(d)
 	}
-	if dependencies[d.label] != nil {
-		panic("dependency already defined")
+	if existing := dependencies[d.label]; existing != nil {
+		return existing
 	}
 	dependencies[d.label] = d
 	return d
@@ -200,6 +208,23 @@ func NodeTransformer(nodeType types.NodeType, _ Offset, text string, args []any)
 		default:
 			newArgs = append(newArgs, x)
 		}
+	}
+
+	// Runtime safety net: detect package-level var _ = Describe(...) with
+	// cluster dependencies. These auto-registrations break cross-repo imports
+	// because Go compiles the entire package on import, registering tests
+	// against clusters that may not exist in the importing repo.
+	// The correct pattern is an exported function that takes the dependency.
+	if nodeType == types.NodeTypeContainer && len(deps) > 0 && isCalledFromPackageInit() {
+		depLabels := make([]string, 0, len(deps))
+		for _, d := range deps {
+			depLabels = append(depLabels, d.label)
+		}
+		return text, newArgs, []error{fmt.Errorf(
+			"Describe(%q) with cluster dependencies %v is auto-registered via package-level var; "+
+				"use an exported function instead: func Describe<Name>(dep suite.Dependency) bool { return Describe(..., cluster.Use(dep), ...) }",
+			text, depLabels,
+		)}
 	}
 
 	var (
@@ -275,4 +300,39 @@ func NodeTransformer(nodeType types.NodeType, _ Offset, text string, args []any)
 	}
 
 	return text, newArgs, nil
+}
+
+// isCalledFromPackageInit walks the call stack to determine whether the current
+// Describe call originates from a package-level var initialization (init).
+// Go runs package-level `var _ = Describe(...)` inside compiler-generated init
+// functions whose names follow the pattern "<pkg>.init" or "<pkg>.init.func<N>".
+// If the Describe is called from an exported function like DescribeMyFeature(),
+// the stack will contain that function name before any init frame.
+func isCalledFromPackageInit() bool {
+	var pcs [20]uintptr
+	n := runtime.Callers(3, pcs[:]) // skip Callers, isCalledFromPackageInit, NodeTransformer
+	frames := runtime.CallersFrames(pcs[:n])
+	for {
+		frame, more := frames.Next()
+		// Skip Ginkgo internals and our framework code.
+		if strings.Contains(frame.Function, "github.com/onsi/ginkgo") ||
+			strings.Contains(frame.Function, "github.com/loft-sh/e2e-framework") {
+			if !more {
+				break
+			}
+			continue
+		}
+		// The first non-framework frame tells us the call site.
+		// init functions: "pkg.init", "pkg.init.func1", "pkg.init.func1.1", etc.
+		funcName := frame.Function
+		lastDot := strings.LastIndex(funcName, ".")
+		if lastDot >= 0 {
+			shortName := funcName[lastDot+1:]
+			if shortName == "init" || strings.HasPrefix(shortName, "init.") {
+				return true
+			}
+		}
+		return false
+	}
+	return false
 }
