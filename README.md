@@ -278,6 +278,7 @@ enforce correctness patterns in Ginkgo test code:
 | `defercleanupcluster` | Every `cluster.Create()` call must have a matching `DeferCleanup(cluster.Destroy(...))` in the same scope |
 | `defercleanupctx` | `DeferCleanup` must not be called with a `setup.Func` - use `e2e.DeferCleanupCtx(ctx, fn)` instead |
 | `ginkgoreturnctx` | Ginkgo node functions (`BeforeEach`, `It`, etc.) that reassign their `context.Context` parameter must also return `context.Context` |
+| `describefunc` | Package-level `var _ = Describe(...)` with `cluster.Use()` must use an exported function pattern instead of auto-registration |
 
 These linters run automatically as part of `just lint` and `just lint-e2e`.
 The custom binary is auto-rebuilt when `.custom-gcl.yml` changes.
