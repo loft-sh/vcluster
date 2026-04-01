@@ -126,6 +126,7 @@ func scaleDownDeployment(ctx context.Context, kubeClient kubernetes.Interface, l
 			log.Infof("vcluster %s/%s is already paused", namespace, item.Name)
 			return true, nil
 		} else if item.Spec.Replicas != nil && *item.Spec.Replicas == 0 {
+			// Scaled down, but not paused.
 			continue
 		}
 
@@ -188,6 +189,7 @@ func scaleDownStatefulSet(ctx context.Context, kubeClient kubernetes.Interface, 
 			log.Infof("vcluster %s/%s is already paused", namespace, item.Name)
 			return true, nil
 		} else if item.Spec.Replicas != nil && *item.Spec.Replicas == 0 {
+			// Scaled down, but not paused.
 			continue
 		}
 
