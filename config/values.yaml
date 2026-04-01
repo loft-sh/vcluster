@@ -403,6 +403,7 @@ controlPlane:
       enabled: true
       name: ""
       imagePullSecrets: []
+      imagePullSecretSelector: {}
       annotations: {}
       labels: {}
 

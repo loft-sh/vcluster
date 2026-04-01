@@ -922,6 +922,10 @@
           "type": "array",
           "description": "ImagePullSecrets defines extra image pull secrets for the workload service account."
         },
+        "imagePullSecretSelector": {
+          "$ref": "#/$defs/StandardLabelSelector",
+          "description": "ImagePullSecretSelector selects which virtual ServiceAccounts receive the imagePullSecrets\nabove on the host side when serviceAccount syncing is enabled. If empty, no propagation\noccurs. Use matchLabels: {} to match all ServiceAccounts."
+        },
         "annotations": {
           "additionalProperties": {
             "type": "string"

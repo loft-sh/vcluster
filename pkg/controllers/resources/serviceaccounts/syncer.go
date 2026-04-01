@@ -3,6 +3,7 @@ package serviceaccounts
 import (
 	"fmt"
 
+	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/pro"
@@ -11,13 +12,13 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/translator"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/klog/v2"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	corev1 "k8s.io/api/core/v1"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
@@ -26,15 +27,48 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		return nil, err
 	}
 
+	workloadSA := ctx.Config.ControlPlane.Advanced.WorkloadServiceAccount
+	refs := make([]corev1.LocalObjectReference, 0, len(workloadSA.ImagePullSecrets))
+	for _, s := range workloadSA.ImagePullSecrets {
+		refs = append(refs, corev1.LocalObjectReference{Name: s.Name})
+	}
+
 	return &serviceAccountSyncer{
-		GenericTranslator: translator.NewGenericTranslator(ctx, "serviceaccount", &corev1.ServiceAccount{}, mapper),
-		Importer:          pro.NewImporter(mapper),
+		GenericTranslator:       translator.NewGenericTranslator(ctx, "serviceaccount", &corev1.ServiceAccount{}, mapper),
+		Importer:                pro.NewImporter(mapper),
+		imagePullSecrets:        refs,
+		imagePullSecretSelector: workloadSA.ImagePullSecretSelector,
 	}, nil
 }
 
 type serviceAccountSyncer struct {
 	syncertypes.GenericTranslator
 	syncertypes.Importer
+
+	imagePullSecrets        []corev1.LocalObjectReference
+	imagePullSecretSelector vclusterconfig.StandardLabelSelector
+}
+
+// pullSecretsFor returns the configured imagePullSecrets if the virtual SA matches
+// the selector, or nil otherwise.
+// A zero-value selector (MatchLabels nil and no MatchExpressions) means no propagation
+// is configured. An explicit empty MatchLabels ({}) matches all ServiceAccounts.
+func (s *serviceAccountSyncer) pullSecretsFor(virtualSA *corev1.ServiceAccount) []corev1.LocalObjectReference {
+	if len(s.imagePullSecrets) == 0 {
+		return nil
+	}
+	if s.imagePullSecretSelector.MatchLabels == nil && len(s.imagePullSecretSelector.MatchExpressions) == 0 {
+		return nil
+	}
+	matches, err := s.imagePullSecretSelector.Matches(virtualSA)
+	if err != nil {
+		klog.Errorf("failed to evaluate imagePullSecretSelector for ServiceAccount %s/%s: %v", virtualSA.Namespace, virtualSA.Name, err)
+		return nil
+	}
+	if !matches {
+		return nil
+	}
+	return s.imagePullSecrets
 }
 
 var _ syncertypes.OptionsProvider = &serviceAccountSyncer{}
@@ -61,7 +95,7 @@ func (s *serviceAccountSyncer) SyncToHost(ctx *synccontext.SyncContext, event *s
 	// Don't sync the secrets here as we will override them anyways
 	pObj.Secrets = nil
 	pObj.AutomountServiceAccountToken = &[]bool{false}[0]
-	pObj.ImagePullSecrets = nil
+	pObj.ImagePullSecrets = s.pullSecretsFor(event.Virtual)
 
 	err := pro.ApplyPatchesHostObject(ctx, nil, pObj, event.Virtual, ctx.Config.Sync.ToHost.ServiceAccounts.Patches, false)
 	if err != nil {
@@ -92,6 +126,9 @@ func (s *serviceAccountSyncer) Sync(ctx *synccontext.SyncContext, event *synccon
 			)
 		}
 	}()
+
+	// enforce configured imagePullSecrets on the host SA
+	event.Host.ImagePullSecrets = s.pullSecretsFor(event.Virtual)
 
 	// bi-directional sync of annotations and labels
 	event.Virtual.Annotations, event.Host.Annotations = translate.AnnotationsBidirectionalUpdate(event)

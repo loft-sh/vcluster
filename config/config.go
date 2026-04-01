@@ -2594,6 +2594,11 @@ type ControlPlaneWorkloadServiceAccount struct {
 	// ImagePullSecrets defines extra image pull secrets for the workload service account.
 	ImagePullSecrets []ImagePullSecretName `json:"imagePullSecrets,omitempty"`
 
+	// ImagePullSecretSelector selects which virtual ServiceAccounts receive the imagePullSecrets
+	// above on the host side when serviceAccount syncing is enabled. If empty, no propagation
+	// occurs. Use matchLabels: {} to match all ServiceAccounts.
+	ImagePullSecretSelector StandardLabelSelector `json:"imagePullSecretSelector,omitempty"`
+
 	// Annotations are extra annotations for this resource.
 	Annotations map[string]string `json:"annotations,omitempty"`
 

@@ -746,6 +746,10 @@ controlPlane:
       name: ""
       # ImagePullSecrets defines extra image pull secrets for the workload service account.
       imagePullSecrets: []
+      # ImagePullSecretSelector selects which virtual ServiceAccounts receive the imagePullSecrets
+      # above on the host side when serviceAccount syncing is enabled. If empty, no propagation
+      # occurs. Use matchLabels: {} to match all ServiceAccounts.
+      imagePullSecretSelector: {}
       annotations: {}
       labels: {}
     # HeadlessService specifies options for the headless service used for the vCluster StatefulSet.

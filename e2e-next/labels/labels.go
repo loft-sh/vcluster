@@ -17,6 +17,7 @@ var (
 	Vind        = Label("vind")
 
 	// Resource-specific labels for fromHost sync tests
+	ServiceAccounts = Label("serviceaccounts")
 	PriorityClasses = Label("priorityclasses")
 	RuntimeClasses  = Label("runtimeclasses")
 	StorageClasses  = Label("storageclasses")
