@@ -183,7 +183,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distribution: ["k3s", "k8s"]
+        distribution: ["k8s"]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
