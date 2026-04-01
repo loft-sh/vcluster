@@ -387,6 +387,52 @@ func TestIsStableRelease(t *testing.T) {
 	}
 }
 
+func TestHasStableReleaseComment(t *testing.T) {
+	testCases := []struct {
+		name     string
+		comments []string
+		expected bool
+	}{
+		{
+			name:     "no comments",
+			comments: nil,
+			expected: false,
+		},
+		{
+			name:     "unrelated comments only",
+			comments: []string{"This issue was first released in v0.27.0-alpha.1 on 2025-01-15"},
+			expected: false,
+		},
+		{
+			name:     "has stable release comment",
+			comments: []string{"Now available in stable release v0.27.0 (released 2025-02-01)"},
+			expected: true,
+		},
+		{
+			name: "mixed comments with stable release",
+			comments: []string{
+				"This issue was first released in v0.27.0-alpha.1 on 2025-01-15",
+				"Now available in stable release v0.27.0 (released 2025-02-01)",
+			},
+			expected: true,
+		},
+		{
+			name:     "empty comments",
+			comments: []string{},
+			expected: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := hasStableReleaseComment(tc.comments)
+			if result != tc.expected {
+				t.Errorf("hasStableReleaseComment(%v) = %v, want %v", tc.comments, result, tc.expected)
+			}
+		})
+	}
+}
+
 func TestStableReleaseCommentText(t *testing.T) {
 	// Test the comment text logic for different scenarios
 	testCases := []struct {
