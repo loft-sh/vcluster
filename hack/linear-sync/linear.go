@@ -267,12 +267,12 @@ func (l *LinearClient) MoveIssueToState(ctx context.Context, dryRun bool, issueI
 			return nil
 		}
 
-		// Check if a stable release comment already exists to avoid duplicates
+		// Check if a stable release comment for this specific tag already exists to avoid duplicates
 		comments, err := l.ListIssueComments(ctx, issueID)
 		if err != nil {
 			return fmt.Errorf("list issue comments: %w", err)
 		}
-		if hasStableReleaseComment(comments) {
+		if hasStableReleaseComment(comments, releaseTagName) {
 			logger.Debug("Issue already has stable release comment, skipping", "issueID", issueID)
 			return nil
 		}
@@ -385,10 +385,13 @@ func (l *LinearClient) ListIssueComments(ctx context.Context, issueID string) ([
 }
 
 // hasStableReleaseComment checks whether any of the given comment bodies
-// indicate that a stable release comment has already been posted.
-func hasStableReleaseComment(comments []string) bool {
+// indicate that a stable release comment for the specific release tag has
+// already been posted. This is scoped to the tag so that cherry-picks released
+// in a later stable version still get their own comment.
+func hasStableReleaseComment(comments []string, releaseTag string) bool {
+	expected := fmt.Sprintf("%s %s", stableReleaseCommentPrefix, releaseTag)
 	for _, body := range comments {
-		if strings.HasPrefix(body, stableReleaseCommentPrefix) {
+		if strings.HasPrefix(body, expected) {
 			return true
 		}
 	}
