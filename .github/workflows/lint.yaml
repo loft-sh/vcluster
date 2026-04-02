@@ -98,6 +98,19 @@ jobs:
         if: github.event.pull_request.head.repo.full_name == github.repository
         run: ./tools/golangci-lint run --timeout 15m -- ./...
 
+      - name: Generate config without custom linters (fork PRs)
+        if: github.event.pull_request.head.repo.full_name != github.repository
+        run: |
+          # Remove custom plugin definitions and their enable/exclusion entries
+          # so stock golangci-lint can run without the compiled plugin binary.
+          CUSTOM_LINTERS=$(yq '.linters.settings.custom | keys | .[]' .golangci.yml)
+          cp .golangci.yml .golangci-fork.yml
+          for linter in $CUSTOM_LINTERS; do
+            yq -i "del(.linters.settings.custom.\"$linter\")" .golangci-fork.yml
+            yq -i ".linters.enable -= [\"$linter\"]" .golangci-fork.yml
+            yq -i "del(.linters.exclusions.rules[] | select(.linters[] == \"$linter\"))" .golangci-fork.yml
+          done
+
       - name: Run golangci-lint (fork PRs, without custom linters)
         if: github.event.pull_request.head.repo.full_name != github.repository
-        run: golangci-lint run --timeout 15m -- ./...
+        run: golangci-lint run --timeout 15m --config .golangci-fork.yml -- ./...
