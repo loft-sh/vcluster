@@ -1,8 +1,12 @@
 package find
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"fmt"
+	"os"
+	"os/exec"
 	"regexp"
 	"strings"
 	"time"
@@ -49,6 +53,8 @@ type VCluster struct {
 	Status                 Status
 	Context                string
 	Version                string
+	IsStandalone           bool
+	VClusterConfigPath     string
 }
 
 type Status string
@@ -128,6 +134,20 @@ func GetPlatformVCluster(ctx context.Context, platformClient platform.Client, na
 	}
 
 	return nil, fmt.Errorf("unexpected error searching for selected virtual cluster")
+}
+
+// GetVclusterStandaloneOrVcluster tries to find a standalone vCluster with the given name, and if it fails, it falls back to finding an OSS vCluster.
+func GetVClusterStandaloneOrVcluster(ctx context.Context, context, name, namespace string, log log.Logger) (*VCluster, error) {
+	kubeClientConfig := createKubeClientConfig(context)
+	// Probe for a standalone vCluster.
+	standaloneVCluster, err := getStandaloneVCluster(name, kubeClientConfig)
+	if err != nil {
+		log.Debugf("standalone probe skipped: %v", err)
+	} else if standaloneVCluster != nil && (name == "" || name == standaloneVCluster.Name) {
+		return standaloneVCluster, nil
+	}
+
+	return GetVCluster(ctx, context, name, namespace, log)
 }
 
 func GetVCluster(ctx context.Context, context, name, namespace string, log log.Logger) (*VCluster, error) {
@@ -705,6 +725,80 @@ func isScaledDown(object client.Object) bool {
 		return o.Spec.Replicas != nil && *o.Spec.Replicas == 0
 	}
 	return false
+}
+
+// getStandaloneVCluster returns a VCluster for a standalone installation.
+// Detection relies on the systemd service file existing on the local filesystem,
+// so this only works when the CLI runs on the same host as the standalone vCluster.
+// Returns nil, nil when standalone is not detected or on any error so callers
+// never treat this as fatal.
+func getStandaloneVCluster(name string, kubeClientConfig clientcmd.ClientConfig) (*VCluster, error) {
+	// 1. Detection: check for the vcluster systemd service file.
+	unitData, err := os.ReadFile(constants.VClusterServiceFile)
+	if err != nil {
+		//nolint:nilnil
+		return nil, nil
+	}
+
+	// 3. Version: parse VCLUSTER_VERSION from the systemd unit file.
+	version := parseEnvFromSystemdUnit(unitData, "VCLUSTER_VERSION")
+
+	// 4. Created: use the systemd unit file's modification time as a proxy
+	//    for cluster creation time
+	fi, err := os.Stat(constants.VClusterServiceFile)
+	if err != nil {
+		//nolint:nilnil
+		return nil, nil
+	}
+	created := metav1.NewTime(fi.ModTime())
+
+	// 5. Status: check if the systemd service is actually running.
+	status := StatusUnknown
+	out, err := exec.Command("systemctl", "is-active", "vcluster.service").Output()
+	if err == nil && strings.TrimSpace(string(out)) == "active" {
+		status = StatusRunning
+	}
+
+	// 6. vClusterConfigPath: extract from systemd unit file or use default path if not set.
+	configPath := constants.StandaloneDefaultConfigPath
+	if confDir := parseEnvFromSystemdUnit(unitData, "CONF_DIR"); confDir != "" {
+		configPath = confDir + "/vcluster.yaml"
+	}
+
+	return &VCluster{
+		Name:               name,
+		Namespace:          constants.StandaloneSnapshotNamespace,
+		ClientFactory:      kubeClientConfig,
+		Created:            created,
+		Version:            version,
+		Status:             status,
+		IsStandalone:       true,
+		VClusterConfigPath: configPath,
+	}, nil
+}
+
+// parseEnvFromSystemdUnit extracts the value of an Environment="KEY=value" directive
+// from a systemd unit file. Returns empty string if not found.
+func parseEnvFromSystemdUnit(data []byte, key string) string {
+	prefix := "Environment=\"" + key + "="
+	scanner := bufio.NewScanner(bytes.NewReader(data))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if strings.HasPrefix(line, prefix) {
+			// Strip prefix and trailing quote.
+			val := strings.TrimPrefix(line, prefix)
+			val = strings.TrimSuffix(val, "\"")
+			return val
+		}
+	}
+	return ""
+}
+
+func isPaused(v client.Object) bool {
+	annotations := v.GetAnnotations()
+	labels := v.GetLabels()
+
+	return annotations[constants.PausedAnnotation(false)] == "true" || labels[sleepmode.Label] == "true"
 }
 
 // isVirtualClusterInstanceResourceAvailable checks if VirtualClusterInstance resources from storage.loft.sh/v1 exist

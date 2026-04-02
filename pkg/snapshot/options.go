@@ -38,6 +38,8 @@ type Options struct {
 	// DelegateFromCLIToCluster indicates that the snapshot options are saved in a Kubernetes Secret because the
 	// snapshot/restore operation will be executed in a Kubernetes cluster.
 	DelegateFromCLIToCluster bool `json:"delegateFromCLIToCluster,omitempty"`
+
+	ConfigPath string `json:"configPath,omitempty"`
 }
 
 func (o *Options) GetURL() string {

@@ -11,6 +11,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/etcd"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/snapshot/types"
 	"k8s.io/klog/v2"
 )
@@ -29,7 +30,22 @@ func (c *Client) Run(ctx context.Context) error {
 	// parse vCluster config
 	vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
 	if err != nil {
-		return err
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("parse vCluster config: %w", err)
+		}
+		// Standalone places config at a different path than container deployments.
+		vConfig, err = config.ParseConfig(c.Options.ConfigPath, os.Getenv("VCLUSTER_NAME"), nil)
+		if err != nil {
+			return fmt.Errorf("parse custom standalone vCluster config: %w", err)
+		}
+	}
+
+	if vConfig.ControlPlane.Standalone.Enabled {
+		vConfig.HostNamespace = constants.StandaloneSnapshotNamespace
+		err = pro.SetStandaloneConstants(vConfig)
+		if err != nil {
+			return fmt.Errorf("set standalone constants: %w", err)
+		}
 	}
 
 	// make sure to validate options

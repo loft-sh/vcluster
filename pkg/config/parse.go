@@ -1,16 +1,18 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 
-	"github.com/loft-sh/vcluster/config"
+	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/strvals"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/stringutil"
 	"github.com/pkg/errors"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/yaml"
 )
@@ -21,10 +23,25 @@ func ParseConfig(path, name string, setValues []string) (*VirtualClusterConfig, 
 		return nil, fmt.Errorf("empty vCluster name")
 	}
 
-	// read config file
+	// figure out the config path
+	if path == constants.DefaultVClusterConfigLocation {
+		_, err := os.Stat(constants.StandaloneDefaultConfigPath)
+		if err == nil {
+			path = constants.StandaloneDefaultConfigPath
+		}
+	}
+
+	// For standalone, we load config from:
+	// 1. User provided path (via --config flag)
+	// 2. If not set, then config is expected in the /etc/vcluster/vcluster.yaml
+	// 3. If it does not exist, then fallback to /var/lib/vcluster/config.yaml
+	klog.Info("Reading vcluster.yaml config from", "path", path)
 	rawFile, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		if !(path == constants.DefaultVClusterConfigLocation || path == constants.StandaloneDefaultConfigPath) && os.IsNotExist(err) {
+			// if config does not exist in the path specified by user, do not fallback to default locations, just fail
+			return nil, err
+		}
 	}
 
 	cfg, err := ParseConfigBytes(rawFile, name, setValues)
@@ -33,6 +50,16 @@ func ParseConfig(path, name string, setValues []string) (*VirtualClusterConfig, 
 	}
 
 	cfg.Path = path
+	if path != constants.DefaultVClusterConfigLocation {
+		// config.ParseConfig does not apply Helm value defaults, so Standalone.Enabled,
+		// PrivateNodes.Enabled, and DataDir may be unset even though we are clearly in
+		// standalone mode. Mirror what vcluster-pro/pkg/standalone/config does.
+		cfg.ControlPlane.Standalone.Enabled = true
+		cfg.PrivateNodes.Enabled = true
+		if cfg.ControlPlane.Standalone.DataDir == "" {
+			cfg.ControlPlane.Standalone.DataDir = "/var/lib/vcluster"
+		}
+	}
 
 	return cfg, nil
 }
@@ -45,16 +72,40 @@ func ParseConfigBytes(data []byte, name string, setValues []string) (*VirtualClu
 	}
 
 	// create a new strict decoder
-	rawConfig := &config.Config{}
-	err = yaml.UnmarshalStrict(rawFile, rawConfig)
+	rawConfig := map[string]interface{}{}
+	if len(rawFile) > 0 {
+		err = yaml.UnmarshalStrict(rawFile, rawConfig)
+		if err != nil {
+			fmt.Printf("%#+v\n", errors.Unwrap(err))
+			return nil, err
+		}
+	}
+
+	// merge with default config
+	defaultConfig, err := vclusterconfig.NewDefaultConfig()
 	if err != nil {
-		fmt.Printf("%#+v\n", errors.Unwrap(err))
+		return nil, err
+	}
+	defaultConfigMap, err := convertToMap(defaultConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	// merge the configs
+	outConfigMap := strvals.MergeMaps(defaultConfigMap, rawConfig)
+	raw, err := json.Marshal(outConfigMap)
+	if err != nil {
+		return nil, err
+	}
+	outConfig := &vclusterconfig.Config{}
+	err = json.Unmarshal(raw, outConfig)
+	if err != nil {
 		return nil, err
 	}
 
 	// build config
 	retConfig := &VirtualClusterConfig{
-		Config: *rawConfig,
+		Config: *outConfig,
 		Name:   name,
 	}
 
@@ -100,6 +151,21 @@ func applySetValues(rawConfig []byte, setValues []string) ([]byte, error) {
 	}
 
 	return rawConfig, nil
+}
+
+func convertToMap(config *vclusterconfig.Config) (map[string]interface{}, error) {
+	raw, err := json.Marshal(config)
+	if err != nil {
+		return nil, err
+	}
+
+	out := map[string]interface{}{}
+	err = json.Unmarshal(raw, &out)
+	if err != nil {
+		return nil, err
+	}
+
+	return out, nil
 }
 
 func GetLocalCacheOptionsFromConfigMappings(mappings map[string]string, vClusterNamespace string) (cache.Options, bool) {
