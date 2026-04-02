@@ -267,6 +267,64 @@ privateNodes:
 
 ---
 
+## Custom e2e-next Linters
+
+The project uses custom golangci-lint plugins from
+[e2e-framework](https://github.com/loft-sh/e2e-framework/tree/main/linters) that
+enforce correctness patterns in Ginkgo test code:
+
+| Linter | What it checks |
+|--------|---------------|
+| `defercleanupcluster` | Every `cluster.Create()` call must have a matching `DeferCleanup(cluster.Destroy(...))` in the same scope |
+| `defercleanupctx` | `DeferCleanup` must not be called with a `setup.Func` - use `e2e.DeferCleanupCtx(ctx, fn)` instead |
+| `ginkgoreturnctx` | Ginkgo node functions (`BeforeEach`, `It`, etc.) that reassign their `context.Context` parameter must also return `context.Context` |
+| `describefunc` | Package-level `var _ = Describe(...)` with `cluster.Use()` must use an exported function pattern instead of auto-registration |
+
+These linters run automatically as part of `just lint` and `just lint-e2e`.
+The custom binary is auto-rebuilt when `.custom-gcl.yml` changes.
+
+### Quick commands
+
+```bash
+# Run custom linters against e2e-next (with autofix)
+just lint-e2e
+
+# Rebuild custom golangci-lint binary explicitly
+just build-linters
+```
+
+### Suppressing a finding
+
+Use `//nolint:<linter-name>` with a reason:
+
+```go
+ctx, err = cluster.Create(...)(...) //nolint:defercleanupcluster // destroyed in SynchronizedAfterSuite
+```
+
+### GoLand / IntelliJ setup
+
+GoLand (2025.1+) has built-in golangci-lint support, but it must be pointed at
+the **custom-built** binary - the system `golangci-lint` doesn't know about our
+plugins.
+
+1. Build the custom binary once: `just build-linters`
+2. In GoLand: **Settings > Go > Linters**
+3. In the **Executable** dropdown, click **+** > **Browse** and select the
+   **absolute path** to `<project-root>/tools/golangci-lint`
+4. Leave **"Use config"** unchecked - GoLand will auto-discover `.golangci.yml`
+
+Findings from the custom linters will appear inline in the editor and in the
+Problems tool window.
+
+> **Troubleshooting:** If you see "unknown linter" errors, you're probably running the
+> system binary instead of the custom one. Verify the executable path in
+> Settings > Go > Linters.
+>
+> After updating linter versions in `.custom-gcl.yml`, re-run `just build-linters` and restart
+> the GoLand inspection (or reopen the file).
+
+---
+
 ## 🤝 Contributing
 
 We welcome contributions! Check out our **[Contributing Guide](https://github.com/loft-sh/vcluster/blob/main/CONTRIBUTING.md)** to get started.
