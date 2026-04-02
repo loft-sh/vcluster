@@ -26,10 +26,10 @@ import (
 
 // DescribeCertTests registers all cert rotation, expiration, and kubeconfig TLS tests
 // in a single Ordered Describe. They MUST run sequentially because:
-// 1. All three operate on the same vCluster and do destructive cert rotations
-// 2. DescribeCertExpiration uses os.Setenv(VCLUSTER_CERTS_VALIDITYPERIOD) which is
-//    process-global - running in parallel would poison other cert operations
-// 3. Each section's reconnect establishes the proxy for the next section
+//  1. All three operate on the same vCluster and do destructive cert rotations
+//  2. DescribeCertExpiration uses os.Setenv(VCLUSTER_CERTS_VALIDITYPERIOD) which is
+//     process-global - running in parallel would poison other cert operations
+//  3. Each section's reconnect establishes the proxy for the next section
 //
 // Lifecycle: rotation (leaf -> CA with fingerprint verification) ->
 // expiration (1s CA -> wait expire -> recover) ->
@@ -265,7 +265,7 @@ func DescribeCertTests(vcluster suite.Dependency) bool {
 					Expect(err).To(Succeed(), "parsing recovered CA cert")
 					Expect(certFingerprint(cert)).NotTo(Equal(caFingerprintBefore),
 						"new CA fingerprint should differ from the short-lived CA")
-					Expect(cert.NotAfter.After(time.Now().Add(24 * time.Hour))).To(BeTrue(),
+					Expect(cert.NotAfter.After(time.Now().Add(24*time.Hour))).To(BeTrue(),
 						"new CA cert should have normal validity (>24h) after recovery")
 				})
 
