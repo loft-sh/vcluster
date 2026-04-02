@@ -27,7 +27,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v') == true
     needs: [check_minimum_version_tag]
     name: Publish vcluster
-    runs-on: ubuntu-22.04
+    runs-on: large-8_32
 
     outputs:
       release_version: ${{ steps.get_version.outputs.release_version }}
