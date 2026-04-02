@@ -89,9 +89,15 @@ jobs:
           GOFLAGS: ""
 
       - name: Build custom golangci-lint with plugins
+        if: github.event.pull_request.head.repo.full_name == github.repository
         run: golangci-lint custom
         env:
           GOFLAGS: ""
 
-      - name: Run golangci-lint
+      - name: Run golangci-lint (with custom linters)
+        if: github.event.pull_request.head.repo.full_name == github.repository
         run: ./tools/golangci-lint run --timeout 15m -- ./...
+
+      - name: Run golangci-lint (fork PRs, without custom linters)
+        if: github.event.pull_request.head.repo.full_name != github.repository
+        run: golangci-lint run --timeout 15m -- ./...
