@@ -3,9 +3,11 @@
 // vCluster: CertsVCluster (dedicated single-replica with deploy etcd)
 // Run:      just run-e2e 'security && !non-default'
 //
-// Cert rotation restarts the vcluster pod, killing the proxy for any tests
-// sharing the same cluster. That's why these tests use a dedicated CertsVCluster
-// rather than CommonVCluster.
+// All cert tests run in a single Ordered Describe because:
+// - Cert rotation restarts the vcluster pod, killing any shared proxy
+// - The expiration test uses os.Setenv(VCLUSTER_CERTS_VALIDITYPERIOD) which is
+//   process-global and would poison parallel cert operations
+// - Each section's reconnect establishes the proxy for the next section
 package e2e_next
 
 import (
@@ -13,8 +15,4 @@ import (
 	"github.com/loft-sh/vcluster/e2e-next/test_core/certs"
 )
 
-var (
-	_ = certs.DescribeCertRotation(clusters.CertsVCluster)
-	_ = certs.DescribeCertExpiration(clusters.CertsVCluster)
-	_ = certs.DescribeCertKubeConfig(clusters.CertsVCluster)
-)
+var _ = certs.DescribeCertTests(clusters.CertsVCluster)

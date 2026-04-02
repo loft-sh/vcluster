@@ -29,10 +29,7 @@ func DescribeKubeletProxy(vcluster suite.Dependency) bool {
 			var vClusterClientset *kubernetes.Clientset
 
 			BeforeEach(func(ctx context.Context) context.Context {
-				currentCluster := cluster.CurrentClusterFrom(ctx)
-				Expect(currentCluster).NotTo(BeNil(), "current cluster not found in context - is the vcluster provisioned?")
-				cfg := currentCluster.KubernetesRestConfig()
-				Expect(cfg).NotTo(BeNil(), "kubernetes rest config is nil")
+				cfg := cluster.CurrentClusterFrom(ctx).KubernetesRestConfig()
 				var err error
 				vClusterClientset, err = kubernetes.NewForConfig(cfg)
 				Expect(err).To(Succeed())
@@ -152,6 +149,22 @@ func DescribeKubeletProxy(vcluster suite.Dependency) bool {
 				)
 
 				BeforeAll(func(ctx context.Context) {
+					// Ensure clientset is initialized. The outer BeforeEach sets it
+					// for non-Ordered specs, but in an Ordered context the BeforeAll
+					// runs before the first BeforeEach on some Ginkgo parallel nodes.
+					// If the cluster was not provisioned (label filter mismatch), the
+					// framework skips BeforeEach, so we must guard against nil here.
+					if vClusterClientset == nil {
+						currentCluster := cluster.CurrentClusterFrom(ctx)
+						if currentCluster == nil {
+							Skip("kubelet-proxy-vcluster not provisioned for this label filter")
+						}
+						cfg := currentCluster.KubernetesRestConfig()
+						var err error
+						vClusterClientset, err = kubernetes.NewForConfig(cfg)
+						Expect(err).To(Succeed())
+					}
+
 					suffix := random.String(6)
 					nsName = "kubelet-proxy-test-" + suffix
 					podName = "logger-" + suffix
