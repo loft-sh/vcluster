@@ -1,13 +1,11 @@
-// Suite: e2e_ha_certs
-// Matches: test/e2e_ha/e2e_suite_test.go (cert rotation only) and
-// test/e2e_certs/certs/rotate.go (all cert rotation scenarios)
-// vCluster: HAVCluster (3 replicas, HA etcd + coredns)
-// Run:      just run-e2e '/ha-certs-vcluster/ && !non-default'
+// Suite: e2e_certs
+// Matches: test/e2e_certs/certs/rotate.go (all cert rotation scenarios)
+// vCluster: CertsVCluster (dedicated single-replica with deploy etcd)
+// Run:      just run-e2e 'security && !non-default'
 //
-// NOTE: The old e2e_ha suite only ran cert rotation tests. Broader HA functional
-// tests (pod/service/DNS behavior under HA) were not part of the old suite and
-// are not registered here. Add them as needed when HA-specific behavior tests
-// are written.
+// Cert rotation restarts the vcluster pod, killing the proxy for any tests
+// sharing the same cluster. That's why these tests use a dedicated CertsVCluster
+// rather than CommonVCluster.
 package e2e_next
 
 import (
@@ -16,7 +14,7 @@ import (
 )
 
 var (
-	_ = certs.DescribeCertRotation(clusters.HAVCluster)
-	_ = certs.DescribeCertExpiration(clusters.HAVCluster)
-	_ = certs.DescribeCertKubeConfig(clusters.HAVCluster)
+	_ = certs.DescribeCertRotation(clusters.CertsVCluster)
+	_ = certs.DescribeCertExpiration(clusters.CertsVCluster)
+	_ = certs.DescribeCertKubeConfig(clusters.CertsVCluster)
 )

@@ -29,7 +29,10 @@ func DescribeKubeletProxy(vcluster suite.Dependency) bool {
 			var vClusterClientset *kubernetes.Clientset
 
 			BeforeEach(func(ctx context.Context) context.Context {
-				cfg := cluster.CurrentClusterFrom(ctx).KubernetesRestConfig()
+				currentCluster := cluster.CurrentClusterFrom(ctx)
+				Expect(currentCluster).NotTo(BeNil(), "current cluster not found in context - is the vcluster provisioned?")
+				cfg := currentCluster.KubernetesRestConfig()
+				Expect(cfg).NotTo(BeNil(), "kubernetes rest config is nil")
 				var err error
 				vClusterClientset, err = kubernetes.NewForConfig(cfg)
 				Expect(err).To(Succeed())

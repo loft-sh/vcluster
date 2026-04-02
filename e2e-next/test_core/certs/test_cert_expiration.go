@@ -33,10 +33,10 @@ func DescribeCertExpiration(vcluster suite.Dependency) bool {
 		cluster.Use(clusters.HostCluster),
 		func() {
 			var (
-				hostClient            kubernetes.Interface
-				vClusterName          string
-				vClusterNamespace     string
-				caFingerprintBefore   string
+				hostClient          kubernetes.Interface
+				vClusterName        string
+				vClusterNamespace   string
+				caFingerprintBefore string
 			)
 
 			BeforeAll(func(ctx context.Context) context.Context {
@@ -128,7 +128,7 @@ func DescribeCertExpiration(vcluster suite.Dependency) bool {
 
 				Expect(certFingerprint(cert)).NotTo(Equal(caFingerprintBefore),
 					"new CA fingerprint should differ from the short-lived CA")
-				Expect(cert.NotAfter.After(time.Now().Add(24 * time.Hour))).To(BeTrue(),
+				Expect(cert.NotAfter.After(time.Now().Add(24*time.Hour))).To(BeTrue(),
 					"new CA cert should have normal validity (>24h) after recovery")
 			})
 
