@@ -84,6 +84,11 @@ func ConnectHelm(ctx context.Context, options *ConnectOptions, globalFlags *flag
 		return err
 	}
 
+	if vCluster.Status == find.StatusScaledDown {
+		return fmt.Errorf("tenant cluster control plane %s/%s is scaled down to zero replicas, run 'vcluster resume %s' first",
+			vCluster.Namespace, vCluster.Name, vCluster.Name)
+	}
+
 	log.Debugf("Found vCluster %s/%s", vCluster.Namespace, vCluster.Name)
 	return cmd.connect(ctx, vCluster, command)
 }
