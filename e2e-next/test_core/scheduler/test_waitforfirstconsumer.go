@@ -5,8 +5,6 @@ import (
 	"fmt"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
-	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
-	"github.com/loft-sh/vcluster/e2e-next/clusters"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/pkg/util/random"
@@ -39,15 +37,12 @@ func int32Ptr(i int32) *int32 {
 	return &i
 }
 
-// DescribeSchedulerWaitForFirstConsumer registers WaitForFirstConsumer StatefulSet tests
-// against the given vCluster.
-func DescribeSchedulerWaitForFirstConsumer(vcluster suite.Dependency) bool {
-	return Describe("Schedule a StatefulSet with WaitForFirstConsumer PVCs",
+// SchedulerWaitForFirstConsumerSpec registers WaitForFirstConsumer StatefulSet tests.
+func SchedulerWaitForFirstConsumerSpec() {
+	Describe("Schedule a StatefulSet with WaitForFirstConsumer PVCs",
 		labels.Core,
 		labels.Scheduler,
 		labels.Storage,
-		cluster.Use(vcluster),
-		cluster.Use(clusters.HostCluster),
 		func() {
 			var (
 				hostClient     kubernetes.Interface

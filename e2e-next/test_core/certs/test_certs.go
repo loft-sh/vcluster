@@ -9,9 +9,7 @@ import (
 	"time"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
-	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
 	certscmd "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/certs"
-	"github.com/loft-sh/vcluster/e2e-next/clusters"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/pkg/certs"
@@ -24,23 +22,21 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-// DescribeCertTests registers all cert rotation, expiration, and kubeconfig TLS tests
+// CertTestsSpec registers all cert rotation, expiration, and kubeconfig TLS tests
 // in a single Ordered Describe. They MUST run sequentially because:
 //  1. All three operate on the same vCluster and do destructive cert rotations
-//  2. DescribeCertExpiration uses os.Setenv(VCLUSTER_CERTS_VALIDITYPERIOD) which is
+//  2. CertExpiration uses os.Setenv(VCLUSTER_CERTS_VALIDITYPERIOD) which is
 //     process-global - running in parallel would poison other cert operations
 //  3. Each section's reconnect establishes the proxy for the next section
 //
 // Lifecycle: rotation (leaf -> CA with fingerprint verification) ->
 // expiration (1s CA -> wait expire -> recover) ->
 // kubeconfig TLS (baseline -> leaf rotate -> CA rotate -> verify old TLS fails)
-func DescribeCertTests(vcluster suite.Dependency) bool {
-	return Describe("vCluster cert tests",
+func CertTestsSpec() {
+	Describe("vCluster cert tests",
 		Ordered,
 		labels.Core,
 		labels.Security,
-		cluster.Use(vcluster),
-		cluster.Use(clusters.HostCluster),
 		func() {
 			var (
 				hostClient        kubernetes.Interface

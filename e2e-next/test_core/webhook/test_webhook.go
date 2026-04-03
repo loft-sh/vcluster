@@ -6,8 +6,6 @@ import (
 	"strings"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
-	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
-	"github.com/loft-sh/vcluster/e2e-next/clusters"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/pkg/util/random"
@@ -263,15 +261,12 @@ func (w *webhookInfra) registerWebhook(ctx context.Context, configName string) {
 	}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 }
 
-// DescribeAdmissionWebhook registers admission webhook tests against the given vCluster.
-func DescribeAdmissionWebhook(vcluster suite.Dependency) bool {
-	return Describe("AdmissionWebhook",
+// AdmissionWebhookSpec registers admission webhook tests.
+func AdmissionWebhookSpec() {
+	Describe("AdmissionWebhook",
 		labels.Core,
-		labels.PR,
 		labels.Security,
 		labels.Webhooks,
-		cluster.Use(vcluster),
-		cluster.Use(clusters.HostCluster),
 		func() {
 			It("should be able to deny pod and configmap creation", func(ctx context.Context) {
 				vClusterClient := cluster.CurrentKubeClientFrom(ctx)

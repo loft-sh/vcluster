@@ -6,8 +6,6 @@ import (
 	"reflect"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
-	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
-	"github.com/loft-sh/vcluster/e2e-next/clusters"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	. "github.com/onsi/ginkgo/v2"
@@ -16,14 +14,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// DescribeK8sDefaultEndpoint registers default/kubernetes endpoint mapping tests against the given vCluster.
-func DescribeK8sDefaultEndpoint(vcluster suite.Dependency) bool {
-	return Describe("map default/kubernetes endpoint to physical vcluster endpoint",
-		labels.Core,
-		labels.Sync,
-		labels.PR,
-		cluster.Use(vcluster),
-		cluster.Use(clusters.HostCluster),
+// K8sDefaultEndpointSpec registers the spec.
+func K8sDefaultEndpointSpec() {
+	Describe("map default/kubernetes endpoint to physical vcluster endpoint",
+		labels.Core, labels.Sync,
 		func() {
 			var (
 				hostClient        kubernetes.Interface

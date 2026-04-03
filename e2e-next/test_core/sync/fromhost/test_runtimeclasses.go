@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
-	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/pkg/util/random"
@@ -19,14 +18,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// DescribeFromHostRuntimeClasses registers runtimeClass sync from host tests against the given vCluster.
-func DescribeFromHostRuntimeClasses(vcluster suite.Dependency) bool {
-	return Describe("RuntimeClasses sync from host",
+// FromHostRuntimeClassesSpec registers runtimeClass sync from host tests.
+func FromHostRuntimeClassesSpec() {
+	Describe("RuntimeClasses sync from host",
 		labels.Core,
-		labels.PR,
 		labels.Sync,
 		labels.RuntimeClasses,
-		cluster.Use(vcluster),
 		func() {
 			var (
 				hostClient     kubernetes.Interface

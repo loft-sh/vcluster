@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
-	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/pkg/util/random"
@@ -20,14 +19,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// DescribeFromHostStorageClasses registers storageClass sync from host tests against the given vCluster.
-func DescribeFromHostStorageClasses(vcluster suite.Dependency) bool {
-	return Describe("StorageClasses sync from host",
+// FromHostStorageClassesSpec registers storageClass sync from host tests.
+func FromHostStorageClassesSpec() {
+	Describe("StorageClasses sync from host",
 		labels.Core,
-		labels.PR,
 		labels.Sync,
 		labels.StorageClasses,
-		cluster.Use(vcluster),
 		func() {
 			var (
 				hostClient     kubernetes.Interface

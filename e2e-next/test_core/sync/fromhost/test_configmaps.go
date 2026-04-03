@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
-	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/pkg/util/podhelper"
@@ -19,14 +18,12 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-// DescribeFromHostConfigMaps registers configmap sync from host tests against the given vCluster.
-func DescribeFromHostConfigMaps(vcluster suite.Dependency) bool {
-	return Describe("ConfigMaps sync from host",
+// FromHostConfigMapsSpec registers configmap sync from host tests.
+func FromHostConfigMapsSpec() {
+	Describe("ConfigMaps sync from host",
 		labels.Core,
-		labels.PR,
 		labels.Sync,
 		labels.ConfigMaps,
-		cluster.Use(vcluster),
 		func() {
 			var (
 				hostClient     kubernetes.Interface

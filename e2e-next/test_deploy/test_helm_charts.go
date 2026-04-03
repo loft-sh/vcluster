@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
-	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/pkg/controllers/deploy"
@@ -25,12 +24,10 @@ const (
 	chartOCINamespace    = "fluent-bit"
 )
 
-// DescribeHelmCharts registers helm chart deployment tests against the given vCluster.
-func DescribeHelmCharts(vcluster suite.Dependency) bool {
-	return Describe("Helm charts (regular and OCI) are synced and applied as expected",
+// HelmChartsSpec registers helm chart deployment tests.
+func HelmChartsSpec() {
+	Describe("Helm charts (regular and OCI) are synced and applied as expected",
 		labels.Deploy,
-		labels.PR,
-		cluster.Use(vcluster),
 		func() {
 			var (
 				HelmSecretLabels = map[string]string{

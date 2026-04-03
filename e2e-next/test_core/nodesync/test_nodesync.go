@@ -5,8 +5,6 @@ import (
 	"reflect"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
-	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
-	"github.com/loft-sh/vcluster/e2e-next/clusters"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -17,15 +15,13 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// DescribeNodeSync registers node sync tests against the given vCluster.
+// NodeSyncSpec registers node sync tests.
 // The vCluster must be configured with sync.fromHost.nodes.selector.all=true
 // so that all host nodes are synced into the virtual cluster.
-func DescribeNodeSync(vcluster suite.Dependency) bool {
-	return Describe("Node sync",
+func NodeSyncSpec() {
+	Describe("Node sync",
 		labels.Core,
 		labels.Sync,
-		cluster.Use(vcluster),
-		cluster.Use(clusters.HostCluster),
 		func() {
 			var (
 				hostClient     kubernetes.Interface

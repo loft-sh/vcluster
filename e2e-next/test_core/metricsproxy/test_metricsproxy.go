@@ -4,8 +4,6 @@ import (
 	"context"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
-	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
-	"github.com/loft-sh/vcluster/e2e-next/clusters"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	. "github.com/onsi/ginkgo/v2"
@@ -17,17 +15,15 @@ import (
 	metricsv1beta1client "k8s.io/metrics/pkg/client/clientset/versioned/typed/metrics/v1beta1"
 )
 
-// DescribeMetricsProxy registers metrics proxy integration tests against the
-// given vCluster. The vCluster must be configured with
+// MetricsProxySpec registers metrics proxy integration tests.
+// The vCluster must be configured with
 // integrations.metricsServer.enabled: true and the host cluster must have
 // metrics-server installed (handled by MetricsProxyVCluster's preSetup).
-func DescribeMetricsProxy(vcluster suite.Dependency) bool {
-	return Describe("Metrics proxy integration",
+func MetricsProxySpec() {
+	Describe("Metrics proxy integration",
 		labels.Core,
 		labels.Integration,
 		labels.MetricsProxy,
-		cluster.Use(vcluster),
-		cluster.Use(clusters.HostCluster),
 		func() {
 			var vClusterConfig *rest.Config
 

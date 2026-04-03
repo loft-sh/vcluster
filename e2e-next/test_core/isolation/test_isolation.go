@@ -6,8 +6,6 @@ import (
 	"strings"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
-	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
-	"github.com/loft-sh/vcluster/e2e-next/clusters"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/pkg/util/random"
@@ -20,15 +18,13 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// DescribeIsolationMode registers isolation mode tests against the given vCluster.
+// IsolationModeSpec registers isolation mode tests.
 // The vCluster must be configured with policies.podSecurityStandard, resourceQuota,
 // limitRange, and networkPolicy enabled (see vcluster-isolation-mode.yaml).
-func DescribeIsolationMode(vcluster suite.Dependency) bool {
-	return Describe("Isolated mode",
+func IsolationModeSpec() {
+	Describe("Isolated mode",
 		labels.Core,
 		labels.Security,
-		cluster.Use(vcluster),
-		cluster.Use(clusters.HostCluster),
 		func() {
 			var (
 				hostClient        kubernetes.Interface

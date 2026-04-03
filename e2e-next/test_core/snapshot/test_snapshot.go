@@ -11,10 +11,8 @@ import (
 	"github.com/ghodss/yaml"
 	snapshotsv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/clientset/versioned"
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
-	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
 	loftlog "github.com/loft-sh/log"
 	connectcmd "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd"
-	"github.com/loft-sh/vcluster/e2e-next/clusters"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/pkg/cli"
@@ -165,14 +163,13 @@ func (s *snapshotCtx) deployTestResources(ctx context.Context, testNS string) (
 // DescribeSnapshotAll registers all snapshot tests in a single Ordered Describe.
 // Snapshot operations on one vCluster interfere with each other (shared configmaps/secrets),
 // so they must run sequentially on the same vCluster.
-func DescribeSnapshotAll(vcluster suite.Dependency) bool {
+// SnapshotAllSpec registers snapshot and restore tests.
+func SnapshotAllSpec() {
 	var s snapshotCtx
-	return Describe("Snapshot and restore",
+	Describe("Snapshot and restore",
 		Ordered,
 		labels.Core,
 		labels.Snapshots,
-		cluster.Use(vcluster),
-		cluster.Use(clusters.HostCluster),
 		func() {
 			BeforeAll(func(ctx context.Context) {
 				s = *newSnapshotCtx(ctx)

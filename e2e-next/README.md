@@ -6,18 +6,24 @@ End-to-end tests for vCluster using the [e2e-framework](https://github.com/loft-
 
 ```
 e2e-next/
-├── e2e_suite_test.go              # Infrastructure (flags, BeforeSuite, AfterSuite)
-├── suite_e2e_test.go              # Suite: e2e (main - comprehensive vCluster)
-├── suite_ha_certs_test.go         # Suite: ha_certs (HA cert rotation)
-├── suite_node_test.go             # Suite: node (all-nodes sync)
-├── suite_scheduler_test.go        # Suite: scheduler (virtual scheduler)
-├── suite_isolation_mode_test.go   # Suite: isolation_mode (PSS, quota, limitrange)
-├── suite_rootless_test.go         # Suite: rootless (non-root UID)
+├── e2e_suite_test.go                    # Infrastructure (flags, BeforeSuite, AfterSuite)
+├── suite_e2e_test.go                    # Suite: common-vcluster (main PR-gating)
+├── suite_fromhost_limitclasses_test.go  # Suite: fromhost-limitclasses-vcluster
+├── suite_servicesync_test.go            # Suite: service-sync-vcluster
+├── suite_kubeletproxy_test.go           # Suite: kubelet-proxy-vcluster
+├── suite_snapshot_test.go              # Suite: snapshot-vcluster
+├── suite_ha_certs_test.go               # Suite: certs-vcluster (Ordered)
+├── suite_metricsproxy_test.go           # Suite: metricsproxy-vcluster
+├── suite_node_test.go                   # Suite: node-sync-vcluster
+├── suite_scheduler_test.go              # Suite: scheduler-vcluster
+├── suite_isolation_mode_test.go         # Suite: isolation-mode-vcluster
+├── suite_rootless_test.go               # Suite: rootless-vcluster
+├── suite_vind_test.go                   # Suite: vind (docker driver)
 │
 ├── clusters/                      # vCluster definitions (1 file + 1 YAML per cluster)
 │   ├── registry.go                # Registration infrastructure (register, PreSetup, SetupFuncs)
-│   ├── default.go                 # K8sDefaultEndpointVCluster (comprehensive e2e config)
-│   ├── ha.go                      # HAVCluster (3 replicas)
+│   ├── default.go                 # CommonVCluster (comprehensive e2e config)
+│   ├── certs.go                   # CertsVCluster (single-replica, deploy etcd)
 │   ├── isolation_mode.go          # IsolationModeVCluster (PSS, quota, limitrange)
 │   ├── node_sync.go               # NodeSyncVCluster (all nodes, virtualScheduler)
 │   ├── scheduler.go               # SchedulerVCluster (k8s scheduler, all nodes)
@@ -25,14 +31,16 @@ e2e-next/
 │   ├── servicesync.go             # ServiceSyncVCluster (replicateServices)
 │   ├── fromhost_limitclasses.go   # FromHostLimitClassesVCluster (label-selector sync)
 │   ├── snapshot.go                # SnapshotVCluster (CSI + PVC presetup)
+│   ├── kubeletproxy.go            # KubeletProxyVCluster
+│   ├── metricsproxy.go            # MetricsProxyVCluster
 │   └── *.yaml                     # Embedded vcluster.yaml templates
 │
-├── test_core/                     # Test logic (exported Describe* functions)
+├── test_core/                     # Test logic (self-describing spec functions)
 │   ├── sync/                      # Sync tests (pods, pvc, networkpolicy, servicesync, etc.)
 │   │   └── fromhost/              # FromHost sync tests (configmaps, secrets, etc.)
 │   ├── coredns/                   # CoreDNS resolution tests
 │   ├── webhook/                   # Admission webhook tests
-│   ├── certs/                     # Cert rotation tests (HA)
+│   ├── certs/                     # Cert rotation tests
 │   ├── isolation/                 # Isolation mode tests
 │   ├── nodesync/                  # Node sync (all nodes) tests
 │   ├── scheduler/                 # Scheduler taint/toleration + WaitForFirstConsumer
@@ -46,25 +54,65 @@ e2e-next/
 └── init/                          # Framework initialization
 ```
 
+## Architecture
+
+Tests are split into two layers:
+
+1. **Spec functions** (`test_core/`, `test_deploy/`) - self-describing: each carries its own
+   Describe text and feature labels, but no cluster binding or scheduling labels.
+2. **Suite files** (`suite_*_test.go`) - one per vCluster: binds specs to a cluster via
+   `cluster.Use()` and optionally adds scheduling labels like `labels.PR`.
+
+```go
+// Spec function (test_core/sync/test_pods.go)
+func PodSyncSpec() {
+    Describe("Pod sync from vCluster to host",
+        labels.Core, labels.Pods, labels.Sync,   // feature labels
+        func() { /* test logic */ },
+    )
+}
+
+// Suite file (suite_rootless_test.go)
+func suiteRootlessVCluster() {
+    Describe("rootless-vcluster",                 // vCluster name
+        cluster.Use(clusters.RootlessVCluster),   // cluster binding
+        cluster.Use(clusters.HostCluster),
+        func() {
+            rootless.RootlessModeSpec()            // list of specs
+            coredns.CoreDNSSpec()
+            test_core.PodSyncSpec()
+        },
+    )
+}
+```
+
+The same spec can run against multiple vClusters. The suite controls which vCluster
+and whether the tests gate PRs.
+
 ## Test Suites
 
-Each suite registers tests against a specific vCluster configuration. Tests are exported
-functions (`Describe*(vcluster suite.Dependency) bool`) so the same test logic can run
-against different vCluster configs and be imported by other repos (e.g. vcluster-pro).
+Each suite file maps to one vCluster. One file, one vCluster, one function.
 
-| Suite | File | vCluster | Run command |
-|-------|------|----------|-------------|
-| e2e (main) | `suite_e2e_test.go` | `common-vcluster` | `just run-e2e '/common-vcluster/ && !non-default'` |
-| ha_certs | `suite_ha_certs_test.go` | `ha-certs-vcluster` | `just run-e2e '/ha-certs-vcluster/ && !non-default'` |
-| node | `suite_node_test.go` | `node-sync-vcluster` | `just run-e2e '/node-sync-vcluster/ && !non-default'` |
-| scheduler | `suite_scheduler_test.go` | `scheduler-vcluster` | `just run-e2e '/scheduler-vcluster/ && !non-default'` |
-| isolation_mode | `suite_isolation_mode_test.go` | `isolation-mode-vcluster` | `just run-e2e '/isolation-mode/ && !non-default'` |
-| rootless | `suite_rootless_test.go` | `rootless-vcluster` | `just run-e2e '/rootless-vcluster/ && !non-default'` |
+| Suite file | vCluster | PR-gated | Specs |
+|------------|----------|----------|-------|
+| `suite_e2e_test.go` | `common-vcluster` | yes | 14 (sync, fromHost, coredns, webhook, deploy) |
+| `suite_fromhost_limitclasses_test.go` | `fromhost-limitclasses-vcluster` | yes | 4 (ingress/storage/priority/runtime classes) |
+| `suite_servicesync_test.go` | `service-sync-vcluster` | yes | 1 (service replication) |
+| `suite_kubeletproxy_test.go` | `kubelet-proxy-vcluster` | yes | 1 (kubelet proxy) |
+| `suite_snapshot_test.go` | `snapshot-vcluster` | no | 1 (snapshot & restore, Ordered) |
+| `suite_ha_certs_test.go` | `certs-vcluster` | no | 1 (cert rotation, Ordered) |
+| `suite_metricsproxy_test.go` | `metricsproxy-vcluster` | no | 1 (metrics proxy) |
+| `suite_isolation_mode_test.go` | `isolation-mode-vcluster` | no | 6 (isolation + shared specs) |
+| `suite_node_test.go` | `node-sync-vcluster` | no | 6 (nodesync + shared specs) |
+| `suite_rootless_test.go` | `rootless-vcluster` | no | 6 (rootless + shared specs) |
+| `suite_scheduler_test.go` | `scheduler-vcluster` | no | 7 (scheduler + shared specs) |
+| `suite_vind_test.go` | (self-managed) | no | 1 (docker driver lifecycle) |
 
 ## Labels
 
 | Label | Description |
 |-------|-------------|
+| `pr` | Scheduling label: tests that gate pull requests (on suite, not spec) |
 | `core` | Core vCluster functionality |
 | `sync` | Resource sync tests (toHost/fromHost) |
 | `deploy` | Deployment tests (helm, manifests) |
@@ -81,7 +129,6 @@ against different vCluster configs and be imported by other repos (e.g. vcluster
 | `secrets` | Secret fromHost sync |
 | `networkpolicies` | NetworkPolicy sync (requires Calico CNI) |
 | `non-default` | Tests requiring special infra (e.g. Calico CNI) - excluded by default |
-| `pr` | Tests that gate pull requests |
 
 ## Running Tests
 
@@ -110,22 +157,25 @@ just setup
 ### Run tests (environment already set up)
 
 ```bash
-# All tests (excluding non-default):
-just run-e2e '!non-default'
+# All PR-gating tests (excluding non-default):
+just run-e2e 'pr && !non-default'
 
 # All tests including NetworkPolicy:
 just run-e2e ''
 
-# Specific suite:
-just run-e2e '/k8s-default-endpoint/ && !non-default'
-just run-e2e '/ha-certs-vcluster/'
-just run-e2e '/scheduler-vcluster/'
+# Specific vCluster suite:
+just run-e2e 'common-vcluster'
+just run-e2e 'certs-vcluster'
+just run-e2e 'scheduler-vcluster'
 
-# By feature label:
+# By feature label (across all vClusters):
 just run-e2e 'pods'
 just run-e2e 'coredns'
 just run-e2e 'snapshots'
 just run-e2e 'security'
+
+# Combine:
+just run-e2e 'pr && pods'
 
 # Iterate without teardown:
 just iterate-e2e 'pods'
@@ -140,24 +190,34 @@ just teardown
 ## Adding a New Test
 
 1. Create a test file in the appropriate `test_core/` or `test_deploy/` subdirectory.
-2. Export a `Describe*` function that accepts `vcluster suite.Dependency`:
+2. Export a spec function that calls Describe with feature labels (no `cluster.Use`):
    ```go
-   func DescribeMyFeature(vcluster suite.Dependency) bool {
-       return Describe("My feature",
-           labels.Core,
-           cluster.Use(vcluster),
-           cluster.Use(clusters.HostCluster),
-           func() { /* test logic */ },
+   func MyFeatureSpec() {
+       Describe("My feature does something",
+           labels.Core, labels.Sync,
+           func() {
+               It("should work", func(ctx context.Context) {
+                   client := cluster.CurrentKubeClientFrom(ctx)
+                   // test logic
+               })
+           },
        )
    }
    ```
-3. Use `cluster.CurrentClusterNameFrom(ctx)` for the vCluster name (not hardcoded).
-4. Register the test in the appropriate `e2e_*_test.go` suite file:
+3. Register the spec in the appropriate suite file:
    ```go
-   var _ = mypackage.DescribeMyFeature(clusters.K8sDefaultEndpointVCluster)
+   func suiteCommonVCluster() {
+       Describe("common-vcluster", labels.PR,
+           cluster.Use(clusters.CommonVCluster),
+           cluster.Use(clusters.HostCluster),
+           func() {
+               mypackage.MyFeatureSpec()
+           },
+       )
+   }
    ```
-5. If the test needs a new vCluster config, add a YAML + Go file in `clusters/`.
-6. If the test needs a new label, add it to `labels/labels.go`.
+4. If the test needs a new vCluster config, add a YAML + Go file in `clusters/`.
+5. If the test needs a new label, add it to `labels/labels.go`.
 
 ## Adding a New vCluster Configuration
 
@@ -177,17 +237,62 @@ just teardown
        MyFeatureVCluster     = register(MyFeatureVClusterName, myFeatureYAML)
    )
    ```
-3. Only focused vClusters are provisioned (via `--label-filter`), so adding a new
+3. Create a new suite file `suite_myfeature_test.go`:
+   ```go
+   func init() {
+       suiteMyFeatureVCluster()
+   }
+
+   func suiteMyFeatureVCluster() {
+       Describe("myfeature-vcluster",
+           cluster.Use(clusters.MyFeatureVCluster),
+           cluster.Use(clusters.HostCluster),
+           func() {
+               mypackage.MyFeatureSpec()
+           },
+       )
+   }
+   ```
+4. Only focused vClusters are provisioned (via `--label-filter`), so adding a new
    cluster definition does not slow down other suites.
+
+## Custom Linters
+
+The e2e-next tests are checked by custom golangci-lint plugins (built via `golangci-lint custom`
+from `.custom-gcl.yml`). These run in CI and locally via `just lint ./e2e-next/...`.
+
+| Linter | What it checks |
+|--------|---------------|
+| `describefunc` | Spec functions in `test_*` packages must not call `Describe()` with `cluster.Use()`. Cluster binding belongs in suite files, not in specs. |
+| `defercleanupcluster` | `cluster.Create()` calls must have a matching `DeferCleanup(cluster.Destroy(...))`. |
+| `defercleanupctx` | `DeferCleanup` must not be called with a `setup.Func`; use `e2e.DeferCleanupCtx(ctx, fn)` instead. |
+| `ginkgoreturnctx` | Ginkgo node functions that reassign `context.Context` must return it. |
+
+If a linter flags your code, the error message explains the fix. Source code for all
+linters lives in [loft-sh/e2e-framework/linters/](https://github.com/loft-sh/e2e-framework/tree/main/linters).
 
 ## Cross-repo Usage (vcluster-pro)
 
-Tests are exported functions, so vcluster-pro can import and register them
-against its own vCluster definitions:
+Spec functions are exported and carry their own labels. vcluster-pro imports them
+and registers against its own vCluster definitions:
 
 ```go
-// vcluster-pro/e2e-next/register_tests_test.go
+// vcluster-pro/e2e-next/suite_deploy_etcd_test.go
 import test_core "github.com/loft-sh/vcluster/e2e-next/test_core/sync"
 
-var _ = test_core.DescribePodSync(proClusters.IsolationModeVCluster)
+func init() {
+    suiteDeployEtcdVCluster()
+}
+
+func suiteDeployEtcdVCluster() {
+    Describe("deploy-etcd-vcluster",
+        cluster.Use(proClusters.DeployEtcdVCluster),
+        cluster.Use(proClusters.HostCluster),
+        func() {
+            test_core.PodSyncSpec()
+            test_core.PVCSyncSpec()
+            // pro-specific specs...
+        },
+    )
+}
 ```

@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
-	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
-	"github.com/loft-sh/vcluster/e2e-next/clusters"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/pkg/util/random"
@@ -25,14 +23,10 @@ import (
 	"k8s.io/client-go/util/retry"
 )
 
-// DescribeServiceBasicSync registers basic service sync tests against the given vCluster.
-func DescribeServiceBasicSync(vcluster suite.Dependency) bool {
-	return Describe("Service basic sync from vCluster to host",
-		labels.Core,
-		labels.Sync,
-		labels.PR,
-		cluster.Use(vcluster),
-		cluster.Use(clusters.HostCluster),
+// ServiceBasicSyncSpec registers the spec.
+func ServiceBasicSyncSpec() {
+	Describe("Service basic sync from vCluster to host",
+		labels.Core, labels.Sync,
 		func() {
 			var (
 				hostClient        kubernetes.Interface

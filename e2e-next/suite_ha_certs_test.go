@@ -1,7 +1,6 @@
 // Suite: e2e_certs
 // Matches: test/e2e_certs/certs/rotate.go (all cert rotation scenarios)
-// vCluster: CertsVCluster (dedicated single-replica with deploy etcd)
-// Run:      just run-e2e 'security && !non-default'
+// Run:      just run-e2e 'certs-vcluster'
 //
 // All cert tests run in a single Ordered Describe because:
 //   - Cert rotation restarts the vcluster pod, killing any shared proxy
@@ -11,8 +10,22 @@
 package e2e_next
 
 import (
+	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	"github.com/loft-sh/vcluster/e2e-next/clusters"
 	"github.com/loft-sh/vcluster/e2e-next/test_core/certs"
+	. "github.com/onsi/ginkgo/v2"
 )
 
-var _ = certs.DescribeCertTests(clusters.CertsVCluster)
+func init() {
+	suiteCertsVCluster()
+}
+
+func suiteCertsVCluster() {
+	Describe("certs-vcluster",
+		cluster.Use(clusters.CertsVCluster),
+		cluster.Use(clusters.HostCluster),
+		func() {
+			certs.CertTestsSpec()
+		},
+	)
+}

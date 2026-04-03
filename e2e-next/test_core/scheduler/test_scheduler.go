@@ -4,8 +4,6 @@ import (
 	"context"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
-	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
-	"github.com/loft-sh/vcluster/e2e-next/clusters"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/pkg/util/random"
@@ -18,14 +16,12 @@ import (
 	"k8s.io/client-go/util/retry"
 )
 
-// DescribeSchedulerTaintsAndTolerations registers scheduler taint/toleration tests.
+// SchedulerTaintsAndTolerationsSpec registers scheduler taint/toleration tests.
 // The vCluster must have virtualScheduler enabled and fromHost node sync with all: true.
-func DescribeSchedulerTaintsAndTolerations(vcluster suite.Dependency) bool {
-	return Describe("Scheduler sync - taints and tolerations",
+func SchedulerTaintsAndTolerationsSpec() {
+	Describe("Scheduler sync - taints and tolerations",
 		labels.Core,
 		labels.Scheduler,
-		cluster.Use(vcluster),
-		cluster.Use(clusters.HostCluster),
 		func() {
 			var (
 				hostClient     kubernetes.Interface
