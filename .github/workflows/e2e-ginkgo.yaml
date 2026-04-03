@@ -175,7 +175,6 @@ jobs:
 
   ginkgo-e2e-tests:
     name: Execute test suites
-    runs-on: large-8_32
     needs:
       - build
       - parse_label-filter
@@ -183,7 +182,7 @@ jobs:
     if: >
       needs.parse_label-filter.outputs.skip-edited != 'true' &&
       needs.detect_changes.outputs.has_changed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: large-8_32
     permissions:
       id-token: write   # needed for OIDC → AWS
       contents: read
