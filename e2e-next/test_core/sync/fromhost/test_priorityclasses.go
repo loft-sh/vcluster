@@ -21,6 +21,7 @@ import (
 // FromHostPriorityClassesSpec registers priorityClass sync from host tests.
 func FromHostPriorityClassesSpec() {
 	Describe("PriorityClasses sync from host",
+		labels.PR,
 		labels.Core,
 		labels.Sync,
 		labels.PriorityClasses,

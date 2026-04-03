@@ -160,15 +160,13 @@ func (s *snapshotCtx) deployTestResources(ctx context.Context, testNS string) (
 	return configMapToRestore, configMapToDelete, secretToRestore, secretToDelete, deploymentToRestore, serviceToRestore
 }
 
-// DescribeSnapshotAll registers all snapshot tests in a single Ordered Describe.
+// SnapshotAllSpec registers snapshot and restore tests.
 // Snapshot operations on one vCluster interfere with each other (shared configmaps/secrets),
 // so they must run sequentially on the same vCluster.
-// SnapshotAllSpec registers snapshot and restore tests.
 func SnapshotAllSpec() {
 	var s snapshotCtx
 	Describe("Snapshot and restore",
 		Ordered,
-		labels.Core,
 		labels.Snapshots,
 		func() {
 			BeforeAll(func(ctx context.Context) {

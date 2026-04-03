@@ -20,6 +20,7 @@ import (
 // EventSyncSpec registers event force-sync tests.
 func EventSyncSpec() {
 	Describe("Events force-sync from host via annotation",
+		labels.PR,
 		labels.Core,
 		labels.Sync,
 		labels.Events,

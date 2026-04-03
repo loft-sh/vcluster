@@ -1,4 +1,5 @@
-package test_core
+// Package kubeletproxy contains kubelet proxy access control tests.
+package kubeletproxy
 
 import (
 	"context"
@@ -20,7 +21,7 @@ import (
 // KubeletProxySpec registers the spec.
 func KubeletProxySpec() {
 	Describe("Kubelet proxy subpath access control",
-		labels.Core, labels.Security,
+		labels.PR, labels.Security,
 		func() {
 			var vClusterClientset *kubernetes.Clientset
 

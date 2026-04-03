@@ -1,3 +1,4 @@
+// Package sync contains core resource sync tests (pods, PVCs, services, etc.).
 package test_core
 
 import (
@@ -17,7 +18,7 @@ import (
 // K8sDefaultEndpointSpec registers the spec.
 func K8sDefaultEndpointSpec() {
 	Describe("map default/kubernetes endpoint to physical vcluster endpoint",
-		labels.Core, labels.Sync,
+		labels.PR, labels.Core, labels.Sync,
 		func() {
 			var (
 				hostClient        kubernetes.Interface

@@ -1,3 +1,4 @@
+// Package rootless contains rootless mode tests.
 package rootless
 
 import (
@@ -18,7 +19,9 @@ import (
 // RootlessModeSpec registers rootless mode tests.
 func RootlessModeSpec() {
 	Describe("vCluster rootless mode",
-		labels.Core,
+		labels.PR,
+		labels.Security,
+		labels.Rootless,
 		func() {
 			var (
 				hostClient        kubernetes.Interface

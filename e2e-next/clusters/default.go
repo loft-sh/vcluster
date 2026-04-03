@@ -13,7 +13,9 @@ var (
 	CommonVCluster     = register(CommonVClusterName, defaultVClusterYAML)
 )
 
-// Aliases for backward compatibility - all point to CommonVCluster.
+// Aliases for backward compatibility.
+// These existed as separate cluster definitions before consolidation into CommonVCluster.
+// Tests in other repos (vcluster-pro) may reference them by name.
 var (
 	K8sDefaultEndpointVCluster     = CommonVCluster
 	K8sDefaultEndpointVClusterName = CommonVClusterName

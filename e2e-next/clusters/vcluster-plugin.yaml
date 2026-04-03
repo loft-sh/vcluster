@@ -1,7 +1,14 @@
-# Plugin Definition below. This is essentially a valid helm values file that will be merged
-# with the other vcluster values during vcluster create or helm install.
+controlPlane:
+  statefulSet:
+    image:
+      registry: ""
+      repository: {{.Repository}}
+      tag: {{.Tag}}
+
 plugin:
   bootstrap-with-deployment:
+    # NOTE: v2 is amd64-only; plugin tests require Linux CI or amd64 Kind cluster.
+    # v4 is multi-arch but uses a newer plugin protocol incompatible with the current syncer.
     image: ghcr.io/loft-sh/vcluster-example-bootstrap-with-deployment:v2
     imagePullPolicy: IfNotPresent
   import-secrets:
@@ -13,4 +20,3 @@ plugins:
   hooks:
     image: ghcr.io/loft-sh/vcluster-example-hooks:v1
     imagePullPolicy: IfNotPresent
-

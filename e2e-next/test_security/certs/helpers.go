@@ -1,3 +1,4 @@
+// Package certs contains certificate rotation and expiration tests.
 package certs
 
 import (

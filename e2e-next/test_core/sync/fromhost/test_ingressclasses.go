@@ -21,6 +21,7 @@ import (
 // FromHostIngressClassesSpec registers ingressClass sync from host tests.
 func FromHostIngressClassesSpec() {
 	Describe("IngressClasses sync from host",
+		labels.PR,
 		labels.Core,
 		labels.Sync,
 		labels.IngressClasses,

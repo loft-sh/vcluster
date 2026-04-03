@@ -1,3 +1,4 @@
+// Package isolation contains isolation mode tests.
 package isolation
 
 import (
@@ -23,8 +24,9 @@ import (
 // limitRange, and networkPolicy enabled (see vcluster-isolation-mode.yaml).
 func IsolationModeSpec() {
 	Describe("Isolated mode",
-		labels.Core,
+		labels.PR,
 		labels.Security,
+		labels.Isolation,
 		func() {
 			var (
 				hostClient        kubernetes.Interface
