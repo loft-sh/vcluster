@@ -1,12 +1,13 @@
-// Suite: e2e_ha_certs
-// Matches: test/e2e_ha/e2e_suite_test.go (cert rotation only)
-// vCluster: HAVCluster (3 replicas, HA etcd + coredns)
-// Run:      just run-e2e '/ha-certs-vcluster/ && !non-default'
+// Suite: e2e_certs
+// Matches: test/e2e_certs/certs/rotate.go (all cert rotation scenarios)
+// vCluster: CertsVCluster (dedicated single-replica with deploy etcd)
+// Run:      just run-e2e 'security && !non-default'
 //
-// NOTE: The old e2e_ha suite only ran cert rotation tests. Broader HA functional
-// tests (pod/service/DNS behavior under HA) were not part of the old suite and
-// are not registered here. Add them as needed when HA-specific behavior tests
-// are written.
+// All cert tests run in a single Ordered Describe because:
+//   - Cert rotation restarts the vcluster pod, killing any shared proxy
+//   - The expiration test uses os.Setenv(VCLUSTER_CERTS_VALIDITYPERIOD) which is
+//     process-global and would poison parallel cert operations
+//   - Each section's reconnect establishes the proxy for the next section
 package e2e_next
 
 import (
@@ -14,6 +15,4 @@ import (
 	"github.com/loft-sh/vcluster/e2e-next/test_core/certs"
 )
 
-var (
-	_ = certs.DescribeCertRotation(clusters.HAVCluster)
-)
+var _ = certs.DescribeCertTests(clusters.CertsVCluster)
