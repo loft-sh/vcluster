@@ -175,6 +175,7 @@ jobs:
 
   ginkgo-e2e-tests:
     name: Execute test suites
+    runs-on: large-8_32
     needs:
       - build
       - parse_label-filter
