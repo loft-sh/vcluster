@@ -493,7 +493,7 @@ func getVCluster(ctx context.Context, object client.Object, context, release str
 			for _, pod := range podList.Items {
 				status = GetPodStatus(&pod)
 			}
-		} else {
+		} else if isScaledDown(object) {
 			status = string(StatusScaledDown)
 		}
 	}
@@ -692,6 +692,19 @@ func GetPodStatus(pod *corev1.Pod) string {
 		reason = "Terminating"
 	}
 	return reason
+}
+
+// isScaledDown returns true if the workload's desired replica count is 0.
+// This distinguishes an intentional scale-down from a transient state where
+// pods are temporarily absent (e.g., during startup or rollout).
+func isScaledDown(object client.Object) bool {
+	switch o := object.(type) {
+	case *appsv1.StatefulSet:
+		return o.Spec.Replicas != nil && *o.Spec.Replicas == 0
+	case *appsv1.Deployment:
+		return o.Spec.Replicas != nil && *o.Spec.Replicas == 0
+	}
+	return false
 }
 
 // isVirtualClusterInstanceResourceAvailable checks if VirtualClusterInstance resources from storage.loft.sh/v1 exist
