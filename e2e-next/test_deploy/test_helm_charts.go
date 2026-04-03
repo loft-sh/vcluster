@@ -1,3 +1,4 @@
+// Package test_deploy contains deployment tests (Helm charts, init manifests).
 package test_deploy
 
 import (
@@ -27,7 +28,7 @@ const (
 // HelmChartsSpec registers helm chart deployment tests.
 func HelmChartsSpec() {
 	Describe("Helm charts (regular and OCI) are synced and applied as expected",
-		labels.Deploy,
+		labels.PR, labels.Deploy,
 		func() {
 			var (
 				HelmSecretLabels = map[string]string{

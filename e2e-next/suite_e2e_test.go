@@ -1,6 +1,3 @@
-// Suite: common-vcluster (main PR-gating tests)
-// Matches: test/e2e/e2e_suite_test.go
-// Run:      just run-e2e 'pr && !non-default'
 package e2e_next
 
 import (
@@ -10,14 +7,12 @@ import (
 	"github.com/loft-sh/vcluster/e2e-next/test_core/coredns"
 	test_core "github.com/loft-sh/vcluster/e2e-next/test_core/sync"
 	"github.com/loft-sh/vcluster/e2e-next/test_core/sync/fromhost"
-	"github.com/loft-sh/vcluster/e2e-next/test_core/webhook"
 	"github.com/loft-sh/vcluster/e2e-next/test_deploy"
+	"github.com/loft-sh/vcluster/e2e-next/test_security/webhook"
 	. "github.com/onsi/ginkgo/v2"
 )
 
-func init() {
-	suiteCommonVCluster()
-}
+func init() { suiteCommonVCluster() }
 
 func suiteCommonVCluster() {
 	Describe("common-vcluster", labels.PR,

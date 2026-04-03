@@ -1,3 +1,4 @@
+// Package nodesync contains all-nodes sync mode tests.
 package nodesync
 
 import (
@@ -20,8 +21,8 @@ import (
 // so that all host nodes are synced into the virtual cluster.
 func NodeSyncSpec() {
 	Describe("Node sync",
-		labels.Core,
 		labels.Sync,
+		labels.NodeSync,
 		func() {
 			var (
 				hostClient     kubernetes.Interface

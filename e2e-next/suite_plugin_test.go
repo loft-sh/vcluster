@@ -4,18 +4,18 @@ import (
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	"github.com/loft-sh/vcluster/e2e-next/clusters"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
-	test_core "github.com/loft-sh/vcluster/e2e-next/test_core/sync"
+	"github.com/loft-sh/vcluster/e2e-next/test_integration/plugin"
 	. "github.com/onsi/ginkgo/v2"
 )
 
-func init() { suiteServiceSyncVCluster() }
+func init() { suitePluginVCluster() }
 
-func suiteServiceSyncVCluster() {
-	Describe("service-sync-vcluster", labels.PR,
-		cluster.Use(clusters.ServiceSyncVCluster),
+func suitePluginVCluster() {
+	Describe("plugin-vcluster", labels.Integration,
+		cluster.Use(clusters.PluginVCluster),
 		cluster.Use(clusters.HostCluster),
 		func() {
-			test_core.ServiceSyncSpec()
+			plugin.PluginSpec()
 		},
 	)
 }

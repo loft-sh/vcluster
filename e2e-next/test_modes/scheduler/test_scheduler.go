@@ -1,3 +1,4 @@
+// Package scheduler contains virtual scheduler tests.
 package scheduler
 
 import (
@@ -20,7 +21,6 @@ import (
 // The vCluster must have virtualScheduler enabled and fromHost node sync with all: true.
 func SchedulerTaintsAndTolerationsSpec() {
 	Describe("Scheduler sync - taints and tolerations",
-		labels.Core,
 		labels.Scheduler,
 		func() {
 			var (

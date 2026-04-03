@@ -1,3 +1,4 @@
+// Package coredns contains CoreDNS resolution tests.
 package coredns
 
 import (
@@ -23,6 +24,7 @@ import (
 // CoreDNSSpec registers CoreDNS resolution tests.
 func CoreDNSSpec() {
 	Describe("CoreDNS resolves host names correctly",
+		labels.PR,
 		labels.Core,
 		labels.CoreDNS,
 		func() {

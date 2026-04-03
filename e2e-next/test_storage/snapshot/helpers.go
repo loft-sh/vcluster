@@ -1,3 +1,4 @@
+// Package snapshot contains snapshot and restore tests.
 package snapshot
 
 import (

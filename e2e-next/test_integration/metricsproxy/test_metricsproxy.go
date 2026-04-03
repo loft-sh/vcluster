@@ -1,3 +1,4 @@
+// Package metricsproxy contains metrics proxy integration tests.
 package metricsproxy
 
 import (
@@ -21,7 +22,7 @@ import (
 // metrics-server installed (handled by MetricsProxyVCluster's preSetup).
 func MetricsProxySpec() {
 	Describe("Metrics proxy integration",
-		labels.Core,
+		labels.PR,
 		labels.Integration,
 		labels.MetricsProxy,
 		func() {
