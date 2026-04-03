@@ -25,6 +25,19 @@ func localChartDir() string {
 	return filepath.Join("..", "chart")
 }
 
+// createArgs returns the common arguments for creating a tenant cluster
+// using the local chart and the dev image built from the current branch.
+func createArgs(name, namespace string) []string {
+	return []string{
+		"create", name,
+		"-n", namespace,
+		"--connect=false",
+		"--local-chart-dir", localChartDir(),
+		"--set", "controlPlane.statefulSet.image.repository=" + constants.GetRepository(),
+		"--set", "controlPlane.statefulSet.image.tag=" + constants.GetTag(),
+	}
+}
+
 func runVClusterCmd(ctx context.Context, args ...string) (string, error) {
 	cmd := exec.CommandContext(ctx, vclusterBinPath(), args...)
 	out, err := cmd.CombinedOutput()

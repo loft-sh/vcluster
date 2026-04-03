@@ -39,10 +39,7 @@ var _ = Describe("CLI lifecycle", labels.Core, labels.PR, func() {
 
 		It("should create a tenant cluster", func(ctx context.Context) {
 			By("Creating a tenant cluster", func() {
-				_, err := runVClusterCmd(ctx, "create", clusterName,
-					"-n", namespace,
-					"--connect=false",
-					"--local-chart-dir", localChartDir())
+				_, err := runVClusterCmd(ctx, createArgs(clusterName, namespace)...)
 				Expect(err).To(Succeed())
 			})
 
@@ -102,10 +99,7 @@ var _ = Describe("CLI lifecycle", labels.Core, labels.PR, func() {
 
 		It("should create a tenant cluster", func(ctx context.Context) {
 			By("Creating a tenant cluster", func() {
-				_, err := runVClusterCmd(ctx, "create", clusterName,
-					"-n", namespace,
-					"--connect=false",
-					"--local-chart-dir", localChartDir())
+				_, err := runVClusterCmd(ctx, createArgs(clusterName, namespace)...)
 				Expect(err).To(Succeed())
 			})
 
