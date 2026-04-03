@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -86,12 +87,8 @@ func findByName(entries []listEntry, name string) *listEntry {
 
 func scaleDownVCluster(ctx context.Context, hostClient kubernetes.Interface, name, namespace string) {
 	GinkgoHelper()
-	zero := int32(0)
-	sts, err := hostClient.AppsV1().StatefulSets(namespace).Get(ctx, name, metav1.GetOptions{})
-	Expect(err).To(Succeed(), "get StatefulSet %s/%s", namespace, name)
-
-	sts.Spec.Replicas = &zero
-	_, err = hostClient.AppsV1().StatefulSets(namespace).Update(ctx, sts, metav1.UpdateOptions{})
+	patch := []byte(`{"spec":{"replicas":0}}`)
+	_, err := hostClient.AppsV1().StatefulSets(namespace).Patch(ctx, name, types.MergePatchType, patch, metav1.PatchOptions{})
 	Expect(err).To(Succeed(), "scale down StatefulSet %s/%s", namespace, name)
 
 	Eventually(func(g Gomega, ctx context.Context) {
