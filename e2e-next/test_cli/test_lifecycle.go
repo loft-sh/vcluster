@@ -34,7 +34,10 @@ var _ = Describe("CLI lifecycle", labels.Core, labels.PR, func() {
 		})
 
 		AfterAll(func(ctx context.Context) {
-			_, _ = runVClusterCmd(ctx, "delete", clusterName, "-n", namespace, "--delete-namespace")
+			out, err := runVClusterCmd(ctx, "delete", clusterName, "-n", namespace, "--delete-namespace")
+			if err != nil {
+				GinkgoWriter.Printf("cleanup: vcluster delete %s failed (may already be deleted): %s\n", clusterName, out)
+			}
 		})
 
 		It("should create a tenant cluster", func(ctx context.Context) {
@@ -49,13 +52,14 @@ var _ = Describe("CLI lifecycle", labels.Core, labels.PR, func() {
 		})
 
 		It("should list the tenant cluster as Running", func(ctx context.Context) {
-			Eventually(func(g Gomega) {
+			Eventually(func(g Gomega, ctx context.Context) {
 				entries, err := listVClusters(ctx, namespace)
 				g.Expect(err).To(Succeed())
 				found := findByName(entries, clusterName)
 				g.Expect(found).NotTo(BeNil(), "tenant cluster %s not found in list", clusterName)
-				g.Expect(found.Status).To(Equal("Running"))
-			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+				g.Expect(found.Status).To(Equal("Running"),
+					"tenant cluster %s has status %s, expected Running", clusterName, found.Status)
+			}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 		})
 
 		It("should delete a running tenant cluster", func(ctx context.Context) {
@@ -66,11 +70,11 @@ var _ = Describe("CLI lifecycle", labels.Core, labels.PR, func() {
 			})
 
 			By("Verifying namespace is gone", func() {
-				Eventually(func(g Gomega) {
+				Eventually(func(g Gomega, ctx context.Context) {
 					_, err := hostClient.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
 					g.Expect(kerrors.IsNotFound(err)).To(BeTrue(),
 						"namespace %s should be deleted", namespace)
-				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+				}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 			})
 		})
 	})
@@ -94,7 +98,10 @@ var _ = Describe("CLI lifecycle", labels.Core, labels.PR, func() {
 		})
 
 		AfterAll(func(ctx context.Context) {
-			_, _ = runVClusterCmd(ctx, "delete", clusterName, "-n", namespace, "--delete-namespace")
+			out, err := runVClusterCmd(ctx, "delete", clusterName, "-n", namespace, "--delete-namespace")
+			if err != nil {
+				GinkgoWriter.Printf("cleanup: vcluster delete %s failed (may already be deleted): %s\n", clusterName, out)
+			}
 		})
 
 		It("should create a tenant cluster", func(ctx context.Context) {
@@ -114,13 +121,14 @@ var _ = Describe("CLI lifecycle", labels.Core, labels.PR, func() {
 			})
 
 			By("Verifying it appears in list with ScaledDown status", func() {
-				Eventually(func(g Gomega) {
+				Eventually(func(g Gomega, ctx context.Context) {
 					entries, err := listVClusters(ctx, namespace)
 					g.Expect(err).To(Succeed())
 					found := findByName(entries, clusterName)
 					g.Expect(found).NotTo(BeNil(), "tenant cluster %s not found in list", clusterName)
-					g.Expect(found.Status).To(Equal("ScaledDown"))
-				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+					g.Expect(found.Status).To(Equal("ScaledDown"),
+						"tenant cluster %s has status %s, expected ScaledDown", clusterName, found.Status)
+				}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 			})
 		})
 
@@ -132,11 +140,11 @@ var _ = Describe("CLI lifecycle", labels.Core, labels.PR, func() {
 			})
 
 			By("Verifying namespace is gone", func() {
-				Eventually(func(g Gomega) {
+				Eventually(func(g Gomega, ctx context.Context) {
 					_, err := hostClient.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
 					g.Expect(kerrors.IsNotFound(err)).To(BeTrue(),
 						"namespace %s should be deleted", namespace)
-				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+				}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 			})
 		})
 	})

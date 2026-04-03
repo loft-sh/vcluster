@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/loft-sh/vcluster/e2e-next/constants"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -84,6 +85,7 @@ func findByName(entries []listEntry, name string) *listEntry {
 }
 
 func scaleDownVCluster(ctx context.Context, hostClient kubernetes.Interface, name, namespace string) {
+	GinkgoHelper()
 	zero := int32(0)
 	sts, err := hostClient.AppsV1().StatefulSets(namespace).Get(ctx, name, metav1.GetOptions{})
 	Expect(err).To(Succeed(), "get StatefulSet %s/%s", namespace, name)
@@ -92,17 +94,18 @@ func scaleDownVCluster(ctx context.Context, hostClient kubernetes.Interface, nam
 	_, err = hostClient.AppsV1().StatefulSets(namespace).Update(ctx, sts, metav1.UpdateOptions{})
 	Expect(err).To(Succeed(), "scale down StatefulSet %s/%s", namespace, name)
 
-	Eventually(func(g Gomega) {
+	Eventually(func(g Gomega, ctx context.Context) {
 		pods, err := hostClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
 			LabelSelector: "app=vcluster,release=" + name,
 		})
 		g.Expect(err).To(Succeed())
 		g.Expect(pods.Items).To(BeEmpty(), "tenant cluster pods should be gone after scale down")
-	}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+	}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 }
 
 func waitForVClusterReady(ctx context.Context, hostClient kubernetes.Interface, name, namespace string) {
-	Eventually(func(g Gomega) {
+	GinkgoHelper()
+	Eventually(func(g Gomega, ctx context.Context) {
 		pods, err := hostClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
 			LabelSelector: "app=vcluster,release=" + name,
 		})
@@ -116,10 +119,11 @@ func waitForVClusterReady(ctx context.Context, hostClient kubernetes.Interface, 
 					"container %s in pod %s is not ready", container.Name, pod.Name)
 			}
 		}
-	}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
+	}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
 }
 
 func hostKubeClient() kubernetes.Interface {
+	GinkgoHelper()
 	kubeContext := "kind-" + constants.GetHostClusterName()
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	configOverrides := &clientcmd.ConfigOverrides{CurrentContext: kubeContext}
