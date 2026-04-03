@@ -1,0 +1,29 @@
+// Suite: plugin-vcluster
+// vCluster: PluginVCluster (legacy v1/v2 plugins: bootstrap-with-deployment, hooks, import-secrets)
+// Run:      just run-e2e 'integration && !non-default'
+//
+// NonDefault: plugin example images (bootstrap-with-deployment:v2) are amd64-only.
+// These tests cannot run on macOS ARM (Kind on Apple Silicon) - CI only.
+package e2e_next
+
+import (
+	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
+	"github.com/loft-sh/vcluster/e2e-next/clusters"
+	"github.com/loft-sh/vcluster/e2e-next/labels"
+	"github.com/loft-sh/vcluster/e2e-next/test_core/plugin"
+	. "github.com/onsi/ginkgo/v2"
+)
+
+func init() {
+	suitePluginVCluster()
+}
+
+func suitePluginVCluster() {
+	Describe("plugin-vcluster", labels.NonDefault,
+		cluster.Use(clusters.PluginVCluster),
+		cluster.Use(clusters.HostCluster),
+		func() {
+			plugin.PluginSpec()
+		},
+	)
+}

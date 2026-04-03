@@ -403,10 +403,6 @@ jobs:
           echo "======================================================================================================================"
           kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=-1 -p || kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=-1
           echo "======================================================================================================================"
-          if [[ "${{ matrix.test-suite-path }}" = "./test/e2e_plugin" ]]; then
-            kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c bootstrap-with-deployment --tail=-1 -p || kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c bootstrap-with-deployment --tail=-1
-            echo "======================================================================================================================"
-          fi
           kubectl describe pods -n ${{ env.VCLUSTER_NAMESPACE }}
           exit 1
 
