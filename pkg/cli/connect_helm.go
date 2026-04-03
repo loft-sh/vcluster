@@ -277,6 +277,11 @@ func (cmd *connectHelm) prepare(ctx context.Context, vCluster *find.VCluster) er
 		}
 	}
 
+	if vCluster.IsSleeping() {
+		return fmt.Errorf("tenant cluster control plane %s/%s is paused by the platform, use 'vcluster resume %s --driver platform' to resume it first",
+			cmd.Namespace, vCluster.Name, vCluster.Name)
+	}
+
 	// resume vCluster if necessary
 	if vCluster.Status == find.StatusPaused {
 		cmd.Log.Infof("Resume vcluster %s...", vCluster.Name)

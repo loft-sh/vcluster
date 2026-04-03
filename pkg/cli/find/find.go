@@ -464,7 +464,8 @@ func getVCluster(ctx context.Context, object client.Object, context, release str
 	version := ""
 	var pods []corev1.Pod
 
-	if object.GetAnnotations()[constants.PausedAnnotation(false)] == "true" {
+	if object.GetAnnotations()[constants.PausedAnnotation(false)] == "true" ||
+		object.GetLabels()[sleepmode.Label] == "true" {
 		status = string(StatusPaused)
 	} else {
 		releaseName = "release=" + release
