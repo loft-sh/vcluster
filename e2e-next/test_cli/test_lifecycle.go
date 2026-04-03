@@ -34,10 +34,8 @@ var _ = Describe("CLI lifecycle", labels.Core, labels.PR, func() {
 		})
 
 		AfterAll(func(ctx context.Context) {
-			out, err := runVClusterCmd(ctx, "delete", clusterName, "-n", namespace, "--delete-namespace")
-			if err != nil {
-				GinkgoWriter.Printf("cleanup: vcluster delete %s failed (may already be deleted): %s\n", clusterName, out)
-			}
+			_, err := runVClusterCmd(ctx, "delete", clusterName, "-n", namespace, "--delete-namespace", "--ignore-not-found")
+			Expect(err).To(Succeed())
 		})
 
 		It("should create a tenant cluster", func(ctx context.Context) {
@@ -98,10 +96,8 @@ var _ = Describe("CLI lifecycle", labels.Core, labels.PR, func() {
 		})
 
 		AfterAll(func(ctx context.Context) {
-			out, err := runVClusterCmd(ctx, "delete", clusterName, "-n", namespace, "--delete-namespace")
-			if err != nil {
-				GinkgoWriter.Printf("cleanup: vcluster delete %s failed (may already be deleted): %s\n", clusterName, out)
-			}
+			_, err := runVClusterCmd(ctx, "delete", clusterName, "-n", namespace, "--delete-namespace", "--ignore-not-found")
+			Expect(err).To(Succeed())
 		})
 
 		It("should create a tenant cluster", func(ctx context.Context) {
