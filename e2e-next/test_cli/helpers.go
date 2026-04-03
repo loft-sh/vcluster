@@ -33,6 +33,9 @@ func createArgs(name, namespace string) []string {
 		"-n", namespace,
 		"--connect=false",
 		"--local-chart-dir", localChartDir(),
+		// Set registry to empty because GetRepository() already includes it (e.g. "ghcr.io/loft-sh/vcluster"),
+		// and the chart would otherwise prepend the default registry, producing "ghcr.io/ghcr.io/...".
+		"--set", "controlPlane.statefulSet.image.registry=",
 		"--set", "controlPlane.statefulSet.image.repository=" + constants.GetRepository(),
 		"--set", "controlPlane.statefulSet.image.tag=" + constants.GetTag(),
 	}
