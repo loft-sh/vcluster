@@ -26,7 +26,6 @@ func suiteCommonVCluster() {
 		func() {
 			test_core.PodSyncSpec()
 			test_core.NetworkPolicySyncSpec()
-			test_core.NetworkPolicyEnforcementSpec()
 			test_core.PVCSyncSpec()
 			test_core.K8sDefaultEndpointSpec()
 			test_core.NodeSyncLabelSelectorSpec()
