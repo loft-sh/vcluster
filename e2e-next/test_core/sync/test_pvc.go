@@ -4,8 +4,6 @@ import (
 	"context"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
-	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
-	"github.com/loft-sh/vcluster/e2e-next/clusters"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/pkg/util/random"
@@ -19,16 +17,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// DescribePVCSync registers PVC sync tests against the given vCluster.
-func DescribePVCSync(vcluster suite.Dependency) bool {
-	return Describe("PVC sync from vCluster to host",
-		labels.Core,
-		labels.PR,
-		labels.Sync,
-		labels.PVCs,
-		labels.Storage,
-		cluster.Use(vcluster),
-		cluster.Use(clusters.HostCluster),
+// PVCSyncSpec registers the spec.
+func PVCSyncSpec() {
+	Describe("PVC sync from vCluster to host",
+		labels.Core, labels.Sync, labels.PVCs, labels.Storage,
 		func() {
 			var (
 				hostClient     kubernetes.Interface

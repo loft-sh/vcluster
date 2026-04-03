@@ -4,8 +4,6 @@ import (
 	"context"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
-	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
-	"github.com/loft-sh/vcluster/e2e-next/clusters"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/pkg/util/random"
@@ -18,15 +16,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// DescribeNetworkPolicySync registers NetworkPolicy sync tests against the given vCluster.
-func DescribeNetworkPolicySync(vcluster suite.Dependency) bool {
-	return Describe("NetworkPolicy sync from vCluster to host",
-		labels.Core,
-		labels.PR,
-		labels.Sync,
-		labels.NetworkPolicies,
-		cluster.Use(vcluster),
-		cluster.Use(clusters.HostCluster),
+// NetworkPolicySyncSpec registers the spec.
+func NetworkPolicySyncSpec() {
+	Describe("NetworkPolicy sync from vCluster to host",
+		labels.Core, labels.Sync, labels.NetworkPolicies,
 		func() {
 			var (
 				hostClient        kubernetes.Interface

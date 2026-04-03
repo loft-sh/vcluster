@@ -5,8 +5,6 @@ import (
 	"fmt"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
-	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
-	"github.com/loft-sh/vcluster/e2e-next/clusters"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	pkgconstants "github.com/loft-sh/vcluster/pkg/constants"
@@ -29,15 +27,10 @@ import (
 // virtual cluster. It requires a CNI with NetworkPolicy support (e.g. Calico).
 // The standard Kind cluster used in CI does not enforce NetworkPolicies, so this
 // test is tagged with labels.NonDefault and excluded from the default label filter.
-// DescribeNetworkPolicyEnforcement registers NetworkPolicy egress enforcement tests.
-func DescribeNetworkPolicyEnforcement(vcluster suite.Dependency) bool {
-	return Describe("NetworkPolicy egress enforcement",
-		labels.Core,
-		labels.Sync,
-		labels.NetworkPolicies,
-		labels.NonDefault,
-		cluster.Use(vcluster),
-		cluster.Use(clusters.HostCluster),
+// NetworkPolicyEnforcementSpec registers the spec.
+func NetworkPolicyEnforcementSpec() {
+	Describe("NetworkPolicy egress enforcement",
+		labels.Core, labels.Sync, labels.NetworkPolicies, labels.NonDefault,
 		func() {
 			var (
 				vClusterClient kubernetes.Interface

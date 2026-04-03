@@ -5,8 +5,6 @@ import (
 	"strings"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
-	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
-	"github.com/loft-sh/vcluster/e2e-next/clusters"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/pkg/util/podhelper"
@@ -17,12 +15,10 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-// DescribeRootlessMode registers rootless mode tests against the given vCluster.
-func DescribeRootlessMode(vcluster suite.Dependency) bool {
-	return Describe("vCluster rootless mode",
+// RootlessModeSpec registers rootless mode tests.
+func RootlessModeSpec() {
+	Describe("vCluster rootless mode",
 		labels.Core,
-		cluster.Use(vcluster),
-		cluster.Use(clusters.HostCluster),
 		func() {
 			var (
 				hostClient        kubernetes.Interface

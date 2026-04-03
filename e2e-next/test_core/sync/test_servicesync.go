@@ -6,8 +6,6 @@ import (
 	"sort"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
-	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
-	"github.com/loft-sh/vcluster/e2e-next/clusters"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/pkg/util/random"
@@ -22,14 +20,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// DescribeServiceSync registers service replication and sync tests against the given vCluster.
-func DescribeServiceSync(vcluster suite.Dependency) bool {
-	return Describe("Service replication and sync",
-		labels.Core,
-		labels.Sync,
-		labels.PR,
-		cluster.Use(vcluster),
-		cluster.Use(clusters.HostCluster),
+// ServiceSyncSpec registers the spec.
+func ServiceSyncSpec() {
+	Describe("Service replication and sync",
+		labels.Core, labels.Sync,
 		func() {
 			var (
 				hostClient        kubernetes.Interface

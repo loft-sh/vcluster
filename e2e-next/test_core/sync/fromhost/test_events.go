@@ -4,8 +4,6 @@ import (
 	"context"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
-	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
-	"github.com/loft-sh/vcluster/e2e-next/clusters"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/pkg/util/random"
@@ -19,15 +17,12 @@ import (
 	"k8s.io/client-go/tools/reference"
 )
 
-// DescribeEventSync registers event force-sync tests against the given vCluster.
-func DescribeEventSync(vcluster suite.Dependency) bool {
-	return Describe("Events force-sync from host via annotation",
+// EventSyncSpec registers event force-sync tests.
+func EventSyncSpec() {
+	Describe("Events force-sync from host via annotation",
 		labels.Core,
-		labels.PR,
 		labels.Sync,
 		labels.Events,
-		cluster.Use(vcluster),
-		cluster.Use(clusters.HostCluster),
 		func() {
 			var (
 				hostClient        kubernetes.Interface

@@ -339,8 +339,8 @@ github.com/loft-sh/api/v4 v4.8.0-alpha.1 h1:qzgXdxjQKS7pbAuUJlLs8Eh6AlTaYjMkJg52
 github.com/loft-sh/api/v4 v4.8.0-alpha.1/go.mod h1:gfOsUSefE/SAxHgCfXiNSWwUYe/gvOC+pR0UkG77sEo=
 github.com/loft-sh/apiserver v0.0.0-20260113122925-594495a02e96 h1:MnvrgRnVm7X8zQPyVS2U2veIxacmVUYSFTHsoi6sJrw=
 github.com/loft-sh/apiserver v0.0.0-20260113122925-594495a02e96/go.mod h1:yBY01KhmW2XAWoqbAx8rx3xqwVwGMa3OYwiM2eYalY4=
-github.com/loft-sh/e2e-framework v0.0.0-20260401095027-4666f06d1a86 h1:xWOM5u4M1XE2rTxkAM9IcSxWAOQAtZTNlkOwOQcFxLY=
-github.com/loft-sh/e2e-framework v0.0.0-20260401095027-4666f06d1a86/go.mod h1:o9z8GQTFYGgX+AzYJoJvO7zVAYt6zDtYhMU2Ma7rSvA=
+github.com/loft-sh/e2e-framework v0.0.0-20260403090648-e448b5391111 h1:BvUIgKHxAmu6YkINIknxCdJJ0JK7jHQYEpaOuh5tuHQ=
+github.com/loft-sh/e2e-framework v0.0.0-20260403090648-e448b5391111/go.mod h1:o9z8GQTFYGgX+AzYJoJvO7zVAYt6zDtYhMU2Ma7rSvA=
 github.com/loft-sh/image v0.0.0-20250625154753-87447a6ad364 h1:vSuqHqh4w2zrG+WvnyH64JAUhX+Bou19n0gvCrPirOs=
 github.com/loft-sh/image v0.0.0-20250625154753-87447a6ad364/go.mod h1:niVPRwWFUSA8FihY9e5hGAp5IbKmbCdckGxJGSTKTUs=
 github.com/loft-sh/log v0.0.0-20240219160058-26d83ffb46ac h1:Gz/7Lb7WgdgIv+KJz87ORA1zvQW52tUqKPGyunlp4dQ=

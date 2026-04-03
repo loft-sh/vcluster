@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
-	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/pkg/util/podhelper"
@@ -19,14 +18,12 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-// DescribeFromHostSecrets registers secret sync from host tests against the given vCluster.
-func DescribeFromHostSecrets(vcluster suite.Dependency) bool {
-	return Describe("Secrets sync from host",
+// FromHostSecretsSpec registers secret sync from host tests.
+func FromHostSecretsSpec() {
+	Describe("Secrets sync from host",
 		labels.Core,
-		labels.PR,
 		labels.Sync,
 		labels.Secrets,
-		cluster.Use(vcluster),
 		func() {
 			var (
 				hostClient     kubernetes.Interface

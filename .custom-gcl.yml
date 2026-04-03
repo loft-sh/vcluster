@@ -10,4 +10,4 @@ plugins:
   - module: 'github.com/loft-sh/e2e-framework/linters/defercleanupctx'
     version: v0.0.0-20260401095027-4666f06d1a86
   - module: 'github.com/loft-sh/e2e-framework/linters/describefunc'
-    version: v0.0.0-20260401095027-4666f06d1a86
+    version: v0.0.0-20260403090648-e448b5391111

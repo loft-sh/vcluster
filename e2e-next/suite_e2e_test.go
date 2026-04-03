@@ -1,39 +1,43 @@
-// Suite: e2e (main)
+// Suite: common-vcluster (main PR-gating tests)
 // Matches: test/e2e/e2e_suite_test.go
-// vCluster: CommonVCluster (comprehensive config with all sync options)
-// Run:      just run-e2e '/common-vcluster/ && !non-default'
+// Run:      just run-e2e 'pr && !non-default'
 package e2e_next
 
 import (
+	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	"github.com/loft-sh/vcluster/e2e-next/clusters"
+	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/e2e-next/test_core/coredns"
-	"github.com/loft-sh/vcluster/e2e-next/test_core/snapshot"
 	test_core "github.com/loft-sh/vcluster/e2e-next/test_core/sync"
 	"github.com/loft-sh/vcluster/e2e-next/test_core/sync/fromhost"
 	"github.com/loft-sh/vcluster/e2e-next/test_core/webhook"
 	"github.com/loft-sh/vcluster/e2e-next/test_deploy"
+	. "github.com/onsi/ginkgo/v2"
 )
 
-var (
-	_ = snapshot.DescribeSnapshotAll(clusters.SnapshotVCluster)
-	_ = test_core.DescribePodSync(clusters.CommonVCluster)
-	_ = test_core.DescribeNetworkPolicySync(clusters.CommonVCluster)
-	_ = test_core.DescribeNetworkPolicyEnforcement(clusters.CommonVCluster)
-	_ = test_core.DescribePVCSync(clusters.CommonVCluster)
-	_ = test_core.DescribeK8sDefaultEndpoint(clusters.CommonVCluster)
-	_ = test_core.DescribeNodeSyncLabelSelector(clusters.CommonVCluster)
-	_ = test_core.DescribeServiceSync(clusters.ServiceSyncVCluster)
-	_ = test_core.DescribeServiceBasicSync(clusters.CommonVCluster)
-	_ = fromhost.DescribeEventSync(clusters.CommonVCluster)
-	_ = fromhost.DescribeFromHostConfigMaps(clusters.CommonVCluster)
-	_ = fromhost.DescribeFromHostSecrets(clusters.CommonVCluster)
-	_ = fromhost.DescribeFromHostIngressClasses(clusters.FromHostLimitClassesVCluster)
-	_ = fromhost.DescribeFromHostStorageClasses(clusters.FromHostLimitClassesVCluster)
-	_ = fromhost.DescribeFromHostPriorityClasses(clusters.FromHostLimitClassesVCluster)
-	_ = fromhost.DescribeFromHostRuntimeClasses(clusters.FromHostLimitClassesVCluster)
-	_ = coredns.DescribeCoreDNS(clusters.CommonVCluster)
-	_ = webhook.DescribeAdmissionWebhook(clusters.CommonVCluster)
-	_ = test_core.DescribeKubeletProxy(clusters.KubeletProxyVCluster)
-	_ = test_deploy.DescribeHelmCharts(clusters.CommonVCluster)
-	_ = test_deploy.DescribeInitManifests(clusters.CommonVCluster)
-)
+func init() {
+	suiteCommonVCluster()
+}
+
+func suiteCommonVCluster() {
+	Describe("common-vcluster", labels.PR,
+		cluster.Use(clusters.CommonVCluster),
+		cluster.Use(clusters.HostCluster),
+		func() {
+			test_core.PodSyncSpec()
+			test_core.NetworkPolicySyncSpec()
+			test_core.NetworkPolicyEnforcementSpec()
+			test_core.PVCSyncSpec()
+			test_core.K8sDefaultEndpointSpec()
+			test_core.NodeSyncLabelSelectorSpec()
+			test_core.ServiceBasicSyncSpec()
+			coredns.CoreDNSSpec()
+			webhook.AdmissionWebhookSpec()
+			fromhost.EventSyncSpec()
+			fromhost.FromHostConfigMapsSpec()
+			fromhost.FromHostSecretsSpec()
+			test_deploy.HelmChartsSpec()
+			test_deploy.InitManifestsSpec()
+		},
+	)
+}

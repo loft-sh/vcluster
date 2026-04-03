@@ -4,8 +4,6 @@ import (
 	"context"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
-	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
-	"github.com/loft-sh/vcluster/e2e-next/clusters"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	. "github.com/onsi/ginkgo/v2"
@@ -14,14 +12,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// DescribeNodeSyncLabelSelector registers node sync label selector tests against the given vCluster.
-func DescribeNodeSyncLabelSelector(vcluster suite.Dependency) bool {
-	return Describe("Node sync",
-		labels.Core,
-		labels.PR,
-		labels.Sync,
-		cluster.Use(vcluster),
-		cluster.Use(clusters.HostCluster),
+// NodeSyncLabelSelectorSpec registers the spec.
+func NodeSyncLabelSelectorSpec() {
+	Describe("Node sync",
+		labels.Core, labels.Sync,
 		func() {
 			var (
 				hostClient     kubernetes.Interface

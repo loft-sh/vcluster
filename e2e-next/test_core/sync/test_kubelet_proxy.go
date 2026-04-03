@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
-	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/pkg/util/random"
@@ -18,13 +17,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// DescribeKubeletProxy registers kubelet proxy subpath access control tests against the given vCluster.
-func DescribeKubeletProxy(vcluster suite.Dependency) bool {
-	return Describe("Kubelet proxy subpath access control",
-		labels.Core,
-		labels.Security,
-		labels.PR,
-		cluster.Use(vcluster),
+// KubeletProxySpec registers the spec.
+func KubeletProxySpec() {
+	Describe("Kubelet proxy subpath access control",
+		labels.Core, labels.Security,
 		func() {
 			var vClusterClientset *kubernetes.Clientset
 

@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
-	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	. "github.com/onsi/ginkgo/v2"
@@ -19,12 +18,10 @@ const (
 	testManifestNamespace = "default"
 )
 
-// DescribeInitManifests registers init manifest deployment tests against the given vCluster.
-func DescribeInitManifests(vcluster suite.Dependency) bool {
-	return Describe("Init manifests are synced and applied as expected",
+// InitManifestsSpec registers init manifest deployment tests.
+func InitManifestsSpec() {
+	Describe("Init manifests are synced and applied as expected",
 		labels.Deploy,
-		labels.PR,
-		cluster.Use(vcluster),
 		func() {
 			var (
 				vClusterName   string

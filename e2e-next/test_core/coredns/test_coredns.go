@@ -5,8 +5,6 @@ import (
 	"fmt"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
-	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
-	"github.com/loft-sh/vcluster/e2e-next/clusters"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/pkg/coredns"
@@ -22,14 +20,11 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-// DescribeCoreDNS registers CoreDNS resolution tests against the given vCluster.
-func DescribeCoreDNS(vcluster suite.Dependency) bool {
-	return Describe("CoreDNS resolves host names correctly",
+// CoreDNSSpec registers CoreDNS resolution tests.
+func CoreDNSSpec() {
+	Describe("CoreDNS resolves host names correctly",
 		labels.Core,
-		labels.PR,
 		labels.CoreDNS,
-		cluster.Use(vcluster),
-		cluster.Use(clusters.HostCluster),
 		func() {
 			var (
 				vClusterClient kubernetes.Interface
