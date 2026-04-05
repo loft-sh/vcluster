@@ -115,6 +115,9 @@ func (cmd *CreateCmd) Run(cobraCmd *cobra.Command, args []string) error {
 
 	// check if we should create a docker vCluster
 	if driver == config.DockerDriver {
+		if cmd.Restore != "" {
+			return cli.RestoreDocker(ctx, cmd.GlobalFlags, cmd.Restore, args[0], &cmd.CreateOptions, cmd.log)
+		}
 		return cli.CreateDocker(ctx, &cmd.CreateOptions, cmd.GlobalFlags, args[0], cmd.log)
 	}
 
