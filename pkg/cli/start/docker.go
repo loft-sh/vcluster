@@ -133,8 +133,7 @@ func (l *LoftStarter) successDocker(ctx context.Context, containerID string) err
 			return false, fmt.Errorf("container failed (status: %s):\n %s", containerDetails.State.Status, logs)
 		}
 
-		// Bootstrap reachability check: self-signed cert expected.
-		return clihelper.IsLoftReachable(ctx, host, true)
+		return clihelper.IsLoftReachable(ctx, host, l.LoadedConfig(l.Log).Platform.Insecure)
 	})
 	if err != nil {
 		return fmt.Errorf(product.Replace("error waiting for loft: %v%w"), err)

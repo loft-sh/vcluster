@@ -19,11 +19,9 @@ func (l *LoftStarter) startPortForwarding(ctx context.Context, loftPod *corev1.P
 	}
 	go l.restartPortForwarding(ctx, stopChan)
 
-	// Bootstrap readiness probe over localhost port-forward: the just-installed
-	// platform always serves a self-signed certificate, so TLS verification is
-	// skipped. No credentials are sent in this request.
+	// wait until loft is reachable at the given url
 	httpClient := &http.Client{
-		Transport: utilhttp.InsecureTransport(),
+		Transport: utilhttp.Transport(l.LoadedConfig(l.Log).Platform.Insecure),
 	}
 	l.Log.Infof(product.Replace("Waiting until loft is reachable at https://localhost:%s"), l.LocalPort)
 	err = wait.PollUntilContextTimeout(ctx, time.Second, clihelper.Timeout(), true, func(ctx context.Context) (bool, error) {
