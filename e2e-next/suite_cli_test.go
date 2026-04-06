@@ -5,5 +5,5 @@
 package e2e_next
 
 import (
-	_ "github.com/loft-sh/vcluster/e2e-next/test_cli"
+	_ "github.com/loft-sh/vcluster/e2e-next/test_core/lifecycle"
 )

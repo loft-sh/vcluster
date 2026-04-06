@@ -1,4 +1,4 @@
-package test_cli
+package lifecycle
 
 import (
 	"context"
