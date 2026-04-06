@@ -12,6 +12,7 @@ import (
 
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
+	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 )
 
@@ -55,8 +56,8 @@ var _ = Describe("Tenant cluster lifecycle", labels.Core, labels.PR, func() {
 				g.Expect(err).To(Succeed())
 				found := findByName(entries, clusterName)
 				g.Expect(found).NotTo(BeNil(), "tenant cluster %s not found in list", clusterName)
-				g.Expect(found.Status).To(Equal("Running"),
-					"tenant cluster %s has status %s, expected Running", clusterName, found.Status)
+				g.Expect(found.Status).To(Equal(string(find.StatusRunning)),
+					"tenant cluster %s has status %s, expected %s", clusterName, found.Status, find.StatusRunning)
 			}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 		})
 
@@ -122,8 +123,8 @@ var _ = Describe("Tenant cluster lifecycle", labels.Core, labels.PR, func() {
 					g.Expect(err).To(Succeed())
 					found := findByName(entries, clusterName)
 					g.Expect(found).NotTo(BeNil(), "tenant cluster %s not found in list", clusterName)
-					g.Expect(found.Status).To(Equal("ScaledDown"),
-						"tenant cluster %s has status %s, expected ScaledDown", clusterName, found.Status)
+					g.Expect(found.Status).To(Equal(string(find.StatusScaledDown)),
+						"tenant cluster %s has status %s, expected %s", clusterName, found.Status, find.StatusScaledDown)
 				}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 			})
 		})
