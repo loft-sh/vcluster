@@ -29,9 +29,9 @@ require (
 	github.com/invopop/jsonschema v0.12.0
 	github.com/kubernetes-csi/external-snapshotter/client/v8 v8.2.0
 	github.com/loft-sh/admin-apis v0.0.0-20260311181619-506013b79ba0
-	github.com/loft-sh/agentapi/v4 v4.8.1-next.0
+	github.com/loft-sh/agentapi/v4 v4.8.2-next.0
 	github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e
-	github.com/loft-sh/api/v4 v4.8.1-next.0
+	github.com/loft-sh/api/v4 v4.8.2-next.0
 	github.com/loft-sh/e2e-framework v0.0.0-20260226211029-dc642849b244
 	github.com/loft-sh/image v0.0.0-20250625154753-87447a6ad364
 	github.com/loft-sh/utils v0.0.29

@@ -218,9 +218,9 @@ type SnapshotStorageContainer struct {
 
 // SnapshotStorageAzure holds Azure Blob Storage configuration.
 type SnapshotStorageAzure struct {
-	// Url specifies the Azure Blob Storage URL in the format https://{account}.blob.core.windows.net/{container}/{path}
+	// BlobURL specifies the Azure Blob Storage URL in the format https://{account}.blob.core.windows.net/{container}/{path}
 	// +optional
-	Url string `json:"url,omitempty"`
+	BlobURL string `json:"blobUrl,omitempty"`
 
 	// Credential secret with the Azure credentials. The secret should contain either:
 	// AZURE_STORAGE_KEY (storage account access key), or
