@@ -377,7 +377,7 @@ func shouldCreateWithTemplate(ctx context.Context, platformClient platform.Clien
 		return false, nil
 	}
 
-	canSkip, err := canCreateVClusterWithoutTemplate(ctx, platformClient, projectutil.ProjectNamespace(options.Project))
+	canSkip, err := canCreateVClusterWithoutTemplate(ctx, platformClient, options.Project)
 	if err != nil {
 		return false, fmt.Errorf("check create without template: %w", err)
 	}
@@ -397,7 +397,7 @@ func shouldCreateWithTemplate(ctx context.Context, platformClient platform.Clien
 	return true, nil
 }
 
-func canCreateVClusterWithoutTemplate(ctx context.Context, platformClient platform.Client, projectNamespace string) (bool, error) {
+func canCreateVClusterWithoutTemplate(ctx context.Context, platformClient platform.Client, projectName string) (bool, error) {
 	managementClient, err := platformClient.Management()
 	if err != nil {
 		return false, err
@@ -411,7 +411,7 @@ func canCreateVClusterWithoutTemplate(ctx context.Context, platformClient platfo
 					Version:     managementv1.SchemeGroupVersion.Version,
 					Resource:    "virtualclusterinstances",
 					Subresource: "restricted",
-					Namespace:   projectNamespace,
+					Namespace:   projectutil.ProjectNamespace(projectName),
 				},
 			},
 		},
