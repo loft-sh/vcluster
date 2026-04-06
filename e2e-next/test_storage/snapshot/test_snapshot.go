@@ -395,6 +395,76 @@ func describeSnapshotRestore(s *snapshotCtx) {
 			deleteSnapshotRequestConfigMaps(ctx, s.hostClient, s.vClusterNS)
 		})
 	})
+
+	// Ordered: create snapshot while running -> scale down -> restore -> verify resources.
+	// Tests that vcluster restore works when the tenant cluster control plane has zero pods.
+	Describe("restore a scaled-down tenant cluster", Ordered, func() {
+		const (
+			cmName     = "restore-test-cm"
+			cmLabel    = "test"
+			cmLabelVal = "scaled-restore"
+			cmKey      = "key"
+			cmValue    = "value-before-scale-down"
+		)
+
+		var (
+			testNS       string
+			snapshotPath string
+		)
+
+		BeforeAll(func(ctx context.Context) {
+			testNS = "scaled-restore-" + random.String(6)
+			snapshotPath = "container:///snapshot-data/" + testNS + ".tar.gz"
+			cleanupAllSnapshotArtifacts(ctx, s.hostClient, s.vClusterNS)
+		})
+
+		It("Creates a snapshot while the tenant cluster is running", func(ctx context.Context) {
+			By("Deploying a test configmap", func() {
+				_, err := s.vClusterClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{Name: testNS},
+				}, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+
+				_, err = s.vClusterClient.CoreV1().ConfigMaps(testNS).Create(ctx, &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Name: cmName, Labels: map[string]string{cmLabel: cmLabelVal}},
+					Data:       map[string]string{cmKey: cmValue},
+				}, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+			})
+
+			By("Creating the snapshot", func() {
+				createSnapshot(s.vClusterName, s.vClusterNS, true, snapshotPath, false)
+				waitForSnapshotToBeCreated(ctx, s.hostClient, s.vClusterNS)
+			})
+		})
+
+		It("Restores the tenant cluster after scaling down to zero", func(ctx context.Context) {
+			By("Scaling down the tenant cluster StatefulSet to 0 replicas", func() {
+				scaleDownStatefulSet(ctx, s.hostClient, s.vClusterName, s.vClusterNS)
+			})
+
+			By("Restoring the tenant cluster from snapshot", func() {
+				restoreVCluster(ctx, s.hostClient, s.vClusterName, s.vClusterNS, snapshotPath, true, false)
+				s.refreshClient(ctx)
+			})
+		})
+
+		It("Verifies snapshot resources exist after restore", func(ctx context.Context) {
+			Eventually(func(g Gomega, ctx context.Context) {
+				cms, err := s.vClusterClient.CoreV1().ConfigMaps(testNS).List(ctx, metav1.ListOptions{
+					LabelSelector: cmLabel + "=" + cmLabelVal,
+				})
+				g.Expect(err).To(Succeed())
+				g.Expect(cms.Items).To(HaveLen(1),
+					"expected 1 configmap with label %s=%s in namespace %s, got %d", cmLabel, cmLabelVal, testNS, len(cms.Items))
+				g.Expect(cms.Items[0].Data).To(Equal(map[string]string{cmKey: cmValue}))
+			}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+		})
+
+		AfterAll(func(ctx context.Context) {
+			deleteSnapshotRequestConfigMaps(ctx, s.hostClient, s.vClusterNS)
+		})
+	})
 }
 
 func describeSnapshotCanceling(s *snapshotCtx) {
