@@ -67,9 +67,9 @@ func (l *LoftStarter) success(ctx context.Context) error {
 		return err
 	}
 
-	// check if loft is reachable
-	insecure := l.LoadedConfig(l.Log).Platform.Insecure
-	reachable, err := clihelper.IsLoftReachable(ctx, host, insecure)
+	// Bootstrap reachability check: the just-installed platform typically serves
+	// a self-signed certificate, so TLS verification is skipped.
+	reachable, err := clihelper.IsLoftReachable(ctx, host, true)
 	if !reachable || err != nil {
 		const (
 			YesOption = "Yes"
@@ -123,12 +123,13 @@ func (l *LoftStarter) pingLoftRouter(ctx context.Context, loftPod *corev1.Pod) (
 	// get the domain from secret
 	loftRouterDomain := string(loftRouterSecret.Data["domain"])
 
-	// wait until loft is reachable at the given url
-	insecure := l.LoadedConfig(l.Log).Platform.Insecure
+	// Bootstrap readiness probe: the just-installed platform always serves a
+	// self-signed certificate, so TLS verification is skipped. No credentials
+	// are sent in this request.
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: insecure,
+				InsecureSkipVerify: true,
 			},
 		},
 	}
@@ -192,8 +193,9 @@ func (l *LoftStarter) isLoggedIn(url string) bool {
 }
 
 func (l *LoftStarter) successRemote(ctx context.Context, host string) error {
-	insecure := l.LoadedConfig(l.Log).Platform.Insecure
-	ready, err := clihelper.IsLoftReachable(ctx, host, insecure)
+	// Bootstrap reachability check: the just-installed platform typically serves
+	// a self-signed certificate, so TLS verification is skipped.
+	ready, err := clihelper.IsLoftReachable(ctx, host, true)
 	if err != nil {
 		return err
 	} else if ready {
@@ -206,7 +208,7 @@ func (l *LoftStarter) successRemote(ctx context.Context, host string) error {
 
 	l.Log.Info("Waiting for you to configure DNS, so loft can be reached on https://" + host)
 	err = wait.PollUntilContextTimeout(ctx, 5*time.Second, clihelper.Timeout(), true, func(ctx context.Context) (done bool, err error) {
-		return clihelper.IsLoftReachable(ctx, host, insecure)
+		return clihelper.IsLoftReachable(ctx, host, true)
 	})
 	if err != nil {
 		return err
