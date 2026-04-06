@@ -119,6 +119,18 @@ func waitForVClusterReady(ctx context.Context, hostClient kubernetes.Interface, 
 	}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
 }
 
+func createAndWaitForReady(ctx context.Context, hostClient kubernetes.Interface, clusterName, namespace string) {
+	GinkgoHelper()
+	By("Creating a tenant cluster", func() {
+		_, err := runVClusterCmd(ctx, createArgs(clusterName, namespace)...)
+		Expect(err).To(Succeed())
+	})
+
+	By("Waiting for tenant cluster to be ready", func() {
+		waitForVClusterReady(ctx, hostClient, clusterName, namespace)
+	})
+}
+
 func hostKubeClient() kubernetes.Interface {
 	GinkgoHelper()
 	kubeContext := "kind-" + constants.GetHostClusterName()
