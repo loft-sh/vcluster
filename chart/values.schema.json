@@ -4297,9 +4297,9 @@
     },
     "SnapshotStorageAzure": {
       "properties": {
-        "url": {
+        "blobUrl": {
           "type": "string",
-          "description": "Url specifies the Azure Blob Storage URL in the format https://{account}.blob.core.windows.net/{container}/{path}\n+optional"
+          "description": "BlobURL specifies the Azure Blob Storage URL in the format https://{account}.blob.core.windows.net/{container}/{path}\n+optional"
         },
         "credential": {
           "$ref": "#/$defs/SnapshotSecretCredential",
