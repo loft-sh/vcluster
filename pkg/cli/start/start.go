@@ -70,7 +70,7 @@ type StartOptions struct { //nolint:revive // linter suggests renaming to option
 	Upgrade          bool
 	ReuseValues      bool
 	Docker           bool
-	Insecure         bool
+	Secure           bool
 }
 
 func NewLoftStarter(options StartOptions) *LoftStarter {

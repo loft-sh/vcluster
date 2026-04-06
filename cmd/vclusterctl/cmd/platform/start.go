@@ -82,7 +82,7 @@ before running this command:
 	startCmd.Flags().StringVar(&cmd.ChartRepo, "chart-repo", "https://charts.loft.sh/", "The chart repo to deploy vCluster platform")
 	startCmd.Flags().StringVar(&cmd.ChartName, "chart-name", "vcluster-platform", "The chart name to deploy vCluster platform")
 	startCmd.Flags().BoolVar(&cmd.Docker, "docker", false, "If true, vCluster platform will be installed in Docker")
-	startCmd.Flags().BoolVar(&cmd.Insecure, "insecure", false, "If true, skip TLS certificate verification when connecting to the platform (use for self-signed certificates)")
+	startCmd.Flags().BoolVar(&cmd.Secure, "secure", false, "If true, verify TLS certificates when connecting to the platform (by default, TLS verification is skipped during bootstrap because the platform starts with a self-signed certificate)")
 
 	return startCmd
 }
@@ -90,8 +90,9 @@ before running this command:
 func (cmd *StartCmd) Run(ctx context.Context) error {
 	cfg := cmd.LoadedConfig(cmd.Log)
 
-	// Apply --insecure flag to config so all downstream TLS checks respect it.
-	if cmd.Insecure {
+	// Bootstrap defaults to insecure because the platform starts with a
+	// self-signed certificate. Pass --secure to enforce TLS verification.
+	if !cmd.Secure {
 		cfg.Platform.Insecure = true
 	}
 

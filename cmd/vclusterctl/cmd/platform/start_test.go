@@ -8,25 +8,25 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/start"
 )
 
-func TestNewStartCmd_InsecureFlag(t *testing.T) {
+func TestNewStartCmd_SecureFlag(t *testing.T) {
 	globalFlags := &flags.GlobalFlags{}
 	cmd := NewStartCmd(globalFlags)
 
-	// Verify --insecure flag exists and defaults to false.
-	f := cmd.Flags().Lookup("insecure")
+	// Verify --secure flag exists and defaults to false (insecure by default).
+	f := cmd.Flags().Lookup("secure")
 	if f == nil {
-		t.Fatal("--insecure flag not registered on start command")
+		t.Fatal("--secure flag not registered on start command")
 	}
 	if f.DefValue != "false" {
-		t.Errorf("expected --insecure default to be 'false', got %q", f.DefValue)
+		t.Errorf("expected --secure default to be 'false', got %q", f.DefValue)
 	}
 
-	// Simulate passing --insecure on the command line.
-	if err := cmd.Flags().Set("insecure", "true"); err != nil {
-		t.Fatalf("failed to set --insecure flag: %v", err)
+	// Simulate passing --secure on the command line.
+	if err := cmd.Flags().Set("secure", "true"); err != nil {
+		t.Fatalf("failed to set --secure flag: %v", err)
 	}
 	if f.Value.String() != "true" {
-		t.Errorf("expected --insecure value to be 'true' after set, got %q", f.Value.String())
+		t.Errorf("expected --secure value to be 'true' after set, got %q", f.Value.String())
 	}
 }
 
