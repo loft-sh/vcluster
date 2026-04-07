@@ -26,7 +26,7 @@ import (
 // ServiceBasicSyncSpec registers the spec.
 func ServiceBasicSyncSpec() {
 	Describe("Service basic sync from vCluster to host",
-		labels.Core, labels.Sync,
+		labels.PR, labels.Core, labels.Sync,
 		func() {
 			var (
 				hostClient        kubernetes.Interface

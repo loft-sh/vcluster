@@ -15,7 +15,7 @@ import (
 // NodeSyncLabelSelectorSpec registers the spec.
 func NodeSyncLabelSelectorSpec() {
 	Describe("Node sync",
-		labels.Core, labels.Sync,
+		labels.PR, labels.Core, labels.Sync,
 		func() {
 			var (
 				hostClient     kubernetes.Interface

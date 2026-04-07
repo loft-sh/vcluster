@@ -23,7 +23,7 @@ import (
 // ServiceSyncSpec registers the spec.
 func ServiceSyncSpec() {
 	Describe("Service replication and sync",
-		labels.Core, labels.Sync,
+		labels.PR, labels.Core, labels.Sync,
 		func() {
 			var (
 				hostClient        kubernetes.Interface

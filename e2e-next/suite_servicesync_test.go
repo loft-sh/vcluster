@@ -1,6 +1,3 @@
-// Suite: service-sync-vcluster
-// vCluster: ServiceSyncVCluster (replicateServices config)
-// Run:      just run-e2e 'pr && service-sync-vcluster'
 package e2e_next
 
 import (
@@ -11,9 +8,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 )
 
-func init() {
-	suiteServiceSyncVCluster()
-}
+func init() { suiteServiceSyncVCluster() }
 
 func suiteServiceSyncVCluster() {
 	Describe("service-sync-vcluster", labels.PR,

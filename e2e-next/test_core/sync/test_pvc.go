@@ -20,7 +20,7 @@ import (
 // PVCSyncSpec registers the spec.
 func PVCSyncSpec() {
 	Describe("PVC sync from vCluster to host",
-		labels.Core, labels.Sync, labels.PVCs, labels.Storage,
+		labels.PR, labels.Core, labels.Sync, labels.PVCs, labels.Storage,
 		func() {
 			var (
 				hostClient     kubernetes.Interface

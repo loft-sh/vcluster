@@ -22,6 +22,7 @@ import (
 // FromHostStorageClassesSpec registers storageClass sync from host tests.
 func FromHostStorageClassesSpec() {
 	Describe("StorageClasses sync from host",
+		labels.PR,
 		labels.Core,
 		labels.Sync,
 		labels.StorageClasses,

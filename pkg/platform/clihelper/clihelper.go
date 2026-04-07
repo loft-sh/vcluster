@@ -344,10 +344,10 @@ func GetLoftDefaultPassword(ctx context.Context, kubeClient kubernetes.Interface
 	return string(loftNamespace.UID), nil
 }
 
-func IsLoftReachable(ctx context.Context, host string) (bool, error) {
+func IsLoftReachable(ctx context.Context, host string, insecure bool) (bool, error) {
 	// wait until loft is reachable at the given url
 	client := &http.Client{
-		Transport: utilhttp.InsecureTransport(),
+		Transport: utilhttp.Transport(insecure),
 	}
 	endpoint := fmt.Sprintf("https://%s/healthz", host)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)

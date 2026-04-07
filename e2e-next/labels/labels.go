@@ -7,7 +7,7 @@ import (
 var (
 	// Run on every PR
 	PR = Label("pr")
-	// Test Groups (legacy?)
+	// Test Groups
 	Core        = Label("core")
 	Sync        = Label("sync")
 	Integration = Label("integration")
@@ -31,11 +31,15 @@ var (
 	Webhooks        = Label("webhooks")
 	Snapshots       = Label("snapshots")
 
-	// Scheduler marks tests for the virtual scheduler feature.
-	Scheduler = Label("scheduler")
-
-	// MetricsProxy marks tests for the metrics server integration (integrations.metricsServer.enabled).
+	// Feature-specific labels for targeted filtering
+	Scheduler    = Label("scheduler")
 	MetricsProxy = Label("metricsproxy")
+	Certs        = Label("certs")
+	Rootless     = Label("rootless")
+	Isolation    = Label("isolation")
+	NodeSync     = Label("nodesync")
+	Plugin       = Label("plugin")
+	CLI          = Label("cli")
 
 	// NonDefault marks tests that require special infrastructure not available
 	// in the standard Kind cluster (e.g. a CNI with NetworkPolicy enforcement).

@@ -134,7 +134,7 @@ setup-csi-volume-snapshots:
 #e2e-next tests
 @dev-e2e label-filter="core" image="ghcr.io/loft-sh/vcluster:dev-next" *ARGS='': \
   (setup label-filter image) \
-  (run-e2e label-filter image) \
+  (run-e2e label-filter image "false") \
   (teardown label-filter)
 
 @run-e2e label-filter="core" image="ghcr.io/loft-sh/vcluster:dev-next" teardown="true":

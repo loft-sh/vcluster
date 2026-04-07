@@ -82,13 +82,21 @@ before running this command:
 	startCmd.Flags().StringVar(&cmd.ChartRepo, "chart-repo", "https://charts.loft.sh/", "The chart repo to deploy vCluster platform")
 	startCmd.Flags().StringVar(&cmd.ChartName, "chart-name", "vcluster-platform", "The chart name to deploy vCluster platform")
 	startCmd.Flags().BoolVar(&cmd.Docker, "docker", false, "If true, vCluster platform will be installed in Docker")
+	startCmd.Flags().BoolVar(&cmd.Secure, "secure", false, "If true, verify TLS certificates when connecting to the platform (by default, TLS verification is skipped during bootstrap because the platform starts with a self-signed certificate)")
 
 	return startCmd
 }
 
 func (cmd *StartCmd) Run(ctx context.Context) error {
-	// automatically use docker mode if the driver is set to docker
 	cfg := cmd.LoadedConfig(cmd.Log)
+
+	// Bootstrap defaults to insecure because the platform starts with a
+	// self-signed certificate. Pass --secure to enforce TLS verification.
+	if !cmd.Secure {
+		cfg.Platform.Insecure = true
+	}
+
+	// automatically use docker mode if the driver is set to docker
 	if cfg.Driver.Type == config.DockerDriver && !cmd.Docker {
 		cmd.Log.Info("Automatically using --docker flag because driver is set to 'docker'")
 		cmd.Docker = true

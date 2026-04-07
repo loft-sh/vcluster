@@ -1,6 +1,3 @@
-// Suite: fromhost-limitclasses-vcluster
-// vCluster: FromHostLimitClassesVCluster (fromHost sync with selector limits)
-// Run:      just run-e2e 'pr && fromhost-limitclasses-vcluster'
 package e2e_next
 
 import (
@@ -11,9 +8,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 )
 
-func init() {
-	suiteFromHostLimitClassesVCluster()
-}
+func init() { suiteFromHostLimitClassesVCluster() }
 
 func suiteFromHostLimitClassesVCluster() {
 	Describe("fromhost-limitclasses-vcluster", labels.PR,
