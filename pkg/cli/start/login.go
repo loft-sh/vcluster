@@ -58,8 +58,6 @@ func (l *LoftStarter) login(url string) error {
 }
 
 func (l *LoftStarter) loginViaCLI(url string) error {
-	loginPath := "%s/auth/password/login"
-
 	loginRequest := types.PasswordLoginRequest{
 		Username: defaultUser,
 		Password: l.Password,
@@ -70,12 +68,6 @@ func (l *LoftStarter) loginViaCLI(url string) error {
 		return err
 	}
 
-<<<<<<< HEAD
-	loginRequestBuf := bytes.NewBuffer(loginRequestBytes)
-
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-=======
 	config := l.LoadedConfig(l.Log)
 	httpClient := &http.Client{Transport: &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: config.Platform.Insecure},
@@ -104,25 +96,9 @@ func (l *LoftStarter) loginViaCLI(url string) error {
 			continue
 		}
 		break
->>>>>>> 1499106e9 (ENGPLAT-399 Add --secure flag for TLS verification (#3781))
 	}
-	httpClient := &http.Client{Transport: tr}
-
-	resp, err := httpClient.Post(fmt.Sprintf(loginPath, url), "application/json", loginRequestBuf)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-
-	accessKey := &types.AccessKey{}
-	err = json.Unmarshal(body, accessKey)
-	if err != nil {
-		return err
+	if accessKey.AccessKey == "" {
+		return fmt.Errorf("couldn't retrieve access key from platform to login")
 	}
 
 	// log into loft

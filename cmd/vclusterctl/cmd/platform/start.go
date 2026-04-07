@@ -87,9 +87,6 @@ before running this command:
 }
 
 func (cmd *StartCmd) Run(ctx context.Context) error {
-<<<<<<< HEAD
-	// get version to deploy
-=======
 	cfg := cmd.LoadedConfig(cmd.Log)
 
 	// Bootstrap defaults to insecure because the platform starts with a
@@ -98,14 +95,7 @@ func (cmd *StartCmd) Run(ctx context.Context) error {
 		cfg.Platform.Insecure = true
 	}
 
-	// automatically use docker mode if the driver is set to docker
-	if cfg.Driver.Type == config.DockerDriver && !cmd.Docker {
-		cmd.Log.Info("Automatically using --docker flag because driver is set to 'docker'")
-		cmd.Docker = true
-	}
-
 	// get the version to deploy
->>>>>>> 1499106e9 (ENGPLAT-399 Add --secure flag for TLS verification (#3781))
 	if cmd.Version == "latest" || cmd.Version == "" {
 		cmd.Version = platform.MinimumVersionTag
 		latestVersion, err := platform.LatestCompatibleVersion(ctx)
@@ -173,8 +163,10 @@ func (cmd *StartCmd) Run(ctx context.Context) error {
 		}
 	}
 
-	if err := cmd.ensureEmailWithDisclaimer(ctx, cmd.KubeClient, cmd.Namespace); err != nil {
-		return err
+	if !cmd.platformUsesNewActivationFlow(cmd.Version) {
+		if err := cmd.ensureEmailWithDisclaimer(ctx, cmd.KubeClient, cmd.Namespace); err != nil {
+			return err
+		}
 	}
 
 	return start.NewLoftStarter(cmd.StartOptions).Start(ctx)
@@ -220,6 +212,26 @@ func promptForEmail(emailAddress string) (string, error) {
 	}
 
 	return emailAddress, nil
+}
+
+// platformUsesNewActivationFlow checks if the platform version supports the new platform activation flow.
+//
+// The new platform activation flow is supported for the platform version 4.6.0-rc.8 and above.
+func (cmd *StartCmd) platformUsesNewActivationFlow(platformVersion string) bool {
+	platformSemVerVersion, err := semver.ParseTolerant(platformVersion)
+	if err != nil {
+		cmd.Log.Warnf("Failed to parse platform version %s, falling back to the old platform activation flow with the admin email prompt", platformVersion)
+		return false
+	}
+
+	const minPlatformVersionWithNewActivationFlow = "4.6.0-rc.8"
+	if platformSemVerVersion.GTE(semver.MustParse(minPlatformVersionWithNewActivationFlow)) {
+		cmd.Log.Debugf("Platform version %s is greater than or equal to %s, platform is using the new activation flow, so skipping admin email prompt", platformVersion, minPlatformVersionWithNewActivationFlow)
+		return true
+	}
+
+	cmd.Log.Debugf("Platform version %s is not using the new activation flow, so admin email is required", platformVersion)
+	return false
 }
 
 func validateEmail(emailAddress string) error {
