@@ -17,19 +17,16 @@ import (
 
 // ConnectSpec registers vcluster connect tests.
 // All tests shell out to the vcluster binary (must be in $PATH).
-// Tests that produce kubeconfig use --print to avoid blocking on port-forwarding.
 //
 // Migrated from test/e2e_cli/connect/connect.go. Changes from old suite:
 //   - Old "connect by name" and "connect --print to file" merged into one test
-//     ("print kubeconfig and use it") because both validate the same thing:
-//     connect produces a usable kubeconfig. The merged test also verifies the
-//     kubeconfig works by listing pods.
+//     because both validate the same thing: connect produces a usable kubeconfig.
 //   - Old "unreachable server" test removed: --print with --server just embeds
-//     the server in the kubeconfig without actually connecting, so the error
-//     case cannot be tested via --print.
-//   - All tests use exec.Command instead of cmd.NewConnectCmd().Execute()
-//     because Execute() with default flags starts foreground port-forwarding
-//     that blocks indefinitely.
+//     the server in the kubeconfig without connecting, so the error case is untestable.
+//   - All tests use exec.Command with --background-proxy=false to prevent the CLI
+//     from starting a Docker proxy container.
+//   - --print test passes --server pointing to the framework's existing background
+//     proxy so the CLI exits immediately instead of starting its own port-forward.
 func ConnectSpec() {
 	Describe("vCluster connect",
 		labels.CLI,
@@ -37,11 +34,14 @@ func ConnectSpec() {
 			var (
 				vClusterName      string
 				vClusterNamespace string
+				proxyServer       string
 			)
 
 			BeforeEach(func(ctx context.Context) context.Context {
 				vClusterName = cluster.CurrentClusterNameFrom(ctx)
 				vClusterNamespace = "vcluster-" + vClusterName
+				// Get the server address from the framework's background proxy.
+				proxyServer = cluster.CurrentClusterFrom(ctx).KubernetesRestConfig().Host
 				return ctx
 			})
 
@@ -53,6 +53,8 @@ func ConnectSpec() {
 					cmd := exec.CommandContext(cmdCtx, "vcluster", "connect",
 						"-n", vClusterNamespace,
 						"--print",
+						"--background-proxy=false",
+						"--server", proxyServer,
 						vClusterName)
 					kubeConfigBytes, err := cmd.Output()
 					Expect(err).To(Succeed(),
@@ -80,6 +82,7 @@ func ConnectSpec() {
 					cmd := exec.CommandContext(cmdCtx, "vcluster", "connect",
 						"-n", "INVALID",
 						"--print",
+						"--background-proxy=false",
 						"INVALID")
 					out, err := cmd.CombinedOutput()
 					Expect(err).To(HaveOccurred(),
@@ -93,6 +96,7 @@ func ConnectSpec() {
 					defer cancel()
 					cmd := exec.CommandContext(cmdCtx, "vcluster", "connect",
 						"-n", vClusterNamespace,
+						"--background-proxy=false",
 						vClusterName,
 						"--", "kubectl", "get", "ns")
 					out, err := cmd.CombinedOutput()
