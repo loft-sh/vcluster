@@ -48,6 +48,8 @@ func ConnectSpec() {
 						Namespace: vClusterNamespace,
 					})
 					Expect(cmd.Flags().Set("kube-config", kcfgFile.Name())).To(Succeed())
+					Expect(cmd.Flags().Set("update-current", "false")).To(Succeed())
+					Expect(cmd.Flags().Set("background-proxy", "false")).To(Succeed())
 					cmd.SetArgs([]string{vClusterName})
 					Expect(cmd.Execute()).To(Succeed(),
 						"vcluster connect failed for %s in %s", vClusterName, vClusterNamespace)
@@ -112,6 +114,7 @@ func ConnectSpec() {
 					cmd := connectcmd.NewConnectCmd(&flags.GlobalFlags{
 						Namespace: vClusterNamespace,
 					})
+					Expect(cmd.Flags().Set("background-proxy", "false")).To(Succeed())
 					cmd.SetArgs([]string{vClusterName, "--", "kubectl", "get", "ns"})
 					Expect(cmd.Execute()).To(Succeed(),
 						"vcluster connect -- kubectl get ns failed for %s", vClusterName)
@@ -129,6 +132,8 @@ func ConnectSpec() {
 						Namespace: vClusterNamespace,
 					})
 					Expect(cmd.Flags().Set("kube-config", kcfgFile.Name())).To(Succeed())
+					Expect(cmd.Flags().Set("update-current", "false")).To(Succeed())
+					Expect(cmd.Flags().Set("background-proxy", "false")).To(Succeed())
 					Expect(cmd.Flags().Set("server", "testdomain.org")).To(Succeed())
 					cmd.SetArgs([]string{vClusterName})
 					err := cmd.Execute()
