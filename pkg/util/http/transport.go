@@ -12,8 +12,17 @@ func CloneDefaultTransport() *http.Transport {
 	return transport
 }
 
-func InsecureTransport() *http.Transport {
+// Transport returns a cloned default transport with TLS verification
+// controlled by the insecure parameter. When insecure is true, TLS
+// certificate verification is skipped.
+func Transport(insecure bool) *http.Transport {
 	newTransport := CloneDefaultTransport()
-	newTransport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	if insecure {
+		newTransport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	}
 	return newTransport
+}
+
+func InsecureTransport() *http.Transport {
+	return Transport(true)
 }
