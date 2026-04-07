@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 )
 
-<<<<<<< Updated upstream
 func init() {
 	suiteCertsVCluster()
 }
@@ -27,16 +26,7 @@ func suiteCertsVCluster() {
 		cluster.Use(clusters.HostCluster),
 		func() {
 			certs.CertTestsSpec()
+			certs.CertAutoRotationSpec()
 		},
 	)
 }
-||||||| Stash base
-var (
-	_ = certs.DescribeCertRotation(clusters.HAVCluster)
-)
-=======
-var (
-	_ = certs.DescribeCertRotation(clusters.HAVCluster)
-	_ = certs.DescribeCertAutoRotation(clusters.HAVCluster)
-)
->>>>>>> Stashed changes

@@ -12,8 +12,6 @@ import (
 	"time"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
-	"github.com/loft-sh/e2e-framework/pkg/setup/suite"
-	"github.com/loft-sh/vcluster/e2e-next/clusters"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/pkg/certs"
@@ -23,16 +21,16 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// DescribeCertAutoRotation registers tests that verify automatic certificate
+// CertAutoRotationSpec registers tests that verify automatic certificate
 // rotation when leaf certs are near expiry. These tests are Ordered because
 // they form a lifecycle: record state -> inject expiring cert -> restart -> verify.
-func DescribeCertAutoRotation(vcluster suite.Dependency) bool {
-	return Describe("vCluster cert auto-rotation",
+//
+// Must be called inside a Describe that has cluster.Use() for the vcluster and host cluster.
+func CertAutoRotationSpec() {
+	Describe("vCluster cert auto-rotation",
 		Ordered,
 		labels.Core,
 		labels.Security,
-		cluster.Use(vcluster),
-		cluster.Use(clusters.HostCluster),
 		func() {
 			var (
 				hostClient        kubernetes.Interface
@@ -40,35 +38,21 @@ func DescribeCertAutoRotation(vcluster suite.Dependency) bool {
 				vClusterNamespace string
 			)
 
-			BeforeAll(func(ctx context.Context) {
+			BeforeAll(func(ctx context.Context) context.Context {
 				hostClient = cluster.KubeClientFrom(ctx, constants.GetHostClusterName())
 				Expect(hostClient).NotTo(BeNil())
 				vClusterName = cluster.CurrentClusterNameFrom(ctx)
 				vClusterNamespace = "vcluster-" + vClusterName
+				return ctx
 			})
 
-			// Spec 1: verify vCluster is ready before we start
 			It("should have all vCluster pods running and ready", func(ctx context.Context) {
-				Eventually(func(g Gomega) {
-					pods, err := hostClient.CoreV1().Pods(vClusterNamespace).List(ctx, metav1.ListOptions{
-						LabelSelector: "app=vcluster,release=" + vClusterName,
-					})
-					g.Expect(err).To(Succeed())
-					g.Expect(pods.Items).NotTo(BeEmpty(), "no vcluster pods found")
-					for _, pod := range pods.Items {
-						for _, container := range pod.Status.ContainerStatuses {
-							g.Expect(container.State.Running).NotTo(BeNil(),
-								"container %s in pod %s should be running", container.Name, pod.Name)
-							g.Expect(container.Ready).To(BeTrue(),
-								"container %s in pod %s should be ready", container.Name, pod.Name)
-						}
-					}
-				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+				waitForPodsReady(ctx, hostClient, vClusterNamespace, vClusterName, constants.PollingTimeoutLong)
 			})
 
-			// Spec 2 depends on 1: record original cert NotAfter and inject an expiring cert
 			var originalCANotAfter time.Time
 
+			// Spec 2 depends on 1: record original CA and inject an expiring leaf cert
 			It("should inject an expiring leaf cert into the secret", func(ctx context.Context) {
 				By("Recording the original CA cert NotAfter", func() {
 					secret, err := hostClient.CoreV1().Secrets(vClusterNamespace).Get(ctx,
@@ -96,7 +80,7 @@ func DescribeCertAutoRotation(vcluster suite.Dependency) bool {
 				})
 			})
 
-			// Spec 3 depends on 2: delete the pod so it restarts and picks up the expiring cert
+			// Spec 3 depends on 2: delete the pod so it restarts and triggers auto-rotation
 			It("should restart the vCluster pod to trigger auto-rotation", func(ctx context.Context) {
 				By("Deleting the vCluster pod", func() {
 					pods, err := hostClient.CoreV1().Pods(vClusterNamespace).List(ctx, metav1.ListOptions{
@@ -113,41 +97,28 @@ func DescribeCertAutoRotation(vcluster suite.Dependency) bool {
 				})
 
 				By("Waiting for the pod to come back ready", func() {
-					Eventually(func(g Gomega) {
-						pods, err := hostClient.CoreV1().Pods(vClusterNamespace).List(ctx, metav1.ListOptions{
-							LabelSelector: "app=vcluster,release=" + vClusterName,
-						})
-						g.Expect(err).To(Succeed())
-						g.Expect(pods.Items).NotTo(BeEmpty())
-						for _, pod := range pods.Items {
-							g.Expect(pod.Status.ContainerStatuses).NotTo(BeEmpty())
-							for _, container := range pod.Status.ContainerStatuses {
-								g.Expect(container.State.Running).NotTo(BeNil(),
-									"container %s in pod %s not running after restart", container.Name, pod.Name)
-								g.Expect(container.Ready).To(BeTrue(),
-									"container %s in pod %s not ready after restart", container.Name, pod.Name)
-							}
-						}
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
+					waitForPodsReady(ctx, hostClient, vClusterNamespace, vClusterName, constants.PollingTimeoutVeryLong)
 				})
 			})
 
-			// Spec 4 depends on 3: verify the cert was auto-rotated
+			// Spec 4 depends on 3: verify the cert was auto-rotated.
+			// Poll the secret because EnsureCerts runs at startup and syncs
+			// the renewed certs back to the secret asynchronously.
 			It("should have a renewed apiserver cert after auto-rotation", func(ctx context.Context) {
-				secret, err := hostClient.CoreV1().Secrets(vClusterNamespace).Get(ctx,
-					certs.CertSecretName(vClusterName), metav1.GetOptions{})
-				Expect(err).To(Succeed())
+				Eventually(func(g Gomega) {
+					secret, err := hostClient.CoreV1().Secrets(vClusterNamespace).Get(ctx,
+						certs.CertSecretName(vClusterName), metav1.GetOptions{})
+					g.Expect(err).To(Succeed())
 
-				block, _ := pem.Decode(secret.Data["apiserver.crt"])
-				Expect(block).NotTo(BeNil(), "failed to decode apiserver cert PEM")
+					block, _ := pem.Decode(secret.Data["apiserver.crt"])
+					g.Expect(block).NotTo(BeNil(), "failed to decode apiserver cert PEM")
 
-				cert, err := x509.ParseCertificate(block.Bytes)
-				Expect(err).To(Succeed())
+					cert, err := x509.ParseCertificate(block.Bytes)
+					g.Expect(err).To(Succeed())
 
-				// The renewed cert should expire more than 90 days from now
-				// (it should be ~365 days since it was just regenerated)
-				Expect(cert.NotAfter.After(time.Now().Add(90 * 24 * time.Hour))).To(BeTrue(),
-					"apiserver cert should have been renewed, NotAfter=%s", cert.NotAfter.Format(time.RFC3339))
+					g.Expect(cert.NotAfter.After(time.Now().Add(90 * 24 * time.Hour))).To(BeTrue(),
+						"apiserver cert should have been renewed, NotAfter=%s", cert.NotAfter.Format(time.RFC3339))
+				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
 			})
 
 			// Spec 5 depends on 3: verify CA was NOT rotated
@@ -167,7 +138,7 @@ func DescribeCertAutoRotation(vcluster suite.Dependency) bool {
 					originalCANotAfter.Format(time.RFC3339), ca.NotAfter.Format(time.RFC3339))
 			})
 
-			// Spec 6: verify all certs are valid
+			// Spec 6: verify all leaf certs are valid
 			It("should have all leaf certs valid after auto-rotation", func(ctx context.Context) {
 				secret, err := hostClient.CoreV1().Secrets(vClusterNamespace).Get(ctx,
 					certs.CertSecretName(vClusterName), metav1.GetOptions{})
@@ -202,7 +173,7 @@ func DescribeCertAutoRotation(vcluster suite.Dependency) bool {
 }
 
 // generateExpiringCertPEM creates a self-signed certificate that expires at
-// the given duration from now. Used to inject expiring certs into the secret.
+// the given duration from now.
 func generateExpiringCertPEM(expiresIn time.Duration) []byte {
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
