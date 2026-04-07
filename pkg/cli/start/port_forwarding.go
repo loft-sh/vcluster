@@ -21,7 +21,7 @@ func (l *LoftStarter) startPortForwarding(ctx context.Context, loftPod *corev1.P
 
 	// wait until loft is reachable at the given url
 	httpClient := &http.Client{
-		Transport: utilhttp.InsecureTransport(),
+		Transport: utilhttp.Transport(l.LoadedConfig(l.Log).Platform.Insecure),
 	}
 	l.Log.Infof(product.Replace("Waiting until loft is reachable at https://localhost:%s"), l.LocalPort)
 	err = wait.PollUntilContextTimeout(ctx, time.Second, clihelper.Timeout(), true, func(ctx context.Context) (bool, error) {
