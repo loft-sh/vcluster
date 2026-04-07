@@ -1,5 +1,6 @@
 // Suite: service-sync-vcluster
 // vCluster: ServiceSyncVCluster (networking.replicateServices config)
+// Run:      just run-e2e 'pr && sync'
 package e2e_next
 
 import (

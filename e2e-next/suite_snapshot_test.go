@@ -1,6 +1,7 @@
 // Suite: snapshot-vcluster
 // vCluster: SnapshotVCluster (CSI hostpath driver + snapshot CRDs)
 // PreSetup: installs CSI hostpath driver and creates snapshot-data PVC
+// Run:      just run-e2e 'snapshots'
 package e2e_next
 
 import (

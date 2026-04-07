@@ -1,5 +1,6 @@
 // Suite: scheduler-vcluster
 // vCluster: SchedulerVCluster (k8s scheduler, virtualScheduler, all nodes synced)
+// Run:      just run-e2e 'scheduler'
 package e2e_next
 
 import (

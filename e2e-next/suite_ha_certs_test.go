@@ -1,5 +1,6 @@
 // Suite: certs-vcluster
 // vCluster: CertsVCluster (dedicated single-replica with deploy etcd)
+// Run:      just run-e2e 'certs'
 //
 // All cert tests run in a single Ordered Describe because:
 //   - Cert rotation restarts the vcluster pod, killing any shared proxy
