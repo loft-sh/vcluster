@@ -1,8 +1,8 @@
 package cert
 
 import (
+	"bytes"
 	"context"
-	"reflect"
 	"sync"
 	"time"
 
@@ -86,7 +86,12 @@ func (s *syncer) regen(ctx context.Context) (bool, error) {
 		return false, err
 	}
 
-	if reflect.DeepEqual(s.currentSANs, extraSANs) {
+	// Compare cert bytes rather than SANs. GenAPIServerServingCerts returns
+	// the same cert/key unchanged when no regeneration is needed, so a byte
+	// comparison correctly detects both SAN changes and expiry-triggered
+	// regeneration. The previous SAN-only comparison silently discarded
+	// certs that were regenerated due to expiry with unchanged SANs.
+	if bytes.Equal(s.currentCert, cert) {
 		return false, nil
 	}
 

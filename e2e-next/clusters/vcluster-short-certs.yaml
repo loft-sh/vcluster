@@ -1,0 +1,24 @@
+controlPlane:
+  statefulSet:
+    image:
+      registry: ""
+      repository: {{.Repository}}
+      tag: {{.Tag}}
+    env:
+      - name: DEVELOPMENT
+        value: "true"
+      - name: VCLUSTER_CERTS_VALIDITYPERIOD
+        value: "3m"
+
+sync:
+  toHost:
+    pods:
+      useSecretsForSATokens: true
+  fromHost:
+    nodes:
+      enabled: true
+      selector:
+        labels:
+          kubernetes.io/hostname: "{{.HostClusterName}}-control-plane"
+    storageClasses:
+      enabled: true
