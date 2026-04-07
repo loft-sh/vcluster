@@ -3,7 +3,9 @@ package lifecycle
 
 import (
 	"context"
+	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
@@ -27,8 +29,20 @@ import (
 //     from starting a Docker proxy container.
 //   - --print test passes --server pointing to the framework's existing background
 //     proxy so the CLI exits immediately instead of starting its own port-forward.
+
+// vclusterBin returns the path to the vcluster binary.
+// Uses $GOBIN/vcluster if GOBIN is set (same as e2e-framework provider),
+// falls back to "vcluster" which relies on $PATH.
+func vclusterBin() string {
+	if gobin := os.Getenv("GOBIN"); gobin != "" {
+		return filepath.Join(gobin, "vcluster")
+	}
+	return "vcluster"
+}
+
 func ConnectSpec() {
 	Describe("vCluster connect",
+		labels.PR,
 		labels.CLI,
 		func() {
 			var (
@@ -50,7 +64,7 @@ func ConnectSpec() {
 				defer cancel()
 
 				By("running vcluster connect --print and capturing kubeconfig", func() {
-					cmd := exec.CommandContext(cmdCtx, "vcluster", "connect",
+					cmd := exec.CommandContext(cmdCtx, vclusterBin(), "connect",
 						"-n", vClusterNamespace,
 						"--print",
 						"--background-proxy=false",
@@ -79,7 +93,7 @@ func ConnectSpec() {
 				By("running vcluster connect --print with a non-existent vcluster name", func() {
 					cmdCtx, cancel := context.WithTimeout(ctx, constants.PollingTimeoutShort)
 					defer cancel()
-					cmd := exec.CommandContext(cmdCtx, "vcluster", "connect",
+					cmd := exec.CommandContext(cmdCtx, vclusterBin(), "connect",
 						"-n", "INVALID",
 						"--print",
 						"--background-proxy=false",
@@ -87,6 +101,8 @@ func ConnectSpec() {
 					out, err := cmd.CombinedOutput()
 					Expect(err).To(HaveOccurred(),
 						"expected vcluster connect to fail for non-existent vcluster INVALID, output: %s", string(out))
+					Expect(string(out)).To(ContainSubstring("find"),
+						"expected error output to mention finding vcluster, got: %s", string(out))
 				})
 			})
 
@@ -94,7 +110,7 @@ func ConnectSpec() {
 				By("running vcluster connect with an inline kubectl command", func() {
 					cmdCtx, cancel := context.WithTimeout(ctx, constants.PollingTimeout)
 					defer cancel()
-					cmd := exec.CommandContext(cmdCtx, "vcluster", "connect",
+					cmd := exec.CommandContext(cmdCtx, vclusterBin(), "connect",
 						"-n", vClusterNamespace,
 						"--background-proxy=false",
 						vClusterName,

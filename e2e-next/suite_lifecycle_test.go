@@ -1,7 +1,7 @@
 // Suite: cli-vcluster
 // vCluster: CLIVCluster (dedicated instance for CLI connect tests)
 // Run:      just run-e2e 'cli'
-// Prereq:   GOBIN must be set and contain the vcluster binary (go install ./cmd/vclusterctl)
+// Prereq:   vcluster binary must be in $PATH
 // Separate from CommonVCluster because connect operations create port-forward
 // processes that can disrupt the shared background proxy used by sync tests.
 package e2e_next
