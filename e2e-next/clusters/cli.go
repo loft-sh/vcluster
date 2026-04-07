@@ -6,7 +6,7 @@ import _ "embed"
 // Separate from CommonVCluster because connect operations create port-forward
 // processes that can disrupt the shared background proxy used by sync tests.
 
-//go:embed vcluster-default.yaml
+//go:embed vcluster-cli.yaml
 var cliVClusterYAML string
 
 var (

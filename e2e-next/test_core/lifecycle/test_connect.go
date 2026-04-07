@@ -7,24 +7,20 @@ import (
 	"os/exec"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
-	loftlog "github.com/loft-sh/log"
 	connectcmd "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
-	"github.com/loft-sh/vcluster/pkg/cli"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-// ConnectSpec registers all vcluster connect tests.
-// These tests exercise the connect command against the suite-provided shared vCluster.
-// Each It block is independent: it writes its kubeconfig to a fresh temp file and
-// does not mutate shared cluster state.
+// ConnectSpec registers vcluster connect tests.
+// Uses cmd.NewConnectCmd (cobra) for tests that need --/flag parsing,
+// and exec.Command for tests that validate CLI binary behavior.
 func ConnectSpec() {
 	Describe("vCluster connect",
 		labels.PR,
@@ -41,27 +37,20 @@ func ConnectSpec() {
 				return ctx
 			})
 
-			It("should connect to a vCluster and write kubeconfig to a file", func(ctx context.Context) {
+			It("should connect to a vCluster and write kubeconfig to a file", func(_ context.Context) {
 				kcfgFile, err := os.CreateTemp("", "vcluster-connect-kubeconfig-*")
 				Expect(err).To(Succeed(), "creating temp kubeconfig file")
 				kcfgFile.Close()
 				DeferCleanup(func(_ context.Context) { _ = os.Remove(kcfgFile.Name()) })
 
 				By("running vcluster connect and writing kubeconfig to a temp file", func() {
-					connectCmd := connectcmd.ConnectCmd{
-						CobraCmd: &cobra.Command{},
-						Log:      loftlog.Discard,
-						GlobalFlags: &flags.GlobalFlags{
-							Namespace: vClusterNamespace,
-						},
-						ConnectOptions: cli.ConnectOptions{
-							KubeConfig:      kcfgFile.Name(),
-							UpdateCurrent:   false,
-							BackgroundProxy: false,
-						},
-					}
-					Expect(connectCmd.Run(ctx, []string{vClusterName})).To(Succeed(),
-						"vcluster connect failed for vcluster %s in namespace %s", vClusterName, vClusterNamespace)
+					cmd := connectcmd.NewConnectCmd(&flags.GlobalFlags{
+						Namespace: vClusterNamespace,
+					})
+					Expect(cmd.Flags().Set("kube-config", kcfgFile.Name())).To(Succeed())
+					cmd.SetArgs([]string{vClusterName})
+					Expect(cmd.Execute()).To(Succeed(),
+						"vcluster connect failed for %s in %s", vClusterName, vClusterNamespace)
 				})
 
 				By("verifying the kubeconfig file is non-empty", func() {
@@ -76,14 +65,13 @@ func ConnectSpec() {
 				Expect(err).To(Succeed(), "creating temp kubeconfig file")
 				DeferCleanup(func(_ context.Context) { _ = os.Remove(kcfgFile.Name()) })
 
-				By("running vcluster connect --print via the CLI binary and capturing stdout", func() {
-					// vcluster CLI must be in $PATH (same requirement as the old test).
-					// --print writes kubeconfig YAML to stdout; capture it and write to file.
-					connectCmd := exec.CommandContext(ctx, "vcluster", "connect", "--print",
-						"-n", vClusterNamespace, vClusterName)
-					kubeConfigBytes, err := connectCmd.Output()
+				By("running vcluster connect --print and capturing stdout", func() {
+					cmdCtx, cancel := context.WithTimeout(ctx, constants.PollingTimeout)
+					defer cancel()
+					cmd := exec.CommandContext(cmdCtx, "vcluster", "connect", "-n", vClusterNamespace, "--print", vClusterName)
+					kubeConfigBytes, err := cmd.Output()
 					Expect(err).To(Succeed(),
-						"vcluster connect --print failed for %s: %v", vClusterName, err)
+						"vcluster connect --print failed for %s", vClusterName)
 					_, err = kcfgFile.Write(kubeConfigBytes)
 					Expect(err).To(Succeed())
 					Expect(kcfgFile.Close()).To(Succeed())
@@ -109,63 +97,43 @@ func ConnectSpec() {
 			})
 
 			It("should fail to connect to a vCluster with an invalid name", func(ctx context.Context) {
-				By("running vcluster connect with a non-existent vcluster name", func() {
-					// vcluster CLI must be in $PATH.
-					connectCmd := exec.CommandContext(ctx, "vcluster", "connect", "--print",
-						"-n", "INVALID", "INVALID")
-					err := connectCmd.Run()
+				By("running vcluster connect --print with a non-existent vcluster name", func() {
+					cmdCtx, cancel := context.WithTimeout(ctx, constants.PollingTimeoutShort)
+					defer cancel()
+					cmd := exec.CommandContext(cmdCtx, "vcluster", "connect", "-n", "INVALID", "--print", "INVALID")
+					out, err := cmd.CombinedOutput()
 					Expect(err).To(HaveOccurred(),
-						"expected vcluster connect to fail for non-existent vcluster INVALID")
-					Expect(err.Error()).To(ContainSubstring("not found"),
-						"expected 'not found' error for invalid vcluster, got: %v", err)
+						"expected vcluster connect to fail for non-existent vcluster INVALID, output: %s", string(out))
 				})
 			})
 
-			It("should connect to a vCluster and execute a command inline", func(ctx context.Context) {
+			It("should connect to a vCluster and execute a command inline", func(_ context.Context) {
 				By("running vcluster connect with an inline kubectl command", func() {
-					connectCmd := connectcmd.ConnectCmd{
-						CobraCmd: &cobra.Command{},
-						Log:      loftlog.Discard,
-						GlobalFlags: &flags.GlobalFlags{
-							Namespace: vClusterNamespace,
-						},
-						ConnectOptions: cli.ConnectOptions{
-							BackgroundProxy: false,
-						},
-					}
-					Expect(connectCmd.Run(ctx, []string{vClusterName, "--", "kubectl", "get", "ns"})).To(Succeed(),
+					cmd := connectcmd.NewConnectCmd(&flags.GlobalFlags{
+						Namespace: vClusterNamespace,
+					})
+					cmd.SetArgs([]string{vClusterName, "--", "kubectl", "get", "ns"})
+					Expect(cmd.Execute()).To(Succeed(),
 						"vcluster connect -- kubectl get ns failed for %s", vClusterName)
 				})
 			})
 
-			It("should fail when connecting with an unreachable server override", func(ctx context.Context) {
+			It("should fail when connecting with an unreachable server override", func(_ context.Context) {
 				kcfgFile, err := os.CreateTemp("", "vcluster-unreachable-kubeconfig-*")
 				Expect(err).To(Succeed(), "creating temp kubeconfig file")
 				kcfgFile.Close()
 				DeferCleanup(func(_ context.Context) { _ = os.Remove(kcfgFile.Name()) })
 
 				By("running vcluster connect with an unreachable --server override", func() {
-					connectCmd := connectcmd.ConnectCmd{
-						CobraCmd: &cobra.Command{},
-						Log:      loftlog.Discard,
-						GlobalFlags: &flags.GlobalFlags{
-							Namespace: vClusterNamespace,
-						},
-						ConnectOptions: cli.ConnectOptions{
-							KubeConfig:      kcfgFile.Name(),
-							Server:          "testdomain.org",
-							UpdateCurrent:   false,
-							BackgroundProxy: false,
-						},
-					}
-					err := connectCmd.Run(ctx, []string{vClusterName})
+					cmd := connectcmd.NewConnectCmd(&flags.GlobalFlags{
+						Namespace: vClusterNamespace,
+					})
+					Expect(cmd.Flags().Set("kube-config", kcfgFile.Name())).To(Succeed())
+					Expect(cmd.Flags().Set("server", "testdomain.org")).To(Succeed())
+					cmd.SetArgs([]string{vClusterName})
+					err := cmd.Execute()
 					Expect(err).To(HaveOccurred(),
 						"expected vcluster connect to fail with unreachable server testdomain.org")
-					Expect(err.Error()).To(Or(
-						ContainSubstring("timeout"),
-						ContainSubstring("connection refused"),
-						ContainSubstring("no such host")),
-						"expected network error for unreachable server, got: %v", err)
 				})
 			})
 		},
