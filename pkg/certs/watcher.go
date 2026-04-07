@@ -55,7 +55,7 @@ func runCertWatcher(
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			expiring, err := checkCertsExpiring(ctx, currentNamespace, currentNamespaceClient, certificateDir)
+			expiring, err := checkCertsExpiring(certificateDir)
 			if err != nil {
 				klog.Errorf("Error checking certificate expiry: %v", err)
 				continue
@@ -77,20 +77,9 @@ func runCertWatcher(
 }
 
 // checkCertsExpiring checks whether any leaf cert is within the renewal window.
-func checkCertsExpiring(
-	ctx context.Context,
-	currentNamespace string,
-	currentNamespaceClient kubernetes.Interface,
-	certificateDir string,
-) (bool, error) {
-	// Standalone mode: check certs on disk
-	if currentNamespaceClient == nil {
-		return diskCertsExpiringSoon(certificateDir), nil
-	}
-
-	// Platform-managed: we need the vcluster name to look up the secret,
-	// but we can derive it from the certificate dir's secret name convention.
-	// Instead, just check the certs on disk since they were downloaded at startup.
+// Both standalone and platform-managed modes check certs on disk — in
+// platform-managed mode, certs were downloaded from the secret at startup.
+func checkCertsExpiring(certificateDir string) (bool, error) {
 	return diskCertsExpiringSoon(certificateDir), nil
 }
 
