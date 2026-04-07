@@ -66,8 +66,9 @@ func (l *LoftStarter) loginViaCLI(url string) error {
 		return err
 	}
 
+	config := l.LoadedConfig(l.Log)
 	httpClient := &http.Client{Transport: &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: config.Platform.Insecure},
 	}}
 
 	// try a couple of times to login
@@ -99,7 +100,6 @@ func (l *LoftStarter) loginViaCLI(url string) error {
 	}
 
 	// log into loft
-	config := l.LoadedConfig(l.Log)
 	loginClient := platform.NewLoginClientFromConfig(config)
 	url = strings.TrimSuffix(url, "/")
 	err = loginClient.LoginWithAccessKey(url, accessKey.AccessKey, config.Platform.Insecure)
