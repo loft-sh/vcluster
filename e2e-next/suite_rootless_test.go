@@ -1,3 +1,5 @@
+// Suite: rootless-vcluster
+// vCluster: RootlessVCluster (runAsUser: 12345, fsGroup: 12345)
 package e2e_next
 
 import (

@@ -1,3 +1,5 @@
+// Suite: kubelet-proxy-vcluster
+// vCluster: KubeletProxyVCluster (kubelet proxy with restricted subpaths)
 package e2e_next
 
 import (

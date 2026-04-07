@@ -1,3 +1,5 @@
+// Suite: fromhost-limitclasses-vcluster
+// vCluster: FromHostLimitClassesVCluster (fromHost sync with label-selector limits)
 package e2e_next
 
 import (

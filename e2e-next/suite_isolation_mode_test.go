@@ -1,3 +1,5 @@
+// Suite: isolation-mode-vcluster
+// vCluster: IsolationModeVCluster (podSecurityStandard, resourceQuota, limitRange)
 package e2e_next
 
 import (

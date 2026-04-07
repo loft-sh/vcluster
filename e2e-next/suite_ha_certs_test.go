@@ -1,3 +1,6 @@
+// Suite: certs-vcluster
+// vCluster: CertsVCluster (dedicated single-replica with deploy etcd)
+//
 // All cert tests run in a single Ordered Describe because:
 //   - Cert rotation restarts the vcluster pod, killing any shared proxy
 //   - The expiration test uses os.Setenv(VCLUSTER_CERTS_VALIDITYPERIOD) which is

@@ -1,3 +1,5 @@
+// Suite: node-sync-vcluster
+// vCluster: NodeSyncVCluster (virtualScheduler, all host nodes synced)
 package e2e_next
 
 import (

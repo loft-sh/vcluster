@@ -1,3 +1,5 @@
+// Suite: service-sync-vcluster
+// vCluster: ServiceSyncVCluster (networking.replicateServices config)
 package e2e_next
 
 import (

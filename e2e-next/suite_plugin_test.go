@@ -1,3 +1,7 @@
+// Suite: plugin-vcluster
+// vCluster: PluginVCluster (legacy v1/v2 plugins: bootstrap-with-deployment, hooks, import-secrets)
+// NonDefault: plugin example images (bootstrap-with-deployment:v2) are amd64-only.
+// These tests cannot run on macOS ARM (Kind on Apple Silicon) - CI only.
 package e2e_next
 
 import (
