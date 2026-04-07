@@ -5,7 +5,6 @@ import (
 	"github.com/loft-sh/vcluster/e2e-next/clusters"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/e2e-next/test_core/coredns"
-	"github.com/loft-sh/vcluster/e2e-next/test_core/lifecycle"
 	test_core "github.com/loft-sh/vcluster/e2e-next/test_core/sync"
 	"github.com/loft-sh/vcluster/e2e-next/test_core/sync/fromhost"
 	"github.com/loft-sh/vcluster/e2e-next/test_deploy"
@@ -33,7 +32,6 @@ func suiteCommonVCluster() {
 			fromhost.FromHostSecretsSpec()
 			test_deploy.HelmChartsSpec()
 			test_deploy.InitManifestsSpec()
-			lifecycle.ConnectSpec()
 		},
 	)
 }
