@@ -70,7 +70,7 @@ func ConnectSpec() {
 				By("running vcluster connect --print and capturing stdout", func() {
 					cmdCtx, cancel := context.WithTimeout(ctx, constants.PollingTimeout)
 					defer cancel()
-					cmd := exec.CommandContext(cmdCtx, "vcluster", "connect", "-n", vClusterNamespace, "--print", vClusterName)
+					cmd := exec.CommandContext(cmdCtx, "vcluster", "connect", "-n", vClusterNamespace, "--print", "--background-proxy=false", vClusterName)
 					kubeConfigBytes, err := cmd.Output()
 					Expect(err).To(Succeed(),
 						"vcluster connect --print failed for %s", vClusterName)
