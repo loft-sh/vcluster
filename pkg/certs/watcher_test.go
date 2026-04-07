@@ -1,6 +1,7 @@
 package certs
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -32,7 +33,7 @@ func TestCheckCertsExpiring_DiskValid(t *testing.T) {
 	}
 
 	// nil client = standalone mode, checks disk
-	expiring, err := checkCertsExpiring(nil, "", nil, dir)
+	expiring, err := checkCertsExpiring(context.Background(), "", nil, dir)
 	assert.NilError(t, err)
 	assert.Assert(t, !expiring, "valid certs should not be flagged as expiring")
 }
@@ -62,7 +63,7 @@ func TestCheckCertsExpiring_DiskExpiring(t *testing.T) {
 		assert.NilError(t, err)
 	}
 
-	expiring, err := checkCertsExpiring(nil, "", nil, dir)
+	expiring, err := checkCertsExpiring(context.Background(), "", nil, dir)
 	assert.NilError(t, err)
 	assert.Assert(t, expiring, "expiring apiserver cert should be detected")
 }
@@ -92,7 +93,7 @@ func TestCheckCertsExpiring_DiskCAOnlyExpiring(t *testing.T) {
 		assert.NilError(t, err)
 	}
 
-	expiring, err := checkCertsExpiring(nil, "", nil, dir)
+	expiring, err := checkCertsExpiring(context.Background(), "", nil, dir)
 	assert.NilError(t, err)
 	assert.Assert(t, !expiring, "only CA expiring should not trigger leaf rotation")
 }

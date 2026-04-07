@@ -116,7 +116,7 @@ func CertAutoRotationSpec() {
 					cert, err := x509.ParseCertificate(block.Bytes)
 					g.Expect(err).To(Succeed())
 
-					g.Expect(cert.NotAfter.After(time.Now().Add(90 * 24 * time.Hour))).To(BeTrue(),
+					g.Expect(cert.NotAfter.After(time.Now().Add(90*24*time.Hour))).To(BeTrue(),
 						"apiserver cert should have been renewed, NotAfter=%s", cert.NotAfter.Format(time.RFC3339))
 				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
 			})
@@ -164,7 +164,7 @@ func CertAutoRotationSpec() {
 					cert, err := x509.ParseCertificate(block.Bytes)
 					Expect(err).To(Succeed(), "failed to parse %s", certName)
 
-					Expect(cert.NotAfter.After(time.Now().Add(90 * 24 * time.Hour))).To(BeTrue(),
+					Expect(cert.NotAfter.After(time.Now().Add(90*24*time.Hour))).To(BeTrue(),
 						"%s should be valid for more than 90 days, NotAfter=%s", certName, cert.NotAfter.Format(time.RFC3339))
 				}
 			})
