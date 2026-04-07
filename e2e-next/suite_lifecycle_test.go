@@ -1,7 +1,8 @@
-// Suite: lifecycle-vcluster
-// vCluster: CommonVCluster (reuses the common config for CLI connect tests)
-// Connect tests run against a dedicated vCluster instance to avoid disrupting
-// the shared background proxy used by other suites.
+// Suite: cli-vcluster
+// vCluster: CLIVCluster (dedicated instance for CLI connect tests)
+// Run:      just run-e2e 'cli'
+// Separate from CommonVCluster because connect operations create port-forward
+// processes that can disrupt the shared background proxy used by sync tests.
 package e2e_next
 
 import (
@@ -12,12 +13,12 @@ import (
 )
 
 func init() {
-	suiteLifecycleVCluster()
+	suiteCLIVCluster()
 }
 
-func suiteLifecycleVCluster() {
-	Describe("lifecycle-vcluster",
-		cluster.Use(clusters.CommonVCluster),
+func suiteCLIVCluster() {
+	Describe("cli-vcluster",
+		cluster.Use(clusters.CLIVCluster),
 		cluster.Use(clusters.HostCluster),
 		func() {
 			lifecycle.ConnectSpec()
