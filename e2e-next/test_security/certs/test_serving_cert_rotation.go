@@ -3,7 +3,6 @@ package certs
 import (
 	"context"
 	"strings"
-	"time"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
@@ -59,50 +58,54 @@ func ServingCertRotationSpec() {
 			// 90-day expiry window, so the syncer should regenerate it every 2 seconds.
 			// We verify by checking the syncer container logs for the regeneration message.
 			It("should continuously regenerate the serving cert due to short lifetime", func(ctx context.Context) {
-				Eventually(func(g Gomega) {
-					pods, err := hostClient.CoreV1().Pods(vClusterNamespace).List(ctx, metav1.ListOptions{
-						LabelSelector: "app=vcluster,release=" + vClusterName,
-					})
-					g.Expect(err).To(Succeed())
-					g.Expect(pods.Items).NotTo(BeEmpty())
+				By("Checking syncer logs for repeated cert regeneration entries", func() {
+					Eventually(func(g Gomega) {
+						pods, err := hostClient.CoreV1().Pods(vClusterNamespace).List(ctx, metav1.ListOptions{
+							LabelSelector: "app=vcluster,release=" + vClusterName,
+						})
+						g.Expect(err).To(Succeed())
+						g.Expect(pods.Items).NotTo(BeEmpty())
 
-					pod := pods.Items[0]
-					logs, err := hostClient.CoreV1().Pods(vClusterNamespace).GetLogs(
-						pod.Name, &corev1.PodLogOptions{
-							Container:    "syncer",
-							SinceSeconds: int64Ptr(30),
-						}).DoRaw(ctx)
-					g.Expect(err).To(Succeed())
+						pod := pods.Items[0]
+						logs, err := hostClient.CoreV1().Pods(vClusterNamespace).GetLogs(
+							pod.Name, &corev1.PodLogOptions{
+								Container:    "syncer",
+								SinceSeconds: int64Ptr(30),
+							}).DoRaw(ctx)
+						g.Expect(err).To(Succeed())
 
-					// The syncer logs "Generated serving cert for sans: ..." each time
-					// it regenerates and applies the cert. With the SANs bug, this
-					// message only appeared on the first generation (SAN change from nil),
-					// never again. With the fix, it appears on every expiry-triggered
-					// regeneration.
-					regenCount := strings.Count(string(logs), "Generated serving cert for sans")
-					g.Expect(regenCount).To(BeNumerically(">=", 2),
-						"syncer should have regenerated the serving cert multiple times in the last 30s, "+
-							"but found %d regeneration log entries. This indicates the SANs bug is still present — "+
-							"expiry-triggered cert regeneration is being silently discarded.", regenCount)
-				}).WithPolling(5 * time.Second).WithTimeout(60 * time.Second).Should(Succeed())
+						// The syncer logs "Generated serving cert for sans: ..." each time
+						// it regenerates and applies the cert. With the SANs bug, this
+						// message only appeared on the first generation (SAN change from nil),
+						// never again. With the fix, it appears on every expiry-triggered
+						// regeneration.
+						regenCount := strings.Count(string(logs), "Generated serving cert for sans")
+						g.Expect(regenCount).To(BeNumerically(">=", 2),
+							"syncer should have regenerated the serving cert multiple times in the last 30s, "+
+								"but found %d regeneration log entries. This indicates the SANs bug is still present — "+
+								"expiry-triggered cert regeneration is being silently discarded.", regenCount)
+					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+				})
 			})
 
 			// Spec 3 depends on 2: verify the pod was NOT restarted — serving cert
 			// rotation should be a hot-reload, not a restart.
 			It("should not have restarted the pod for serving cert rotation", func(ctx context.Context) {
-				pods, err := hostClient.CoreV1().Pods(vClusterNamespace).List(ctx, metav1.ListOptions{
-					LabelSelector: "app=vcluster,release=" + vClusterName,
-				})
-				Expect(err).To(Succeed())
-				Expect(pods.Items).NotTo(BeEmpty())
+				By("Verifying all container restart counts are zero", func() {
+					pods, err := hostClient.CoreV1().Pods(vClusterNamespace).List(ctx, metav1.ListOptions{
+						LabelSelector: "app=vcluster,release=" + vClusterName,
+					})
+					Expect(err).To(Succeed())
+					Expect(pods.Items).NotTo(BeEmpty())
 
-				for _, pod := range pods.Items {
-					for _, container := range pod.Status.ContainerStatuses {
-						Expect(container.RestartCount).To(BeNumerically("==", 0),
-							"container %s in pod %s should not have restarted (serving cert hot-reload should not require restart)",
-							container.Name, pod.Name)
+					for _, pod := range pods.Items {
+						for _, container := range pod.Status.ContainerStatuses {
+							Expect(container.RestartCount).To(BeNumerically("==", 0),
+								"container %s in pod %s should not have restarted (serving cert hot-reload should not require restart)",
+								container.Name, pod.Name)
+						}
 					}
-				}
+				})
 			})
 		},
 	)
