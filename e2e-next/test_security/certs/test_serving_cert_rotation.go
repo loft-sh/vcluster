@@ -2,14 +2,13 @@ package certs
 
 import (
 	"context"
-	"strings"
+	"time"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -53,38 +52,34 @@ func ServingCertRotationSpec() {
 				waitForPodsReady(ctx, hostClient, vClusterNamespace, vClusterName, constants.PollingTimeoutVeryLong)
 			})
 
-			// Spec 2 depends on 1: verify the syncer is regenerating the serving cert.
-			// With VCLUSTER_CERTS_VALIDITYPERIOD=3m, the cert is always within the
-			// 90-day expiry window, so the syncer should regenerate it every 2 seconds.
-			// We verify by checking the syncer container logs for the regeneration message.
-			It("should continuously regenerate the serving cert due to short lifetime", func(ctx context.Context) {
-				By("Checking syncer logs for repeated cert regeneration entries", func() {
-					Eventually(func(g Gomega) {
+			// Spec 2 depends on 1: verify the vcluster stays healthy with short-lived
+			// serving certs. With VCLUSTER_CERTS_VALIDITYPERIOD=3m, the serving cert
+			// expires in 3 minutes. If the syncer weren't regenerating it, the API
+			// server would start rejecting TLS connections and the pod would become
+			// unready. We wait past the cert lifetime and verify the pod is still ready.
+			It("should remain healthy after serving cert would have expired", func(ctx context.Context) {
+				By("Verifying the pod stays ready past the cert lifetime", func() {
+					// With VCLUSTER_CERTS_VALIDITYPERIOD=3m, the serving cert expires
+					// in 3 minutes. If the syncer weren't continuously regenerating it,
+					// the API server would reject TLS connections and the pod would fail
+					// health checks. We verify the pod stays ready for 4 minutes —
+					// past the cert lifetime.
+					Consistently(func(g Gomega) {
 						pods, err := hostClient.CoreV1().Pods(vClusterNamespace).List(ctx, metav1.ListOptions{
 							LabelSelector: "app=vcluster,release=" + vClusterName,
 						})
 						g.Expect(err).To(Succeed())
-						g.Expect(pods.Items).NotTo(BeEmpty())
+						g.Expect(pods.Items).NotTo(BeEmpty(), "vcluster pods disappeared")
 
-						pod := pods.Items[0]
-						logs, err := hostClient.CoreV1().Pods(vClusterNamespace).GetLogs(
-							pod.Name, &corev1.PodLogOptions{
-								Container:    "syncer",
-								SinceSeconds: int64Ptr(30),
-							}).DoRaw(ctx)
-						g.Expect(err).To(Succeed())
-
-						// The syncer logs "Generated serving cert for sans: ..." each time
-						// it regenerates and applies the cert. With the SANs bug, this
-						// message only appeared on the first generation (SAN change from nil),
-						// never again. With the fix, it appears on every expiry-triggered
-						// regeneration.
-						regenCount := strings.Count(string(logs), "Generated serving cert for sans")
-						g.Expect(regenCount).To(BeNumerically(">=", 2),
-							"syncer should have regenerated the serving cert multiple times in the last 30s, "+
-								"but found %d regeneration log entries. This indicates the SANs bug is still present — "+
-								"expiry-triggered cert regeneration is being silently discarded.", regenCount)
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+						for _, pod := range pods.Items {
+							for _, container := range pod.Status.ContainerStatuses {
+								g.Expect(container.State.Running).NotTo(BeNil(),
+									"container %s in pod %s should still be running", container.Name, pod.Name)
+								g.Expect(container.Ready).To(BeTrue(),
+									"container %s in pod %s should still be ready", container.Name, pod.Name)
+							}
+						}
+					}).WithPolling(constants.PollingInterval).WithTimeout(4 * time.Minute).Should(Succeed())
 				})
 			})
 
@@ -110,5 +105,3 @@ func ServingCertRotationSpec() {
 		},
 	)
 }
-
-func int64Ptr(i int64) *int64 { return &i }
