@@ -41,8 +41,10 @@ func PauseResumeSpec() {
 					Expect(pods.Items).ToNot(BeEmpty(), "expected at least one vcluster pod in %s before pause", vClusterNamespace)
 				})
 
+				// PollingTimeoutVeryLong because the CLI's internal pause path polls
+				// the StatefulSet for up to 3 minutes before giving up.
 				By("pausing the vcluster via CLI", func() {
-					cmdCtx, cancel := context.WithTimeout(ctx, constants.PollingTimeout)
+					cmdCtx, cancel := context.WithTimeout(ctx, constants.PollingTimeoutVeryLong)
 					defer cancel()
 					cmd := exec.CommandContext(cmdCtx, vclusterBin(),
 						"pause", vClusterName,
@@ -74,7 +76,7 @@ func PauseResumeSpec() {
 				})
 
 				By("resuming the vcluster via CLI", func() {
-					cmdCtx, cancel := context.WithTimeout(ctx, constants.PollingTimeout)
+					cmdCtx, cancel := context.WithTimeout(ctx, constants.PollingTimeoutVeryLong)
 					defer cancel()
 					cmd := exec.CommandContext(cmdCtx, vclusterBin(),
 						"resume", vClusterName,
