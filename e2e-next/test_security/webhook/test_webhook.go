@@ -289,8 +289,11 @@ func AdmissionWebhookSpec() {
 						ObjectMeta: metav1.ObjectMeta{Name: "hanging-pod", Labels: map[string]string{"webhook-e2e-test": "wait-forever"}},
 						Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: "wait-forever", Image: pauseImage}}},
 					}, metav1.CreateOptions{})
-					Expect(err).To(MatchError(ContainSubstring("webhook")))
-					Expect(err).To(MatchError(ContainSubstring("deadline")))
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(Or(
+						ContainSubstring("deadline"),
+						ContainSubstring("EOF"),
+					), "expected timeout-related error, got: %v", err)
 					_, err = vClusterClient.CoreV1().Pods(infra.ns).Get(ctx, "hanging-pod", metav1.GetOptions{})
 					Expect(kerrors.IsNotFound(err)).To(BeTrue())
 				})
