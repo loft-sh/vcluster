@@ -15,10 +15,6 @@ import (
 
 // PauseResumeSpec registers vcluster pause/resume tests against the framework-provisioned vcluster.
 // All tests shell out to the vcluster binary (must be in $PATH or $GOBIN).
-//
-// Migrated from test/e2e_pause_resume/pauseresume/vcluster.go. Changes from old suite:
-//   - Note: --background-proxy flag only exists on `vcluster connect`, not on pause/resume.
-//     labels.PR - it must not run in the PR gate where the shared proxy is needed by other specs.
 func PauseResumeSpec() {
 	Describe("vCluster pause and resume",
 		labels.CLI,
