@@ -23,6 +23,7 @@ func suiteCLIVCluster() {
 		cluster.Use(clusters.HostCluster),
 		func() {
 			lifecycle.ConnectSpec()
+			lifecycle.PauseResumeSpec()
 		},
 	)
 }
