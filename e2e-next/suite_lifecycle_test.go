@@ -17,12 +17,15 @@ func init() {
 	suiteCLIVCluster()
 }
 
+// Ordered because PauseResumeSpec is destructive - it kills the vcluster pods
+// and background proxy. ConnectSpec must run first while the vcluster is healthy.
 func suiteCLIVCluster() {
-	Describe("cli-vcluster",
+	Describe("cli-vcluster", Ordered,
 		cluster.Use(clusters.CLIVCluster),
 		cluster.Use(clusters.HostCluster),
 		func() {
 			lifecycle.ConnectSpec()
+			lifecycle.PauseResumeSpec()
 		},
 	)
 }
