@@ -160,6 +160,12 @@ func stopContainer(ctx context.Context, containerName string) error {
 	return nil
 }
 
+// dockerVolumeExists checks whether a Docker volume with the given name exists.
+func dockerVolumeExists(ctx context.Context, volumeName string) bool {
+	err := exec.CommandContext(ctx, "docker", "volume", "inspect", volumeName).Run()
+	return err == nil
+}
+
 func removeVolume(ctx context.Context, volumeName string) error {
 	args := []string{"volume", "rm", volumeName}
 	output, err := exec.CommandContext(ctx, "docker", args...).CombinedOutput()
