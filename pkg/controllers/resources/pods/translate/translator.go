@@ -7,6 +7,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -916,6 +917,7 @@ func (t *translator) translateResourceClaims(ctx *synccontext.SyncContext, pPod 
 
 func translateTopologySpreadConstraints(vPod *corev1.Pod, pPod *corev1.Pod) {
 	for i := range pPod.Spec.TopologySpreadConstraints {
+		sanitizeMatchLabelKeysSelector(vPod, &pPod.Spec.TopologySpreadConstraints[i])
 		pPod.Spec.TopologySpreadConstraints[i].LabelSelector = translate.HostLabelSelector(pPod.Spec.TopologySpreadConstraints[i].LabelSelector)
 
 		// make sure we only select pods in the current namespace
@@ -927,6 +929,37 @@ func translateTopologySpreadConstraints(vPod *corev1.Pod, pPod *corev1.Pod) {
 			pPod.Spec.TopologySpreadConstraints[i].LabelSelector.MatchLabels[translate.MarkerLabel] = translate.VClusterName
 		}
 	}
+}
+
+func sanitizeMatchLabelKeysSelector(vPod *corev1.Pod, constraint *corev1.TopologySpreadConstraint) {
+	if constraint.LabelSelector == nil || len(constraint.MatchLabelKeys) == 0 || len(constraint.LabelSelector.MatchExpressions) == 0 {
+		return
+	}
+
+	matchExpressions := constraint.LabelSelector.MatchExpressions[:0]
+	for _, requirement := range constraint.LabelSelector.MatchExpressions {
+		if shouldStripMatchLabelKeysRequirement(vPod.Labels, constraint.MatchLabelKeys, requirement) {
+			continue
+		}
+
+		matchExpressions = append(matchExpressions, requirement)
+	}
+
+	if len(matchExpressions) == 0 {
+		constraint.LabelSelector.MatchExpressions = nil
+		return
+	}
+
+	constraint.LabelSelector.MatchExpressions = matchExpressions
+}
+
+func shouldStripMatchLabelKeysRequirement(podLabels map[string]string, matchLabelKeys []string, requirement metav1.LabelSelectorRequirement) bool {
+	if requirement.Operator != metav1.LabelSelectorOpIn || len(requirement.Values) != 1 || !slices.Contains(matchLabelKeys, requirement.Key) {
+		return false
+	}
+
+	value, ok := podLabels[requirement.Key]
+	return ok && requirement.Values[0] == value
 }
 
 func ServicesToEnvironmentVariables(enableServiceLinks *bool, services []*corev1.Service, kubeIP string) map[string]string {
