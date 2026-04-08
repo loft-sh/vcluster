@@ -64,6 +64,14 @@
         "concurrency": {
           "type": "integer",
           "description": "Concurrency is the number of nodes that can be upgraded at the same time."
+        },
+        "podSecurityContext": {
+          "type": "object",
+          "description": "PodSecurityContext specifies security context options on the pod level for the upgrade pod."
+        },
+        "containerSecurityContext": {
+          "type": "object",
+          "description": "ContainerSecurityContext specifies security context options on the container level for the upgrade container."
         }
       },
       "additionalProperties": false,

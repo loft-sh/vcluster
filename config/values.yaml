@@ -448,6 +448,8 @@ privateNodes:
   autoUpgrade:
     enabled: true
     concurrency: 1
+    podSecurityContext: {}
+    containerSecurityContext: {}
   joinNode:
     containerd:
       enabled: true

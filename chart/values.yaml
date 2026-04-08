@@ -823,6 +823,10 @@ privateNodes:
     enabled: true
     # Concurrency is the number of nodes that can be upgraded at the same time.
     concurrency: 1
+    # PodSecurityContext specifies security context options on the pod level for the upgrade pod.
+    podSecurityContext: {}
+    # ContainerSecurityContext specifies security context options on the container level for the upgrade container.
+    containerSecurityContext: {}
   
   # JoinNode holds configuration specifically used during joining the node (see "kubeadm join").
   joinNode:

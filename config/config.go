@@ -590,6 +590,12 @@ type AutoUpgrade struct {
 
 	// Concurrency is the number of nodes that can be upgraded at the same time.
 	Concurrency int `json:"concurrency,omitempty"`
+
+	// PodSecurityContext specifies security context options on the pod level for the upgrade pod.
+	PodSecurityContext map[string]interface{} `json:"podSecurityContext,omitempty"`
+
+	// ContainerSecurityContext specifies security context options on the container level for the upgrade container.
+	ContainerSecurityContext map[string]interface{} `json:"containerSecurityContext,omitempty"`
 }
 
 type Kubelet struct {
