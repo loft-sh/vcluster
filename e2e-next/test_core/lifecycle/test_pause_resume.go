@@ -22,11 +22,13 @@ func PauseResumeSpec() {
 			var (
 				vClusterName      string
 				vClusterNamespace string
+				kubeContext       string
 			)
 
 			BeforeEach(func(ctx context.Context) context.Context {
 				vClusterName = cluster.CurrentClusterNameFrom(ctx)
 				vClusterNamespace = "vcluster-" + vClusterName
+				kubeContext = "kind-" + constants.GetHostClusterName()
 				return ctx
 			})
 
@@ -49,6 +51,7 @@ func PauseResumeSpec() {
 					cmd := exec.CommandContext(cmdCtx, vclusterBin(),
 						"pause", vClusterName,
 						"-n", vClusterNamespace,
+						"--context", kubeContext,
 					)
 					out, err := cmd.CombinedOutput()
 					Expect(err).To(Succeed(),
@@ -81,6 +84,7 @@ func PauseResumeSpec() {
 					cmd := exec.CommandContext(cmdCtx, vclusterBin(),
 						"resume", vClusterName,
 						"-n", vClusterNamespace,
+						"--context", kubeContext,
 					)
 					out, err := cmd.CombinedOutput()
 					Expect(err).To(Succeed(),
