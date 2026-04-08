@@ -34,7 +34,7 @@ require (
 	github.com/loft-sh/api/v4 v4.8.0-alpha.1
 	github.com/loft-sh/e2e-framework v0.0.0-20260403090648-e448b5391111
 	github.com/loft-sh/image v0.0.0-20250625154753-87447a6ad364
-	github.com/loft-sh/utils v0.0.29
+	github.com/loft-sh/utils v0.0.30
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/moby/term v0.5.2
