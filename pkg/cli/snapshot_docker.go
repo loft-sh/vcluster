@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	posixpath "path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -327,7 +328,7 @@ func addDirToTar(tw *tar.Writer, srcDir, prefix string) error {
 		if err != nil {
 			return err
 		}
-		archivePath := filepath.Join(prefix, relPath)
+		archivePath := posixpath.Join(prefix, filepath.ToSlash(relPath))
 
 		header, err := tar.FileInfoHeader(info, "")
 		if err != nil {
