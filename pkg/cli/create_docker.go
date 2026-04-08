@@ -182,6 +182,11 @@ func CreateDocker(ctx context.Context, options *CreateOptions, globalFlags *flag
 		return err
 	}
 
+	// Persist the version so snapshot can read it back for this specific cluster.
+	if err := os.WriteFile(filepath.Join(vClusterConfigDir, ".version"), []byte(options.ChartVersion), 0644); err != nil {
+		return fmt.Errorf("write version: %w", err)
+	}
+
 	// ensure the k8s resolv conf file
 	err = ensureK8sResolvConf(ctx, globalFlags, vClusterName, log)
 	if err != nil {
