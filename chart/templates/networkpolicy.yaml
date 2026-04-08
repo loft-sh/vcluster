@@ -6,6 +6,7 @@
       "heritage" .Release.Service) .Values.policies.networkPolicy.labels -}}
 {{- $annotations := merge dict .Values.controlPlane.advanced.globalMetadata.annotations .Values.policies.networkPolicy.annotations -}}
 {{- $labelsAndAnnotations := dict "labels" $labels "annotations" $annotations -}}
+{{- if not .Values.privateNodes.enabled }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -68,6 +69,7 @@ spec:
 {{- if .Values.policies.networkPolicy.workload.ingress }}
 {{ toYaml .Values.policies.networkPolicy.workload.ingress | indent 4 }}
 {{- end }}
+{{- end }}
 
 ---
 apiVersion: networking.k8s.io/v1
@@ -126,6 +128,13 @@ spec:
 {{- end }}
 
   ingress:
+    # Allow external ingress to the vCluster API server.
+    # Without this, enabling network policies blocks all external access
+    # (kubectl, ingress controllers, Gateway API, Konnectivity agents).
+    - ports:
+        - port: 8443
+          protocol: TCP
+
     # Allow ingress from vcluster control plane peers, including etcd peers, when using etcd as the backend in HA mode.
     - from:
         - podSelector:
@@ -162,7 +171,7 @@ spec:
 {{ toYaml .Values.policies.networkPolicy.controlPlane.ingress | indent 4 }}
 {{- end }}
 
-{{- if and .Values.controlPlane.coredns.enabled (not .Values.controlPlane.coredns.embedded) }}
+{{- if and .Values.controlPlane.coredns.enabled (not .Values.controlPlane.coredns.embedded) (not .Values.privateNodes.enabled) }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
