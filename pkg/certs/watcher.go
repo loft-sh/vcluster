@@ -29,12 +29,18 @@ const (
 func StartCertWatcher(
 	ctx context.Context,
 	interval time.Duration,
+	serviceCIDR string,
 	currentNamespace string,
 	currentNamespaceClient kubernetes.Interface,
 	certificateDir string,
 	options *config.VirtualClusterConfig,
-	kubeadmConfig *kubeadmapi.InitConfiguration,
 ) {
+	kubeadmConfig, err := GenerateInitKubeadmConfig(serviceCIDR, certificateDir, options)
+	if err != nil {
+		klog.Errorf("Failed to create kubeadm config for cert watcher: %v", err)
+		return
+	}
+
 	go runCertWatcher(ctx, interval, currentNamespace, currentNamespaceClient, certificateDir, options, kubeadmConfig)
 }
 

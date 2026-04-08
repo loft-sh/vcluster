@@ -65,11 +65,7 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 		// Start background watcher that periodically checks for expiring leaf
 		// certificates and rotates them. This covers long-running pods that
 		// might not restart before certs expire (1-year lifetime, 90-day window).
-		kubeadmConfig, err := certs.GenerateInitKubeadmConfig(serviceCIDR, certificatesDir, options)
-		if err != nil {
-			return fmt.Errorf("create kubeadm config for cert watcher: %w", err)
-		}
-		certs.StartCertWatcher(ctx, certs.DefaultCheckInterval, options.HostNamespace, options.HostClient, certificatesDir, options, kubeadmConfig)
+		certs.StartCertWatcher(ctx, certs.DefaultCheckInterval, serviceCIDR, options.HostNamespace, options.HostClient, certificatesDir, options)
 	}
 
 	// should start embedded etcd?
