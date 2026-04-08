@@ -101,11 +101,19 @@ func SnapshotDocker(ctx context.Context, globalFlags *flags.GlobalFlags, vCluste
 		}
 	}
 
-	// Detect chart version from the cached binary directory.
-	chartVersion := detectDockerChartVersion(globalFlags)
+	// Read the version recorded when this cluster was created. If the .version
+	// file is missing (clusters created before it existed), inspect the container's
+	// bind mount for the vcluster binary to derive the version from the cache path.
+	configDir := filepath.Join(filepath.Dir(globalFlags.Config), "docker", "vclusters", vClusterName)
+	chartVersion := ""
+	if data, err := os.ReadFile(filepath.Join(configDir, ".version")); err == nil && len(data) > 0 {
+		chartVersion = string(data)
+	} else {
+		chartVersion = detectVersionFromContainer(ctx, cpContainer)
+	}
 
 	// Read the vcluster.yaml to preserve node configuration for multi-node restore.
-	vclusterYAMLPath := filepath.Join(filepath.Dir(globalFlags.Config), "docker", "vclusters", vClusterName, "vcluster.yaml")
+	vclusterYAMLPath := filepath.Join(configDir, "vcluster.yaml")
 	vclusterYAML, _ := os.ReadFile(vclusterYAMLPath)
 
 	metadata := DockerSnapshotMetadata{
@@ -163,7 +171,6 @@ func SnapshotDocker(ctx context.Context, globalFlags *flags.GlobalFlags, vCluste
 	}
 
 	// Export the config directory.
-	configDir := filepath.Join(filepath.Dir(globalFlags.Config), "docker", "vclusters", vClusterName)
 	if _, err := os.Stat(configDir); err == nil {
 		log.Infof("Exporting config directory...")
 		if err := addDirToTar(tw, configDir, "config"); err != nil {
@@ -195,31 +202,26 @@ func SnapshotDocker(ctx context.Context, globalFlags *flags.GlobalFlags, vCluste
 	return nil
 }
 
-// detectDockerChartVersion tries to find the vCluster version from the cached binary directory.
-// The Docker driver stores binaries at ~/.vcluster/docker/vcluster/<version>/.
-func detectDockerChartVersion(globalFlags *flags.GlobalFlags) string {
-	vclusterDir := filepath.Join(filepath.Dir(globalFlags.Config), "docker", "vcluster")
-	entries, err := os.ReadDir(vclusterDir)
+// detectVersionFromContainer inspects the container's bind mounts to find the vcluster
+// binary source path, which is of the form <cacheDir>/<version>/vcluster. The parent
+// directory name is the chart version.
+func detectVersionFromContainer(ctx context.Context, containerName string) string {
+	// Use docker inspect with a Go template to extract the source path of the
+	// /var/lib/vcluster/bin/vcluster bind mount.
+	out, err := exec.CommandContext(ctx, "docker", "inspect",
+		"--format", `{{range .Mounts}}{{if eq .Destination "/var/lib/vcluster/bin/vcluster"}}{{.Source}}{{end}}{{end}}`,
+		containerName,
+	).Output()
 	if err != nil {
 		return ""
 	}
-	// Return the latest version directory found (most recently modified).
-	var latest string
-	var latestTime time.Time
-	for _, entry := range entries {
-		if !entry.IsDir() || strings.HasSuffix(entry.Name(), ".downloading") {
-			continue
-		}
-		info, err := entry.Info()
-		if err != nil {
-			continue
-		}
-		if info.ModTime().After(latestTime) {
-			latestTime = info.ModTime()
-			latest = entry.Name()
-		}
+	// source looks like: /Users/x/.vcluster/docker/vcluster/0.33.0/vcluster
+	// The version is the parent directory name.
+	source := strings.TrimSpace(string(out))
+	if source == "" {
+		return ""
 	}
-	return latest
+	return filepath.Base(filepath.Dir(source))
 }
 
 // resolveDockerVolumeName maps a logical volume name (e.g. "cp.var" or "node.worker-0.var")
