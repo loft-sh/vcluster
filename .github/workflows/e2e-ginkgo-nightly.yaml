@@ -10,9 +10,9 @@ on:
         type: boolean
         default: true
       ginkgo-label:
-        description: 'Ginkgo label filter. Defaults to "!non-default" (all tests).'
+        description: 'Ginkgo label filter. Defaults to empty (all tests).'
         type: string
-        default: "!non-default"
+        default: ""
 
 concurrency:
   group: e2e-ginkgo-nightly-${{ github.ref_name }}
@@ -104,7 +104,7 @@ jobs:
 
       - name: Run e2e-next tests
         run: |
-          LABEL_FILTER="${{ inputs.ginkgo-label || '!non-default' }}"
+          LABEL_FILTER="${{ inputs.ginkgo-label }}"
           ginkgo \
             -v \
             --procs=8 \
