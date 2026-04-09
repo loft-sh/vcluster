@@ -234,7 +234,7 @@ jobs:
     if: >
       needs.detect_changes.outputs.has_changed == 'true' &&
       contains(needs.parse_label-filter.outputs.label-filter, 'networkpolicies')
-    runs-on: large-8_32
+    runs-on: ubuntu-22.04
     permissions:
       contents: read
     steps:
