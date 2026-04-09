@@ -130,7 +130,7 @@ runs:
 
         # Add strategy-specific flags
         if [[ "$TEST_STRATEGY" == "label" ]]; then
-          GINKGO_ARGS+=("--label-filter=${LABEL_FILTER} || pr")
+          GINKGO_ARGS+=("--label-filter=(${LABEL_FILTER} || pr) && !non-default")
           GINKGO_ARGS+=("-r")
         fi
 

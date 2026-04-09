@@ -234,7 +234,7 @@ jobs:
     if: >
       needs.detect_changes.outputs.has_changed == 'true' &&
       contains(needs.parse_label-filter.outputs.label-filter, 'networkpolicies')
-    runs-on: ubuntu-22.04
+    runs-on: large-8_32
     permissions:
       contents: read
     steps:
@@ -282,14 +282,8 @@ jobs:
 
       - name: Create Kind cluster with Calico CNI
         run: |
-          cat <<'KINDEOF' > /tmp/kind-calico.yaml
-          kind: Cluster
-          apiVersion: kind.x-k8s.io/v1alpha4
-          networking:
-            disableDefaultCNI: true
-            podSubnet: 192.168.0.0/16
-          KINDEOF
-          kind create cluster --name kind-cluster --config /tmp/kind-calico.yaml --wait 60s
+          printf 'kind: Cluster\napiVersion: kind.x-k8s.io/v1alpha4\nnetworking:\n  disableDefaultCNI: true\n  podSubnet: 192.168.0.0/16\n' > /tmp/kind-calico.yaml
+          kind create cluster --name kind-cluster --config /tmp/kind-calico.yaml --wait 120s
 
       - name: Install Calico CNI
         run: |

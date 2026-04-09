@@ -157,7 +157,7 @@ jobs:
   e2e-tests-networkpolicies:
     name: E2E Tests (NetworkPolicy enforcement - Calico CNI)
     if: github.repository_owner == 'loft-sh'
-    runs-on: ubuntu-latest
+    runs-on: large-8_32
     timeout-minutes: 60
 
     steps:
@@ -204,14 +204,8 @@ jobs:
 
       - name: Create Kind cluster with Calico CNI
         run: |
-          cat <<'EOF' > /tmp/kind-calico.yaml
-          kind: Cluster
-          apiVersion: kind.x-k8s.io/v1alpha4
-          networking:
-            disableDefaultCNI: true
-            podSubnet: 192.168.0.0/16
-          EOF
-          kind create cluster --name kind-cluster --config /tmp/kind-calico.yaml --wait 60s
+          printf 'kind: Cluster\napiVersion: kind.x-k8s.io/v1alpha4\nnetworking:\n  disableDefaultCNI: true\n  podSubnet: 192.168.0.0/16\n' > /tmp/kind-calico.yaml
+          kind create cluster --name kind-cluster --config /tmp/kind-calico.yaml --wait 120s
 
       - name: Install Calico CNI
         run: |
