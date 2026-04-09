@@ -2,6 +2,7 @@ package constants
 
 const (
 	VClusterStandaloneEndpointsAnnotation = "vcluster.loft.sh/standalone-endpoints"
+	VClusterStandaloneEnvVar              = "VCLUSTER_STANDALONE"
 	VClusterStandaloneIPAddressEnvVar     = "VCLUSTER_STANDALONE_IP_ADDRESS"
 
 	// Standalone has no host-cluster namespace, so snapshot/restore request

@@ -13,6 +13,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	vclusterconfig "github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/lifecycle"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
@@ -77,7 +78,7 @@ func restoreVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, rest
 // same host as the standalone installation because it needs filesystem access to the
 // binary and config.
 func restoreStandaloneVCluster(ctx context.Context, vCluster *find.VCluster, snapshotOpts *snapshot.Options, cmdArgs []string, log log.Logger) error {
-	vClusterConfig, err := vclusterconfig.ParseConfig(vCluster.VClusterConfigPath, vCluster.Name, nil)
+	vClusterConfig, err := vclusterconfig.LoadStandaloneConfigFromSystemd(vCluster.Name, nil)
 	if err != nil {
 		return fmt.Errorf("parse standalone config: %w", err)
 	}
@@ -142,13 +143,7 @@ func newServiceManager() (serviceManager, error) {
 }
 
 func runRestoreBinary(vClusterConfig *vclusterconfig.VirtualClusterConfig, snapshotOpts *snapshot.Options, args []string) error {
-	// DataDir is omitempty and defaults to /var/lib/vcluster via Helm values, but config.ParseConfig
-	// (used by the CLI) does not apply Helm defaults — use the known default when empty.
-	dataDir := vClusterConfig.ControlPlane.Standalone.DataDir
-	if dataDir == "" {
-		dataDir = "/var/lib/vcluster"
-	}
-	binaryPath := filepath.Join(dataDir, "bin", "vcluster")
+	binaryPath := filepath.Join(vClusterConfig.ControlPlane.Standalone.DataDir, "bin", "vcluster")
 	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
 		// Fall back to the currently executing binary (e.g. during development or
 		// non-standard installs where the binary is not in the data directory).
@@ -166,6 +161,7 @@ func runRestoreBinary(vClusterConfig *vclusterconfig.VirtualClusterConfig, snaps
 
 	env := append(os.Environ(),
 		"VCLUSTER_NAME="+vClusterConfig.Name,
+		constants.VClusterStandaloneEnvVar+"=true",
 		"VCLUSTER_STORAGE_OPTIONS="+optionsString,
 	)
 

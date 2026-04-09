@@ -412,7 +412,7 @@ func (c *Reconciler) reconcileCreatingEtcdBackup(ctx context.Context, configMap 
 			snapshotClient.addResourceToSkip(string(corev1.ResourceSecrets), secretNamespacedName.String())
 		}
 	}
-	err = snapshotClient.Run(ctx)
+	err = snapshotClient.Run(ctx, c.vConfig)
 	if err != nil {
 		return false, fmt.Errorf("failed to run snapshot client: %w", err)
 	}

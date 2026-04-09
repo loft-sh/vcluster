@@ -46,6 +46,10 @@ var (
 	// DefaultVClusterConfigLocation is the default location of the vCluster config within the container
 	DefaultVClusterConfigLocation = "/var/lib/vcluster/config.yaml"
 
+	// StandaloneDefaultDataDir is the default standalone data directory used by
+	// binary installations on the host.
+	StandaloneDefaultDataDir = "/var/lib/vcluster"
+
 	// StandaloneDefaultConfigPath is the config location for a standalone binary installation.
 	// Kept outside the data directory so it survives a data wipe or re-install.
 	StandaloneDefaultConfigPath = "/etc/vcluster/vcluster.yaml"

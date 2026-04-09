@@ -53,7 +53,6 @@ type RestoreClient struct {
 	etcdClient etcd.Client
 
 	NewVCluster bool
-	vConfig     *config.VirtualClusterConfig
 }
 
 var (
@@ -126,24 +125,16 @@ func (o *RestoreClient) GetSnapshotRequest(ctx context.Context) (*Request, error
 	return nil, ErrSnapshotRequestNotFound
 }
 
-func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
+func (o *RestoreClient) Run(ctx context.Context, vConfig *config.VirtualClusterConfig) (retErr error) {
+	if vConfig == nil {
+		return fmt.Errorf("restore run requires vCluster config")
+	}
+
 	// create decoder and encoder
 	decoder := serializer.NewCodecFactory(scheme.Scheme).UniversalDeserializer()
 	encoder := protobuf.NewSerializer(scheme.Scheme, scheme.Scheme)
 
-	// parse vCluster config
-	vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			return fmt.Errorf("parse vCluster config: %w", err)
-		}
-		// Standalone places config at a different path than container deployments.
-		vConfig, err = config.ParseConfig(o.Snapshot.ConfigPath, os.Getenv("VCLUSTER_NAME"), nil)
-		if err != nil {
-			return fmt.Errorf("parse custom standalone vCluster config: %w", err)
-		}
-	}
-
+	var err error
 	if vConfig.ControlPlane.Standalone.Enabled {
 		vConfig.HostNamespace = constants.StandaloneSnapshotNamespace
 		err = pro.SetStandaloneConstants(vConfig)
@@ -153,11 +144,10 @@ func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 	}
 
 	// make sure to validate options
-	err = ValidateConfigAndOptions(vConfig, &o.Snapshot, true, false)
+	err = Validate(&o.Snapshot, false)
 	if err != nil {
 		return err
 	}
-	o.vConfig = vConfig
 
 	// set global vCluster name
 	translate.VClusterName = vConfig.Name
@@ -251,7 +241,7 @@ func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 			}
 		}
 
-		if o.isPVCThatShouldBeRestoredInHost(string(key)) {
+		if o.isPVCThatShouldBeRestoredInHost(string(key), vConfig) {
 			value, err = unsetVolumeName(value, decoder, encoder)
 			if err != nil {
 				return fmt.Errorf("failed to unset volume name: %w", err)
@@ -260,7 +250,7 @@ func (o *RestoreClient) Run(ctx context.Context) (retErr error) {
 		}
 
 		// write the value to etcd
-		if o.skipKey(string(key)) {
+		if o.skipKey(string(key), vConfig) {
 			klog.Infof("Skip key %s", string(key))
 			continue
 		}
@@ -391,12 +381,12 @@ func (o *RestoreClient) createRestoreRequest(ctx context.Context, vConfig *confi
 	return nil
 }
 
-func (o *RestoreClient) skipKey(key string) bool {
+func (o *RestoreClient) skipKey(key string, vConfig *config.VirtualClusterConfig) bool {
 	if !o.RestoreVolumes {
 		return false
 	}
 
-	if o.vConfig.PrivateNodes.Enabled {
+	if vConfig.PrivateNodes.Enabled {
 		// check if the snapshot exists
 		if strings.HasPrefix(key, pvcPrefix) {
 			pvcName := strings.TrimPrefix(key, pvcPrefix)
@@ -438,7 +428,7 @@ func (o *RestoreClient) skipKey(key string) bool {
 }
 
 // isPVCThatShouldBeRestoredInHost checks if the key refers to a PVC that should be restored on the host cluster.
-func (o *RestoreClient) isPVCThatShouldBeRestoredInHost(key string) bool {
+func (o *RestoreClient) isPVCThatShouldBeRestoredInHost(key string, vConfig *config.VirtualClusterConfig) bool {
 	if !o.RestoreVolumes {
 		return false
 	}
@@ -446,7 +436,7 @@ func (o *RestoreClient) isPVCThatShouldBeRestoredInHost(key string) bool {
 		// not PVC
 		return false
 	}
-	if o.vConfig.PrivateNodes.Enabled {
+	if vConfig.PrivateNodes.Enabled {
 		// restore in virtual, not in host
 		return false
 	}

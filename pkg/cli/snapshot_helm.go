@@ -137,10 +137,6 @@ func initSnapshotCommand(
 		}
 	}
 
-	if vCluster.IsStandalone {
-		snapshotOptions.ConfigPath = vCluster.VClusterConfigPath
-	}
-
 	// build kubernetes client
 	restClient, err := vCluster.ClientFactory.ClientConfig()
 	if err != nil {
@@ -203,7 +199,7 @@ func getVClusterConfig(ctx context.Context, vCluster *find.VCluster, kubeClient 
 		}
 	} else if vCluster.IsStandalone {
 		// Standalone config lives on disk, not in a Kubernetes Secret.
-		vClusterConfig, err = vclusterconfig.ParseConfig(vCluster.VClusterConfigPath, vCluster.Name, nil)
+		vClusterConfig, err = vclusterconfig.LoadStandaloneConfigFromSystemd(vCluster.Name, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse standalone vcluster config: %w", err)
 		}

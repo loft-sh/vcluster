@@ -1,8 +1,6 @@
 package find
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -19,6 +17,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/kube"
 	"github.com/loft-sh/vcluster/pkg/platform/sleepmode"
+	standaloneutil "github.com/loft-sh/vcluster/pkg/util/standalone"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -54,7 +53,6 @@ type VCluster struct {
 	Context                string
 	Version                string
 	IsStandalone           bool
-	VClusterConfigPath     string
 }
 
 type Status string
@@ -734,14 +732,14 @@ func isScaledDown(object client.Object) bool {
 // never treat this as fatal.
 func getStandaloneVCluster(name string, kubeClientConfig clientcmd.ClientConfig) (*VCluster, error) {
 	// 1. Detection: check for the vcluster systemd service file.
-	unitData, err := os.ReadFile(constants.VClusterServiceFile)
-	if err != nil {
+	unitData, found, err := standaloneutil.DetectStandaloneHost()
+	if err != nil || !found {
 		//nolint:nilnil
 		return nil, nil
 	}
 
 	// 3. Version: parse VCLUSTER_VERSION from the systemd unit file.
-	version := parseEnvFromSystemdUnit(unitData, "VCLUSTER_VERSION")
+	version := standaloneutil.ParseEnvFromSystemdUnit(unitData, "VCLUSTER_VERSION")
 
 	// 4. Created: use the systemd unit file's modification time as a proxy
 	//    for cluster creation time
@@ -759,46 +757,15 @@ func getStandaloneVCluster(name string, kubeClientConfig clientcmd.ClientConfig)
 		status = StatusRunning
 	}
 
-	// 6. vClusterConfigPath: extract from systemd unit file or use default path if not set.
-	configPath := constants.StandaloneDefaultConfigPath
-	if confDir := parseEnvFromSystemdUnit(unitData, "CONF_DIR"); confDir != "" {
-		configPath = confDir + "/vcluster.yaml"
-	}
-
 	return &VCluster{
-		Name:               name,
-		Namespace:          constants.StandaloneSnapshotNamespace,
-		ClientFactory:      kubeClientConfig,
-		Created:            created,
-		Version:            version,
-		Status:             status,
-		IsStandalone:       true,
-		VClusterConfigPath: configPath,
+		Name:          name,
+		Namespace:     constants.StandaloneSnapshotNamespace,
+		ClientFactory: kubeClientConfig,
+		Created:       created,
+		Version:       version,
+		Status:        status,
+		IsStandalone:  true,
 	}, nil
-}
-
-// parseEnvFromSystemdUnit extracts the value of an Environment="KEY=value" directive
-// from a systemd unit file. Returns empty string if not found.
-func parseEnvFromSystemdUnit(data []byte, key string) string {
-	prefix := "Environment=\"" + key + "="
-	scanner := bufio.NewScanner(bytes.NewReader(data))
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if strings.HasPrefix(line, prefix) {
-			// Strip prefix and trailing quote.
-			val := strings.TrimPrefix(line, prefix)
-			val = strings.TrimSuffix(val, "\"")
-			return val
-		}
-	}
-	return ""
-}
-
-func isPaused(v client.Object) bool {
-	annotations := v.GetAnnotations()
-	labels := v.GetLabels()
-
-	return annotations[constants.PausedAnnotation(false)] == "true" || labels[sleepmode.Label] == "true"
 }
 
 // isVirtualClusterInstanceResourceAvailable checks if VirtualClusterInstance resources from storage.loft.sh/v1 exist

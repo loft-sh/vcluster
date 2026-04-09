@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/loft-sh/vcluster/pkg/config"
-	"github.com/loft-sh/vcluster/pkg/constants"
 	setupconfig "github.com/loft-sh/vcluster/pkg/setup/config"
 	"k8s.io/client-go/kubernetes"
 
@@ -20,8 +19,7 @@ func NewCreateCmd() *cobra.Command {
 		Short: "create vCluster snapshots",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// parse vCluster config
-			vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
+			vConfig, err := config.LoadRuntimeConfig(os.Getenv("VCLUSTER_NAME"))
 			if err != nil {
 				return err
 			}
