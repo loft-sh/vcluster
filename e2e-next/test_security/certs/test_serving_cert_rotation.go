@@ -20,9 +20,10 @@ import (
 //
 // The syncer polls every 2 seconds and regenerates the cert when IsCertExpired
 // returns true (<=90 days to expiry). With a 3-minute cert, this fires on every
-// poll cycle. We verify regeneration by checking the syncer logs for the
-// "Generated serving cert for sans" message, which is emitted each time the
-// cert is regenerated and applied.
+// poll cycle. We verify regeneration by checking that the pod stays healthy and
+// ready past the cert lifetime (4 minutes > 3 minute cert validity). If the
+// syncer weren't regenerating the cert, the API server would reject TLS
+// connections and fail health checks.
 //
 // This validates the fix for the SANs bug where expiry-triggered regeneration
 // was silently discarded because the syncer compared SAN lists instead of cert bytes.

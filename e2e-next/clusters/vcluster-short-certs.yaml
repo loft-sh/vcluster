@@ -9,6 +9,8 @@ controlPlane:
         value: "true"
       - name: VCLUSTER_CERTS_VALIDITYPERIOD
         value: "3m"
+      - name: VCLUSTER_CERT_CHECK_INTERVAL
+        value: "15s"
 
 sync:
   toHost:
