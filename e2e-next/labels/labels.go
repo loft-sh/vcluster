@@ -39,9 +39,5 @@ var (
 	Isolation    = Label("isolation")
 	NodeSync     = Label("nodesync")
 	Plugin       = Label("plugin")
-
-	// NonDefault marks tests that require special infrastructure not available
-	// in the standard Kind cluster (e.g. a CNI with NetworkPolicy enforcement).
-	// These tests are excluded from the default label filter ("!non-default").
-	NonDefault = Label("non-default")
+	CLI          = Label("cli")
 )

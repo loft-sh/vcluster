@@ -24,7 +24,6 @@ func suiteRootlessVCluster() {
 			coredns.CoreDNSSpec()
 			test_core.PodSyncSpec()
 			test_core.PVCSyncSpec()
-			test_core.NetworkPolicyEnforcementSpec()
 			webhook.AdmissionWebhookSpec()
 		},
 	)

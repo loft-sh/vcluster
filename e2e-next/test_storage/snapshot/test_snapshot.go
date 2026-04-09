@@ -49,8 +49,17 @@ type snapshotCtx struct {
 func newSnapshotCtx(ctx context.Context) *snapshotCtx {
 	GinkgoHelper()
 	s := &snapshotCtx{}
-	s.hostClient = cluster.KubeClientFrom(ctx, constants.GetHostClusterName())
-	Expect(s.hostClient).NotTo(BeNil())
+	hostName := constants.GetHostClusterName()
+	// Ensure host cluster kubernetes client is initialized. The framework's
+	// BeforeEach only initializes clients for the current (virtual) cluster,
+	// so the host cluster may be in the context without a ready client.
+	if cluster.From(ctx, hostName) != nil && cluster.KubeClientFrom(ctx, hostName) == nil {
+		var err error
+		ctx, err = cluster.UseCluster(hostName)(ctx)
+		Expect(err).NotTo(HaveOccurred(), "failed to initialize host cluster client")
+	}
+	s.hostClient = cluster.KubeClientFrom(ctx, hostName)
+	Expect(s.hostClient).NotTo(BeNil(), "host cluster %q client is nil", hostName)
 	s.vClusterClient = cluster.CurrentKubeClientFrom(ctx)
 	Expect(s.vClusterClient).NotTo(BeNil())
 	s.vClusterName = cluster.CurrentClusterNameFrom(ctx)

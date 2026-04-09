@@ -59,6 +59,19 @@ func CreateDocker(ctx context.Context, options *CreateOptions, globalFlags *flag
 		return fmt.Errorf("please use a newer version of vCluster, the minimum version is v0.31.0-alpha.0")
 	}
 
+	// Determine the hostname for the control plane container. Normally this is the
+	// vCluster name, but on restore it may be overridden to match the original snapshot's
+	// cluster name so the kubelet re-registers with the correct node name from etcd.
+	// The restore flow writes a marker file with the original hostname if it differs.
+	cpHostname := vClusterName
+	hostnameFile := filepath.Join(filepath.Dir(globalFlags.Config), "docker", "vclusters", vClusterName, ".restore-hostname")
+	if data, err := os.ReadFile(hostnameFile); err == nil {
+		if h := strings.TrimSpace(string(data)); h != "" {
+			cpHostname = h
+		}
+		os.Remove(hostnameFile)
+	}
+
 	// check if container exists
 	exists, err := containerExists(ctx, getControlPlaneContainerName(vClusterName))
 	if err != nil {
@@ -169,6 +182,11 @@ func CreateDocker(ctx context.Context, options *CreateOptions, globalFlags *flag
 		return err
 	}
 
+	// Persist the version so snapshot can read it back for this specific cluster.
+	if err := os.WriteFile(filepath.Join(vClusterConfigDir, ".version"), []byte(options.ChartVersion), 0644); err != nil {
+		return fmt.Errorf("write version: %w", err)
+	}
+
 	// ensure the k8s resolv conf file
 	err = ensureK8sResolvConf(ctx, globalFlags, vClusterName, log)
 	if err != nil {
@@ -209,7 +227,7 @@ func CreateDocker(ctx context.Context, options *CreateOptions, globalFlags *flag
 	}
 
 	// run the docker container
-	err = runControlPlaneContainer(ctx, kubernetesDir, vClusterBinaryDir, vClusterConfigDir, vClusterName, networkName, vConfig, extraDockerArgs, log)
+	err = runControlPlaneContainer(ctx, kubernetesDir, vClusterBinaryDir, vClusterConfigDir, vClusterName, cpHostname, networkName, vConfig, extraDockerArgs, log)
 	if err != nil {
 		return err
 	}
@@ -223,7 +241,7 @@ func CreateDocker(ctx context.Context, options *CreateOptions, globalFlags *flag
 	}
 
 	// ensure the nodes
-	err = ensureVClusterNodes(ctx, kubernetesDir, vClusterConfigDir, vClusterName, networkName, vClusterJoinToken, kubernetesVersion, vConfig, log)
+	err = ensureVClusterNodes(ctx, kubernetesDir, vClusterConfigDir, vClusterName, cpHostname, networkName, vClusterJoinToken, kubernetesVersion, vConfig, log)
 	if err != nil {
 		return fmt.Errorf("failed to ensure vCluster nodes: %w", err)
 	}
@@ -518,16 +536,16 @@ func canMountPrivilegedPort(ctx context.Context, log log.Logger) bool {
 	return true
 }
 
-func runControlPlaneContainer(ctx context.Context, kubernetesDir, vClusterBinaryDir, vClusterConfigDir, vClusterName, networkName string, config *config.Config, extraArgs []string, log log.Logger) error {
+func runControlPlaneContainer(ctx context.Context, kubernetesDir, vClusterBinaryDir, vClusterConfigDir, vClusterName, cpHostname, networkName string, config *config.Config, extraArgs []string, log log.Logger) error {
 	args := []string{
 		"run",
 		"-d",
-		"-h", vClusterName,
+		"-h", cpHostname,
 		"--tmpfs", "/run",
 		"--tmpfs", "/tmp",
 		"--privileged",
 		"--network", networkName,
-		"--network-alias", vClusterName,
+		"--network-alias", cpHostname,
 		"-e", "VCLUSTER_NAME=" + vClusterName,
 		"-p", fmt.Sprintf("%d:8443", clihelper.RandomPort()),
 		"--name", getControlPlaneContainerName(vClusterName),
@@ -659,7 +677,7 @@ sh /tmp/join.sh --bundle-path /var/lib/vcluster/bin/kubernetes-%s-%s.tar.gz --fo
 	return nil
 }
 
-func ensureVClusterNodes(ctx context.Context, kubernetesDir, vClusterConfigDir, vClusterName, networkName, vClusterJoinToken, kubernetesVersion string, vClusterConfig *config.Config, log log.Logger) error {
+func ensureVClusterNodes(ctx context.Context, kubernetesDir, vClusterConfigDir, vClusterName, cpHostname, networkName, vClusterJoinToken, kubernetesVersion string, vClusterConfig *config.Config, log log.Logger) error {
 	nodes, err := findDockerContainer(ctx, "vcluster.node."+vClusterName+".")
 	if err != nil {
 		return fmt.Errorf("failed to find vCluster nodes: %w", err)
@@ -705,13 +723,21 @@ func ensureVClusterNodes(ctx context.Context, kubernetesDir, vClusterConfigDir, 
 			}
 
 			log.Infof("Adding node %s to vCluster %s", node.Name, vClusterName)
+			// Check if the worker's volumes already exist (e.g. from a snapshot restore).
+			// If they do, the kubelet state and certs are already present, so we skip
+			// the kubeadm join and just start the container.
+			volumeRestored := dockerVolumeExists(ctx, getWorkerVolumeName(vClusterName, node.Name, "var"))
 			err = runWorkerContainer(ctx, kubernetesDir, vClusterConfigDir, vClusterName, networkName, &node, log)
 			if err != nil {
 				return fmt.Errorf("failed to run vCluster node: %w", err)
 			}
-			err = joinDockerContainer(ctx, vClusterName, getWorkerContainerName(vClusterName, node.Name), vClusterJoinToken, kubernetesVersion, log)
-			if err != nil {
-				return fmt.Errorf("failed to join vCluster node: %w", err)
+			if volumeRestored {
+				log.Infof("Node %s has restored volumes, skipping join (kubelet will re-register)", node.Name)
+			} else {
+				err = joinDockerContainer(ctx, cpHostname, getWorkerContainerName(vClusterName, node.Name), vClusterJoinToken, kubernetesVersion, log)
+				if err != nil {
+					return fmt.Errorf("failed to join vCluster node: %w", err)
+				}
 			}
 		}
 	}
