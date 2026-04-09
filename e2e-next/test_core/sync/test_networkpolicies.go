@@ -23,14 +23,14 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-// This test verifies that NetworkPolicy egress rules are correctly enforced in the
-// virtual cluster. It requires a CNI with NetworkPolicy support (e.g. Calico).
-// The standard Kind cluster used in CI does not enforce NetworkPolicies, so this
-// test is tagged with labels.NonDefault and excluded from the default label filter.
-// NetworkPolicyEnforcementSpec registers the spec.
+// NetworkPolicyEnforcementSpec verifies that NetworkPolicy egress rules are correctly
+// enforced in the virtual cluster. It requires a CNI with NetworkPolicy support (e.g. Calico).
+// Standard Kind uses kindnet which does NOT enforce NetworkPolicies.
+// This test runs in a dedicated CI job (suite_networkpolicies_test.go) on a Kind
+// cluster with Calico CNI installed.
 func NetworkPolicyEnforcementSpec() {
 	Describe("NetworkPolicy egress enforcement",
-		labels.Core, labels.Sync, labels.NetworkPolicies, labels.NonDefault,
+		labels.NetworkPolicies,
 		func() {
 			var (
 				vClusterClient kubernetes.Interface

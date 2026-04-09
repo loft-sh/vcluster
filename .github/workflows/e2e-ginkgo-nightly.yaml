@@ -154,23 +154,123 @@ jobs:
             fi
           done
 
+  e2e-tests-networkpolicies:
+    name: E2E Tests (NetworkPolicy enforcement - Calico CNI)
+    needs: [build]
+    runs-on: large-8_32
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - uses: azure/setup-helm@v4
+        name: Setup Helm
+        with:
+          version: "v3.19.0"
+
+      - name: Download syncer image
+        uses: actions/download-artifact@v5
+        with:
+          name: vcluster_syncer
+          path: .
+
+      - name: Download vCluster CLI
+        uses: actions/download-artifact@v5
+        with:
+          name: vcluster
+          path: .
+
+      - name: Install Ginkgo CLI
+        run: |
+          cd e2e-next
+          go install github.com/onsi/ginkgo/v2/ginkgo
+
+      - name: Set up vCluster CLI
+        run: |
+          GOBIN=$(go env GOPATH)/bin
+          mkdir -p "$GOBIN"
+          chmod +x vcluster
+          mv vcluster "$GOBIN/vcluster"
+          echo "GOBIN=$GOBIN" >> "$GITHUB_ENV"
+
+      - name: Create Kind cluster with Calico CNI
+        run: |
+          cat <<'EOF' > /tmp/kind-calico.yaml
+          kind: Cluster
+          apiVersion: kind.x-k8s.io/v1alpha4
+          networking:
+            disableDefaultCNI: true
+            podSubnet: 192.168.0.0/16
+          EOF
+          kind create cluster --name kind-cluster --config /tmp/kind-calico.yaml --wait 60s
+
+      - name: Install Calico CNI
+        run: |
+          kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.29.3/manifests/calico.yaml
+          echo "Waiting for Calico pods to be ready..."
+          kubectl -n kube-system wait --for=condition=Ready pod -l k8s-app=calico-node --timeout=120s
+          kubectl -n kube-system wait --for=condition=Ready pod -l k8s-app=calico-kube-controllers --timeout=120s
+
+      - name: Load syncer image
+        run: |
+          docker load --input vcluster_syncer
+          kind load docker-image ${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }} --name kind-cluster
+
+      - name: Ensure bridge netfilter modules are loaded
+        run: |
+          if [[ ! -f /proc/sys/net/bridge/bridge-nf-call-iptables ]]; then
+            sudo modprobe -va bridge br_netfilter
+          fi
+
+      - name: Run NetworkPolicy enforcement tests
+        run: |
+          ginkgo \
+            -v \
+            --procs=8 \
+            --timeout=0 \
+            --poll-progress-after=20s \
+            --poll-progress-interval=10s \
+            --label-filter="networkpolicies" \
+            ./e2e-next -- \
+            --vcluster-image="${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}" \
+            --teardown=false
+
+      - name: Collect debug info on failure
+        if: failure()
+        run: |
+          set +e
+          echo "=== All pods ==="
+          kubectl get pods -A -o wide
+          for NS in $(kubectl get pods -A -l app=vcluster \
+              -o jsonpath='{range .items[*]}{.metadata.namespace}{"\n"}{end}' 2>/dev/null | sort -u); do
+            echo "--- vCluster namespace: $NS ---"
+            kubectl get pods -n "$NS" -o wide || true
+            kubectl logs -n "$NS" -l app=vcluster -c syncer --tail=500 2>/dev/null || true
+          done
+
   notify:
     name: Send Slack Notifications
     if: always() && github.repository_owner == 'loft-sh' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.notify))
-    needs: [e2e-tests]
+    needs: [e2e-tests, e2e-tests-networkpolicies]
     runs-on: ubuntu-22.04
 
     steps:
       - name: Determine workflow status
         id: status
         run: |
-          if [[ "${{ needs.e2e-tests.result }}" == "failure" ]]; then
+          if [[ "${{ needs.e2e-tests.result }}" == "failure" ]] || [[ "${{ needs.e2e-tests-networkpolicies.result }}" == "failure" ]]; then
             {
               echo "workflow_failed=true"
               echo "status_emoji=❌"
               echo "status_text=Failed"
             } >> "$GITHUB_OUTPUT"
-          elif [[ "${{ needs.e2e-tests.result }}" == "success" ]]; then
+          elif [[ "${{ needs.e2e-tests.result }}" == "success" ]] && [[ "${{ needs.e2e-tests-networkpolicies.result }}" != "failure" ]]; then
             {
               echo "workflow_failed=false"
               echo "status_emoji=✅"
