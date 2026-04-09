@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"os"
+	"syscall"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/config"
@@ -90,11 +91,15 @@ func runCertWatcher(
 				continue
 			}
 
-			// In HA deployments, acquire a lease so only one replica rotates
-			// and restarts at a time.
-			if currentNamespaceClient != nil && !tryAcquireRotationLease(ctx, currentNamespaceClient, currentNamespace, options.Name) {
-				klog.Infof("Another replica is handling cert rotation, skipping")
-				continue
+			// In HA deployments (replicas > 1), acquire a lease so only one
+			// replica rotates and restarts at a time. Single-replica deployments
+			// skip the lease — they may not have coordination.k8s.io/leases RBAC
+			// (it's only granted when HA or privateNodes are enabled in the chart).
+			if options.ControlPlane.StatefulSet.HighAvailability.Replicas > 1 {
+				if currentNamespaceClient == nil || !tryAcquireRotationLease(ctx, currentNamespaceClient, currentNamespace, options.Name) {
+					klog.Infof("Another replica is handling cert rotation, skipping")
+					continue
+				}
 			}
 
 			klog.Infof("Leaf certificates are expiring soon, rotating and restarting")
@@ -103,8 +108,16 @@ func runCertWatcher(
 				continue
 			}
 
-			klog.Infof("Leaf certificates rotated successfully, exiting for pod restart")
-			osutil.Exit(0)
+			klog.Infof("Leaf certificates rotated successfully, sending SIGTERM for graceful restart")
+			p, err := os.FindProcess(os.Getpid())
+			if err != nil {
+				klog.Errorf("Failed to find own process: %v", err)
+				osutil.Exit(0)
+			}
+			if err := p.Signal(syscall.SIGTERM); err != nil {
+				klog.Errorf("Failed to send SIGTERM: %v", err)
+				osutil.Exit(0)
+			}
 		}
 	}
 }
