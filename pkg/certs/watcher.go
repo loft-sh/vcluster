@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"os"
-	"syscall"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/config"
@@ -108,16 +107,8 @@ func runCertWatcher(
 				continue
 			}
 
-			klog.Infof("Leaf certificates rotated successfully, sending SIGTERM for graceful restart")
-			p, err := os.FindProcess(os.Getpid())
-			if err != nil {
-				klog.Errorf("Failed to find own process: %v", err)
-				osutil.Exit(0)
-			}
-			if err := p.Signal(syscall.SIGTERM); err != nil {
-				klog.Errorf("Failed to send SIGTERM: %v", err)
-				osutil.Exit(0)
-			}
+			klog.Infof("Leaf certificates rotated successfully, exiting for pod restart")
+			osutil.Exit(0)
 		}
 	}
 }
