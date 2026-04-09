@@ -1,9 +1,11 @@
 package certs
 
 import (
+	"bytes"
 	"context"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"time"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
@@ -13,17 +15,24 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/klog/v2"
+	"k8s.io/kubectl/pkg/scheme"
 )
 
 // HACertRotationSpec verifies that HA cert rotation is coordinated via a
 // Lease so that replicas don't all restart simultaneously.
 //
 // This test uses a 2-replica vcluster with short-lived certs (3m) and a
-// short watcher check interval (15s). The watcher detects expiring certs
-// and the first replica to acquire the rotation lease performs the rotation.
+// short watcher check interval (15s). After pods are running, we write an
+// expiring cert directly to disk inside each pod (bypassing the startup
+// EnsureCerts check). The watcher detects the expiring cert on its next
+// check and the first replica to acquire the rotation lease performs the
+// rotation.
 //
 // Must be called inside a Describe that has cluster.Use() for the vcluster and host cluster.
 func HACertRotationSpec() {
@@ -34,6 +43,7 @@ func HACertRotationSpec() {
 		func() {
 			var (
 				hostClient        kubernetes.Interface
+				hostRestConfig    *rest.Config
 				vClusterName      string
 				vClusterNamespace string
 			)
@@ -41,6 +51,8 @@ func HACertRotationSpec() {
 			BeforeAll(func(ctx context.Context) context.Context {
 				hostClient = cluster.KubeClientFrom(ctx, constants.GetHostClusterName())
 				Expect(hostClient).NotTo(BeNil())
+				hostRestConfig = cluster.From(ctx, constants.GetHostClusterName()).KubernetesRestConfig()
+				Expect(hostRestConfig).NotTo(BeNil())
 				vClusterName = cluster.CurrentClusterNameFrom(ctx)
 				vClusterNamespace = "vcluster-" + vClusterName
 				return ctx
@@ -69,43 +81,33 @@ func HACertRotationSpec() {
 				})
 			})
 
-			// Spec 2 depends on 1: inject expiring certs into the secret so the
-			// watcher detects them on its next check (every 15s).
-			It("should inject expiring leaf certs into the secret", func(ctx context.Context) {
-				By("Patching the apiserver.crt to expire in 30 days", func() {
-					secret, err := hostClient.CoreV1().Secrets(vClusterNamespace).Get(ctx,
-						certs.CertSecretName(vClusterName), metav1.GetOptions{})
-					Expect(err).To(Succeed())
+			// Spec 2 depends on 1: write an expiring cert directly to disk inside
+			// each running pod. This bypasses the startup EnsureCerts check (which
+			// already ran with valid certs) so the runtime watcher is the one that
+			// detects the expiry.
+			It("should inject expiring certs into running pods", func(ctx context.Context) {
+				expiringCertPEM := generateExpiringCertPEM(30 * 24 * time.Hour)
 
-					expiringCert := generateExpiringCertPEM(30 * 24 * time.Hour)
-					secret.Data["apiserver.crt"] = expiringCert
-
-					_, err = hostClient.CoreV1().Secrets(vClusterNamespace).Update(ctx,
-						secret, metav1.UpdateOptions{})
-					Expect(err).To(Succeed())
-				})
-
-				By("Restarting all pods so they download the expiring cert to disk", func() {
+				By("Writing expiring apiserver.crt to disk in each pod", func() {
 					pods, err := hostClient.CoreV1().Pods(vClusterNamespace).List(ctx, metav1.ListOptions{
 						LabelSelector: "app=vcluster,release=" + vClusterName,
 					})
 					Expect(err).To(Succeed())
+					Expect(pods.Items).NotTo(BeEmpty())
 
 					for _, pod := range pods.Items {
-						err := hostClient.CoreV1().Pods(vClusterNamespace).Delete(ctx,
-							pod.Name, metav1.DeleteOptions{})
-						Expect(err).To(Succeed())
+						err := execWriteFile(ctx, hostRestConfig, hostClient,
+							vClusterNamespace, pod.Name, "syncer",
+							"/data/pki/apiserver.crt", expiringCertPEM)
+						Expect(err).To(Succeed(),
+							"failed to write expiring cert to pod %s: %v", pod.Name, err)
 					}
-				})
-
-				By("Waiting for pods to come back ready", func() {
-					waitForPodsReady(ctx, hostClient, vClusterNamespace, vClusterName, constants.PollingTimeoutVeryLong)
 				})
 			})
 
 			// Spec 3 depends on 2: wait for the cert rotation lease to be created.
-			// The watcher checks every 15s. When it detects expiring certs, the
-			// first replica to acquire the lease performs the rotation.
+			// The watcher checks every 15s. When it detects the expiring cert on
+			// disk, the first replica to acquire the lease performs the rotation.
 			It("should create a cert rotation lease for coordination", func(ctx context.Context) {
 				By("Waiting for the rotation lease to appear", func() {
 					leaseName := translate.SafeConcatName("vcluster", vClusterName, "cert-rotation")
@@ -155,4 +157,38 @@ func HACertRotationSpec() {
 			})
 		},
 	)
+}
+
+// execWriteFile writes data to a file inside a container using kubectl exec.
+func execWriteFile(ctx context.Context, restConfig *rest.Config, client kubernetes.Interface, namespace, podName, container, filePath string, data []byte) error {
+	cmd := []string{"sh", "-c", fmt.Sprintf("cat > %s", filePath)}
+
+	req := client.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Name(podName).
+		Namespace(namespace).
+		SubResource("exec").
+		VersionedParams(&corev1.PodExecOptions{
+			Container: container,
+			Command:   cmd,
+			Stdin:     true,
+			Stdout:    false,
+			Stderr:    true,
+		}, scheme.ParameterCodec)
+
+	exec, err := remotecommand.NewSPDYExecutor(restConfig, "POST", req.URL())
+	if err != nil {
+		return fmt.Errorf("creating executor: %w", err)
+	}
+
+	reader := bytes.NewReader(data)
+	var stderr bytes.Buffer
+	err = exec.StreamWithContext(ctx, remotecommand.StreamOptions{
+		Stdin:  reader,
+		Stderr: &stderr,
+	})
+	if err != nil {
+		return fmt.Errorf("exec failed: %w (stderr: %s)", err, stderr.String())
+	}
+	return nil
 }
