@@ -26,7 +26,11 @@ on:
       - release-*
       - v*
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  # Separate concurrency groups for code pushes vs PR description edits.
+  # Without this, editing a PR description cancels the running test suite
+  # (triggered by the previous push), and the edited run skips tests because
+  # the label-filter didn't change - leaving CI green with no tests run.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event.action == 'edited' && 'edited' || 'code' }}
   cancel-in-progress: true
 
 env:
