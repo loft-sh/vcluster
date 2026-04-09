@@ -57,6 +57,7 @@ const (
 	StatusRunning          Status = "Running"
 	StatusPaused           Status = "Paused"
 	StatusWorkloadSleeping Status = "Sleeping (workloads only)"
+	StatusScaledDown       Status = "ScaledDown"
 	StatusUnknown          Status = "Unknown"
 )
 
@@ -416,18 +417,6 @@ func findInContext(ctx context.Context, kubeClient kube.Interface, context, name
 			if name != "" && name != release {
 				continue
 			}
-
-			if p.Spec.Replicas != nil && *p.Spec.Replicas == 0 && !isPaused(&p) {
-				// if the stateful set has been scaled down we'll ignore it -- this happens when
-				// using devspace to do vcluster plugin dev for example, devspace scales down the
-				// vcluster stateful set and re-creates a deployment for "dev mode" so we end up
-				// with a duplicate vcluster in the list, one for the statefulset and one for the
-				// deployment. Of course if the vcluster is paused (via `vcluster pause`), we *do*
-				// still need to care about it even if replicas == 0.
-
-				continue
-			}
-
 			vCluster, err := getVCluster(ctx, &p, context, release, kubeClient, kubeClientConfig)
 			if err != nil {
 				logger := log.GetInstance()
@@ -475,7 +464,8 @@ func getVCluster(ctx context.Context, object client.Object, context, release str
 	version := ""
 	var pods []corev1.Pod
 
-	if object.GetAnnotations()[constants.PausedAnnotation(false)] == "true" {
+	if object.GetAnnotations()[constants.PausedAnnotation(false)] == "true" ||
+		object.GetLabels()[sleepmode.Label] == "true" {
 		status = string(StatusPaused)
 	} else {
 		releaseName = "release=" + release
@@ -498,8 +488,13 @@ func getVCluster(ctx context.Context, object client.Object, context, release str
 			return VCluster{}, err
 		}
 		pods = podList.Items
-		for _, pod := range podList.Items {
-			status = GetPodStatus(&pod)
+
+		if len(podList.Items) > 0 {
+			for _, pod := range podList.Items {
+				status = GetPodStatus(&pod)
+			}
+		} else if isScaledDown(object) {
+			status = string(StatusScaledDown)
 		}
 	}
 
@@ -699,11 +694,17 @@ func GetPodStatus(pod *corev1.Pod) string {
 	return reason
 }
 
-func isPaused(v client.Object) bool {
-	annotations := v.GetAnnotations()
-	labels := v.GetLabels()
-
-	return annotations[constants.PausedAnnotation(false)] == "true" || labels[sleepmode.Label] == "true"
+// isScaledDown returns true if the workload's desired replica count is 0.
+// This distinguishes an intentional scale-down from a transient state where
+// pods are temporarily absent (e.g., during startup or rollout).
+func isScaledDown(object client.Object) bool {
+	switch o := object.(type) {
+	case *appsv1.StatefulSet:
+		return o.Spec.Replicas != nil && *o.Spec.Replicas == 0
+	case *appsv1.Deployment:
+		return o.Spec.Replicas != nil && *o.Spec.Replicas == 0
+	}
+	return false
 }
 
 // isVirtualClusterInstanceResourceAvailable checks if VirtualClusterInstance resources from storage.loft.sh/v1 exist

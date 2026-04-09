@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -146,6 +147,22 @@ func deleteSnapshotRequestConfigMaps(ctx context.Context, hostClient kubernetes.
 		g.Expect(err).To(Succeed())
 		g.Expect(configMaps.Items).To(BeEmpty(), "snapshot request configmaps not yet deleted")
 	}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+}
+
+func scaleDownStatefulSet(ctx context.Context, hostClient kubernetes.Interface, name, namespace string) {
+	GinkgoHelper()
+	patch := []byte(`{"spec":{"replicas":0}}`)
+	_, err := hostClient.AppsV1().StatefulSets(namespace).Patch(ctx, name, types.MergePatchType, patch, metav1.PatchOptions{})
+	Expect(err).To(Succeed(), "scale down StatefulSet %s/%s", namespace, name)
+
+	Eventually(func(g Gomega, ctx context.Context) {
+		pods, err := hostClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+			LabelSelector: "app=vcluster,release=" + name,
+		})
+		g.Expect(err).To(Succeed())
+		g.Expect(pods.Items).To(BeEmpty(),
+			"tenant cluster %s/%s pods should be gone after scale down", namespace, name)
+	}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 }
 
 func toJSON(obj any) string {

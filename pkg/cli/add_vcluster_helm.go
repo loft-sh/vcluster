@@ -73,6 +73,11 @@ func addVClusterHelm(
 	kubeClient *kubernetes.Clientset,
 	log log.Logger,
 ) error {
+	// A scaled-down tenant cluster would show up as Starting in the platform, which is misleading.
+	if vCluster.Status == find.StatusScaledDown {
+		return fmt.Errorf("tenant cluster %s in namespace %s is scaled down to zero replicas, please scale it up before adding it to the platform", vClusterName, vCluster.Namespace)
+	}
+
 	snoozed := false
 	// If the vCluster was paused with the helm driver, adding it to the platform will only create the secret for registration
 	// which leads to confusing behavior for the user since they won't see the cluster in the platform UI until it is resumed.

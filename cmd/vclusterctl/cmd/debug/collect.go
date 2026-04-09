@@ -206,7 +206,9 @@ func (cmd *CollectCmd) Run(ctx context.Context, args []string) error {
 	}
 
 	// collect virtual cluster
-	if cmd.VirtualInfo || len(cmd.VirtualResources) > 0 || cmd.CountVirtualClusterObjects {
+	if vCluster.Status == find.StatusScaledDown {
+		cmd.log.Warnf("Tenant cluster %s in namespace %s is scaled down, skipping virtual cluster resource collection", vClusterName, vCluster.Namespace)
+	} else if cmd.VirtualInfo || len(cmd.VirtualResources) > 0 || cmd.CountVirtualClusterObjects {
 		// get virtual kube config & client
 		portForwardingOptions := clihelper.PortForwardingOptions{
 			StdOut: io.Writer(os.Stdout),

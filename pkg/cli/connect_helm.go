@@ -84,6 +84,11 @@ func ConnectHelm(ctx context.Context, options *ConnectOptions, globalFlags *flag
 		return err
 	}
 
+	if vCluster.Status == find.StatusScaledDown {
+		return fmt.Errorf("tenant cluster control plane %s/%s is scaled down to zero replicas, run 'vcluster pause %s -n %s && vcluster resume %s -n %s' first",
+			vCluster.Namespace, vCluster.Name, vCluster.Name, vCluster.Namespace, vCluster.Name, vCluster.Namespace)
+	}
+
 	log.Debugf("Found vCluster %s/%s", vCluster.Namespace, vCluster.Name)
 	return cmd.connect(ctx, vCluster, command)
 }
@@ -270,6 +275,11 @@ func (cmd *connectHelm) prepare(ctx context.Context, vCluster *find.VCluster) er
 		if err != nil {
 			return err
 		}
+	}
+
+	if vCluster.IsSleeping() {
+		return fmt.Errorf("tenant cluster control plane %s/%s is paused by the platform, use 'vcluster resume %s --driver platform' to resume it first",
+			cmd.Namespace, vCluster.Name, vCluster.Name)
 	}
 
 	// resume vCluster if necessary
