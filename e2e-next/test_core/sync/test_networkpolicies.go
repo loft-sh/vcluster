@@ -30,7 +30,7 @@ import (
 // cluster with Calico CNI installed.
 func NetworkPolicyEnforcementSpec() {
 	Describe("NetworkPolicy egress enforcement",
-		labels.NetworkPolicies,
+		labels.NetworkPolicies, labels.NonDefault,
 		func() {
 			var (
 				vClusterClient kubernetes.Interface
