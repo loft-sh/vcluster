@@ -156,13 +156,17 @@ jobs:
 
   e2e-tests-networkpolicies:
     name: E2E Tests (NetworkPolicy enforcement - Calico CNI)
-    needs: [build]
-    runs-on: ubuntu-22.04
+    if: github.repository_owner == 'loft-sh'
+    runs-on: ubuntu-latest
     timeout-minutes: 60
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - run: git fetch --force --tags
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -174,17 +178,16 @@ jobs:
         with:
           version: "v3.19.0"
 
-      - name: Download syncer image
-        uses: actions/download-artifact@v5
+      - name: Setup GoReleaser
+        uses: goreleaser/goreleaser-action@v6
         with:
-          name: vcluster_syncer
-          path: .
+          install-only: true
+          version: latest
 
-      - name: Download vCluster CLI
-        uses: actions/download-artifact@v5
-        with:
-          name: vcluster
-          path: .
+      - name: Build vcluster image and CLI
+        run: |
+          docker build -t "${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}" -f Dockerfile.release --build-arg TARGETARCH=amd64 --build-arg TARGETOS=linux .
+          TELEMETRY_PRIVATE_KEY="" goreleaser build --single-target --snapshot --id vcluster-cli --clean --output ./vcluster
 
       - name: Install Ginkgo CLI
         run: |
@@ -217,9 +220,8 @@ jobs:
           kubectl -n kube-system wait --for=condition=Ready pod -l k8s-app=calico-node --timeout=120s
           kubectl -n kube-system wait --for=condition=Ready pod -l k8s-app=calico-kube-controllers --timeout=120s
 
-      - name: Load syncer image
+      - name: Load image to Kind
         run: |
-          docker load --input vcluster_syncer
           kind load docker-image ${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }} --name kind-cluster
 
       - name: Ensure bridge netfilter modules are loaded
