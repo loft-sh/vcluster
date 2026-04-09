@@ -931,14 +931,14 @@ func translateTopologySpreadConstraints(vPod *corev1.Pod, pPod *corev1.Pod) {
 	}
 }
 
-func sanitizeMatchLabelKeysSelector(vPod *corev1.Pod, constraint *corev1.TopologySpreadConstraint) {
+func sanitizeMatchLabelKeysSelector(_ *corev1.Pod, constraint *corev1.TopologySpreadConstraint) {
 	if constraint.LabelSelector == nil || len(constraint.MatchLabelKeys) == 0 || len(constraint.LabelSelector.MatchExpressions) == 0 {
 		return
 	}
 
 	matchExpressions := constraint.LabelSelector.MatchExpressions[:0]
 	for _, requirement := range constraint.LabelSelector.MatchExpressions {
-		if shouldStripMatchLabelKeysRequirement(vPod.Labels, constraint.MatchLabelKeys, requirement) {
+		if shouldStripMatchLabelKeysRequirement(constraint.MatchLabelKeys, requirement) {
 			continue
 		}
 
@@ -953,13 +953,10 @@ func sanitizeMatchLabelKeysSelector(vPod *corev1.Pod, constraint *corev1.Topolog
 	constraint.LabelSelector.MatchExpressions = matchExpressions
 }
 
-func shouldStripMatchLabelKeysRequirement(podLabels map[string]string, matchLabelKeys []string, requirement metav1.LabelSelectorRequirement) bool {
-	if requirement.Operator != metav1.LabelSelectorOpIn || len(requirement.Values) != 1 || !slices.Contains(matchLabelKeys, requirement.Key) {
-		return false
-	}
-
-	value, ok := podLabels[requirement.Key]
-	return ok && requirement.Values[0] == value
+func shouldStripMatchLabelKeysRequirement(matchLabelKeys []string, requirement metav1.LabelSelectorRequirement) bool {
+	return requirement.Operator == metav1.LabelSelectorOpIn &&
+		len(requirement.Values) == 1 &&
+		slices.Contains(matchLabelKeys, requirement.Key)
 }
 
 func ServicesToEnvironmentVariables(enableServiceLinks *bool, services []*corev1.Service, kubeIP string) map[string]string {

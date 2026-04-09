@@ -189,7 +189,7 @@ func TestTranslateTopologySpreadConstraints(t *testing.T) {
 			Namespace: "test-ns",
 			Labels: map[string]string{
 				"app":               "demo",
-				"pod-template-hash": "abc123",
+				"pod-template-hash": "def456",
 			},
 		},
 	}
