@@ -39,5 +39,5 @@ var (
 	Isolation    = Label("isolation")
 	NodeSync     = Label("nodesync")
 	Plugin       = Label("plugin")
-	CLI = Label("cli")
+	CLI          = Label("cli")
 )
