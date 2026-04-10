@@ -22,7 +22,7 @@ env:
 
 jobs:
   detect_changes:
-    uses: loft-sh/github-actions/.github/workflows/detect-changes.yaml@v1
+    uses: loft-sh/github-actions/.github/workflows/detect-changes.yaml@detect-changes/v1
     with:
       paths: |
         - "go.mod"

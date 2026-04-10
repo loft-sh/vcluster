@@ -98,7 +98,7 @@ jobs:
 
   detect_changes:
     needs: [parse_label-filter]
-    uses: loft-sh/github-actions/.github/workflows/detect-changes.yaml@v1
+    uses: loft-sh/github-actions/.github/workflows/detect-changes.yaml@detect-changes/v1
     with:
       paths: |
         - "go.mod"
