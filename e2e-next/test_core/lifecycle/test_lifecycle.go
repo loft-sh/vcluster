@@ -16,7 +16,10 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/random"
 )
 
-var _ = Describe("Tenant cluster lifecycle - create and delete", labels.Core, labels.PR, func() {
+// TenantClusterLifecycleSpec registers tenant cluster create/list/delete tests.
+// These tests create their own vclusters via the CLI (not framework-provisioned).
+func TenantClusterLifecycleSpec() {
+	Describe("Tenant cluster lifecycle - create and delete", labels.Core, labels.PR, func() {
 	Context("create, list and delete tenant cluster", Ordered, func() {
 		// Ordered because each spec operates on the tenant cluster
 		// created by the first spec, and the last spec deletes it.
@@ -145,4 +148,5 @@ var _ = Describe("Tenant cluster lifecycle - create and delete", labels.Core, la
 			})
 		})
 	})
-})
+	})
+}

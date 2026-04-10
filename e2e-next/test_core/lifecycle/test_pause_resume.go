@@ -120,7 +120,10 @@ func PauseResumeSpec() {
 	)
 }
 
-var _ = Describe("pause and resume a scaled-down tenant cluster", labels.Core, labels.PR, Ordered, func() {
+// PauseResumeScaledDownSpec registers pause/resume tests for a scaled-down tenant cluster.
+// These tests create their own vcluster via the CLI (not framework-provisioned).
+func PauseResumeScaledDownSpec() {
+	Describe("pause and resume a scaled-down tenant cluster", labels.Core, labels.PR, Ordered, func() {
 	// Ordered because each spec depends on the state from the prior spec:
 	// create → scale down → pause → resume.
 	var (
@@ -189,4 +192,5 @@ var _ = Describe("pause and resume a scaled-down tenant cluster", labels.Core, l
 			}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 		})
 	})
-})
+	})
+}
