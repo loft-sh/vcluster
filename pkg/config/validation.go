@@ -13,9 +13,11 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/samber/lo"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/loft-sh/vcluster/config"
@@ -814,6 +816,18 @@ func validatePrivatedNodesMode(vConfig *VirtualClusterConfig) error {
 			if err := validateRequirements(dynamicNodePool.NodeTypeSelector); err != nil {
 				return fmt.Errorf("invalid requirements for node pool %s: %w", dynamicNodePool.Name, err)
 			}
+		}
+	}
+
+	// validate auto upgrade security context configs
+	if len(vConfig.PrivateNodes.AutoUpgrade.PodSecurityContext) > 0 {
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(vConfig.PrivateNodes.AutoUpgrade.PodSecurityContext, &corev1.PodSecurityContext{}); err != nil {
+			return fmt.Errorf("invalid privateNodes.autoUpgrade.podSecurityContext: %w", err)
+		}
+	}
+	if len(vConfig.PrivateNodes.AutoUpgrade.ContainerSecurityContext) > 0 {
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(vConfig.PrivateNodes.AutoUpgrade.ContainerSecurityContext, &corev1.SecurityContext{}); err != nil {
+			return fmt.Errorf("invalid privateNodes.autoUpgrade.containerSecurityContext: %w", err)
 		}
 	}
 
