@@ -52,9 +52,10 @@ func newSnapshotCtx(ctx context.Context) *snapshotCtx {
 	// Ensure host cluster kubernetes client is initialized. The framework's
 	// BeforeEach only initializes clients for the current (virtual) cluster,
 	// so the host cluster may be in the context without a ready client.
+	// Use SetupClients (not UseCluster) to avoid changing the current cluster.
 	if cluster.From(ctx, hostName) != nil && cluster.KubeClientFrom(ctx, hostName) == nil {
 		var err error
-		ctx, err = cluster.UseCluster(hostName)(ctx)
+		ctx, err = cluster.SetupClients(hostName)(ctx)
 		Expect(err).NotTo(HaveOccurred(), "failed to initialize host cluster client")
 	}
 	s.hostClient = cluster.KubeClientFrom(ctx, hostName)
