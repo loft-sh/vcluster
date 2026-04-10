@@ -7,6 +7,7 @@ import (
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
+	"github.com/loft-sh/vcluster/pkg/certs"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -35,11 +36,12 @@ func HACertRotationSpec() {
 		func() {
 			var (
 				hostClient        kubernetes.Interface
-				hostRestConfig    *rest.Config
-				vClusterName      string
-				vClusterNamespace string
-				controlPlaneUIDs  map[string]struct{}
-				etcdUIDs          map[string]struct{}
+				hostRestConfig     *rest.Config
+				vClusterName       string
+				vClusterNamespace  string
+				controlPlaneUIDs   map[string]struct{}
+				etcdUIDs           map[string]struct{}
+				originalCANotAfter time.Time
 			)
 
 			BeforeAll(func(ctx context.Context) context.Context {
@@ -80,6 +82,15 @@ func HACertRotationSpec() {
 					etcdUIDs = podUIDs(listPodsBySelector(ctx, hostClient, vClusterNamespace, "app=vcluster-etcd,release="+vClusterName))
 					Expect(controlPlaneUIDs).To(HaveLen(2), "expected 2 control-plane pods before rollout")
 					Expect(etcdUIDs).NotTo(BeEmpty(), "expected deployed etcd pod(s) before rollout")
+				})
+
+				By("Recording the original CA cert NotAfter", func() {
+					secret, err := hostClient.CoreV1().Secrets(vClusterNamespace).Get(ctx,
+						certs.CertSecretName(vClusterName), metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					ca, err := parseCertFromPEM(secret.Data["ca.crt"])
+					Expect(err).To(Succeed())
+					originalCANotAfter = ca.NotAfter
 				})
 			})
 
@@ -164,7 +175,17 @@ func HACertRotationSpec() {
 				})
 			})
 
-			// Spec 6: cleanup the lease
+			// Spec 6 depends on 5: verify CA was not rotated.
+			It("should preserve the CA cert during HA watcher rotation", func(ctx context.Context) {
+				expectCAPreserved(ctx, hostClient, vClusterNamespace, vClusterName, originalCANotAfter)
+			})
+
+			// Spec 7 depends on 5: verify all leaf certs including etcd certs are renewed.
+			It("should have all leaf certs valid after HA watcher rotation", func(ctx context.Context) {
+				expectAllLeafCertsRenewed(ctx, hostClient, vClusterNamespace, vClusterName)
+			})
+
+			// Spec 8: cleanup the lease
 			It("should clean up the cert rotation lease", func(ctx context.Context) {
 				leaseName := translate.SafeConcatName("vcluster", vClusterName, "cert-rotation")
 				err := hostClient.CoordinationV1().Leases(vClusterNamespace).Delete(ctx,

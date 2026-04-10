@@ -108,50 +108,12 @@ func CertAutoRotationSpec() {
 
 			// Spec 5 depends on 3: verify CA was NOT rotated
 			It("should preserve the CA cert during auto-rotation", func(ctx context.Context) {
-				secret, err := hostClient.CoreV1().Secrets(vClusterNamespace).Get(ctx,
-					certs.CertSecretName(vClusterName), metav1.GetOptions{})
-				Expect(err).To(Succeed())
-
-				block, _ := pem.Decode(secret.Data["ca.crt"])
-				Expect(block).NotTo(BeNil(), "failed to decode CA cert PEM")
-
-				ca, err := x509.ParseCertificate(block.Bytes)
-				Expect(err).To(Succeed())
-
-				Expect(ca.NotAfter.Equal(originalCANotAfter)).To(BeTrue(),
-					"CA cert should not have been rotated, original NotAfter=%s, current NotAfter=%s",
-					originalCANotAfter.Format(time.RFC3339), ca.NotAfter.Format(time.RFC3339))
+				expectCAPreserved(ctx, hostClient, vClusterNamespace, vClusterName, originalCANotAfter)
 			})
 
 			// Spec 6: verify all leaf certs are valid
 			It("should have all leaf certs valid after auto-rotation", func(ctx context.Context) {
-				secret, err := hostClient.CoreV1().Secrets(vClusterNamespace).Get(ctx,
-					certs.CertSecretName(vClusterName), metav1.GetOptions{})
-				Expect(err).To(Succeed())
-
-				leafCerts := []string{
-					"apiserver.crt",
-					"apiserver-kubelet-client.crt",
-					"apiserver-etcd-client.crt",
-					"front-proxy-client.crt",
-					"etcd-server.crt",
-					"etcd-peer.crt",
-					"etcd-healthcheck-client.crt",
-				}
-
-				for _, certName := range leafCerts {
-					data, ok := secret.Data[certName]
-					Expect(ok).To(BeTrue(), "cert %s should exist in secret", certName)
-
-					block, _ := pem.Decode(data)
-					Expect(block).NotTo(BeNil(), "failed to decode %s PEM", certName)
-
-					cert, err := x509.ParseCertificate(block.Bytes)
-					Expect(err).To(Succeed(), "failed to parse %s", certName)
-
-					Expect(cert.NotAfter.After(time.Now().Add(90*24*time.Hour))).To(BeTrue(),
-						"%s should be valid for more than 90 days, NotAfter=%s", certName, cert.NotAfter.Format(time.RFC3339))
-				}
+				expectAllLeafCertsRenewed(ctx, hostClient, vClusterNamespace, vClusterName)
 			})
 		},
 	)

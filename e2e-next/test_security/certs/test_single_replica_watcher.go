@@ -7,6 +7,7 @@ import (
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
+	"github.com/loft-sh/vcluster/pkg/certs"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -29,11 +30,12 @@ func SingleReplicaWatcherSpec() {
 		labels.Security,
 		func() {
 			var (
-				hostClient        kubernetes.Interface
-				hostRestConfig    *rest.Config
-				vClusterName      string
-				vClusterNamespace string
-				controlPlaneUIDs  map[string]struct{}
+				hostClient         kubernetes.Interface
+				hostRestConfig     *rest.Config
+				vClusterName       string
+				vClusterNamespace  string
+				controlPlaneUIDs   map[string]struct{}
+				originalCANotAfter time.Time
 			)
 
 			BeforeAll(func(ctx context.Context) context.Context {
@@ -51,6 +53,15 @@ func SingleReplicaWatcherSpec() {
 
 				controlPlaneUIDs = podUIDs(listPodsBySelector(ctx, hostClient, vClusterNamespace, "app=vcluster,release="+vClusterName))
 				Expect(controlPlaneUIDs).To(HaveLen(1), "expected exactly 1 pod for single-replica")
+
+				By("Recording the original CA cert NotAfter", func() {
+					secret, err := hostClient.CoreV1().Secrets(vClusterNamespace).Get(ctx,
+						certs.CertSecretName(vClusterName), metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					ca, err := parseCertFromPEM(secret.Data["ca.crt"])
+					Expect(err).To(Succeed())
+					originalCANotAfter = ca.NotAfter
+				})
 			})
 
 			// Spec 2 depends on 1: write an expiring cert to disk inside the
@@ -98,7 +109,17 @@ func SingleReplicaWatcherSpec() {
 				})
 			})
 
-			// Spec 5 depends on 4: verify no rotation lease was created, confirming
+			// Spec 5 depends on 4: verify CA was not rotated.
+			It("should preserve the CA cert during watcher rotation", func(ctx context.Context) {
+				expectCAPreserved(ctx, hostClient, vClusterNamespace, vClusterName, originalCANotAfter)
+			})
+
+			// Spec 6 depends on 4: verify all leaf certs are renewed.
+			It("should have all leaf certs valid after watcher rotation", func(ctx context.Context) {
+				expectAllLeafCertsRenewed(ctx, hostClient, vClusterNamespace, vClusterName)
+			})
+
+			// Spec 7 depends on 4: verify no rotation lease was created, confirming
 			// the single-replica path skipped lease coordination.
 			It("should not have created a rotation lease", func(ctx context.Context) {
 				leaseName := translate.SafeConcatName("vcluster", vClusterName, "cert-rotation")
