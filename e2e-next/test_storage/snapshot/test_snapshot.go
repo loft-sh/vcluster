@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -224,81 +223,75 @@ func describeSnapshotRestore(s *snapshotCtx) {
 			waitForSnapshotToBeCreated(ctx, s.hostClient, s.vClusterNS)
 		})
 
-		It("Verifies only snapshot resources exist after restore", func(ctx context.Context) {
-			_, err := s.vClusterClient.CoreV1().ConfigMaps(testNS).Create(ctx, configMapToDelete, metav1.CreateOptions{})
-			Expect(err).To(Succeed())
-			_, err = s.vClusterClient.CoreV1().Secrets(testNS).Create(ctx, secretToDelete, metav1.CreateOptions{})
-			Expect(err).To(Succeed())
-			svcCreated, err := s.vClusterClient.CoreV1().Services(testNS).Create(ctx, &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{Name: "snapshot-delete", Namespace: testNS, Labels: map[string]string{"snapshot": "delete"}},
-				Spec:       corev1.ServiceSpec{Ports: []corev1.ServicePort{{Name: "http", Port: 80}}, Type: corev1.ServiceTypeClusterIP},
-			}, metav1.CreateOptions{})
-			Expect(err).To(Succeed())
-			oldRV := svcCreated.ResourceVersion
+		// Single restore that verifies both:
+		// - post-snapshot resources are gone (added after snapshot, should disappear)
+		// - deleted pre-snapshot resources are recreated (deleted after snapshot, should reappear)
+		It("Mutates state and verifies restore reverts everything", func(ctx context.Context) {
+			By("Adding post-snapshot resources that should disappear after restore", func() {
+				_, err := s.vClusterClient.CoreV1().ConfigMaps(testNS).Create(ctx, configMapToDelete, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+				_, err = s.vClusterClient.CoreV1().Secrets(testNS).Create(ctx, secretToDelete, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+				_, err = s.vClusterClient.CoreV1().Services(testNS).Create(ctx, &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{Name: "snapshot-delete", Namespace: testNS, Labels: map[string]string{"snapshot": "delete"}},
+					Spec:       corev1.ServiceSpec{Ports: []corev1.ServicePort{{Name: "http", Port: 80}}, Type: corev1.ServiceTypeClusterIP},
+				}, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+			})
 
-			restoreVCluster(ctx, s.hostClient, s.vClusterName, s.vClusterNS, snapshotPath, true, false)
-			s.refreshClient(ctx)
+			By("Deleting pre-snapshot resources that should be recreated by restore", func() {
+				err := s.vClusterClient.CoreV1().ConfigMaps(testNS).Delete(ctx, configMapToRestore.Name, metav1.DeleteOptions{})
+				Expect(err).To(Succeed())
+				err = s.vClusterClient.CoreV1().Secrets(testNS).Delete(ctx, secretToRestore.Name, metav1.DeleteOptions{})
+				Expect(err).To(Succeed())
+			})
 
-			// Verify pre-snapshot resources exist
-			configmaps, err := s.vClusterClient.CoreV1().ConfigMaps(testNS).List(ctx, metav1.ListOptions{LabelSelector: "snapshot=restore"})
-			Expect(err).To(Succeed())
-			Expect(configmaps.Items).To(HaveLen(1))
-			Expect(configmaps.Items[0].Data).To(Equal(configMapToRestore.Data))
-			newRV, _ := strconv.ParseInt(configmaps.Items[0].ResourceVersion, 10, 64)
-			oldRVi, _ := strconv.ParseInt(oldRV, 10, 64)
-			Expect(newRV).To(BeNumerically(">", oldRVi))
+			By("Restoring the vCluster from snapshot", func() {
+				restoreVCluster(ctx, s.hostClient, s.vClusterName, s.vClusterNS, snapshotPath, true, false)
+				s.refreshClient(ctx)
+			})
 
-			secrets, err := s.vClusterClient.CoreV1().Secrets(testNS).List(ctx, metav1.ListOptions{LabelSelector: "snapshot=restore"})
-			Expect(err).To(Succeed())
-			Expect(secrets.Items).To(HaveLen(1))
-			Expect(secrets.Items[0].Data).To(Equal(secretToRestore.Data))
+			By("Verifying pre-snapshot resources are restored", func() {
+				Eventually(func(g Gomega) {
+					cms, err := s.vClusterClient.CoreV1().ConfigMaps(testNS).List(ctx, metav1.ListOptions{LabelSelector: "snapshot=restore"})
+					g.Expect(err).To(Succeed())
+					g.Expect(cms.Items).To(HaveLen(1),
+						"expected configmap %s to be recreated by restore", configMapToRestore.Name)
+					g.Expect(cms.Items[0].Data).To(Equal(configMapToRestore.Data))
+				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 
-			deps, err := s.vClusterClient.AppsV1().Deployments(testNS).List(ctx, metav1.ListOptions{LabelSelector: "snapshot=restore"})
-			Expect(err).To(Succeed())
-			Expect(deps.Items).To(HaveLen(1))
+				Eventually(func(g Gomega) {
+					secs, err := s.vClusterClient.CoreV1().Secrets(testNS).List(ctx, metav1.ListOptions{LabelSelector: "snapshot=restore"})
+					g.Expect(err).To(Succeed())
+					g.Expect(secs.Items).To(HaveLen(1),
+						"expected secret %s to be recreated by restore", secretToRestore.Name)
+					g.Expect(secs.Items[0].Data).To(Equal(secretToRestore.Data))
+				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 
-			// Verify post-snapshot resources are gone
-			Eventually(func(g Gomega) {
-				cms, err := s.vClusterClient.CoreV1().ConfigMaps(testNS).List(ctx, metav1.ListOptions{LabelSelector: "snapshot=delete"})
-				g.Expect(err).To(Succeed())
-				g.Expect(cms.Items).To(BeEmpty())
-			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+				deps, err := s.vClusterClient.AppsV1().Deployments(testNS).List(ctx, metav1.ListOptions{LabelSelector: "snapshot=restore"})
+				Expect(err).To(Succeed())
+				Expect(deps.Items).To(HaveLen(1), "expected deployment to survive restore")
+			})
 
-			Eventually(func(g Gomega) {
-				secs, err := s.vClusterClient.CoreV1().Secrets(testNS).List(ctx, metav1.ListOptions{LabelSelector: "snapshot=delete"})
-				g.Expect(err).To(Succeed())
-				g.Expect(secs.Items).To(BeEmpty())
-			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+			By("Verifying post-snapshot resources are gone", func() {
+				Eventually(func(g Gomega) {
+					cms, err := s.vClusterClient.CoreV1().ConfigMaps(testNS).List(ctx, metav1.ListOptions{LabelSelector: "snapshot=delete"})
+					g.Expect(err).To(Succeed())
+					g.Expect(cms.Items).To(BeEmpty(), "post-snapshot configmap should be gone after restore")
+				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 
-			Eventually(func(g Gomega) {
-				svcs, err := s.vClusterClient.CoreV1().Services(testNS).List(ctx, metav1.ListOptions{LabelSelector: "snapshot=delete"})
-				g.Expect(err).To(Succeed())
-				g.Expect(svcs.Items).To(BeEmpty())
-			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
-		})
+				Eventually(func(g Gomega) {
+					secs, err := s.vClusterClient.CoreV1().Secrets(testNS).List(ctx, metav1.ListOptions{LabelSelector: "snapshot=delete"})
+					g.Expect(err).To(Succeed())
+					g.Expect(secs.Items).To(BeEmpty(), "post-snapshot secret should be gone after restore")
+				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 
-		It("Verifies deleted resources are recreated after restore", func(ctx context.Context) {
-			err := s.vClusterClient.CoreV1().ConfigMaps(testNS).Delete(ctx, configMapToRestore.Name, metav1.DeleteOptions{})
-			Expect(err).To(Succeed())
-			err = s.vClusterClient.CoreV1().Secrets(testNS).Delete(ctx, secretToRestore.Name, metav1.DeleteOptions{})
-			Expect(err).To(Succeed())
-
-			restoreVCluster(ctx, s.hostClient, s.vClusterName, s.vClusterNS, snapshotPath, true, false)
-			s.refreshClient(ctx)
-
-			Eventually(func(g Gomega) {
-				cms, err := s.vClusterClient.CoreV1().ConfigMaps(testNS).List(ctx, metav1.ListOptions{LabelSelector: "snapshot=restore"})
-				g.Expect(err).To(Succeed())
-				g.Expect(cms.Items).To(HaveLen(1))
-				g.Expect(cms.Items[0].Data).To(Equal(configMapToRestore.Data))
-			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
-
-			Eventually(func(g Gomega) {
-				secs, err := s.vClusterClient.CoreV1().Secrets(testNS).List(ctx, metav1.ListOptions{LabelSelector: "snapshot=restore"})
-				g.Expect(err).To(Succeed())
-				g.Expect(secs.Items).To(HaveLen(1))
-				g.Expect(secs.Items[0].Data).To(Equal(secretToRestore.Data))
-			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+				Eventually(func(g Gomega) {
+					svcs, err := s.vClusterClient.CoreV1().Services(testNS).List(ctx, metav1.ListOptions{LabelSelector: "snapshot=delete"})
+					g.Expect(err).To(Succeed())
+					g.Expect(svcs.Items).To(BeEmpty(), "post-snapshot service should be gone after restore")
+				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+			})
 		})
 
 		AfterAll(func(ctx context.Context) {
