@@ -120,7 +120,7 @@ func ValidateSnapshots(fldPath *field.Path, snapshots *Snapshots) field.ErrorLis
 			azure := auto.Storage.Azure
 			if azure.BlobURL == "" {
 				errs = append(errs, field.Invalid(
-					fldPath.Child("snapshots", "auto", "storage", "azure", "url"),
+					fldPath.Child("snapshots", "auto", "storage", "azure", "blobUrl"),
 					azure.BlobURL,
 					"storage type is set to 'azure', but url is missing",
 				))
