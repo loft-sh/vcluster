@@ -284,9 +284,12 @@ func finishPendingRollout(
 	}
 
 	// Restart deployed etcd first so the control plane comes back against the
-	// refreshed etcd serving/client certs.
-	if err := rolloutDeployedEtcdWithRetry(ctx, currentNamespaceClient, currentNamespace, options.Name, rolloutAt); err != nil {
-		return err
+	// refreshed etcd serving/client certs. Only attempt this when the user has
+	// explicitly enabled deployed etcd in the configuration.
+	if options.ControlPlane.BackingStore.Etcd.Deploy.Enabled {
+		if err := rolloutDeployedEtcdWithRetry(ctx, currentNamespaceClient, currentNamespace, options.Name, rolloutAt); err != nil {
+			return err
+		}
 	}
 
 	if err := rolloutControlPlaneWithRetry(ctx, currentNamespaceClient, currentNamespace, options.Name, rolloutAt); err != nil {

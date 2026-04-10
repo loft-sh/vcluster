@@ -101,7 +101,7 @@ func TestCheckCertsExpiring_DiskCAOnlyExpiring(t *testing.T) {
 }
 
 func TestRolloutControlPlaneWithRetry_StatefulSet(t *testing.T) {
-	client := fake.NewSimpleClientset(&appsv1.StatefulSet{
+	client := fake.NewClientset(&appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
 	})
 
@@ -114,7 +114,7 @@ func TestRolloutControlPlaneWithRetry_StatefulSet(t *testing.T) {
 }
 
 func TestRolloutControlPlaneWithRetry_DeploymentFallback(t *testing.T) {
-	client := fake.NewSimpleClientset(&appsv1.Deployment{
+	client := fake.NewClientset(&appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
 	})
 
@@ -127,7 +127,7 @@ func TestRolloutControlPlaneWithRetry_DeploymentFallback(t *testing.T) {
 }
 
 func TestRolloutDeployedEtcdWithRetry_NotFoundIsIgnored(t *testing.T) {
-	client := fake.NewSimpleClientset()
+	client := fake.NewClientset()
 
 	err := rolloutDeployedEtcdWithRetry(context.Background(), client, "ns", "test", "etcd-rollout")
 	assert.NilError(t, err)

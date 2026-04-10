@@ -107,6 +107,17 @@ func SingleReplicaWatcherSpec() {
 				Expect(kerrors.IsNotFound(err) || kerrors.IsForbidden(err)).To(BeTrue(),
 					"rotation lease should not exist for single-replica deployment, got: %v", err)
 			})
+
+			// Spec 6 depends on 4: verify no deployed etcd rollout was attempted.
+			// This cluster uses embedded etcd (no deploy.enabled), so the config
+			// guard should have skipped the etcd StatefulSet rollout entirely.
+			It("should not have attempted a deployed etcd rollout", func(ctx context.Context) {
+				etcdName := vClusterName + "-etcd"
+				_, err := hostClient.AppsV1().StatefulSets(vClusterNamespace).Get(ctx,
+					etcdName, metav1.GetOptions{})
+				Expect(kerrors.IsNotFound(err)).To(BeTrue(),
+					"etcd StatefulSet should not exist for embedded etcd deployment, got: %v", err)
+			})
 		},
 	)
 }
