@@ -130,7 +130,7 @@ func SingleReplicaWatcherSpec() {
 			})
 
 			// Spec 6 depends on 4: verify no deployed etcd rollout was attempted.
-			// This cluster uses embedded etcd (no deploy.enabled), so the config
+			// Spec 8 depends on 4: verify no deployed etcd rollout was attempted.
 			// guard should have skipped the etcd StatefulSet rollout entirely.
 			It("should not have attempted a deployed etcd rollout", func(ctx context.Context) {
 				etcdName := vClusterName + "-etcd"
