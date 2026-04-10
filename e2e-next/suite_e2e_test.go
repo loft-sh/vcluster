@@ -1,3 +1,6 @@
+// Suite: common-vcluster (main PR-gating tests)
+// vCluster: CommonVCluster (comprehensive config with all sync options enabled)
+// Run:      just run-e2e 'pr && !non-default'
 package e2e_next
 
 import (

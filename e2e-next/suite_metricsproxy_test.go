@@ -1,3 +1,7 @@
+// Suite: metricsproxy-vcluster
+// vCluster: MetricsProxyVCluster (integrations.metricsServer.enabled)
+// PreSetup: installs metrics-server on host cluster via Helm
+// Run:      just run-e2e 'metricsproxy'
 package e2e_next
 
 import (
