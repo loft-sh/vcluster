@@ -20,11 +20,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
+	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
+
+const certRotationAnnotation = "vcluster.loft.sh/cert-rotation-at"
 
 // reconnectVCluster establishes a fresh vcluster connection using a background proxy.
 // Call this after destructive operations (cert rotation, restart) that kill the suite proxy.
@@ -125,4 +129,65 @@ func certFingerprint(cert *x509.Certificate) string {
 		formatted.WriteString(strings.ToUpper(fingerprint[i : i+2]))
 	}
 	return formatted.String()
+}
+
+func listPodsBySelector(ctx context.Context, hostClient kubernetes.Interface, namespace, selector string) []corev1.Pod {
+	GinkgoHelper()
+	pods, err := hostClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: selector})
+	Expect(err).To(Succeed(), "listing pods in %s with selector %q", namespace, selector)
+	return pods.Items
+}
+
+func podUIDs(pods []corev1.Pod) map[string]struct{} {
+	result := make(map[string]struct{}, len(pods))
+	for _, pod := range pods {
+		result[string(pod.UID)] = struct{}{}
+	}
+	return result
+}
+
+func waitForPodsRolled(ctx context.Context, hostClient kubernetes.Interface, namespace, selector string, previousUIDs map[string]struct{}, expectedMinPods int, timeout time.Duration) {
+	GinkgoHelper()
+	Eventually(func(g Gomega) {
+		pods, err := hostClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: selector})
+		g.Expect(err).To(Succeed(), "listing pods in %s with selector %q", namespace, selector)
+		g.Expect(pods.Items).To(HaveLen(expectedMinPods), "unexpected number of pods after rollout")
+
+		for _, pod := range pods.Items {
+			_, exists := previousUIDs[string(pod.UID)]
+			g.Expect(exists).To(BeFalse(), "pod %s still has a pre-rollout UID", pod.Name)
+			g.Expect(pod.Status.ContainerStatuses).NotTo(BeEmpty(),
+				"pod %s has no container statuses", pod.Name)
+			for _, container := range pod.Status.ContainerStatuses {
+				g.Expect(container.State.Running).NotTo(BeNil(),
+					"container %s in pod %s is not running", container.Name, pod.Name)
+				g.Expect(container.Ready).To(BeTrue(),
+					"container %s in pod %s is not ready", container.Name, pod.Name)
+			}
+		}
+	}).WithPolling(constants.PollingInterval).WithTimeout(timeout).Should(Succeed())
+}
+
+func getControlPlaneRolloutAnnotation(ctx context.Context, hostClient kubernetes.Interface, namespace, vClusterName string) (string, error) {
+	sts, err := hostClient.AppsV1().StatefulSets(namespace).Get(ctx, vClusterName, metav1.GetOptions{})
+	if err == nil {
+		return sts.Spec.Template.Annotations[certRotationAnnotation], nil
+	}
+	if !kerrors.IsNotFound(err) {
+		return "", err
+	}
+
+	deploy, err := hostClient.AppsV1().Deployments(namespace).Get(ctx, vClusterName, metav1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+	return deploy.Spec.Template.Annotations[certRotationAnnotation], nil
+}
+
+func getStatefulSetRolloutAnnotation(ctx context.Context, hostClient kubernetes.Interface, namespace, name string) (string, error) {
+	sts, err := hostClient.AppsV1().StatefulSets(namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+	return sts.Spec.Template.Annotations[certRotationAnnotation], nil
 }

@@ -1,5 +1,6 @@
 // Suite: e2e_ha_cert_rotation
-// Tests HA-coordinated cert rotation with lease-based coordination.
+// Tests HA-coordinated cert rotation with lease-based coordination and
+// workload rollouts for control-plane and deployed etcd propagation.
 // vCluster: HAShortCertsVCluster (2 replicas, 3m cert validity, 15s check interval)
 // Run:      just run-e2e 'ha-short-certs-vcluster'
 package e2e_next

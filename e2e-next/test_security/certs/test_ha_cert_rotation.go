@@ -46,6 +46,8 @@ func HACertRotationSpec() {
 				hostRestConfig    *rest.Config
 				vClusterName      string
 				vClusterNamespace string
+				controlPlaneUIDs  map[string]struct{}
+				etcdUIDs          map[string]struct{}
 			)
 
 			BeforeAll(func(ctx context.Context) context.Context {
@@ -58,7 +60,8 @@ func HACertRotationSpec() {
 				return ctx
 			})
 
-			// Spec 1: both replicas are running
+			// Spec 1: both replicas are running. Capture the original pod UIDs so
+			// we can later verify that the rollout replaced every replica.
 			It("should have all HA vCluster pods running and ready", func(ctx context.Context) {
 				By("Waiting for all replicas to be ready", func() {
 					Eventually(func(g Gomega) {
@@ -78,6 +81,13 @@ func HACertRotationSpec() {
 							}
 						}
 					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
+				})
+
+				By("Capturing the original control-plane and etcd pod identities", func() {
+					controlPlaneUIDs = podUIDs(listPodsBySelector(ctx, hostClient, vClusterNamespace, "app=vcluster,release="+vClusterName))
+					etcdUIDs = podUIDs(listPodsBySelector(ctx, hostClient, vClusterNamespace, "app=vcluster-etcd,release="+vClusterName))
+					Expect(controlPlaneUIDs).To(HaveLen(2), "expected 2 control-plane pods before rollout")
+					Expect(etcdUIDs).NotTo(BeEmpty(), "expected deployed etcd pod(s) before rollout")
 				})
 			})
 
@@ -121,14 +131,43 @@ func HACertRotationSpec() {
 				})
 			})
 
-			// Spec 4 depends on 3: after the watcher rotates and the pod restarts,
-			// verify certs are renewed and the cluster is healthy.
-			It("should have renewed certs after coordinated rotation", func(ctx context.Context) {
-				By("Waiting for all pods to be ready after watcher-triggered restart", func() {
-					waitForPodsReady(ctx, hostClient, vClusterNamespace, vClusterName, constants.PollingTimeoutVeryLong)
+			// Spec 4 depends on 3: after the watcher rotates certs, it should patch
+			// the workload templates to trigger rollout propagation.
+			It("should patch rollout annotations on the workloads", func(ctx context.Context) {
+				var controlPlaneRolloutAt string
+
+				By("Waiting for the control-plane template annotation to be set", func() {
+					Eventually(func(g Gomega) {
+						var err error
+						controlPlaneRolloutAt, err = getControlPlaneRolloutAnnotation(ctx, hostClient, vClusterNamespace, vClusterName)
+						g.Expect(err).To(Succeed())
+						g.Expect(controlPlaneRolloutAt).NotTo(BeEmpty(),
+							"control-plane workload should have the cert rotation annotation")
+					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
 				})
 
-				By("Verifying the apiserver cert was renewed", func() {
+				By("Waiting for the deployed etcd template annotation to match", func() {
+					Eventually(func(g Gomega) {
+						etcdRolloutAt, err := getStatefulSetRolloutAnnotation(ctx, hostClient, vClusterNamespace, vClusterName+"-etcd")
+						g.Expect(err).To(Succeed())
+						g.Expect(etcdRolloutAt).To(Equal(controlPlaneRolloutAt),
+							"etcd and control-plane should use the same rollout marker")
+					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
+				})
+			})
+
+			// Spec 5 depends on 4: verify the rollout replaced every pod, not just
+			// the lease holder, and that the secret contains renewed certs.
+			It("should roll all HA replicas and renew the certs", func(ctx context.Context) {
+				By("Waiting for the control-plane rollout to replace every pod", func() {
+					waitForPodsRolled(ctx, hostClient, vClusterNamespace, "app=vcluster,release="+vClusterName, controlPlaneUIDs, 2, constants.PollingTimeoutVeryLong)
+				})
+
+				By("Waiting for the deployed etcd rollout to replace every pod", func() {
+					waitForPodsRolled(ctx, hostClient, vClusterNamespace, "app=vcluster-etcd,release="+vClusterName, etcdUIDs, len(etcdUIDs), constants.PollingTimeoutVeryLong)
+				})
+
+				By("Verifying the apiserver cert was renewed in the secret", func() {
 					Eventually(func(g Gomega) {
 						secret, err := hostClient.CoreV1().Secrets(vClusterNamespace).Get(ctx,
 							certs.CertSecretName(vClusterName), metav1.GetOptions{})
@@ -146,7 +185,7 @@ func HACertRotationSpec() {
 				})
 			})
 
-			// Spec 5: cleanup the lease
+			// Spec 6: cleanup the lease
 			It("should clean up the cert rotation lease", func(ctx context.Context) {
 				leaseName := translate.SafeConcatName("vcluster", vClusterName, "cert-rotation")
 				err := hostClient.CoordinationV1().Leases(vClusterNamespace).Delete(ctx,

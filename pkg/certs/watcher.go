@@ -2,6 +2,7 @@ package certs
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand/v2"
@@ -14,6 +15,8 @@ import (
 	coordinationv1 "k8s.io/api/coordination/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	kubeadmapi "k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm"
@@ -26,15 +29,34 @@ const (
 	// certRotationLeaseDuration is how long the rotation lease is held.
 	// Other replicas that see a held lease skip rotation.
 	certRotationLeaseDuration = 5 * time.Minute
+
+	// certRotationExitDelayMin and certRotationExitDelayMax define the random
+	// delay window before exiting in standalone mode after a successful
+	// rotation.
+	certRotationExitDelayMin = 5 * time.Second
+	certRotationExitDelayMax = 5 * time.Minute
+
+	initialPendingRolloutRetryDelay = time.Minute
+	maxPendingRolloutRetryDelay     = time.Hour
+
+	certRotationAnnotation = "vcluster.loft.sh/cert-rotation-at"
 )
+
+var certRotationRolloutBackoff = wait.Backoff{
+	Duration: time.Second,
+	Factor:   2.0,
+	Jitter:   0.1,
+	Steps:    5,
+}
 
 // StartCertWatcher starts a background goroutine that periodically checks
 // whether leaf certificates are approaching expiry. If any cert is within the
-// renewal threshold (90 days), it rotates all leaf certs and exits the process
-// so the pod restarts with fresh certificates.
+// renewal threshold (90 days), it rotates all leaf certs and then either exits
+// in standalone mode or triggers workload rollouts in clustered mode so the
+// new certs are picked up everywhere.
 //
 // In HA deployments, a Lease is used to coordinate rotation so only one
-// replica rotates and exits at a time, avoiding simultaneous restarts.
+// replica rotates at a time, avoiding concurrent regeneration.
 func StartCertWatcher(
 	ctx context.Context,
 	interval time.Duration,
@@ -76,40 +98,84 @@ func runCertWatcher(
 	ticker := time.NewTicker(interval + jitter)
 	defer ticker.Stop()
 
+	var (
+		retryTimer <-chan time.Time
+		// pendingRolloutAt means cert rotation already succeeded and only the
+		// workload rollout still needs to converge. While this is set, the
+		// watcher retries only propagation and never regenerates certs again.
+		pendingRolloutAt  string
+		pendingRetryDelay = initialPendingRolloutRetryDelay
+	)
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			expiring, err := checkCertsExpiring(certificateDir)
-			if err != nil {
-				klog.Errorf("Error checking certificate expiry: %v", err)
-				continue
-			}
-			if !expiring {
-				continue
-			}
-
-			// In HA deployments (replicas > 1), acquire a lease so only one
-			// replica rotates and restarts at a time. Single-replica deployments
-			// skip the lease — they may not have coordination.k8s.io/leases RBAC
-			// (it's only granted when HA or privateNodes are enabled in the chart).
-			if options.ControlPlane.StatefulSet.HighAvailability.Replicas > 1 {
-				if currentNamespaceClient == nil || !tryAcquireRotationLease(ctx, currentNamespaceClient, currentNamespace, options.Name) {
-					klog.Infof("Another replica is handling cert rotation, skipping")
-					continue
-				}
-			}
-
-			klog.Infof("Leaf certificates are expiring soon, rotating and restarting")
-			if err := rotateLeafCerts(ctx, currentNamespace, currentNamespaceClient, certificateDir, kubeadmConfig, options); err != nil {
-				klog.Errorf("Error rotating certificates: %v", err)
-				continue
-			}
-
-			klog.Infof("Leaf certificates rotated successfully, exiting for pod restart")
-			osutil.Exit(0)
+		case <-retryTimer:
+			retryTimer = nil
 		}
+
+		if pendingRolloutAt != "" {
+			if err := finishPendingRollout(ctx, currentNamespace, currentNamespaceClient, options, pendingRolloutAt); err != nil {
+				klog.Errorf("Error finishing pending cert rollout: %v", err)
+				retryTimer = time.After(pendingRetryDelay)
+				pendingRetryDelay = min(pendingRetryDelay*2, maxPendingRolloutRetryDelay)
+				continue
+			}
+
+			pendingRolloutAt = ""
+			pendingRetryDelay = initialPendingRolloutRetryDelay
+			retryTimer = nil
+			continue
+		}
+
+		expiring, err := checkCertsExpiring(certificateDir)
+		if err != nil {
+			klog.Errorf("Error checking certificate expiry: %v", err)
+			continue
+		}
+		if !expiring {
+			continue
+		}
+
+		// In HA deployments (replicas > 1), acquire a lease so only one
+		// replica rotates and restarts at a time. Single-replica deployments
+		// skip the lease — they may not have coordination.k8s.io/leases RBAC
+		// (it's only granted when HA or privateNodes are enabled in the chart).
+		if options.ControlPlane.StatefulSet.HighAvailability.Replicas > 1 {
+			if currentNamespaceClient == nil || !tryAcquireRotationLease(ctx, currentNamespaceClient, currentNamespace, options.Name) {
+				klog.Infof("Another replica is handling cert rotation, skipping")
+				continue
+			}
+		}
+
+		klog.Infof("Leaf certificates are expiring soon, rotating and restarting")
+		if err := rotateLeafCerts(ctx, currentNamespace, currentNamespaceClient, certificateDir, kubeadmConfig, options); err != nil {
+			klog.Errorf("Error rotating certificates: %v", err)
+			continue
+		}
+
+		if options.ControlPlane.Standalone.Enabled {
+			if err := restartAfterRotation(ctx, currentNamespace, currentNamespaceClient, options, ""); err != nil {
+				klog.Errorf("Error restarting after rotation: %v", err)
+				continue
+			}
+			continue
+		}
+
+		// Keep the same rollout timestamp across retries so the patch stays
+		// idempotent while we wait for the workload controllers to converge.
+		pendingRolloutAt = time.Now().UTC().Format(time.RFC3339Nano)
+		if err := finishPendingRollout(ctx, currentNamespace, currentNamespaceClient, options, pendingRolloutAt); err != nil {
+			klog.Errorf("Error finishing pending cert rollout: %v", err)
+			retryTimer = time.After(pendingRetryDelay)
+			pendingRetryDelay = min(pendingRetryDelay*2, maxPendingRolloutRetryDelay)
+			continue
+		}
+
+		pendingRolloutAt = ""
+		pendingRetryDelay = initialPendingRolloutRetryDelay
 	}
 }
 
@@ -177,6 +243,152 @@ func tryAcquireRotationLease(ctx context.Context, client kubernetes.Interface, n
 	return true
 }
 
+func restartAfterRotation(
+	ctx context.Context,
+	currentNamespace string,
+	currentNamespaceClient kubernetes.Interface,
+	options *config.VirtualClusterConfig,
+	rolloutAt string,
+) error {
+	if options.ControlPlane.Standalone.Enabled {
+		delay := certRotationExitDelayMin
+		if certRotationExitDelayMax > certRotationExitDelayMin {
+			delay += time.Duration(rand.Int64N(int64(certRotationExitDelayMax - certRotationExitDelayMin)))
+		}
+		// Spread standalone restarts out so multiple instances do not all
+		// disappear at exactly the same moment after rotating.
+		klog.Infof("Standalone cert rotation complete, exiting after random delay %s", delay)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(delay):
+		}
+
+		klog.Infof("Leaf certificates rotated successfully in standalone mode, exiting for restart")
+		osutil.Exit(0)
+		return nil
+	}
+
+	return finishPendingRollout(ctx, currentNamespace, currentNamespaceClient, options, rolloutAt)
+}
+
+func finishPendingRollout(
+	ctx context.Context,
+	currentNamespace string,
+	currentNamespaceClient kubernetes.Interface,
+	options *config.VirtualClusterConfig,
+	rolloutAt string,
+) error {
+	if currentNamespaceClient == nil {
+		return errors.New("clustered cert rotation requires a host cluster client")
+	}
+
+	// Restart deployed etcd first so the control plane comes back against the
+	// refreshed etcd serving/client certs.
+	if err := rolloutDeployedEtcdWithRetry(ctx, currentNamespaceClient, currentNamespace, options.Name, rolloutAt); err != nil {
+		return err
+	}
+
+	if err := rolloutControlPlaneWithRetry(ctx, currentNamespaceClient, currentNamespace, options.Name, rolloutAt); err != nil {
+		return err
+	}
+
+	klog.Infof("Leaf certificates rotated successfully, triggered workload rollout at %s", rolloutAt)
+	return nil
+}
+
+func rolloutControlPlaneWithRetry(ctx context.Context, client kubernetes.Interface, namespace, name, rolloutAt string) error {
+	return retryWithBackoff(ctx, "trigger control-plane rollout", func(ctx context.Context) error {
+		// Patching spec.template annotations triggers a rollout for Deployments
+		// and StatefulSets using RollingUpdate. StatefulSets configured with
+		// OnDelete will not restart pods automatically.
+		err := patchStatefulSetTemplateAnnotation(ctx, client, namespace, name, certRotationAnnotation, rolloutAt)
+		if err == nil {
+			return nil
+		}
+		if !kerrors.IsNotFound(err) {
+			return err
+		}
+
+		err = patchDeploymentTemplateAnnotation(ctx, client, namespace, name, certRotationAnnotation, rolloutAt)
+		if err == nil {
+			return nil
+		}
+		if kerrors.IsNotFound(err) {
+			return fmt.Errorf("control-plane workload %s/%s not found", namespace, name)
+		}
+		return err
+	})
+}
+
+func rolloutDeployedEtcdWithRetry(ctx context.Context, client kubernetes.Interface, namespace, vclusterName, rolloutAt string) error {
+	etcdName := vclusterName + "-etcd"
+	return retryWithBackoff(ctx, "trigger deployed etcd rollout", func(ctx context.Context) error {
+		err := patchStatefulSetTemplateAnnotation(ctx, client, namespace, etcdName, certRotationAnnotation, rolloutAt)
+		if kerrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	})
+}
+
+func retryWithBackoff(ctx context.Context, description string, fn func(context.Context) error) error {
+	var lastErr error
+
+	err := wait.ExponentialBackoffWithContext(ctx, certRotationRolloutBackoff, func(ctx context.Context) (bool, error) {
+		if err := fn(ctx); err != nil {
+			lastErr = err
+			klog.Infof("%s failed, retrying: %v", description, err)
+			return false, nil
+		}
+		return true, nil
+	})
+	if err == nil {
+		return nil
+	}
+	if ctx.Err() != nil {
+		return fmt.Errorf("%s interrupted: %w", description, err)
+	}
+	if lastErr != nil {
+		return fmt.Errorf("%s after retries: %w", description, lastErr)
+	}
+	return fmt.Errorf("%s interrupted: %w", description, err)
+}
+
+func patchStatefulSetTemplateAnnotation(ctx context.Context, client kubernetes.Interface, namespace, name, key, value string) error {
+	patchBytes, err := podTemplateAnnotationPatch(key, value)
+	if err != nil {
+		return err
+	}
+
+	_, err = client.AppsV1().StatefulSets(namespace).Patch(ctx, name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
+	return err
+}
+
+func patchDeploymentTemplateAnnotation(ctx context.Context, client kubernetes.Interface, namespace, name, key, value string) error {
+	patchBytes, err := podTemplateAnnotationPatch(key, value)
+	if err != nil {
+		return err
+	}
+
+	_, err = client.AppsV1().Deployments(namespace).Patch(ctx, name, types.MergePatchType, patchBytes, metav1.PatchOptions{})
+	return err
+}
+
+func podTemplateAnnotationPatch(key, value string) ([]byte, error) {
+	return json.Marshal(map[string]any{
+		"spec": map[string]any{
+			"template": map[string]any{
+				"metadata": map[string]any{
+					"annotations": map[string]string{
+						key: value,
+					},
+				},
+			},
+		},
+	})
+}
+
 // checkCertsExpiring checks whether any leaf cert is within the renewal window.
 // Both standalone and platform-managed modes check certs on disk — in
 // platform-managed mode, certs were downloaded from the secret at startup.
@@ -184,11 +396,11 @@ func checkCertsExpiring(certificateDir string) (bool, error) {
 	return diskCertsExpiringSoon(certificateDir), nil
 }
 
-// rotateLeafCerts rotates all leaf certificates, preserving CA and SA keys.
-// This aligns with the manual Rotate function in rotate.go:
-// - backs up PKI before deletion
-// - downloads certs from secret (non-standalone) to ensure CA/SA keys are on disk
-// - handles standalone etcd cert cleanup
+// rotateLeafCerts rotates all leaf certificates.
+// In standalone mode, the local PKI directory is the source of truth and gets
+// updated in place.
+// In clustered mode, a temporary PKI directory is generated and synced to the
+// secret, which becomes the source of truth for the subsequent rollout.
 func rotateLeafCerts(
 	ctx context.Context,
 	currentNamespace string,
@@ -197,31 +409,22 @@ func rotateLeafCerts(
 	kubeadmConfig *kubeadmapi.InitConfiguration,
 	options *config.VirtualClusterConfig,
 ) error {
-	// Back up the PKI directory before making changes so recovery is possible.
+	// Back up the current on-disk PKI before making changes or preparing a
+	// replacement source of truth.
 	backupDir, err := backupPKI(certificateDir)
 	if err != nil {
 		return fmt.Errorf("backing up PKI directory: %w", err)
 	}
 	klog.Infof("PKI backup available at %s", backupDir)
 
-	// For non-standalone mode, download certs from the secret first to ensure
-	// CA and SA keys are present on disk before we regenerate leaf certs.
-	if !options.ControlPlane.Standalone.Enabled {
-		if currentNamespaceClient == nil {
-			return errors.New("non-standalone cert rotation requires a host cluster client")
-		}
-
-		secretName := CertSecretName(options.Name)
-		secret, err := currentNamespaceClient.CoreV1().Secrets(currentNamespace).Get(ctx, secretName, metav1.GetOptions{})
-		if err != nil {
-			return fmt.Errorf("get cert secret: %w", err)
-		}
-
-		if err := downloadCertsFromSecret(secret, certificateDir); err != nil {
-			return fmt.Errorf("download certs before renewal: %w", err)
-		}
+	if options.ControlPlane.Standalone.Enabled {
+		return rotateLeafCertsStandalone(certificateDir, kubeadmConfig)
 	}
 
+	return rotateLeafCertsInCluster(ctx, currentNamespace, currentNamespaceClient, kubeadmConfig, options)
+}
+
+func rotateLeafCertsStandalone(certificateDir string, kubeadmConfig *kubeadmapi.InitConfiguration) error {
 	// Remove only leaf certs; preserve SA keys and CA keys.
 	if err := removeFiles(certificateDir, excludeSAFiles, excludeCAFiles); err != nil {
 		return fmt.Errorf("remove expiring leaf certs: %w", err)
@@ -232,15 +435,58 @@ func rotateLeafCerts(
 		return fmt.Errorf("regenerate certs: %w", err)
 	}
 
-	// Handle standalone etcd: remove etcd server/peer certs so vCluster
-	// standalone regenerates them dynamically at runtime.
-	if options.ControlPlane.Standalone.Enabled {
-		return removeStandaloneEtcdCerts(certificateDir)
+	// Standalone etcd server and peer certs are regenerated dynamically at runtime.
+	if err := removeStandaloneEtcdCerts(certificateDir); err != nil {
+		return err
 	}
 
-	// Non-standalone: sync renewed certs back to the host secret.
+	return nil
+}
+
+func rotateLeafCertsInCluster(
+	ctx context.Context,
+	currentNamespace string,
+	currentNamespaceClient kubernetes.Interface,
+	kubeadmConfig *kubeadmapi.InitConfiguration,
+	options *config.VirtualClusterConfig,
+) error {
+	if currentNamespaceClient == nil {
+		return errors.New("clustered cert rotation requires a host cluster client")
+	}
+
+	// Build renewed certs in a temporary PKI tree first. In clustered mode the
+	// Secret is the commit point; the current pod's live /pki stays untouched
+	// until the rollout restarts pods and EnsureCerts rehydrates from the Secret.
+	tempDir, err := os.MkdirTemp("/tmp", "pki-rotate-*")
+	if err != nil {
+		return fmt.Errorf("create temp pki dir: %w", err)
+	}
+	defer os.RemoveAll(tempDir)
+
 	secretName := CertSecretName(options.Name)
-	if err := SyncSecret(ctx, currentNamespace, secretName, certificateDir, currentNamespaceClient); err != nil {
+	secret, err := currentNamespaceClient.CoreV1().Secrets(currentNamespace).Get(ctx, secretName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("get cert secret: %w", err)
+	}
+
+	if err := downloadCertsFromSecret(secret, tempDir); err != nil {
+		return fmt.Errorf("download certs before renewal: %w", err)
+	}
+
+	if err := removeFiles(tempDir, excludeSAFiles, excludeCAFiles); err != nil {
+		return fmt.Errorf("remove expiring leaf certs: %w", err)
+	}
+
+	tempKubeadmConfig := *kubeadmConfig
+	tempKubeadmConfig.CertificatesDir = tempDir
+
+	if err := generateCertificates(tempDir, &tempKubeadmConfig); err != nil {
+		return fmt.Errorf("regenerate certs: %w", err)
+	}
+
+	// Syncing the Secret is the safety boundary for in-cluster rotation. If this
+	// fails, we leave existing pods on the old committed cert set.
+	if err := SyncSecret(ctx, currentNamespace, secretName, tempDir, currentNamespaceClient); err != nil {
 		return fmt.Errorf("sync renewed certs to secret: %w", err)
 	}
 

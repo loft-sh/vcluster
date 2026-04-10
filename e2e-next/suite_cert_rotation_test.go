@@ -1,6 +1,6 @@
 // Suite: e2e_short_certs
 // Tests serving cert hot-reload (syncer SANs bug fix) and single-replica
-// watcher rotation with short-lived certs.
+// watcher rotation with short-lived certs, including rollout propagation.
 // vCluster: ShortCertsVCluster (DEVELOPMENT=true, 3m cert validity, 15s check interval)
 // Run:      just run-e2e 'short-certs-vcluster'
 package e2e_next
@@ -18,8 +18,8 @@ func init() {
 
 func suiteShortCertsVCluster() {
 	// Ordered: ServingCertRotationSpec must complete before
-	// SingleReplicaWatcherSpec because the watcher test triggers a pod
-	// restart which would disrupt the serving cert Consistently check.
+	// SingleReplicaWatcherSpec because the watcher test triggers a workload
+	// rollout which would disrupt the serving cert Consistently check.
 	Describe("short-certs-vcluster",
 		Ordered,
 		cluster.Use(clusters.ShortCertsVCluster),

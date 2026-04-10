@@ -1,12 +1,16 @@
 package certs
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"gotest.tools/assert"
+	appsv1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
 )
 
 func TestCheckCertsExpiring_DiskValid(t *testing.T) {
@@ -94,4 +98,37 @@ func TestCheckCertsExpiring_DiskCAOnlyExpiring(t *testing.T) {
 	expiring, err := checkCertsExpiring(dir)
 	assert.NilError(t, err)
 	assert.Assert(t, !expiring, "only CA expiring should not trigger leaf rotation")
+}
+
+func TestRolloutControlPlaneWithRetry_StatefulSet(t *testing.T) {
+	client := fake.NewSimpleClientset(&appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
+	})
+
+	err := rolloutControlPlaneWithRetry(context.Background(), client, "ns", "test", "ts-rollout")
+	assert.NilError(t, err)
+
+	sts, err := client.AppsV1().StatefulSets("ns").Get(context.Background(), "test", metav1.GetOptions{})
+	assert.NilError(t, err)
+	assert.Equal(t, sts.Spec.Template.Annotations[certRotationAnnotation], "ts-rollout")
+}
+
+func TestRolloutControlPlaneWithRetry_DeploymentFallback(t *testing.T) {
+	client := fake.NewSimpleClientset(&appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
+	})
+
+	err := rolloutControlPlaneWithRetry(context.Background(), client, "ns", "test", "deploy-rollout")
+	assert.NilError(t, err)
+
+	deploy, err := client.AppsV1().Deployments("ns").Get(context.Background(), "test", metav1.GetOptions{})
+	assert.NilError(t, err)
+	assert.Equal(t, deploy.Spec.Template.Annotations[certRotationAnnotation], "deploy-rollout")
+}
+
+func TestRolloutDeployedEtcdWithRetry_NotFoundIsIgnored(t *testing.T) {
+	client := fake.NewSimpleClientset()
+
+	err := rolloutDeployedEtcdWithRetry(context.Background(), client, "ns", "test", "etcd-rollout")
+	assert.NilError(t, err)
 }

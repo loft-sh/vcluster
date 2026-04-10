@@ -41,6 +41,7 @@ func SingleReplicaWatcherSpec() {
 				hostRestConfig    *rest.Config
 				vClusterName      string
 				vClusterNamespace string
+				controlPlaneUIDs  map[string]struct{}
 			)
 
 			BeforeAll(func(ctx context.Context) context.Context {
@@ -55,6 +56,9 @@ func SingleReplicaWatcherSpec() {
 
 			It("should have the vCluster pod running and ready", func(ctx context.Context) {
 				waitForPodsReady(ctx, hostClient, vClusterNamespace, vClusterName, constants.PollingTimeoutVeryLong)
+
+				controlPlaneUIDs = podUIDs(listPodsBySelector(ctx, hostClient, vClusterNamespace, "app=vcluster,release="+vClusterName))
+				Expect(controlPlaneUIDs).To(HaveLen(1), "expected exactly 1 pod for single-replica")
 			})
 
 			// Spec 2 depends on 1: write an expiring cert to disk inside the
@@ -77,10 +81,23 @@ func SingleReplicaWatcherSpec() {
 			})
 
 			// Spec 3 depends on 2: the watcher should detect the expiring cert,
-			// rotate without lease coordination, and trigger a graceful restart.
-			// After the pod restarts, certs should be renewed.
-			It("should rotate certs and restart without lease coordination", func(ctx context.Context) {
-				By("Waiting for the pod to restart with renewed certs", func() {
+			// rotate without lease coordination, and trigger a rollout of the
+			// single control-plane workload.
+			It("should patch the control-plane rollout annotation without lease coordination", func(ctx context.Context) {
+				By("Waiting for the control-plane workload to be marked for rollout", func() {
+					Eventually(func(g Gomega) {
+						rolloutAt, err := getControlPlaneRolloutAnnotation(ctx, hostClient, vClusterNamespace, vClusterName)
+						g.Expect(err).To(Succeed())
+						g.Expect(rolloutAt).NotTo(BeEmpty(),
+							"single-replica workload should have the cert rotation annotation")
+					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
+				})
+			})
+
+			// Spec 4 depends on 3: after the rollout starts, the secret should be
+			// renewed and the old pod should be replaced by the controller.
+			It("should rotate certs and roll the single replica", func(ctx context.Context) {
+				By("Waiting for the secret to contain a renewed apiserver cert", func() {
 					Eventually(func(g Gomega) {
 						secret, err := hostClient.CoreV1().Secrets(vClusterNamespace).Get(ctx,
 							certs.CertSecretName(vClusterName), metav1.GetOptions{})
@@ -98,12 +115,12 @@ func SingleReplicaWatcherSpec() {
 					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
 				})
 
-				By("Waiting for the pod to be ready after restart", func() {
-					waitForPodsReady(ctx, hostClient, vClusterNamespace, vClusterName, constants.PollingTimeoutVeryLong)
+				By("Waiting for the old pod to be replaced and the new pod to be ready", func() {
+					waitForPodsRolled(ctx, hostClient, vClusterNamespace, "app=vcluster,release="+vClusterName, controlPlaneUIDs, 1, constants.PollingTimeoutVeryLong)
 				})
 			})
 
-			// Spec 4 depends on 3: verify no rotation lease was created, confirming
+			// Spec 5 depends on 4: verify no rotation lease was created, confirming
 			// the single-replica path skipped lease coordination.
 			It("should not have created a rotation lease", func(ctx context.Context) {
 				leaseName := translate.SafeConcatName("vcluster", vClusterName, "cert-rotation")
