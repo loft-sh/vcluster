@@ -8,7 +8,7 @@ on:
 jobs:
   chart-changes:
     if: github.repository_owner == 'loft-sh' # do not run on forks
-    uses: ./.github/workflows/detect_changes.yaml
+    uses: loft-sh/github-actions/.github/workflows/detect-changes.yaml@v1
     with:
       paths: |
         - "chart/**"
