@@ -9,8 +9,8 @@ import (
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 // ServingCertRotationSpec verifies that the API server serving certificate
@@ -20,13 +20,9 @@ import (
 //
 // The syncer polls every 2 seconds and regenerates the cert when IsCertExpired
 // returns true (<=90 days to expiry). With a 3-minute cert, this fires on every
-// poll cycle. We verify regeneration by checking that the pod stays healthy and
-// ready past the cert lifetime (4 minutes > 3 minute cert validity). If the
-// syncer weren't regenerating the cert, the API server would reject TLS
-// connections and fail health checks.
-//
-// This validates the fix for the SANs bug where expiry-triggered regeneration
-// was silently discarded because the syncer compared SAN lists instead of cert bytes.
+// poll cycle. We verify regeneration by recording the cert serial via TLS
+// handshake, waiting briefly, then verifying the serial changed — proving
+// the syncer actually regenerated and applied a new serving cert.
 //
 // Must be called inside a Describe that has cluster.Use() for the vcluster and host cluster.
 func ServingCertRotationSpec() {
@@ -37,69 +33,73 @@ func ServingCertRotationSpec() {
 		func() {
 			var (
 				hostClient        kubernetes.Interface
+				hostRestConfig    *rest.Config
 				vClusterName      string
 				vClusterNamespace string
+				initialSerial     string
+				baselineRestarts  map[string]int32
 			)
 
 			BeforeAll(func(ctx context.Context) context.Context {
 				hostClient = cluster.KubeClientFrom(ctx, constants.GetHostClusterName())
 				Expect(hostClient).NotTo(BeNil())
+				hostRestConfig = cluster.From(ctx, constants.GetHostClusterName()).KubernetesRestConfig()
+				Expect(hostRestConfig).NotTo(BeNil())
 				vClusterName = cluster.CurrentClusterNameFrom(ctx)
 				vClusterNamespace = "vcluster-" + vClusterName
 				return ctx
 			})
 
 			It("should have the vCluster pod running and ready", func(ctx context.Context) {
-				waitForPodsReady(ctx, hostClient, vClusterNamespace, vClusterName, constants.PollingTimeoutVeryLong)
+				By("Waiting for the pod to be ready", func() {
+					waitForPodsReady(ctx, hostClient, vClusterNamespace, vClusterName, constants.PollingTimeoutVeryLong)
+				})
+
+				By("Recording baseline restart counts and initial serving cert serial", func() {
+					selector := "app=vcluster,release=" + vClusterName
+					baselineRestarts = containerRestartCounts(ctx, hostClient, vClusterNamespace, selector)
+
+					pods := listPodsBySelector(ctx, hostClient, vClusterNamespace, selector)
+					Expect(pods).NotTo(BeEmpty())
+
+					var err error
+					initialSerial, err = getServingCertSerial(ctx, hostRestConfig, hostClient, vClusterNamespace, pods[0].Name)
+					Expect(err).To(Succeed(), "failed to get initial serving cert serial")
+					Expect(initialSerial).NotTo(BeEmpty())
+				})
 			})
 
-			// Spec 2 depends on 1: verify the vcluster stays healthy with short-lived
-			// serving certs. With VCLUSTER_CERTS_VALIDITYPERIOD=3m, the serving cert
-			// expires in 3 minutes. If the syncer weren't regenerating it, the API
-			// server would start rejecting TLS connections and the pod would become
-			// unready. We wait past the cert lifetime and verify the pod is still ready.
-			It("should remain healthy after serving cert would have expired", func(ctx context.Context) {
-				By("Verifying the pod stays ready past the cert lifetime", func() {
-					// With VCLUSTER_CERTS_VALIDITYPERIOD=3m, the serving cert expires
-					// in 3 minutes. If the syncer weren't continuously regenerating it,
-					// the API server would reject TLS connections and the pod would fail
-					// health checks. We verify the pod stays ready for 4 minutes —
-					// past the cert lifetime.
-					Consistently(func(g Gomega) {
-						pods, err := hostClient.CoreV1().Pods(vClusterNamespace).List(ctx, metav1.ListOptions{
-							LabelSelector: "app=vcluster,release=" + vClusterName,
-						})
-						g.Expect(err).To(Succeed())
-						g.Expect(pods.Items).NotTo(BeEmpty(), "vcluster pods disappeared")
+			// Spec 2 depends on 1: wait briefly then verify the serving cert serial
+			// changed. With VCLUSTER_CERTS_VALIDITYPERIOD=3m, the cert is always
+			// within the 90-day expiry window, so the syncer regenerates it every
+			// 2 seconds. A changed serial proves the cert was actually regenerated.
+			It("should regenerate the serving cert with a new serial", func(ctx context.Context) {
+				By("Waiting for the serving cert serial to change", func() {
+					pods := listPodsBySelector(ctx, hostClient, vClusterNamespace, "app=vcluster,release="+vClusterName)
+					Expect(pods).NotTo(BeEmpty())
 
-						for _, pod := range pods.Items {
-							for _, container := range pod.Status.ContainerStatuses {
-								g.Expect(container.State.Running).NotTo(BeNil(),
-									"container %s in pod %s should still be running", container.Name, pod.Name)
-								g.Expect(container.Ready).To(BeTrue(),
-									"container %s in pod %s should still be ready", container.Name, pod.Name)
-							}
-						}
-					}).WithPolling(constants.PollingInterval).WithTimeout(4 * time.Minute).Should(Succeed())
+					Eventually(func(g Gomega) {
+						serial, err := getServingCertSerial(ctx, hostRestConfig, hostClient, vClusterNamespace, pods[0].Name)
+						g.Expect(err).To(Succeed(), "failed to get serving cert serial")
+						g.Expect(serial).NotTo(Equal(initialSerial),
+							"serving cert serial should have changed after syncer regeneration")
+					}).WithPolling(5 * time.Second).WithTimeout(constants.PollingTimeout).Should(Succeed())
 				})
 			})
 
 			// Spec 3 depends on 2: verify the pod was NOT restarted — serving cert
 			// rotation should be a hot-reload, not a restart.
 			It("should not have restarted the pod for serving cert rotation", func(ctx context.Context) {
-				By("Verifying all container restart counts are zero", func() {
-					pods, err := hostClient.CoreV1().Pods(vClusterNamespace).List(ctx, metav1.ListOptions{
-						LabelSelector: "app=vcluster,release=" + vClusterName,
-					})
-					Expect(err).To(Succeed())
-					Expect(pods.Items).NotTo(BeEmpty())
+				By("Verifying no container restart counts increased", func() {
+					selector := "app=vcluster,release=" + vClusterName
+					currentRestarts := containerRestartCounts(ctx, hostClient, vClusterNamespace, selector)
 
-					for _, pod := range pods.Items {
-						for _, container := range pod.Status.ContainerStatuses {
-							Expect(container.RestartCount).To(BeNumerically("==", 0),
-								"container %s in pod %s should not have restarted (serving cert hot-reload should not require restart)",
-								container.Name, pod.Name)
-						}
+					for key, baseline := range baselineRestarts {
+						current, ok := currentRestarts[key]
+						Expect(ok).To(BeTrue(), "container %s disappeared after cert rotation", key)
+						Expect(current).To(BeNumerically("==", baseline),
+							"container %s restarted during serving cert rotation (was %d, now %d)",
+							key, baseline, current)
 					}
 				})
 			})

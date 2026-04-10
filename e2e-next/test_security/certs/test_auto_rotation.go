@@ -102,23 +102,8 @@ func CertAutoRotationSpec() {
 			})
 
 			// Spec 4 depends on 3: verify the cert was auto-rotated.
-			// Poll the secret because EnsureCerts runs at startup and syncs
-			// the renewed certs back to the secret asynchronously.
 			It("should have a renewed apiserver cert after auto-rotation", func(ctx context.Context) {
-				Eventually(func(g Gomega) {
-					secret, err := hostClient.CoreV1().Secrets(vClusterNamespace).Get(ctx,
-						certs.CertSecretName(vClusterName), metav1.GetOptions{})
-					g.Expect(err).To(Succeed())
-
-					block, _ := pem.Decode(secret.Data["apiserver.crt"])
-					g.Expect(block).NotTo(BeNil(), "failed to decode apiserver cert PEM")
-
-					cert, err := x509.ParseCertificate(block.Bytes)
-					g.Expect(err).To(Succeed())
-
-					g.Expect(cert.NotAfter.After(time.Now().Add(90*24*time.Hour))).To(BeTrue(),
-						"apiserver cert should have been renewed, NotAfter=%s", cert.NotAfter.Format(time.RFC3339))
-				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
+				expectCertRenewed(ctx, hostClient, vClusterNamespace, vClusterName, constants.PollingTimeoutVeryLong)
 			})
 
 			// Spec 5 depends on 3: verify CA was NOT rotated

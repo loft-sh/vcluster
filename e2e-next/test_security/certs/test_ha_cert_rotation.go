@@ -1,27 +1,19 @@
 package certs
 
 import (
-	"bytes"
 	"context"
-	"crypto/x509"
-	"encoding/pem"
-	"fmt"
 	"time"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
-	"github.com/loft-sh/vcluster/pkg/certs"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/remotecommand"
-	"k8s.io/klog/v2"
-	"k8s.io/kubectl/pkg/scheme"
 )
 
 // HACertRotationSpec verifies that HA cert rotation is coordinated via a
@@ -168,20 +160,7 @@ func HACertRotationSpec() {
 				})
 
 				By("Verifying the apiserver cert was renewed in the secret", func() {
-					Eventually(func(g Gomega) {
-						secret, err := hostClient.CoreV1().Secrets(vClusterNamespace).Get(ctx,
-							certs.CertSecretName(vClusterName), metav1.GetOptions{})
-						g.Expect(err).To(Succeed())
-
-						block, _ := pem.Decode(secret.Data["apiserver.crt"])
-						g.Expect(block).NotTo(BeNil(), "failed to decode apiserver cert PEM")
-
-						cert, err := x509.ParseCertificate(block.Bytes)
-						g.Expect(err).To(Succeed())
-
-						g.Expect(cert.NotAfter.After(time.Now().Add(90*24*time.Hour))).To(BeTrue(),
-							"apiserver cert should have been renewed, NotAfter=%s", cert.NotAfter.Format(time.RFC3339))
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
+					expectCertRenewed(ctx, hostClient, vClusterNamespace, vClusterName, constants.PollingTimeoutVeryLong)
 				})
 			})
 
@@ -190,44 +169,10 @@ func HACertRotationSpec() {
 				leaseName := translate.SafeConcatName("vcluster", vClusterName, "cert-rotation")
 				err := hostClient.CoordinationV1().Leases(vClusterNamespace).Delete(ctx,
 					leaseName, metav1.DeleteOptions{})
-				if err != nil {
-					klog.Infof("Lease cleanup: %v", err)
+				if !kerrors.IsNotFound(err) {
+					Expect(err).To(Succeed())
 				}
 			})
 		},
 	)
-}
-
-// execWriteFile writes data to a file inside a container using kubectl exec.
-func execWriteFile(ctx context.Context, restConfig *rest.Config, client kubernetes.Interface, namespace, podName, container, filePath string, data []byte) error {
-	cmd := []string{"sh", "-c", fmt.Sprintf("cat > %s", filePath)}
-
-	req := client.CoreV1().RESTClient().Post().
-		Resource("pods").
-		Name(podName).
-		Namespace(namespace).
-		SubResource("exec").
-		VersionedParams(&corev1.PodExecOptions{
-			Container: container,
-			Command:   cmd,
-			Stdin:     true,
-			Stdout:    false,
-			Stderr:    true,
-		}, scheme.ParameterCodec)
-
-	exec, err := remotecommand.NewSPDYExecutor(restConfig, "POST", req.URL())
-	if err != nil {
-		return fmt.Errorf("creating executor: %w", err)
-	}
-
-	reader := bytes.NewReader(data)
-	var stderr bytes.Buffer
-	err = exec.StreamWithContext(ctx, remotecommand.StreamOptions{
-		Stdin:  reader,
-		Stderr: &stderr,
-	})
-	if err != nil {
-		return fmt.Errorf("exec failed: %w (stderr: %s)", err, stderr.String())
-	}
-	return nil
 }
