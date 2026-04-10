@@ -2,7 +2,9 @@ package snapshot
 
 import (
 	"fmt"
+	"os"
 
+	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/spf13/cobra"
 )
@@ -13,6 +15,10 @@ func NewSnapshotCommand() *cobra.Command {
 		Short: "Manage vCluster snapshots",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			vConfig, err := config.LoadRuntimeConfig(os.Getenv("VCLUSTER_NAME"))
+			if err != nil {
+				return err
+			}
 			client := &snapshot.Client{}
 			envOptions, err := snapshot.ParseOptionsFromEnv()
 			if err != nil {
@@ -20,7 +26,7 @@ func NewSnapshotCommand() *cobra.Command {
 			}
 			client.Options = *envOptions
 
-			return client.Run(cmd.Context())
+			return client.Run(cmd.Context(), vConfig)
 		},
 	}
 

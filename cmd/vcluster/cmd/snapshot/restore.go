@@ -2,7 +2,9 @@ package snapshot
 
 import (
 	"fmt"
+	"os"
 
+	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/spf13/cobra"
 )
@@ -18,12 +20,17 @@ func NewRestoreCommand() *cobra.Command {
 		Short: "Restore a vCluster",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			vConfig, err := config.LoadRuntimeConfig(os.Getenv("VCLUSTER_NAME"))
+			if err != nil {
+				return err
+			}
+
 			envOptions, err := snapshot.ParseOptionsFromEnv()
 			if err != nil {
 				return fmt.Errorf("failed to parse options from environment: %w", err)
 			}
 			restoreClient := snapshot.NewRestoreClient(*envOptions, restoreVolumes, newVCluster)
-			return restoreClient.Run(cmd.Context())
+			return restoreClient.Run(cmd.Context(), vConfig)
 		},
 	}
 
