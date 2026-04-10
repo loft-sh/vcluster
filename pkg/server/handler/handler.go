@@ -77,6 +77,7 @@ func Handler(prefix string, cfg *rest.Config, transport http.RoundTripper) (http
 	proxy := proxy.NewUpgradeAwareHandler(target, transport, false, false, responder)
 	proxy.UpgradeTransport = upgradeTransport
 	proxy.UseRequestLocation = true
+	proxy.UseLocationHost = true // fix: send backend hostname as Host header (not the client's vcluster LB hostname)
 
 	handler := http.Handler(proxy)
 	if len(prefix) > 0 {
