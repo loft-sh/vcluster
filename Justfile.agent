@@ -37,7 +37,7 @@ compile-check:
   go vet ./cmd/... ./pkg/... ./e2e-next/...
 
 # Run golangci-lint (matches CI config)
-lint *ARGS:
+agent-lint *ARGS:
   golangci-lint run {{ARGS}}
 
 # Rebuild image + load to kind (~15-45s)
