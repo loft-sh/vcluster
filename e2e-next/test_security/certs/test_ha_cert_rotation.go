@@ -35,7 +35,7 @@ func HACertRotationSpec() {
 		labels.Security,
 		func() {
 			var (
-				hostClient        kubernetes.Interface
+				hostClient         kubernetes.Interface
 				hostRestConfig     *rest.Config
 				vClusterName       string
 				vClusterNamespace  string
