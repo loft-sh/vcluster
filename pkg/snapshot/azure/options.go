@@ -22,13 +22,41 @@ const (
 	// StorageBlobSASEnvVar is the name of the environment variable that contains the Azure storage blob SAS token that
 	// can be used to authenticate vCluster's requests to the storage blob.
 	StorageBlobSASEnvVar = "AZURE_STORAGE_BLOB_SAS"
+
+	// TenantIDEnvVar is the name of the environment variable that contains the Azure tenant ID
+	TenantIDEnvVar = "AZURE_TENANT_ID"
+
+	// ClientIDEnvVar is the name of the environment variable that contains the Azure client ID
+	ClientIDEnvVar = "AZURE_CLIENT_ID"
+
+	// ClientSecretEnvVar is the name of the environment variable that contains the Azure client secret
+	ClientSecretEnvVar = "AZURE_CLIENT_SECRET"
 )
 
 type Options struct {
-	BlobURL        string `json:"blob-url,omitempty"`
-	SAS            string `json:"sas,omitempty"`
+	// BlobURL is the full Azure Blob Storage URL
+	BlobURL string `json:"blob-url,omitempty"`
+
+	// SAS is the Azure storage blob SAS token
+	SAS string `json:"sas,omitempty"`
+
+	// SubscriptionID is the Azure subscription ID where the storage account is located
 	SubscriptionID string `json:"subscription-id,omitempty"`
-	ResourceGroup  string `json:"resource-group,omitempty"`
+
+	// ResourceGroup is the Azure resource group where the storage account is located
+	ResourceGroup string `json:"resource-group,omitempty"`
+
+	// StorageKey is the Azure storage account access key
+	StorageKey string `json:"storage-key,omitempty"`
+
+	// TenantID is the Azure tenant ID for service principal auth
+	TenantID string `json:"tenant-id,omitempty"`
+
+	// ClientID is the Azure client ID for service principal auth
+	ClientID string `json:"client-id,omitempty"`
+
+	// ClientSecret is the Azure client secret for service principal auth
+	ClientSecret string `json:"client-secret,omitempty"`
 }
 
 func (o *Options) GetSubscriptionID() string {
@@ -49,6 +77,50 @@ func (o *Options) GetResourceGroup() string {
 		return resourceGroup
 	}
 	return ""
+}
+
+func (o *Options) GetStorageKey() string {
+	if o.StorageKey != "" {
+		return o.StorageKey
+	}
+	if key := os.Getenv(StorageKeyEnvVar); key != "" {
+		return key
+	}
+	return ""
+}
+
+func (o *Options) GetTenantID() string {
+	if o.TenantID != "" {
+		return o.TenantID
+	}
+	if tenantID := os.Getenv(TenantIDEnvVar); tenantID != "" {
+		return tenantID
+	}
+	return ""
+}
+
+func (o *Options) GetClientID() string {
+	if o.ClientID != "" {
+		return o.ClientID
+	}
+	if clientID := os.Getenv(ClientIDEnvVar); clientID != "" {
+		return clientID
+	}
+	return ""
+}
+
+func (o *Options) GetClientSecret() string {
+	if o.ClientSecret != "" {
+		return o.ClientSecret
+	}
+	if clientSecret := os.Getenv(ClientSecretEnvVar); clientSecret != "" {
+		return clientSecret
+	}
+	return ""
+}
+
+func (o *Options) HasServicePrincipal() bool {
+	return o.GetTenantID() != "" && o.GetClientID() != "" && o.GetClientSecret() != ""
 }
 
 func (o *Options) FillCredentials(ctx context.Context, tryToCreateSAS bool) error {

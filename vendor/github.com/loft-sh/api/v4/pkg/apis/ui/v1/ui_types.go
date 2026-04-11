@@ -48,6 +48,12 @@ type UISettingsSpec struct {
 	// LoftHosted indicates whether the vCluster Platform instance
 	// is hosted and operated by Loft Labs Inc.
 	LoftHosted bool `json:"loftHosted,omitempty"`
+
+	// MultiRegion holds the multi-region configuration
+	MultiRegion MultiRegion `json:"multiRegion,omitempty"`
+
+	// AgentNamespace is the namespace where the connected cluster agents are deployed by default
+	AgentNamespace string `json:"agentNamespace,omitempty"`
 }
 
 type UISettingsConfig struct {
@@ -152,4 +158,12 @@ type VClusterVersion struct {
 
 	// PreRelease determines if the version is marked as prerelease
 	PreRelease bool `json:"prerelease,omitempty"`
+}
+
+type MultiRegion struct {
+	// Enabled indicates whether multi-region is enabled
+	Enabled bool `json:"enabled,omitempty"`
+
+	// Region is the region where this vCluster Platform instance is running
+	Region string `json:"region,omitempty"`
 }

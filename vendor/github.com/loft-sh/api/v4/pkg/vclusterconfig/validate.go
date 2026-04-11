@@ -116,11 +116,20 @@ func ValidateSnapshots(fldPath *field.Path, snapshots *Snapshots) field.ErrorLis
 					"storage type is set to 'oci', but repository or credentials are missing",
 				))
 			}
+		case constants.StorageTypeAzure:
+			azure := auto.Storage.Azure
+			if azure.BlobURL == "" {
+				errs = append(errs, field.Invalid(
+					fldPath.Child("snapshots", "auto", "storage", "azure", "blobUrl"),
+					azure.BlobURL,
+					"storage type is set to 'azure', but url is missing",
+				))
+			}
 		default:
 			errs = append(errs, field.Invalid(
 				fldPath.Child("snapshots", "auto", "storage", "type"),
 				auto.Storage.Type,
-				fmt.Sprintf("storage type must be one of: %s, %s, %s", constants.StorageTypeContainer, constants.StorageTypeS3, constants.StorageTypeOCI),
+				fmt.Sprintf("storage type must be one of: %s, %s, %s, %s", constants.StorageTypeContainer, constants.StorageTypeS3, constants.StorageTypeOCI, constants.StorageTypeAzure),
 			))
 		}
 	}
