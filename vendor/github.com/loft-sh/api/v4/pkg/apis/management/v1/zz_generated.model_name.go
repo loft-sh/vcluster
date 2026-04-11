@@ -461,6 +461,11 @@ func (in DatabaseConnectorStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in DatabaseKine) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.DatabaseKine"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in DirectClusterEndpointToken) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.DirectClusterEndpointToken"
 }
@@ -816,6 +821,26 @@ func (in OIDCClientStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in OSImage) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.OSImage"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in OSImageList) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.OSImageList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in OSImageSpec) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.OSImageSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in OSImageStatus) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.OSImageStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ObjectName) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.ObjectName"
 }
@@ -1098,6 +1123,26 @@ func (in ResetAccessKeySpec) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ResetAccessKeyStatus) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.ResetAccessKeyStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in SSHKey) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.SSHKey"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in SSHKeyList) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.SSHKeyList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in SSHKeySpec) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.SSHKeySpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in SSHKeyStatus) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.SSHKeyStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
