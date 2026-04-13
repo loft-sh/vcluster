@@ -1,0 +1,25 @@
+controlPlane:
+  statefulSet:
+    image:
+      registry: ""
+      repository: {{.Repository}}
+      tag: {{.Tag}}
+    persistence:
+      addVolumes:
+        - name: snapshot-data
+          persistentVolumeClaim:
+            claimName: snapshot-data
+      addVolumeMounts:
+        - name: snapshot-data
+          mountPath: /snapshot-data
+sync:
+  fromHost:
+    storageClasses:
+      enabled: true
+  toHost:
+    networkPolicies:
+      enabled: true
+    persistentVolumeClaims:
+      enabled: true
+    persistentVolumes:
+      enabled: true
