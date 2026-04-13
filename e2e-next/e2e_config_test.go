@@ -22,10 +22,7 @@ import (
 
 	// Initialize framework
 	_ "github.com/loft-sh/vcluster/e2e-next/init"
-
-	// Import tests
-	_ "github.com/loft-sh/vcluster/e2e-next/test_core/sync"
-	_ "github.com/loft-sh/vcluster/e2e-next/test_deploy"
+	// All tests are registered in suite_*_test.go with explicit cluster dependencies
 )
 
 var (
@@ -82,43 +79,36 @@ var _ = SynchronizedBeforeSuite(
 	func(ctx context.Context) (context.Context, []byte) {
 		var err error
 
-		// Clean up vcluster yaml
-		DeferCleanup(clusters.DefaultVClusterYAMLCleanup)
-		DeferCleanup(clusters.HelmChartsVClusterYAMLCleanup)
-		DeferCleanup(clusters.InitManifestsVClusterYAMLCleanup)
-		DeferCleanup(clusters.ServiceSyncVClusterYAMLCleanup)
-		DeferCleanup(clusters.KubeletProxyVClusterYAMLCleanup)
+		// Re-render YAML templates with current flag values (--vcluster-image)
+		// and register temp-file cleanup for each one.
+		Expect(clusters.PrepareAndDeferCleanup(DeferCleanup)).To(Succeed())
 
 		ctx, err = setup.All(
 			clusters.HostCluster.Setup,
 			func(ctx context.Context) (context.Context, error) {
+				if cluster.From(ctx, clusterName) == nil {
+					return ctx, nil
+				}
 				var err error
 				By("Loading image to kind cluster...", func() {
 					ctx, err = cluster.LoadImage(clusterName, vclusterImage)(ctx)
-					Expect(err).NotTo(HaveOccurred())
+					Expect(err).To(Succeed())
 				})
 				return ctx, err
 			},
 			func(ctx context.Context) (context.Context, error) {
 				var err error
 				By("Creating all virtual clusters...", func() {
-					ctx, err = setup.AllConcurrent(
-						clusters.K8sDefaultEndpointVCluster.Setup,
-						clusters.NodesVCluster.Setup,
-						clusters.HelmChartsVCluster.Setup,
-						clusters.InitManifestsVCluster.Setup,
-						clusters.ServiceSyncVCluster.Setup,
-						clusters.KubeletProxyVCluster.Setup,
-					)(ctx)
-					Expect(err).NotTo(HaveOccurred())
+					ctx, err = setup.AllConcurrent(clusters.SetupFuncs()...)(ctx)
+					Expect(err).To(Succeed())
 				})
 				return ctx, err
 			},
 		)(ctx)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(err).To(Succeed())
 
 		data, err := cluster.ExportAll(ctx)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(err).To(Succeed())
 
 		return ctx, data
 	},
@@ -126,7 +116,7 @@ var _ = SynchronizedBeforeSuite(
 		var err error
 
 		ctx, err = cluster.ImportAll(ctx, data)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(err).To(Succeed())
 
 		return ctx
 	},
@@ -139,6 +129,6 @@ var _ = SynchronizedAfterSuite(
 		_, err := setup.All(
 			clusters.HostCluster.Teardown,
 		)(ctx)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(err).To(Succeed())
 	},
 )

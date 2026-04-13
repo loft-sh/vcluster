@@ -26,7 +26,11 @@ on:
       - release-*
       - v*
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  # Separate concurrency groups for code pushes vs PR description edits.
+  # Without this, editing a PR description cancels the running test suite
+  # (triggered by the previous push), and the edited run skips tests because
+  # the label-filter didn't change - leaving CI green with no tests run.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event.action == 'edited' && 'edited' || 'code' }}
   cancel-in-progress: true
 
 env:
@@ -45,6 +49,7 @@ jobs:
 
     outputs:
       label-filter: ${{ steps.sanitize.outputs.parsed-label-filter || steps.sanitize.outputs.input-label-filter || 'pr' }}
+      skip-edited: ${{ steps.check-edited.outputs.skip }}
 
     steps:
       - name: Parse label-filter from PR description
@@ -65,6 +70,23 @@ jobs:
           regex: '```\s*label-filter\s*\n(.*?)\n```'
           flags: "gms"
 
+      - name: Skip edited PRs with unchanged label-filter
+        id: check-edited
+        run: |
+          if [[ "${{ github.event_name }}" != "pull_request" ]] || [[ "${{ github.event.action }}" != "edited" ]]; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          else
+            CURRENT=$(echo "${{ steps.parse.outputs.group1 }}" | awk '{$1=$1; print}' | tr -d '\r\n')
+            PREVIOUS=$(echo "${{ steps.parse-previous.outputs.group1 }}" | awk '{$1=$1; print}' | tr -d '\r\n')
+            if [[ "$CURRENT" == "$PREVIOUS" ]]; then
+              echo "::notice::Skipping e2e: PR edited but label-filter unchanged (${CURRENT:-none})"
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "::notice::Label-filter changed from '${PREVIOUS:-none}' to '${CURRENT:-none}', running e2e"
+              echo "skip=false" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
       - name: Sanitize values
         id: sanitize
         run: |
@@ -76,7 +98,7 @@ jobs:
 
   detect_changes:
     needs: [parse_label-filter]
-    uses: loft-sh/github-actions/.github/workflows/detect-changes.yaml@v1
+    uses: loft-sh/github-actions/.github/workflows/detect-changes.yaml@detect-changes/v1
     with:
       paths: |
         - "go.mod"
@@ -84,6 +106,7 @@ jobs:
         - "**.go"
         - "!**_test.go" # exclude test files to ignore unit test changes
         - "test/**" # include test files in e2e again
+        - "e2e-next/**" # include e2e-next test files
         - "!**.md"
         - "Dockerfile.release"
         - ".github/workflows/e2e.yaml"
@@ -160,14 +183,20 @@ jobs:
       - build
       - parse_label-filter
       - detect_changes
-    if: needs.detect_changes.outputs.has_changed == 'true'
-    runs-on: ubuntu-latest
+    if: >
+      needs.parse_label-filter.outputs.skip-edited != 'true' &&
+      needs.detect_changes.outputs.has_changed == 'true'
+    runs-on: large-8_32
     permissions:
       id-token: write   # needed for OIDC → AWS
       contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - run: git fetch --force --tags
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -193,19 +222,42 @@ jobs:
           VCLUSTER_NAMESPACE: ${{ env.VCLUSTER_NAMESPACE }}
         continue-on-error: true
 
-      - name: Print logs if e2e tests fail
+      - name: Collect debug info on failure
         if: steps.execute-e2e-tests.outcome == 'failure'
         run: |
-          set -x
-          kubectl get pods -o yaml -n vcluster-k8s-default-endpoint-test
-          echo "======================================================================================================================"
-          kubectl logs k8s-default-endpoint-test-0 -n vcluster-k8s-default-endpoint-test -c syncer
-          echo "======================================================================================================================"
-          kubectl logs k8s-default-endpoint-test-0 -n vcluster-k8s-default-endpoint-test -c syncer --previous
-          echo "======================================================================================================================"
-          kubectl get events -n vcluster-k8s-default-endpoint-test --sort-by='.lastTimestamp'
-          echo "======================================================================================================================"
-          # kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=-1 -p || kubectl logs -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} -c syncer --tail=-1
-          echo "======================================================================================================================"
-          kubectl describe pods -n vcluster-k8s-default-endpoint-test
+          set +e
+
+          echo "=== All pods ==="
+          kubectl get pods -A
+
+          echo ""
+          echo "=== vCluster instances ==="
+          for NS in $(kubectl get pods -A -l app=vcluster \
+              -o jsonpath='{range .items[*]}{.metadata.namespace}{"\n"}{end}' 2>/dev/null | sort -u); do
+            echo ""
+            echo "--- vCluster namespace: $NS ---"
+
+            NOT_READY=$(kubectl get pods -n "$NS" -l app=vcluster \
+              -o jsonpath='{range .items[*]}{range .status.conditions[?(@.type=="Ready")]}{.status}{"\n"}{end}{end}' \
+              2>/dev/null | grep -c "^False$" || true)
+
+            if [ "$NOT_READY" -gt 0 ]; then
+              echo "Pods NOT ready — describing:"
+              kubectl describe pods -n "$NS" -l app=vcluster || true
+              echo ""
+              kubectl get events -n "$NS" --sort-by='.lastTimestamp' || true
+              echo ""
+              echo "Syncer logs (current):"
+              kubectl logs -n "$NS" -l app=vcluster -c syncer --tail=500 2>/dev/null || \
+                kubectl logs -n "$NS" -l app=vcluster --tail=500 2>/dev/null || true
+              echo ""
+              echo "Syncer logs (previous):"
+              kubectl logs -n "$NS" -l app=vcluster -c syncer --previous --tail=200 2>/dev/null || true
+            else
+              echo "Pods ready — collecting syncer logs:"
+              kubectl logs -n "$NS" -l app=vcluster -c syncer --tail=500 2>/dev/null || \
+                kubectl logs -n "$NS" -l app=vcluster --tail=500 2>/dev/null || true
+            fi
+          done
+
           exit 1
