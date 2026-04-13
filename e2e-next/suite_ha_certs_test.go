@@ -15,11 +15,16 @@ import (
 func init() { suiteCertsVCluster() }
 
 func suiteCertsVCluster() {
+	// Ordered: CertTestsSpec must complete before CertAutoRotationSpec because
+	// the auto-rotation test patches the cert secret and triggers pod restarts,
+	// which causes the vcluster to briefly enter "Terminating" status.
 	Describe("certs-vcluster",
+		Ordered,
 		cluster.Use(clusters.CertsVCluster),
 		cluster.Use(clusters.HostCluster),
 		func() {
 			certs.CertTestsSpec()
+			certs.CertAutoRotationSpec()
 		},
 	)
 }
