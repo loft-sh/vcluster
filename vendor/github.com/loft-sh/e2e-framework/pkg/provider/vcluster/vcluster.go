@@ -48,6 +48,7 @@ func init() {
 const (
 	vclusterVersion = "v0.20.0"
 	vclusterPath    = "vclusterctl"
+	driverHelm      = "helm"
 )
 
 type Cluster struct {
@@ -59,8 +60,10 @@ type Cluster struct {
 	hostKubeCfg          string // kubeconfig file for the host cluster
 	hostKubeContext      string // kubeconfig context for the host cluster
 	upgrade              bool
+	add                  *bool // nil = default CLI behavior, non-nil = explicit --add=true/false
 	localChartDir        string
 	backgroundProxyImage string
+	driver               string
 	rc                   *rest.Config
 }
 
@@ -139,6 +142,28 @@ func WithBackgroundProxyImage(backgroundProxyImage string) support.ClusterOpts {
 	}
 }
 
+// WithAdd controls whether the vcluster CLI registers the vcluster with the
+// platform (--add flag). When set to false, the CLI skips the platform login
+// check, which is required for pro features in environments without platform
+// connectivity.
+func WithAdd(add bool) support.ClusterOpts {
+	return func(c support.E2EClusterProvider) {
+		v, ok := c.(*Cluster)
+		if ok {
+			v.add = &add
+		}
+	}
+}
+
+func WithDriver(driver string) support.ClusterOpts {
+	return func(c support.E2EClusterProvider) {
+		v, ok := c.(*Cluster)
+		if ok {
+			v.driver = driver
+		}
+	}
+}
+
 func (c *Cluster) WithName(name string) support.E2EClusterProvider {
 	c.name = name
 	return c
@@ -203,6 +228,20 @@ func (c *Cluster) Create(ctx context.Context, args ...string) (string, error) {
 		args = append(args, "--background-proxy-image", c.backgroundProxyImage)
 	}
 
+	if c.add != nil {
+		if *c.add {
+			args = append(args, "--add=true")
+		} else {
+			args = append(args, "--add=false")
+		}
+	}
+
+	driver := c.driver
+	if driver == "" {
+		driver = driverHelm
+	}
+	args = append(args, "--driver", driver)
+
 	command := fmt.Sprintf("%s create %s --connect=false", c.path, c.name)
 	if len(args) > 0 {
 		command = fmt.Sprintf("%s %s", command, strings.Join(args, " "))
@@ -242,6 +281,74 @@ func (c *Cluster) CreateWithConfig(ctx context.Context, configFile string) (stri
 		args = append(args, "--values", configFile)
 	}
 	return c.Create(ctx, args...)
+}
+
+// Upgrade applies new configuration to an already-running vcluster. This runs
+// `vcluster create <name> --upgrade --values <file> --connect=false` which
+// performs a Helm upgrade. This is a destructive operation that restarts the
+// syncer pod and invalidates existing client connections. Call Reconnect
+// afterwards to re-establish the REST config.
+func (c *Cluster) Upgrade(ctx context.Context, valuesFile string, extraArgs ...string) error {
+	log.V(4).Info("Upgrading vcluster ", c.name)
+	if err := c.findOrInstallVcluster(); err != nil {
+		return err
+	}
+
+	args := []string{"--upgrade", "--connect=false"}
+
+	if valuesFile != "" {
+		args = append(args, "--values", valuesFile)
+	}
+	if c.namespace != "" {
+		args = append(args, "--namespace", c.namespace)
+	}
+	if c.hostKubeContext != "" {
+		args = append(args, "--context", c.hostKubeContext)
+	}
+	if c.localChartDir != "" {
+		args = append(args, "--local-chart-dir", c.localChartDir)
+	}
+	if c.add != nil && !*c.add {
+		args = append(args, "--add=false")
+	}
+	args = append(args, extraArgs...)
+
+	command := fmt.Sprintf("%s create %s %s", c.path, c.name, strings.Join(args, " "))
+	log.V(4).Info("Launching:", command)
+
+	echo := gexe.New()
+	if c.hostKubeCfg != "" {
+		echo = echo.SetVar("kubecfg", c.hostKubeCfg)
+		command = `/bin/sh -c "KUBECONFIG=${kubecfg} ` + command + `"`
+	}
+
+	p := echo.RunProc(command)
+	if p.Err() != nil {
+		outBytes, _ := io.ReadAll(p.Out())
+		return fmt.Errorf("vcluster: failed to upgrade cluster %q: %s: %s: %s", c.name, p.Err(), p.Result(), string(outBytes))
+	}
+
+	return nil
+}
+
+// Reconnect re-fetches the kubeconfig and reinitializes the REST config for
+// the vcluster. Call this after any destructive operation (Upgrade, cert
+// rotation, etc.)
+func (c *Cluster) Reconnect(ctx context.Context) (*rest.Config, error) {
+	log.V(4).Info("Reconnecting to vcluster ", c.name)
+
+	if c.kubecfgFile != "" {
+		_ = os.Remove(c.kubecfgFile)
+		c.kubecfgFile = ""
+	}
+
+	if _, err := c.getKubeconfig(); err != nil {
+		return nil, fmt.Errorf("reconnect: get kubeconfig: %w", err)
+	}
+	if err := c.initKubernetesAccessClients(); err != nil {
+		return nil, fmt.Errorf("reconnect: init clients: %w", err)
+	}
+	return c.rc, nil
 }
 
 func (c *Cluster) GetKubeconfig() string {
@@ -301,7 +408,7 @@ func (c *Cluster) Destroy(ctx context.Context) error {
 	}
 
 	log.V(4).Info("Removing kubeconfig file ", c.kubecfgFile)
-	if err := os.Remove(c.kubecfgFile); err != nil {
+	if err := os.Remove(c.kubecfgFile); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("vcluster: failed to remove kubeconfig file %q: %w", c.kubecfgFile, err)
 	}
 	return nil
@@ -359,6 +466,7 @@ type clusterJSON struct {
 	HostKubeCfg          string `json:"hostKubeCfg"`
 	HostKubeContext      string `json:"hostKubeContext"`
 	Upgrade              bool   `json:"upgrade"`
+	Add                  *bool  `json:"add,omitempty"`
 	LocalChartDir        string `json:"localChartDir"`
 	BackgroundProxyImage string `json:"backgroundProxyImage"`
 }
@@ -377,6 +485,7 @@ func (c *Cluster) UnmarshalJSON(data []byte) error {
 	c.hostKubeContext = clusterData.HostKubeContext
 	c.hostKubeCfg = clusterData.HostKubeCfg
 	c.upgrade = clusterData.Upgrade
+	c.add = clusterData.Add
 	c.version = clusterData.Version
 	c.localChartDir = clusterData.LocalChartDir
 	c.backgroundProxyImage = clusterData.BackgroundProxyImage
@@ -402,6 +511,7 @@ func (c *Cluster) MarshalJSON() ([]byte, error) {
 		HostKubeCfg:          c.hostKubeCfg,
 		HostKubeContext:      c.hostKubeContext,
 		Upgrade:              c.upgrade,
+		Add:                  c.add,
 		LocalChartDir:        c.localChartDir,
 		BackgroundProxyImage: c.backgroundProxyImage,
 	})
