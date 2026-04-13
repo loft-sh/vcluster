@@ -29,7 +29,8 @@ import (
 )
 
 const (
-	duration365d = time.Hour * 24 * 365
+	// DefaultCertDuration is the default validity period for signed certificates.
+	DefaultCertDuration = time.Hour * 24 * 365
 )
 
 // Config contains the basic fields required for creating a certificate
@@ -38,6 +39,8 @@ type Config struct {
 	Organization []string
 	AltNames     AltNames
 	Usages       []x509.ExtKeyUsage
+	// Duration overrides the certificate validity period. If zero, DefaultCertDuration is used.
+	Duration time.Duration
 }
 
 // AltNames contains the domain names and IP addresses that will be added
@@ -70,7 +73,7 @@ func NewSignedCert(cfg Config, key crypto.Signer, caCert *x509.Certificate, caKe
 		IPAddresses:  cfg.AltNames.IPs,
 		SerialNumber: serial,
 		NotBefore:    caCert.NotBefore,
-		NotAfter:     time.Now().Add(duration365d).UTC(),
+		NotAfter:     time.Now().Add(cfg.duration()).UTC(),
 		KeyUsage:     x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:  cfg.Usages,
 	}
@@ -98,6 +101,13 @@ func MakeEllipticPrivateKeyPEM() ([]byte, error) {
 		Bytes: derBytes,
 	}
 	return pem.EncodeToMemory(privateKeyPemBlock), nil
+}
+
+func (c Config) duration() time.Duration {
+	if c.Duration > 0 {
+		return c.Duration
+	}
+	return DefaultCertDuration
 }
 
 // IsCertExpired checks if the certificate about to expire

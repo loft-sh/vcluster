@@ -2,7 +2,6 @@ package cert
 
 import (
 	"context"
-	"reflect"
 	"sync"
 	"time"
 
@@ -76,26 +75,19 @@ func (s *syncer) RunOnce(ctx context.Context) error {
 	s.currentCertMutex.Lock()
 	defer s.currentCertMutex.Unlock()
 
-	_, err := s.regen(ctx)
-	return err
+	return s.regen(ctx)
 }
 
-func (s *syncer) regen(ctx context.Context) (bool, error) {
+func (s *syncer) regen(ctx context.Context) error {
 	cert, key, extraSANs, err := GenAPIServerServingCerts(ctx, s.workloadNamespaceClient, s.vClient, s.vConfig, s.serverCaCert, s.serverCaKey, s.currentCert, s.currentKey)
 	if err != nil {
-		return false, err
+		return err
 	}
 
-	if reflect.DeepEqual(s.currentSANs, extraSANs) {
-		return false, nil
-	}
-
-	// update the current cert
-	klog.Infof("Generated serving cert for sans: %v", extraSANs)
 	s.currentCert = cert
 	s.currentKey = key
 	s.currentSANs = extraSANs
-	return true, nil
+	return nil
 }
 
 func (s *syncer) Run(ctx context.Context, _ int) {
@@ -103,16 +95,13 @@ func (s *syncer) Run(ctx context.Context, _ int) {
 		s.currentCertMutex.Lock()
 		defer s.currentCertMutex.Unlock()
 
-		changed, err := s.regen(ctx)
-		if err != nil {
+		if err := s.regen(ctx); err != nil {
 			klog.Infof("Error regenerating certificate: %v", err)
 			return
 		}
 
-		if changed {
-			for _, l := range s.listeners {
-				l.Enqueue()
-			}
+		for _, l := range s.listeners {
+			l.Enqueue()
 		}
 	}, time.Second*2, 1.25, true)
 }
