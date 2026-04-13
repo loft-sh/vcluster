@@ -253,6 +253,12 @@ func (s *Server) ServeOnListenerTLS(ctx *synccontext.ControllerContext) error {
 			)
 		}
 	}
+	redirectAuthNonResources = append(redirectAuthNonResources,
+		delegatingauthorizer.PathVerb{
+			Path: "/vcluster/features",
+			Verb: "*",
+		},
+	)
 	serverConfig.Authorization.Authorizer = union.New(
 		kubeletauthorizer.New(s.uncachedVirtualClient),
 		delegatingauthorizer.New(s.uncachedVirtualClient, redirectAuthResources, redirectAuthNonResources),
