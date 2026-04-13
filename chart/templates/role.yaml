@@ -42,7 +42,7 @@ rules:
   {{- end }}
   - apiGroups: ["apps"]
     resources: ["statefulsets", "replicasets", "deployments"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list", "watch", "patch", "update"]
   - apiGroups: [""]
     resources: ["endpoints", "pods/log"]
     verbs: ["get", "list", "watch"]
