@@ -102,19 +102,22 @@ func (t *translator) rewriteHostPaths(pPod *corev1.Pod) {
 					)
 				}
 
-				if strings.TrimSuffix(volume.HostPath.Path, "/") == KubeletPodPath &&
+				if (strings.TrimSuffix(volume.HostPath.Path, "/") == KubeletPodPath ||
+					strings.HasPrefix(volume.HostPath.Path, KubeletPodPath+"/")) &&
 					!strings.HasSuffix(volume.Name, PhysicalVolumeNameSuffix) {
 					t.log.Debugf("rewriting hostPath for kubelet pods %s", pPod.Name)
-					pPod.Spec.Volumes[i].HostPath.Path = t.virtualKubeletPodPath
-					t.log.Debugf("adding original hostPath to relevant containers")
-					pPod = t.addPhysicalPathToVolumesAndCorrectContainers(
-						volume.Name,
-						volume.HostPath.Type,
-						KubeletPodPath,
-						PhysicalKubeletVolumeMountPath,
-						kubeletMountPath,
-						pPod,
-					)
+					if strings.TrimSuffix(volume.HostPath.Path, "/") == KubeletPodPath {
+						t.log.Debugf("adding original hostPath to relevant containers")
+						pPod = t.addPhysicalPathToVolumesAndCorrectContainers(
+							volume.Name,
+							volume.HostPath.Type,
+							KubeletPodPath,
+							PhysicalKubeletVolumeMountPath,
+							kubeletMountPath,
+							pPod,
+						)
+					}
+					pPod.Spec.Volumes[i].HostPath.Path = strings.Replace(volume.HostPath.Path, KubeletPodPath, t.virtualKubeletPodPath, 1)
 				}
 
 				if strings.TrimSuffix(volume.HostPath.Path, "/") == LogHostPath {

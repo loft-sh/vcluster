@@ -644,6 +644,120 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
+			Name: "Map hostpath sub-paths (central HPM)",
+			InitialVirtualState: []runtime.Object{
+				vHostpathNamespace,
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "backuppod-central",
+						Namespace: testingutil.DefaultTestCurrentNamespace,
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Name:  "kopia",
+							Image: "velero/velero:v1.18.0",
+							VolumeMounts: []corev1.VolumeMount{{
+								Name:      "pvc-vol",
+								MountPath: "/pvc-vol",
+							}},
+						}},
+						Volumes: []corev1.Volume{{
+							Name: "pvc-vol",
+							VolumeSource: corev1.VolumeSource{
+								HostPath: &corev1.HostPathVolumeSource{
+									Path: podtranslate.KubeletPodPath + "/virtual-uid-1234/volumes/kubernetes.io~csi/pvc-5678/",
+								},
+							},
+						}},
+					},
+				},
+			},
+			InitialPhysicalState: []runtime.Object{pVclusterService.DeepCopy(), pDNSService.DeepCopy()},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Pod"): {
+					func() *corev1.Pod {
+						p := &corev1.Pod{}
+						p.Name = translate.Default.HostName(nil, "backuppod-central", testingutil.DefaultTestCurrentNamespace).Name
+						p.Namespace = testingutil.DefaultTestTargetNamespace
+						p.Annotations = map[string]string{
+							podtranslate.ClusterAutoScalerAnnotation:  "false",
+							podtranslate.VClusterLabelsAnnotation:     "",
+							podtranslate.NameAnnotation:               "backuppod-central",
+							podtranslate.NamespaceAnnotation:          testingutil.DefaultTestCurrentNamespace,
+							translate.NameAnnotation:                  "backuppod-central",
+							translate.NamespaceAnnotation:             testingutil.DefaultTestCurrentNamespace,
+							translate.UIDAnnotation:                   "",
+							translate.KindAnnotation:                  corev1.SchemeGroupVersion.WithKind("Pod").String(),
+							translate.HostNameAnnotation:              translate.Default.HostName(nil, "backuppod-central", testingutil.DefaultTestCurrentNamespace).Name,
+							translate.HostNamespaceAnnotation:         testingutil.DefaultTestTargetNamespace,
+							podtranslate.ServiceAccountNameAnnotation: "",
+							podtranslate.UIDAnnotation:                "",
+						}
+						p.Labels = map[string]string{
+							translate.NamespaceLabel: testingutil.DefaultTestCurrentNamespace,
+							translate.MarkerLabel:    translate.VClusterName,
+						}
+						p.Spec = corev1.PodSpec{
+							AutomountServiceAccountToken: ptr.To(false),
+							EnableServiceLinks:           ptr.To(false),
+							HostAliases: []corev1.HostAlias{{
+								IP:        pVclusterService.Spec.ClusterIP,
+								Hostnames: []string{"kubernetes.default.svc.cluster.local", "kubernetes", "kubernetes.default", "kubernetes.default.svc"},
+							}},
+							Hostname:           "backuppod-central",
+							ServiceAccountName: "vc-workload-vcluster",
+							Containers: []corev1.Container{{
+								Name:  "kopia",
+								Image: "velero/velero:v1.18.0",
+								Env:   pPodContainerEnv,
+								VolumeMounts: []corev1.VolumeMount{{
+									Name:      "pvc-vol",
+									MountPath: "/pvc-vol",
+								}},
+							}},
+							Volumes: []corev1.Volume{{
+								Name: "pvc-vol",
+								VolumeSource: corev1.VolumeSource{
+									HostPath: &corev1.HostPathVolumeSource{
+										Path: vHostPath + "/kubelet/pods/virtual-uid-1234/volumes/kubernetes.io~csi/pvc-5678/",
+									},
+								},
+							}},
+						}
+						return p
+					}(),
+				},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				ctx.Config.ControlPlane.HostPathMapper.Enabled = true
+				ctx.Config.ControlPlane.HostPathMapper.Central = true
+				vPod := &corev1.Pod{}
+				vPod.Name = "backuppod-central"
+				vPod.Namespace = testingutil.DefaultTestCurrentNamespace
+				vPod.Spec = corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:  "kopia",
+						Image: "velero/velero:v1.18.0",
+						VolumeMounts: []corev1.VolumeMount{{
+							Name:      "pvc-vol",
+							MountPath: "/pvc-vol",
+						}},
+					}},
+					Volumes: []corev1.Volume{{
+						Name: "pvc-vol",
+						VolumeSource: corev1.VolumeSource{
+							HostPath: &corev1.HostPathVolumeSource{
+								Path: podtranslate.KubeletPodPath + "/virtual-uid-1234/volumes/kubernetes.io~csi/pvc-5678/",
+							},
+						},
+					}},
+				}
+				syncContext, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*podSyncer).SyncToHost(syncContext, synccontext.NewSyncToHostEvent(vPod))
+				assert.NilError(t, err)
+			},
+		},
+		{
 			Name:                 "From Host PriorityClasses sync enabled",
 			InitialVirtualState:  []runtime.Object{vPodWithPriorityClass, vNamespace.DeepCopy()},
 			InitialPhysicalState: []runtime.Object{pPriorityClass, pVclusterService.DeepCopy(), pDNSService.DeepCopy()},
