@@ -15,6 +15,10 @@ import (
 
 func init() {
 	suiteCLIVCluster()
+	// Tenant cluster lifecycle tests create their own vclusters via CLI
+	// (no cluster.Use dependency needed).
+	lifecycle.TenantClusterLifecycleSpec()
+	lifecycle.PauseResumeScaledDownSpec()
 }
 
 // Ordered because PauseResumeSpec is destructive - it kills the vcluster pods
