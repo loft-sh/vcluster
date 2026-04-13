@@ -116,10 +116,14 @@ func AllWithResults(fns ...Func) Func {
 
 func AllConcurrent(fns ...Func) Func {
 	return func(ctx context.Context) (context.Context, error) {
-		resultsChan := make(chan Result, len(fns))
+		total := len(fns)
+		resultsChan := make(chan Result, total)
 
 		wg := new(sync.WaitGroup)
-		wg.Add(len(fns))
+		wg.Add(total)
+
+		setupStart := time.Now()
+		_, _ = fmt.Fprintf(ginkgo.GinkgoWriter, "[setup] starting %d concurrent setup functions\n", total)
 
 		for _, fn := range fns {
 			go func(setupFn Func) {
@@ -141,16 +145,28 @@ func AllConcurrent(fns ...Func) Func {
 			errs = append(errs, res.Err)
 		}
 
-		return ctx, errors.NewAggregate(errs)
+		elapsed := time.Since(setupStart).Truncate(time.Millisecond)
+		aggErr := errors.NewAggregate(errs)
+		if aggErr != nil {
+			_, _ = fmt.Fprintf(ginkgo.GinkgoWriter, "[setup] %d concurrent setup functions finished in %s with errors: %v\n", total, elapsed, aggErr)
+		} else {
+			_, _ = fmt.Fprintf(ginkgo.GinkgoWriter, "[setup] %d concurrent setup functions finished in %s\n", total, elapsed)
+		}
+
+		return ctx, aggErr
 	}
 }
 
 func AllConcurrentWithResults(fns ...Func) Func {
 	return func(ctx context.Context) (context.Context, error) {
-		resultsChan := make(chan Result, len(fns))
+		total := len(fns)
+		resultsChan := make(chan Result, total)
 
 		wg := new(sync.WaitGroup)
-		wg.Add(len(fns))
+		wg.Add(total)
+
+		setupStart := time.Now()
+		_, _ = fmt.Fprintf(ginkgo.GinkgoWriter, "[setup] starting %d concurrent setup functions\n", total)
 
 		for _, fn := range fns {
 			go func(setupFn Func) {
@@ -173,7 +189,15 @@ func AllConcurrentWithResults(fns ...Func) Func {
 			errs = append(errs, res.Err)
 		}
 
-		return WithResults(ctx, results), errors.NewAggregate(errs)
+		elapsed := time.Since(setupStart).Truncate(time.Millisecond)
+		aggErr := errors.NewAggregate(errs)
+		if aggErr != nil {
+			_, _ = fmt.Fprintf(ginkgo.GinkgoWriter, "[setup] %d concurrent setup functions finished in %s with errors: %v\n", total, elapsed, aggErr)
+		} else {
+			_, _ = fmt.Fprintf(ginkgo.GinkgoWriter, "[setup] %d concurrent setup functions finished in %s\n", total, elapsed)
+		}
+
+		return WithResults(ctx, results), aggErr
 	}
 }
 
@@ -183,6 +207,21 @@ func AsCleanup(fn Func) func(ctx context.Context) func(ctx context.Context) erro
 			_, err := fn(e2econtext.WithValues(specContext, curr))
 			return err
 		}
+	}
+}
+
+// DeferCtx wraps a setup.Func so that the context captured at registration
+// time is merged into the DeferCleanup context when the cleanup runs. This
+// ensures that context values (e.g. clients) available at the call site are
+// also available during cleanup, even if the stack-based context no longer
+// carries them.
+//
+// Usage:
+//
+//	DeferCleanup(setup.DeferCtx(ctx, cluster.Destroy(name)))
+func DeferCtx(capturedCtx context.Context, fn Func) func(context.Context) (context.Context, error) {
+	return func(deferCtx context.Context) (context.Context, error) {
+		return fn(e2econtext.WithValues(deferCtx, capturedCtx))
 	}
 }
 

@@ -7,7 +7,7 @@ inputs:
   timeout:
     description: "Test timeout"
     required: false
-    default: "40m"
+    default: "60m"
   # Test selection strategy - mutually exclusive
   test-dir:
     description: "Directory containing tests relative to e2e-next/ (for directory-based testing)"
@@ -72,6 +72,16 @@ runs:
         chmod +x vcluster && sudo mv vcluster /usr/bin
         docker image ls --all
 
+    - name: Ensure bridge netfilter modules are loaded
+      shell: bash
+      run: |
+        if [[ ! -f /proc/sys/net/bridge/bridge-nf-call-iptables ]]; then
+          sudo modprobe -va bridge br_netfilter
+          echo "Enabled bridge netfilter modules successfully"
+        else
+          echo "Bridge netfilter modules are already enabled"
+        fi
+
     - name: Execute Ginkgo tests
       shell: bash
       run: |
@@ -109,7 +119,7 @@ runs:
         GINKGO_ARGS=(
           "run"
           "--timeout=${{ inputs.timeout }}"
-          "--procs=4"
+          "--procs=8"
           "--show-node-events"
           "--poll-progress-after=20s"
           "--poll-progress-interval=10s"

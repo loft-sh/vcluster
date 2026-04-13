@@ -88,6 +88,31 @@ embed-chart version="0.0.0":
 test-chart:
   helm unittest chart
 
+# --- Lint ---
+
+# Rebuild tools/golangci-lint if sources changed or binary is missing
+[private]
+_ensure-linters:
+  #!/usr/bin/env bash
+  if [ ! -f ./tools/golangci-lint ] || \
+     [ -n "$(find .custom-gcl.yml -newer ./tools/golangci-lint \( -name '*.yml' \) 2>/dev/null | head -1)" ]; then
+    echo "Custom linters changed - rebuilding tools/golangci-lint..."
+    golangci-lint custom
+  fi
+
+# Run golangci-lint for all packages
+lint *ARGS: _ensure-linters
+  ./tools/golangci-lint cache clean
+  ./tools/golangci-lint run {{ARGS}} -- ./...
+
+# Build the custom golangci-lint binary (required after linter code changes)
+build-linters:
+  golangci-lint custom
+
+# Run custom linters against e2e-next (with autofix)
+lint-e2e: _ensure-linters
+  ./tools/golangci-lint run --fix -- ./e2e-next/...
+
 setup-csi-volume-snapshots:
   # Deploy upstream CSI volume snapshot CRDs and snapshot-controller
   kubectl kustomize https://github.com/kubernetes-csi/external-snapshotter/client/config/crd | kubectl create -f -
@@ -109,11 +134,11 @@ setup-csi-volume-snapshots:
 #e2e-next tests
 @dev-e2e label-filter="core" image="ghcr.io/loft-sh/vcluster:dev-next" *ARGS='': \
   (setup label-filter image) \
-  (run-e2e label-filter image) \
+  (run-e2e label-filter image "false") \
   (teardown label-filter)
 
 @run-e2e label-filter="core" image="ghcr.io/loft-sh/vcluster:dev-next" teardown="true":
-  ginkgo -timeout=0 -v --procs=4 --label-filter="{{label-filter}}" ./e2e-next -- --vcluster-image="{{image}}" --teardown={{teardown}}
+  ginkgo -timeout=0 -v --procs=8 --label-filter="{{label-filter}}" ./e2e-next -- --vcluster-image="{{image}}" --teardown={{teardown}}
 
 @iterate-e2e label-filter="core" image="ghcr.io/loft-sh/vcluster:dev-next": \
   (run-e2e label-filter image "false")
