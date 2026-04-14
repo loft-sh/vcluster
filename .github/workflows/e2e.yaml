@@ -68,8 +68,6 @@ jobs:
           docker save -o vcluster_syncer "${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}"
           # Build cli
           TELEMETRY_PRIVATE_KEY="" goreleaser build --single-target --snapshot --id vcluster-cli --clean --output ./vcluster
-          # Build tests for cache
-          go test -mod=vendor -test.v -c ./test/e2e || { echo "go test build failed"; exit 1; }
 
       - name: Upload syncer image to artifact
         uses: actions/upload-artifact@v6
