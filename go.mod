@@ -27,20 +27,16 @@ require (
 	github.com/loft-sh/admin-apis v0.0.0-20250923191853-0998210fade9
 	github.com/loft-sh/agentapi/v4 v4.5.0-alpha.10
 	github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e
-<<<<<<< HEAD
 	github.com/loft-sh/api/v4 v4.5.0-alpha.10
-=======
-	github.com/loft-sh/api/v4 v4.7.0-alpha.3
 	github.com/loft-sh/e2e-framework v0.0.0-20260413091843-a126fbd5b421
->>>>>>> 5d4e3cb94 ([backport 0.32] chore(e2e-next): E2E-next framework added (#3842))
 	github.com/loft-sh/image v0.0.0-20250625154753-87447a6ad364
 	github.com/loft-sh/utils v0.0.29
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/moby/term v0.5.2
 	github.com/olekukonko/tablewriter v0.0.5
-	github.com/onsi/ginkgo/v2 v2.23.4
-	github.com/onsi/gomega v1.37.0
+	github.com/onsi/ginkgo/v2 v2.27.2
+	github.com/onsi/gomega v1.38.2
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/peterbourgon/ff/v3 v3.4.0
 	github.com/pkg/errors v0.9.1
@@ -79,12 +75,8 @@ require (
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397
 	modernc.org/sqlite v1.29.10
 	oras.land/oras-go/v2 v2.5.0
-<<<<<<< HEAD
 	sigs.k8s.io/controller-runtime v0.21.0
-=======
-	sigs.k8s.io/controller-runtime v0.23.0
 	sigs.k8s.io/e2e-framework v0.6.0
->>>>>>> 5d4e3cb94 ([backport 0.32] chore(e2e-next): E2E-next framework added (#3842))
 	sigs.k8s.io/yaml v1.6.0
 )
 
@@ -92,6 +84,7 @@ require (
 	cel.dev/expr v0.24.0 // indirect
 	github.com/AlecAivazis/survey/v2 v2.3.7 // indirect
 	github.com/BurntSushi/toml v1.5.0 // indirect
+	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/Sytten/logrus-zap-hook v0.1.0 // indirect
 	github.com/VividCortex/ewma v1.2.0 // indirect
@@ -169,11 +162,7 @@ require (
 	github.com/stoewer/go-strcase v1.3.0 // indirect
 	github.com/vbatts/tar-split v0.12.1 // indirect
 	github.com/vbauerster/mpb/v8 v8.10.2 // indirect
-<<<<<<< HEAD
-=======
 	github.com/vladimirvivien/gexe v0.4.1 // indirect
-	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
->>>>>>> 5d4e3cb94 ([backport 0.32] chore(e2e-next): E2E-next framework added (#3842))
 	github.com/x448/float16 v0.8.4 // indirect
 	go.etcd.io/bbolt v1.4.2 // indirect
 	go.etcd.io/etcd/pkg/v3 v3.6.4 // indirect
@@ -181,7 +170,6 @@ require (
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.34.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.34.0 // indirect
-	go.uber.org/automaxprocs v1.6.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/sync v0.19.0 // indirect

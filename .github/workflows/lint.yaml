@@ -75,12 +75,6 @@ jobs:
             exit 1
           fi
 
-<<<<<<< HEAD
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          version: v2.4
-=======
       - name: Verify go mod tidy and vendor
         if: github.event.pull_request.head.repo.full_name == github.repository
         run: |
@@ -135,4 +129,3 @@ jobs:
       - name: Run golangci-lint (fork PRs, without custom linters)
         if: github.event.pull_request.head.repo.full_name != github.repository
         run: golangci-lint run --timeout 15m --config .golangci-fork.yml -- ./...
->>>>>>> 5d4e3cb94 ([backport 0.32] chore(e2e-next): E2E-next framework added (#3842))
