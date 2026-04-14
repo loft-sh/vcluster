@@ -1,0 +1,14 @@
+name: Auto-approve bot PRs
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  auto-approve:
+    uses: loft-sh/github-actions/.github/workflows/auto-approve-bot-prs.yaml@main
+    with:
+      trusted-authors: 'loft-bot'
+      auto-merge: false
+    secrets:
+      gh-access-token: ${{ secrets.GH_ACCESS_TOKEN }}
