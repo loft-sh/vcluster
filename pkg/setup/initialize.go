@@ -60,15 +60,12 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 		if err != nil {
 			return err
 		}
-<<<<<<< HEAD
-=======
 
 		// Start background watcher that periodically checks for expiring leaf
 		// certificates and rotates them. This covers long-running pods that
 		// might not restart before certs expire (1-year lifetime, 90-day window).
 		certs.StartCertWatcher(ctx, certs.DefaultCheckInterval, serviceCIDR, options.HostNamespace, options.HostClient, certificatesDir, options)
 	}
->>>>>>> 283e85fc6 (ENGCP-593: auto-rotate certificates at runtime before expiry (#3793))
 
 		// generate etcd certificates
 		certificatesDir := "/data/pki"

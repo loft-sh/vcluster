@@ -9,6 +9,7 @@ on:
       - go.mod
       - go.sum
       - "**.go"
+      - .custom-gcl.yml
       - ".github/workflows/lint.yaml"
 
 concurrency:
@@ -18,8 +19,12 @@ concurrency:
 jobs:
   golangci:
     name: lint
-    if: github.repository_owner == 'loft-sh' # do not run on forks
     runs-on: ubuntu-latest
+    env:
+      # Use vendored dependencies so fork PRs (which lack access to
+      # GH_ACCESS_TOKEN) can still compile against private modules.
+      GOFLAGS: -mod=vendor
+      GOPRIVATE: "github.com/loft-sh/*"
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -28,6 +33,12 @@ jobs:
         with:
           go-version-file: ./go.mod
           cache: false
+
+      - name: Configure git
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        run: git config --global url.https://"$GH_ACCESS_TOKEN"@github.com/.insteadOf https://github.com/
+        env:
+          GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
 
       - name: Generate Embedded Helm Chart
         run: |
@@ -50,6 +61,7 @@ jobs:
           fi
 
       - name: Verify go mod tidy and vendor
+        if: github.event.pull_request.head.repo.full_name == github.repository
         run: |
           go mod tidy
           go mod vendor
@@ -68,8 +80,37 @@ jobs:
             echo "   Run 'git status --ignored' locally to see ignored files."
             exit 1
           fi
+        env:
+          GOFLAGS: ""
 
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          version: v2.4
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.7.0
+        env:
+          GOFLAGS: ""
+
+      - name: Build custom golangci-lint with plugins
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        run: golangci-lint custom
+        env:
+          GOFLAGS: ""
+
+      - name: Run golangci-lint (with custom linters)
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        run: ./tools/golangci-lint run --timeout 15m -- ./...
+
+      - name: Generate config without custom linters (fork PRs)
+        if: github.event.pull_request.head.repo.full_name != github.repository
+        run: |
+          # Remove custom plugin definitions and their enable/exclusion entries
+          # so stock golangci-lint can run without the compiled plugin binary.
+          CUSTOM_LINTERS=$(yq '.linters.settings.custom | keys | .[]' .golangci.yml)
+          cp .golangci.yml .golangci-fork.yml
+          for linter in $CUSTOM_LINTERS; do
+            yq -i "del(.linters.settings.custom.\"$linter\")" .golangci-fork.yml
+            yq -i ".linters.enable -= [\"$linter\"]" .golangci-fork.yml
+            yq -i "del(.linters.exclusions.rules[] | select(.linters[] == \"$linter\"))" .golangci-fork.yml
+          done
+
+      - name: Run golangci-lint (fork PRs, without custom linters)
+        if: github.event.pull_request.head.repo.full_name != github.repository
+        run: golangci-lint run --timeout 15m --config .golangci-fork.yml -- ./...
