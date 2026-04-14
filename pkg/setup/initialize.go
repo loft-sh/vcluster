@@ -61,18 +61,17 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 			return err
 		}
 
-		// Start background watcher that periodically checks for expiring leaf
-		// certificates and rotates them. This covers long-running pods that
-		// might not restart before certs expire (1-year lifetime, 90-day window).
-		certs.StartCertWatcher(ctx, certs.DefaultCheckInterval, serviceCIDR, options.HostNamespace, options.HostClient, certificatesDir, options)
-	}
-
 		// generate etcd certificates
 		certificatesDir := "/data/pki"
 		err = certs.Generate(ctx, serviceCIDR, certificatesDir, options)
 		if err != nil {
 			return err
 		}
+
+		// Start background watcher that periodically checks for expiring leaf
+		// certificates and rotates them. This covers long-running pods that
+		// might not restart before certs expire (1-year lifetime, 90-day window).
+		certs.StartCertWatcher(ctx, certs.DefaultCheckInterval, serviceCIDR, options.HostNamespace, options.HostClient, certificatesDir, options)
 
 		// should start embedded etcd?
 		if options.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
@@ -115,6 +114,11 @@ func initialize(ctx context.Context, options *config.VirtualClusterConfig) error
 			if err != nil {
 				return err
 			}
+
+			// Start background watcher that periodically checks for expiring leaf
+			// certificates and rotates them. This covers long-running pods that
+			// might not restart before certs expire (1-year lifetime, 90-day window).
+			certs.StartCertWatcher(ctx, certs.DefaultCheckInterval, serviceCIDR, options.HostNamespace, options.HostClient, certificatesDir, options)
 		}
 
 		// should start embedded etcd?
