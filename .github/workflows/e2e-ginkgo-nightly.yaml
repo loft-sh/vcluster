@@ -167,7 +167,7 @@ jobs:
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL_CI_TESTS_ALERTS }}
 
       - name: Notify dev-vcluster
-        if: needs.e2e-tests.result != 'success'
+        if: always() && needs.e2e-tests.result != 'success'
         uses: loft-sh/github-actions/.github/actions/ci-test-notify@85d7023c5749421d369f59430c7849f2d00ad694 # ci-test-notify/v1
         with:
           test-name: "vCluster E2E Nightly"
