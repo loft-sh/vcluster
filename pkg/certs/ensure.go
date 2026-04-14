@@ -238,8 +238,8 @@ func certsExpiringSoon(secretData map[string][]byte) bool {
 		}
 		for _, cert := range certs {
 			if certhelper.IsCertExpired(cert) {
-				klog.Infof("Leaf certificate %s (CN=%s) expires at %s, within renewal threshold",
-					secretKey, cert.Subject.CommonName, cert.NotAfter.Format(time.RFC3339))
+				klog.Infof("Leaf certificate expires at %s, within renewal threshold",
+					cert.NotAfter.Format(time.RFC3339))
 				return true
 			}
 		}
