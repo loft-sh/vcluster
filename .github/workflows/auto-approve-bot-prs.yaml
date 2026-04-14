@@ -6,6 +6,7 @@ on:
 
 jobs:
   auto-approve:
+    if: startsWith(github.head_ref, 'backport/')
     uses: loft-sh/github-actions/.github/workflows/auto-approve-bot-prs.yaml@main
     with:
       trusted-authors: 'loft-bot'
