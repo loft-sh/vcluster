@@ -532,7 +532,7 @@ func (t *translator) translateVolumes(ctx *synccontext.SyncContext, pPod *corev1
 	}
 
 	// rewrite host paths if enabled
-	t.rewriteHostPaths(pPod)
+	t.rewriteHostPaths(ctx, pPod)
 
 	return nil
 }

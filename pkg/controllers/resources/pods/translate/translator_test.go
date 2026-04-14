@@ -221,6 +221,67 @@ func TestVolumeTranslation(t *testing.T) {
 			},
 		},
 		{
+			name:                   "hostpath mapper — kubelet pods exact match rewrites to virtual kubelet path",
+			mountPhysicalHostPaths: true,
+			vPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod-name",
+					Namespace: "test-ns",
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "kubelet-pods",
+									MountPath: KubeletPodPath,
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "kubelet-pods",
+							VolumeSource: corev1.VolumeSource{
+								HostPath: &corev1.HostPathVolumeSource{
+									Path: KubeletPodPath,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedVolumes: []corev1.Volume{
+				{
+					Name: "kubelet-pods",
+					VolumeSource: corev1.VolumeSource{
+						HostPath: &corev1.HostPathVolumeSource{
+							Path: virtualPath + "/kubelet/pods",
+						},
+					},
+				},
+				{
+					Name: fmt.Sprintf("%s-%s", "kubelet-pods", PhysicalVolumeNameSuffix),
+					VolumeSource: corev1.VolumeSource{
+						HostPath: &corev1.HostPathVolumeSource{
+							Path: KubeletPodPath,
+						},
+					},
+				},
+			},
+			expectedVolumeMounts: []corev1.VolumeMount{
+				{
+					Name:             "kubelet-pods",
+					MountPath:        KubeletPodPath,
+					MountPropagation: &hostToContainer,
+				},
+				{
+					Name:      fmt.Sprintf("%s-%s", "kubelet-pods", PhysicalVolumeNameSuffix),
+					MountPath: PhysicalKubeletVolumeMountPath,
+				},
+			},
+		},
+		{
 			name:                   "hostpath mapper",
 			mountPhysicalHostPaths: true,
 			vPod: corev1.Pod{
@@ -298,6 +359,7 @@ func TestVolumeTranslation(t *testing.T) {
 				pClient:                pClient,
 				mountPhysicalHostPaths: testCase.mountPhysicalHostPaths,
 				virtualPodLogsPath:     filepath.Join(virtualPath, "log", "pods"),
+				virtualKubeletPodPath:  filepath.Join(virtualPath, "kubelet", "pods"),
 			}
 
 			pPod := testCase.vPod.DeepCopy()

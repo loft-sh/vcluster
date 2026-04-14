@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/loft-sh/vcluster/pkg/mappings"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -38,7 +40,7 @@ func (t *translator) ensureMountPropagation(pPod *corev1.Pod) {
 	}
 }
 
-func (t *translator) rewriteHostPaths(pPod *corev1.Pod) {
+func (t *translator) rewriteHostPaths(ctx *synccontext.SyncContext, pPod *corev1.Pod) {
 	if len(pPod.Spec.Volumes) > 0 {
 		t.log.Debugf("checking for host path volumes")
 
@@ -102,11 +104,10 @@ func (t *translator) rewriteHostPaths(pPod *corev1.Pod) {
 					)
 				}
 
-				if (strings.TrimSuffix(volume.HostPath.Path, "/") == KubeletPodPath ||
-					strings.HasPrefix(volume.HostPath.Path, KubeletPodPath+"/")) &&
-					!strings.HasSuffix(volume.Name, PhysicalVolumeNameSuffix) {
-					t.log.Debugf("rewriting hostPath for kubelet pods %s", pPod.Name)
+				if !strings.HasSuffix(volume.Name, PhysicalVolumeNameSuffix) {
 					if strings.TrimSuffix(volume.HostPath.Path, "/") == KubeletPodPath {
+						t.log.Debugf("rewriting hostPath for kubelet pods %s", pPod.Name)
+						pPod.Spec.Volumes[i].HostPath.Path = t.virtualKubeletPodPath
 						t.log.Debugf("adding original hostPath to relevant containers")
 						pPod = t.addPhysicalPathToVolumesAndCorrectContainers(
 							volume.Name,
@@ -116,8 +117,15 @@ func (t *translator) rewriteHostPaths(pPod *corev1.Pod) {
 							kubeletMountPath,
 							pPod,
 						)
+					} else if strings.HasPrefix(volume.HostPath.Path, KubeletPodPath+"/") {
+						// Sub-path like /var/lib/kubelet/pods/<virtual-uid>/volumes/...:
+						// translate the virtual pod UID to the physical pod UID so the path
+						// points to a real directory on the host (no symlinks involved).
+						if translated := t.translateKubeletSubPath(ctx, volume.HostPath.Path); translated != "" {
+							t.log.Debugf("rewriting kubelet sub-path for pPod %s: %s -> %s", pPod.Name, volume.HostPath.Path, translated)
+							pPod.Spec.Volumes[i].HostPath.Path = translated
+						}
 					}
-					pPod.Spec.Volumes[i].HostPath.Path = strings.Replace(volume.HostPath.Path, KubeletPodPath, t.virtualKubeletPodPath, 1)
 				}
 
 				if strings.TrimSuffix(volume.HostPath.Path, "/") == LogHostPath {
@@ -136,6 +144,64 @@ func (t *translator) rewriteHostPaths(pPod *corev1.Pod) {
 
 		t.ensureMountPropagation(pPod)
 	}
+}
+
+// translateKubeletSubPath takes a hostPath of the form
+// /var/lib/kubelet/pods/<virtual-pod-uid>/... and returns the same path with
+// the virtual pod UID replaced by the corresponding physical (host) pod UID.
+// This ensures the path points to a real directory on the host rather than a
+// symlink created by the hostpath-mapper.
+// Returns "" if the UID cannot be resolved (path left unchanged by caller).
+func (t *translator) translateKubeletSubPath(ctx *synccontext.SyncContext, hostPath string) string {
+	// Extract the UID segment: /var/lib/kubelet/pods/<uid>/rest...
+	rest := strings.TrimPrefix(hostPath, KubeletPodPath+"/")
+	slashIdx := strings.Index(rest, "/")
+	var virtualUID string
+	if slashIdx == -1 {
+		virtualUID = rest
+	} else {
+		virtualUID = rest[:slashIdx]
+	}
+	if virtualUID == "" {
+		return ""
+	}
+
+	// Find the virtual pod with this UID by scanning the cached pod list.
+	vPodList := &corev1.PodList{}
+	if err := t.vClient.List(ctx, vPodList); err != nil {
+		t.log.Infof("failed to list virtual pods to translate UID %s in hostPath %s: %v", virtualUID, hostPath, err)
+		return ""
+	}
+
+	var matchedName, matchedNamespace string
+	for i := range vPodList.Items {
+		if string(vPodList.Items[i].UID) == virtualUID {
+			matchedName = vPodList.Items[i].Name
+			matchedNamespace = vPodList.Items[i].Namespace
+			break
+		}
+	}
+	if matchedName == "" {
+		t.log.Debugf("no virtual pod found with UID %s, leaving hostPath %s unchanged", virtualUID, hostPath)
+		return ""
+	}
+
+	// Resolve the physical pod name/namespace via mappings.
+	physicalPodRef := mappings.VirtualToHost(ctx, matchedName, matchedNamespace, mappings.Pods())
+
+	// Fetch the physical pod to obtain its UID.
+	physicalPod := &corev1.Pod{}
+	if err := t.pClient.Get(ctx, physicalPodRef, physicalPod); err != nil {
+		t.log.Infof("failed to get physical pod %s/%s for UID translation: %v", physicalPodRef.Namespace, physicalPodRef.Name, err)
+		return ""
+	}
+
+	physicalUID := string(physicalPod.UID)
+	if physicalUID == "" {
+		return ""
+	}
+
+	return strings.Replace(hostPath, virtualUID, physicalUID, 1)
 }
 
 // addPhysicalPathToVolumesAndCorrectContainers is only needed if deploying
