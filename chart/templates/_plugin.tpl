@@ -2,24 +2,25 @@
   Plugin volume mount definition
 */}}
 {{- define "vcluster.plugins.volumeMounts" -}}
-{{- $pluginFound := false -}}
+{{- $state := dict "pluginFound" false -}}
 {{- range $key, $container := .Values.plugin }}
-{{- if or (ne $container.version "v2") (not $container.image) }}
-{{- continue }}
+{{- if and (eq $container.version "v2") $container.image }}
+{{- $_ := set $state "pluginFound" true -}}
 {{- end }}
-{{ $pluginFound = true }}
+{{- end }}
+{{- if $state.pluginFound }}
 - mountPath: /plugins
   name: plugins
-{{- break }}
-{{- end }}
-{{- if eq $pluginFound false }}
+{{- else }}
+{{- $pluginsState := dict "pluginFound" false -}}
 {{- range $key, $container := .Values.plugins }}
-{{- if not $container.image }}
-{{- continue }}
+{{- if $container.image }}
+{{- $_ := set $pluginsState "pluginFound" true -}}
 {{- end }}
+{{- end }}
+{{- if $pluginsState.pluginFound }}
 - mountPath: /plugins
   name: plugins
-{{- break }}
 {{- end }}
 {{- end }}
 {{- end -}}
@@ -28,24 +29,25 @@
   Plugin volume definition
 */}}
 {{- define "vcluster.plugins.volumes" -}}
-{{- $pluginFound := false -}}
+{{- $state := dict "pluginFound" false -}}
 {{- range $key, $container := .Values.plugin }}
-{{- if or (ne $container.version "v2") (not $container.image) }}
-{{- continue }}
+{{- if and (eq $container.version "v2") $container.image }}
+{{- $_ := set $state "pluginFound" true -}}
 {{- end }}
-{{ $pluginFound = true }}
+{{- end }}
+{{- if $state.pluginFound }}
 - name: plugins
   emptyDir: {}
-{{- break }}
-{{- end }}
-{{- if eq $pluginFound false }}
+{{- else }}
+{{- $pluginsState := dict "pluginFound" false -}}
 {{- range $key, $container := .Values.plugins }}
-{{- if not $container.image }}
-{{- continue }}
+{{- if $container.image }}
+{{- $_ := set $pluginsState "pluginFound" true -}}
 {{- end }}
+{{- end }}
+{{- if $pluginsState.pluginFound }}
 - name: plugins
   emptyDir: {}
-{{- break }}
 {{- end }}
 {{- end }}
 {{- end -}}
@@ -56,9 +58,7 @@
 {{- define "vcluster.legacyPlugins.containers" -}}
 {{- $counter := -1 -}}
 {{- range $key, $container := .Values.plugin }}
-{{- if eq $container.version "v2" }}
-{{ continue }}
-{{- end }}
+{{- if ne $container.version "v2" }}
 {{- $counter = add1 $counter }}
 - {{- if $.Values.controlPlane.advanced.defaultImageRegistry }}
   image: {{ $.Values.controlPlane.advanced.defaultImageRegistry }}/{{ $container.image }}
@@ -122,5 +122,6 @@
   resources:
 {{ toYaml $container.resources | indent 4 }}
   {{- end }}
-  {{- end }}
 {{- end }}
+{{- end }}
+{{- end -}}
