@@ -158,106 +158,19 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - name: Determine workflow status
-        id: status
-        run: |
-          if [[ "${{ needs.e2e-tests.result }}" == "failure" ]]; then
-            {
-              echo "workflow_failed=true"
-              echo "status_emoji=❌"
-              echo "status_text=Failed"
-            } >> "$GITHUB_OUTPUT"
-          elif [[ "${{ needs.e2e-tests.result }}" == "success" ]]; then
-            {
-              echo "workflow_failed=false"
-              echo "status_emoji=✅"
-              echo "status_text=Passed"
-            } >> "$GITHUB_OUTPUT"
-          else
-            {
-              echo "workflow_failed=true"
-              echo "status_emoji=⚠️"
-              echo "status_text=Cancelled or Skipped"
-            } >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Notify ci-tests-alerts (Success)
-        if: steps.status.outputs.workflow_failed == 'false'
-        uses: slackapi/slack-github-action@v2.1.1
+      - name: Notify ci-tests-alerts
+        uses: loft-sh/github-actions/.github/actions/ci-test-notify@85d7023c5749421d369f59430c7849f2d00ad694 # ci-test-notify/v1
         with:
-          payload: |
-            {
-              "text": "${{ steps.status.outputs.status_emoji }} vCluster E2E Nightly ${{ steps.status.outputs.status_text }}",
-              "blocks": [
-                {
-                  "type": "header",
-                  "text": {
-                    "type": "plain_text",
-                    "text": "${{ steps.status.outputs.status_emoji }} vCluster E2E Nightly ${{ steps.status.outputs.status_text }}"
-                  }
-                },
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "Build URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\n\nE2E Tests: ${{ needs.e2e-tests.result }}"
-                  }
-                }
-              ]
-            }
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL_CI_TESTS_ALERTS }}
-          webhook-type: incoming-webhook
+          test-name: "vCluster E2E Nightly"
+          status: ${{ needs.e2e-tests.result }}
+          details: "E2E Tests: ${{ needs.e2e-tests.result }}"
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL_CI_TESTS_ALERTS }}
 
-      - name: Notify ci-tests-alerts (Failure)
-        if: steps.status.outputs.workflow_failed == 'true'
-        uses: slackapi/slack-github-action@v2.1.1
+      - name: Notify dev-vcluster
+        if: needs.e2e-tests.result != 'success'
+        uses: loft-sh/github-actions/.github/actions/ci-test-notify@85d7023c5749421d369f59430c7849f2d00ad694 # ci-test-notify/v1
         with:
-          payload: |
-            {
-              "text": "${{ steps.status.outputs.status_emoji }} vCluster E2E Nightly ${{ steps.status.outputs.status_text }}",
-              "blocks": [
-                {
-                  "type": "header",
-                  "text": {
-                    "type": "plain_text",
-                    "text": "${{ steps.status.outputs.status_emoji }} vCluster E2E Nightly ${{ steps.status.outputs.status_text }}"
-                  }
-                },
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "Build URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\n\nE2E Tests: ${{ needs.e2e-tests.result }}"
-                  }
-                }
-              ]
-            }
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL_CI_TESTS_ALERTS }}
-          webhook-type: incoming-webhook
-
-      - name: Notify dev-vcluster (Failure)
-        if: steps.status.outputs.workflow_failed == 'true'
-        uses: slackapi/slack-github-action@v2.1.1
-        with:
-          payload: |
-            {
-              "text": "${{ steps.status.outputs.status_emoji }} vCluster E2E Nightly ${{ steps.status.outputs.status_text }}",
-              "blocks": [
-                {
-                  "type": "header",
-                  "text": {
-                    "type": "plain_text",
-                    "text": "${{ steps.status.outputs.status_emoji }} vCluster E2E Nightly ${{ steps.status.outputs.status_text }}"
-                  }
-                },
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "Build URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\n\nE2E Tests: ${{ needs.e2e-tests.result }}"
-                  }
-                }
-              ]
-            }
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL_DEV_VCLUSTER }}
-          webhook-type: incoming-webhook
+          test-name: "vCluster E2E Nightly"
+          status: ${{ needs.e2e-tests.result }}
+          details: "E2E Tests: ${{ needs.e2e-tests.result }}"
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL_DEV_VCLUSTER }}
