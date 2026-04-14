@@ -149,49 +149,6 @@ setup-csi-volume-snapshots:
 @teardown label-filter="core":
   GINKGO_EDITOR_INTEGRATION=just ginkgo -timeout=0 -v --label-filter="{{label-filter}}" --silence-skips ./e2e-next -- --teardown-only
 
-# Run e2e tests
-e2e distribution="k8s" path="./test/e2e" multinamespace="false": create-vind setup-csi-volume-snapshots && delete-vind
-  echo "Execute test suites ({{ distribution }}, {{ path }}, {{ multinamespace }})"
-
-  TELEMETRY_PRIVATE_KEY="" goreleaser build --snapshot --clean
-  cp dist/vcluster_linux_$(go env GOARCH | sed s/amd64/amd64_v1/g | sed s/arm64/arm64_v8.0/g)/vcluster ./vcluster
-  docker build -t vcluster:e2e-latest -f Dockerfile.release --build-arg TARGETARCH=$(uname -m | sed s/x86_64/amd64/g) --build-arg TARGETOS=linux .
-  rm ./vcluster
-
-  cp test/commonValues.yaml dist/commonValues.yaml
-
-  sed -i.bak "s|REPLACE_REPOSITORY_NAME|vcluster|g" dist/commonValues.yaml
-  sed -i.bak "s|REPLACE_TAG_NAME|e2e-latest|g" dist/commonValues.yaml
-  yq eval -i '.controlPlane.distro.{{distribution}}.enabled = true' dist/commonValues.yaml
-  rm dist/commonValues.yaml.bak
-
-  sed -i.bak "s|kind-control-plane|vcluster|g" dist/commonValues.yaml
-  rm dist/commonValues.yaml.bak
-
-  kubectl create namespace from-host-sync-test
-  kubectl create namespace from-host-sync-test-2
-  ./dist/vcluster-cli_$(go env GOOS)_$(go env GOARCH | sed s/amd64/amd64_v1/g | sed s/arm64/arm64_v8.0/g)/vcluster \
-    create vcluster -n vcluster \
-    --create-namespace \
-    --debug \
-    --connect=false \
-    --local-chart-dir ./chart/ \
-    -f ./dist/commonValues.yaml \
-    -f {{ path }}/values.yaml \
-    $([[ "{{ multinamespace }}" = "true" ]] && echo "-f ./test/multins_values.yaml" || echo "")
-
-  [ -f "{{ path }}/host-resources.yaml" ] && kubectl apply -f "{{ path }}/host-resources.yaml" -n vcluster
-  kubectl wait --for=condition=ready pod -l app=vcluster -n vcluster --timeout=300s
-
-  cd {{path}} && VCLUSTER_SUFFIX=vcluster \
-    VCLUSTER_NAME=vcluster \
-    VCLUSTER_NAMESPACE=vcluster \
-    MULTINAMESPACE_MODE={{ multinamespace }} \
-    VCLUSTER_BACKGROUND_PROXY_IMAGE=vcluster:e2e-latest \
-    HOST_NODE_NAME=vcluster \
-    go test -v -ginkgo.v -ginkgo.skip='.*NetworkPolicy.*' -ginkgo.fail-fast
-
-
 cli version="0.0.0" *ARGS="":
   RELEASE_VERSION={{ version }} go generate -tags embed_chart ./...
   go run -tags embed_chart -mod vendor -ldflags "-X main.version={{ version }}" ./cmd/vclusterctl/main.go {{ ARGS }}
