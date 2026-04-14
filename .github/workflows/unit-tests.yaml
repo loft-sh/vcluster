@@ -30,7 +30,7 @@ jobs:
         uses: actions/checkout@v6
       - name: Install Helm Unit Test Plugin
         run: |
-          helm plugin install https://github.com/helm-unittest/helm-unittest --version v0.4.4
+          helm plugin install https://github.com/helm-unittest/helm-unittest --version v1.0.3 --verify=false
       - name: Run Helm Unit Tests
         run: |
           helm unittest chart

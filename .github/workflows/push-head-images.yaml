@@ -25,7 +25,7 @@ jobs:
         uses: actions/checkout@v6
       - name: Install Helm Unit Test Plugin
         run: |
-          helm plugin install https://github.com/helm-unittest/helm-unittest --version v0.4.4
+          helm plugin install https://github.com/helm-unittest/helm-unittest --version v1.0.3 --verify=false
       - name: Run Helm Unit Tests
         run: |
           helm unittest chart
@@ -115,10 +115,10 @@ jobs:
 
       - uses: azure/setup-helm@v4
         with:
-          version: "v3.20.0"
+          version: "v4.1.3"
 
       - name: Install helm-push plugin
-        run: helm plugin install https://github.com/chartmuseum/helm-push.git
+        run: helm plugin install https://github.com/chartmuseum/helm-push.git --verify=false
 
       - name: Add ChartMuseum repo
         run: helm repo add chartmuseum "$CHART_MUSEUM_URL" --username "$CHART_MUSEUM_USER" --password "$CHART_MUSEUM_PASSWORD"
