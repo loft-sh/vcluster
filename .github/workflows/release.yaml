@@ -202,35 +202,12 @@ jobs:
       - publish
       - publish-chart
       - sync_linear
-    runs-on: ubuntu-latest
     permissions: {}
-    steps:
-      - name: Notify Slack of release pipeline failure
-        uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a  # v2.1.1
-        with:
-          webhook-type: incoming-webhook
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL_PRODUCT_RELEASES }}
-          payload: |
-            {
-              "text": ":rotating_light: vCluster release pipeline failed for ${{ github.event.release.tag_name }}",
-              "blocks": [
-                {
-                  "type": "header",
-                  "text": { "type": "plain_text", "text": ":rotating_light: Release Pipeline Failed" }
-                },
-                {
-                  "type": "section",
-                  "fields": [
-                    { "type": "mrkdwn", "text": "*Product:*\nvCluster" },
-                    { "type": "mrkdwn", "text": "*Version:*\n${{ github.event.release.tag_name }}" }
-                  ]
-                },
-                {
-                  "type": "section",
-                  "fields": [
-                    { "type": "mrkdwn", "text": "*Triggered by:*\n${{ github.actor }}" },
-                    { "type": "mrkdwn", "text": "*Run:*\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View details>" }
-                  ]
-                }
-              ]
-            }
+    uses: loft-sh/github-actions/.github/workflows/notify-release.yaml@55d5b751b3c096231e7fc1e291c152a3d2449b9c # release-notification/v2
+    with:
+      release_version: ${{ github.event.release.tag_name }}
+      target_repo: ${{ github.repository }}
+      product: vCluster
+      status: failure
+    secrets:
+      SLACK_WEBHOOK_URL_PRODUCT_RELEASES: ${{ secrets.SLACK_WEBHOOK_URL_PRODUCT_RELEASES }}
