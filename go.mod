@@ -75,6 +75,7 @@ require (
 	modernc.org/sqlite v1.29.10
 	oras.land/oras-go/v2 v2.5.0
 	sigs.k8s.io/controller-runtime v0.23.0
+	sigs.k8s.io/e2e-framework v0.6.0
 	sigs.k8s.io/yaml v1.6.0
 )
 
@@ -187,7 +188,6 @@ require (
 	modernc.org/strutil v1.2.0 // indirect
 	modernc.org/token v1.1.0 // indirect
 	mvdan.cc/sh/v3 v3.6.0 // indirect
-	sigs.k8s.io/e2e-framework v0.6.0 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
 )
