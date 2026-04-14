@@ -69,30 +69,16 @@ jobs:
 
       - name: Notify eng-releases
         if: steps.compare.outputs.drifted == 'true'
-        uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2.1.1
+        uses: loft-sh/github-actions/.github/actions/ci-test-notify@85d7023c5749421d369f59430c7849f2d00ad694 # ci-test-notify/v1
         with:
-          payload: |
-            {
-              "text": "Homebrew tap version drift detected",
-              "blocks": [
-                {
-                  "type": "header",
-                  "text": {
-                    "type": "plain_text",
-                    "text": "Homebrew Tap Version Drift"
-                  }
-                },
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "${{ steps.compare.outputs.details }}\n\nLatest stable release: `${{ steps.release.outputs.tag }}`\nTap formula: <https://github.com/loft-sh/homebrew-tap/blob/main/Formula/vcluster.rb|vcluster.rb>\nWorkflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-                  }
-                }
-              ]
-            }
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL_ENG_RELEASES }}
-          webhook-type: incoming-webhook
+          test-name: Homebrew Tap Drift
+          status: failure
+          details: |
+            ${{ steps.compare.outputs.details }}
+
+            Latest stable release: `${{ steps.release.outputs.tag }}`
+            Tap formula: <https://github.com/loft-sh/homebrew-tap/blob/main/Formula/vcluster.rb|vcluster.rb>
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL_ENG_RELEASES }}
 
   test:
     name: Run drift detection tests
