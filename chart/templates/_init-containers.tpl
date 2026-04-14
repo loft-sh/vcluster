@@ -46,7 +46,9 @@
 */}}
 {{- define "vcluster.plugins.initContainers" -}}
 {{- range $key, $container := .Values.plugins }}
-{{- if $container.image }}
+{{- if not $container.image }}
+{{- continue }}
+{{- end }}
 - {{- if $.Values.controlPlane.advanced.defaultImageRegistry }}
   image: {{ $.Values.controlPlane.advanced.defaultImageRegistry }}/{{ $container.image }}
   {{- else }}
@@ -94,7 +96,6 @@
 {{ toYaml $container.resources | indent 4 }}
   {{- end }}
 {{- end }}
-{{- end }}
 {{- end -}}
 
 {{/*
@@ -102,7 +103,9 @@
 */}}
 {{- define "vcluster.oldPlugins.initContainers" -}}
 {{- range $key, $container := .Values.plugin }}
-{{- if and (eq $container.version "v2") $container.image -}}
+{{- if or (ne $container.version "v2") (not $container.image) -}}
+{{- continue -}}
+{{- end -}}
 - {{- if $.Values.controlPlane.advanced.defaultImageRegistry }}
   image: {{ $.Values.controlPlane.advanced.defaultImageRegistry }}/{{ $container.image }}
   {{- else }}
@@ -147,6 +150,5 @@
   resources:
 {{ toYaml $container.resources | indent 4 }}
   {{- end }}
-{{- end }}
 {{- end }}
 {{- end -}}
