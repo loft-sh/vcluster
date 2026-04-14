@@ -10,10 +10,9 @@ ignore:
   # - "SC2086:"
 
 # Define self-hosted runner labels to validate against
-# runners:
-#   - self-hosted
-#   - linux
-#   - gpu
+self-hosted-runner:
+  labels:
+    - large-8_32
 
 # Configure shell-check
 shellcheck:

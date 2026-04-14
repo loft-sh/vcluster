@@ -1,0 +1,263 @@
+name: vCluster E2E CI (Ginkgo)
+
+permissions:
+  contents: read
+  pull-requests: read
+
+on:
+  release:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      ginkgo-label:
+        description: "Ginkgo label filter for test execution"
+        required: false
+        default: "pr"
+        type: string
+      debug_enabled:
+        type: boolean
+        description: "Run the build with upterm debugging enabled (https://github.com/lhotari/action-upterm/)"
+        required: false
+        default: false
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+    branches:
+      - main
+      - release-*
+      - v*
+concurrency:
+  # Separate concurrency groups for code pushes vs PR description edits.
+  # Without this, editing a PR description cancels the running test suite
+  # (triggered by the previous push), and the edited run skips tests because
+  # the label-filter didn't change - leaving CI green with no tests run.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event.action == 'edited' && 'edited' || 'code' }}
+  cancel-in-progress: true
+
+env:
+  # The docker image to use for testing. It should be the same as the one used in the e2e-next tests.
+  REPOSITORY_NAME: ghcr.io/loft-sh/vcluster
+  TAG_NAME: dev-next
+  VCLUSTER_SUFFIX: vcluster
+  VCLUSTER_NAME: vcluster
+  VCLUSTER_NAMESPACE: vcluster
+
+jobs:
+  parse_label-filter:
+    name: Parse label filter and check if tests should run
+    if: github.repository_owner == 'loft-sh' # do not run on forks
+    runs-on: ubuntu-22.04
+
+    outputs:
+      label-filter: ${{ steps.sanitize.outputs.parsed-label-filter || steps.sanitize.outputs.input-label-filter || 'pr' }}
+      skip-edited: ${{ steps.check-edited.outputs.skip }}
+
+    steps:
+      - name: Parse label-filter from PR description
+        id: parse
+        if: github.event_name == 'pull_request'
+        uses: actions-ecosystem/action-regex-match@v2
+        with:
+          text: ${{ github.event.pull_request.body || '' }}
+          regex: '```\s*label-filter\s*\n(.*?)\n```'
+          flags: "gms"
+
+      - name: Parse previous label-filter (for edited PRs)
+        id: parse-previous
+        if: github.event_name == 'pull_request' && github.event.action == 'edited'
+        uses: actions-ecosystem/action-regex-match@v2
+        with:
+          text: ${{ github.event.changes.body.from || '' }}
+          regex: '```\s*label-filter\s*\n(.*?)\n```'
+          flags: "gms"
+
+      - name: Skip edited PRs with unchanged label-filter
+        id: check-edited
+        run: |
+          if [[ "${{ github.event_name }}" != "pull_request" ]] || [[ "${{ github.event.action }}" != "edited" ]]; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          else
+            CURRENT=$(echo "${{ steps.parse.outputs.group1 }}" | awk '{$1=$1; print}' | tr -d '\r\n')
+            PREVIOUS=$(echo "${{ steps.parse-previous.outputs.group1 }}" | awk '{$1=$1; print}' | tr -d '\r\n')
+            if [[ "$CURRENT" == "$PREVIOUS" ]]; then
+              echo "::notice::Skipping e2e: PR edited but label-filter unchanged (${CURRENT:-none})"
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "::notice::Label-filter changed from '${PREVIOUS:-none}' to '${CURRENT:-none}', running e2e"
+              echo "skip=false" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Sanitize values
+        id: sanitize
+        run: |
+          # Trim whitespaces and newlines from label filter
+          INPUT_LABEL_FILTER=$(echo "${{ inputs.ginkgo-label }}" | awk '{$1=$1; print}' | tr -d '\r\n')
+          PARSED_LABEL_FILTER=$(echo "${{ steps.parse.outputs.group1 }}" | awk '{$1=$1; print}' | tr -d '\r\n')
+          echo "input-label-filter=${INPUT_LABEL_FILTER}" >> "$GITHUB_OUTPUT"
+          echo "parsed-label-filter=${PARSED_LABEL_FILTER}" >> "$GITHUB_OUTPUT"
+
+  detect_changes:
+    needs: [parse_label-filter]
+    uses: loft-sh/github-actions/.github/workflows/detect-changes.yaml@detect-changes/v1
+    with:
+      paths: |
+        - "go.mod"
+        - "go.sum"
+        - "**.go"
+        - "!**_test.go" # exclude test files to ignore unit test changes
+        - "test/**" # include test files in e2e again
+        - "e2e-next/**" # include e2e-next test files
+        - "!**.md"
+        - "Dockerfile.release"
+        - ".github/workflows/e2e.yaml"
+        - "chart/**"
+        - "manifests/**"
+
+  build:
+    runs-on: ubuntu-latest
+    if: github.repository_owner == 'loft-sh' && needs.detect_changes.outputs.has_changed == 'true'
+    needs: detect_changes
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - run: git fetch --force --tags
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Setup GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          install-only: true
+          version: latest
+
+      - name: Build and save syncer image
+        run: |
+          set -x
+          # Build syncer
+          TELEMETRY_PRIVATE_KEY="" goreleaser build --single-target --snapshot --id vcluster --clean --output ./vcluster
+          docker build -t "${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}" -f Dockerfile.release --build-arg TARGETARCH=amd64 --build-arg TARGETOS=linux .
+          docker save -o vcluster_syncer "${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}"
+          # Build cli
+          TELEMETRY_PRIVATE_KEY="" goreleaser build --single-target --snapshot --id vcluster-cli --clean --output ./vcluster
+
+      - name: Upload syncer image to artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: vcluster_syncer
+          path: ./vcluster_syncer
+          retention-days: 1
+
+      - name: Upload vcluster cli to artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: vcluster
+          path: ./vcluster
+          retention-days: 1
+
+
+  download-latest-cli:
+    needs: detect_changes
+    if: needs.detect_changes.outputs.has_changed == 'true'
+    name: Download the latest vCluster cli
+    runs-on: ubuntu-latest
+    steps:
+      - name: download current cli
+        run: |
+          curl -L -o vcluster-current "https://github.com/loft-sh/vcluster/releases/latest/download/vcluster-linux-amd64"
+      - name: Upload vcluster cli to artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: vcluster-current
+          path: ./vcluster-current
+          retention-days: 7
+
+  ginkgo-e2e-tests:
+    name: Execute test suites
+    needs:
+      - build
+      - parse_label-filter
+      - detect_changes
+    if: >
+      needs.parse_label-filter.outputs.skip-edited != 'true' &&
+      needs.detect_changes.outputs.has_changed == 'true'
+    runs-on: large-8_32
+    permissions:
+      id-token: write   # needed for OIDC → AWS
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - run: git fetch --force --tags
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - uses: azure/setup-helm@v4
+        name: Setup Helm
+        with:
+          version: "v3.19.0"
+
+      - name: Run vCluster Ginkgo E2E Tests
+        id: execute-e2e-tests
+        uses: ./.github/actions/run-ginkgo-e2e
+        with:
+          ginkgo-label: "${{ needs.parse_label-filter.outputs.label-filter }}"
+          image: ${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}
+        env:
+          REPOSITORY_NAME: ${{ env.REPOSITORY_NAME }}
+          TAG_NAME: ${{ env.TAG_NAME }}
+          VCLUSTER_SUFFIX: ${{ env.VCLUSTER_SUFFIX }}
+          VCLUSTER_NAME: ${{ env.VCLUSTER_NAME }}
+          VCLUSTER_NAMESPACE: ${{ env.VCLUSTER_NAMESPACE }}
+        continue-on-error: true
+
+      - name: Collect debug info on failure
+        if: steps.execute-e2e-tests.outcome == 'failure'
+        run: |
+          set +e
+
+          echo "=== All pods ==="
+          kubectl get pods -A
+
+          echo ""
+          echo "=== vCluster instances ==="
+          for NS in $(kubectl get pods -A -l app=vcluster \
+              -o jsonpath='{range .items[*]}{.metadata.namespace}{"\n"}{end}' 2>/dev/null | sort -u); do
+            echo ""
+            echo "--- vCluster namespace: $NS ---"
+
+            NOT_READY=$(kubectl get pods -n "$NS" -l app=vcluster \
+              -o jsonpath='{range .items[*]}{range .status.conditions[?(@.type=="Ready")]}{.status}{"\n"}{end}{end}' \
+              2>/dev/null | grep -c "^False$" || true)
+
+            if [ "$NOT_READY" -gt 0 ]; then
+              echo "Pods NOT ready — describing:"
+              kubectl describe pods -n "$NS" -l app=vcluster || true
+              echo ""
+              kubectl get events -n "$NS" --sort-by='.lastTimestamp' || true
+              echo ""
+              echo "Syncer logs (current):"
+              kubectl logs -n "$NS" -l app=vcluster -c syncer --tail=500 2>/dev/null || \
+                kubectl logs -n "$NS" -l app=vcluster --tail=500 2>/dev/null || true
+              echo ""
+              echo "Syncer logs (previous):"
+              kubectl logs -n "$NS" -l app=vcluster -c syncer --previous --tail=200 2>/dev/null || true
+            else
+              echo "Pods ready — collecting syncer logs:"
+              kubectl logs -n "$NS" -l app=vcluster -c syncer --tail=500 2>/dev/null || \
+                kubectl logs -n "$NS" -l app=vcluster --tail=500 2>/dev/null || true
+            fi
+          done
+
+          exit 1
