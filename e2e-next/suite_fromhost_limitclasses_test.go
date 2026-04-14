@@ -1,3 +1,6 @@
+// Suite: fromhost-limitclasses-vcluster
+// vCluster: FromHostLimitClassesVCluster (fromHost sync with label-selector limits)
+// Run:      just run-e2e 'pr && ingressclasses'
 package e2e_next
 
 import (
