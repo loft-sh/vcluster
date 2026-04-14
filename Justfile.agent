@@ -36,10 +36,6 @@ compile-check:
   GOOS=linux GOARCH={{GOARCH}} CGO_ENABLED=0 go build -mod vendor -trimpath -ldflags "-s -w" -o /dev/null ./cmd/vcluster/
   go vet ./cmd/... ./pkg/... ./e2e-next/...
 
-# Run golangci-lint (matches CI config)
-agent-lint *ARGS:
-  golangci-lint run {{ARGS}}
-
 # Rebuild image + load to kind (~15-45s)
 rebuild:
   just build-snapshot
