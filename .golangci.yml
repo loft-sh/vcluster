@@ -35,6 +35,10 @@ linters:
     - unused
     - usestdlibvars
     - whitespace
+    - defercleanupcluster
+    - defercleanupctx
+    - ginkgoreturnctx
+    - describefunc
   settings:
     dupl:
       threshold: 400
@@ -69,6 +73,23 @@ linters:
         - yaml
         - xml
         - form
+    custom:
+      defercleanupcluster:
+        type: module
+        description: "Checks that cluster.Create calls have a matching DeferCleanup(cluster.Destroy(...))"
+        original-url: github.com/loft-sh/e2e-framework/linters/defercleanupcluster
+      defercleanupctx:
+        type: module
+        description: "Checks that DeferCleanup is not called with a setup.Func; use e2e.DeferCleanupCtx(ctx, fn) instead"
+        original-url: github.com/loft-sh/e2e-framework/linters/defercleanupctx
+      ginkgoreturnctx:
+        type: module
+        description: "Checks that Ginkgo node functions that reassign context.Context also return it"
+        original-url: github.com/loft-sh/e2e-framework/linters/ginkgoreturnctx
+      describefunc:
+        type: module
+        description: "Checks that Ginkgo Describe calls with cluster.Use use the exported function pattern instead of auto-registration"
+        original-url: github.com/loft-sh/e2e-framework/linters/describefunc
     staticcheck:
       dot-import-whitelist:
         - github.com/onsi/ginkgo/v2
@@ -96,11 +117,27 @@ linters:
         text: 'SA1019: (.+)Secret is deprecated: Use AdditionalSecrets instead.'
       - path: pkg/config/validation.go
         text: 'SA1019: (.+)Secret is deprecated: Use AdditionalSecrets instead.'
+      # Skip ST1003 (package name with underscores) for e2e-next folder
+      - path: ^e2e-next/
+        linters: [staticcheck]
+        text: 'ST1003: should not use underscores in package names'
       # The following exceptions apply only to existing packages that need refactoring.
       # The rule remains enabled globally.
       - path: ^pkg/(cli/util|server/types|snapshot/types|syncer/types|util|plugin/types)/[^/]+\.go$
         linters: [revive]
         text: avoid meaningless package names
+      - path-except: 'e2e-next/'
+        linters:
+          - defercleanupcluster
+      - path-except: 'e2e-next/'
+        linters:
+          - defercleanupctx
+      - path-except: 'e2e-next/'
+        linters:
+          - ginkgoreturnctx
+      - path-except: 'e2e-next/'
+        linters:
+          - describefunc
     paths:
       - licenses
       # Paths below are added by 'golangci-lint migrate' when migrating from v1 to v2. They are the
