@@ -108,16 +108,21 @@ func ConnectSpec() {
 
 			It("should connect to a vCluster and execute a command inline", func(ctx context.Context) {
 				By("running vcluster connect with an inline kubectl command", func() {
-					cmdCtx, cancel := context.WithTimeout(ctx, constants.PollingTimeout)
-					defer cancel()
-					cmd := exec.CommandContext(cmdCtx, vclusterBin(), "connect",
-						"-n", vClusterNamespace,
-						"--background-proxy=false",
-						vClusterName,
-						"--", "kubectl", "get", "ns")
-					out, err := cmd.CombinedOutput()
-					Expect(err).To(Succeed(),
-						"vcluster connect -- kubectl get ns failed for %s, output: %s", vClusterName, string(out))
+					// Retry the whole command because port-forwarding can fail
+					// transiently in CI (e.g. containerd closing the pod network
+					// namespace mid-forward).
+					Eventually(func(g Gomega) {
+						cmdCtx, cancel := context.WithTimeout(ctx, constants.PollingTimeoutShort)
+						defer cancel()
+						cmd := exec.CommandContext(cmdCtx, vclusterBin(), "connect",
+							"-n", vClusterNamespace,
+							"--background-proxy=false",
+							vClusterName,
+							"--", "kubectl", "get", "ns")
+						out, err := cmd.CombinedOutput()
+						g.Expect(err).To(Succeed(),
+							"vcluster connect -- kubectl get ns failed for %s, output: %s", vClusterName, string(out))
+					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 				})
 			})
 		},
