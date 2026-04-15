@@ -553,6 +553,24 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "ControlPlaneLoadBalancer": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the control plane load balancer should be enabled. The control plane load balancer is used to load balance the control plane traffic on the node to the control plane nodes."
+        },
+        "kubeProxy": {
+          "type": "boolean",
+          "description": "KubeProxy defines if the kube proxy should be proxied through the control plane load balancer as well."
+        },
+        "port": {
+          "type": "integer",
+          "description": "Port defines the port for the control plane load balancer."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "ControlPlanePersistence": {
       "properties": {
         "volumeClaim": {
@@ -3856,6 +3874,10 @@
         "vpn": {
           "$ref": "#/$defs/PrivateNodesVPN",
           "description": "VPN holds configuration for the private nodes vpn. This can be used to connect the private nodes to the control plane or\nconnect the private nodes to each other if they are not running in the same network. Platform connection is required for the vpn to work."
+        },
+        "daemon": {
+          "$ref": "#/$defs/PrivateNodesDaemon",
+          "description": "Daemon holds configuration for the private nodes daemon that is deployed on the nodes."
         }
       },
       "additionalProperties": false,
@@ -3896,6 +3918,20 @@
         "provider"
       ],
       "description": "PrivateNodesAutoNodes defines auto nodes"
+    },
+    "PrivateNodesDaemon": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the private nodes daemon should be enabled."
+        },
+        "controlPlaneLoadBalancer": {
+          "$ref": "#/$defs/ControlPlaneLoadBalancer",
+          "description": "ControlPlaneLoadBalancer holds configuration for the control plane load balancer. This is used to load balance the control plane traffic on the node to the control plane nodes.\nThis is useful to achieve true high availability for the control plane without having to deploy a separate load balancer."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
     },
     "PrivateNodesVPN": {
       "properties": {

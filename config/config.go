@@ -129,6 +129,29 @@ type PrivateNodes struct {
 	// VPN holds configuration for the private nodes vpn. This can be used to connect the private nodes to the control plane or
 	// connect the private nodes to each other if they are not running in the same network. Platform connection is required for the vpn to work.
 	VPN PrivateNodesVPN `json:"vpn,omitempty"`
+
+	// Daemon holds configuration for the private nodes daemon that is deployed on the nodes.
+	Daemon PrivateNodesDaemon `json:"daemon,omitempty"`
+}
+
+type PrivateNodesDaemon struct {
+	// Enabled defines if the private nodes daemon should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
+
+	// ControlPlaneLoadBalancer holds configuration for the control plane load balancer. This is used to load balance the control plane traffic on the node to the control plane nodes.
+	// This is useful to achieve true high availability for the control plane without having to deploy a separate load balancer.
+	ControlPlaneLoadBalancer ControlPlaneLoadBalancer `json:"controlPlaneLoadBalancer,omitempty"`
+}
+
+type ControlPlaneLoadBalancer struct {
+	// Enabled defines if the control plane load balancer should be enabled. The control plane load balancer is used to load balance the control plane traffic on the node to the control plane nodes.
+	Enabled bool `json:"enabled,omitempty"`
+
+	// KubeProxy defines if the kube proxy should be proxied through the control plane load balancer as well.
+	KubeProxy bool `json:"kubeProxy,omitempty"`
+
+	// Port defines the port for the control plane load balancer.
+	Port int `json:"port,omitempty"`
 }
 
 type CloudControllerManager struct {

@@ -847,6 +847,20 @@ privateNodes:
     nodeToNode:
       # Enabled defines if the node to node vpn should be enabled.
       enabled: false
+  
+  # Daemon holds configuration for the private nodes daemon that is deployed on the nodes.
+  daemon:
+    # Enabled defines if the private nodes daemon should be enabled.
+    enabled: false
+    # ControlPlaneLoadBalancer holds configuration for the control plane load balancer. This is used to load balance the control plane traffic on the node to the control plane nodes.
+    # This is useful to achieve true high availability for the control plane without having to deploy a separate load balancer.
+    controlPlaneLoadBalancer:
+      # Enabled defines if the control plane load balancer should be enabled. The control plane load balancer is used to load balance the control plane traffic on the node to the control plane nodes.
+      enabled: false
+      # KubeProxy defines if the kube proxy should be proxied through the control plane load balancer as well.
+      kubeProxy: true
+      # Port defines the port for the control plane load balancer.
+      port: 11343
 
 # Deploy holds configuration for the deployment of vCluster.
 deploy:
