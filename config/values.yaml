@@ -458,6 +458,12 @@ privateNodes:
     enabled: false
     nodeToNode:
       enabled: false
+  daemon:
+    enabled: false
+    controlPlaneLoadBalancer:
+      enabled: false
+      kubeProxy: true
+      port: 11343
 deploy:
   localPathProvisioner:
     enabled: true

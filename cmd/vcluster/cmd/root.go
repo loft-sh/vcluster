@@ -28,6 +28,10 @@ func NewRootCmd() *cobra.Command {
 }
 
 func RunRoot() {
+	RunRootWith(BuildRoot())
+}
+
+func RunRootWith(rootCmd *cobra.Command) {
 	// handle interrupts
 	osutil.HandleInterrupts()
 
@@ -53,7 +57,7 @@ func RunRoot() {
 	ctx := logr.NewContext(context.Background(), logger)
 
 	// create a new command and execute
-	err = BuildRoot().ExecuteContext(ctx)
+	err = rootCmd.ExecuteContext(ctx)
 	if err != nil {
 		klog.FromContext(ctx).Error(err, "error")
 		osutil.Exit(1)
