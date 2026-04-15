@@ -16,11 +16,12 @@ import (
 )
 
 type translateKubeletSubPathTestCase struct {
-	name     string
-	vPods    []corev1.Pod
-	pPods    []corev1.Pod
-	input    string
-	expected string
+	name        string
+	vPods       []corev1.Pod
+	pPods       []corev1.Pod
+	input       string
+	expected    string
+	expectError bool
 }
 
 func TestTranslateKubeletSubPath(t *testing.T) {
@@ -60,23 +61,23 @@ func TestTranslateKubeletSubPath(t *testing.T) {
 			expected: KubeletPodPath + "/" + string(pUID),
 		},
 		{
-			name:     "returns empty string for unknown UID",
+			name:     "passes through path unchanged for unknown UID",
 			input:    KubeletPodPath + "/unknown-uid-that-does-not-exist/volumes/kubernetes.io~csi/pvc-abc/mount",
-			expected: "",
+			expected: KubeletPodPath + "/unknown-uid-that-does-not-exist/volumes/kubernetes.io~csi/pvc-abc/mount",
 		},
 		{
-			name:     "returns empty string for empty UID segment",
-			input:    KubeletPodPath + "/",
-			expected: "",
+			name:        "errors for empty UID segment",
+			input:       KubeletPodPath + "/",
+			expectError: true,
 		},
 		{
-			name: "returns empty string when physical pod is not found",
+			name: "errors when physical pod is not found",
 			vPods: []corev1.Pod{
 				{ObjectMeta: metav1.ObjectMeta{Name: "orphan-pod", Namespace: vPodNamespace, UID: "orphan-virtual-uid"}},
 			},
 			// pPods intentionally empty — physical pod never created
-			input:    KubeletPodPath + "/orphan-virtual-uid/volumes/kubernetes.io~csi/pvc-abc/mount",
-			expected: "",
+			input:       KubeletPodPath + "/orphan-virtual-uid/volumes/kubernetes.io~csi/pvc-abc/mount",
+			expectError: true,
 		},
 	}
 
@@ -101,8 +102,13 @@ func TestTranslateKubeletSubPath(t *testing.T) {
 				pClient: pClient,
 			}
 
-			result := tr.translateKubeletSubPath(registerCtx.ToSyncContext("test"), testCase.input)
-			assert.Equal(t, result, testCase.expected)
+			result, err := tr.translateKubeletSubPath(registerCtx.ToSyncContext("test"), testCase.input)
+			if !testCase.expectError {
+				assert.NilError(t, err)
+				assert.Equal(t, result, testCase.expected)
+			} else {
+				assert.Assert(t, err != nil)
+			}
 		})
 	}
 }
