@@ -17,31 +17,17 @@ concurrency:
 jobs:
   update-licenses:
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: read
     steps:
-      - name: Check out code
-        uses: actions/checkout@v6
-
-      - name: Set up Go
-        uses: actions/setup-go@v6
+      - uses: actions/checkout@v6
         with:
-          go-version-file: go.mod
-
-      - name: Install go-licenses
-        run: |
-          go install github.com/google/go-licenses@v1.6.0
-
-      - name: Run go-licenses
-        run: go-licenses report ./... > docs/pages/licenses/vcluster.mdx --template .github/licenses.tmpl --ignore github.com/loft-sh
-
-      - name: Create pull request
-        uses: peter-evans/create-pull-request@v8
+          persist-credentials: false
+      - uses: loft-sh/github-actions/.github/actions/go-licenses@go-licenses/v1
         with:
-          token: ${{ secrets.GH_ACCESS_TOKEN }}
-          committer: Loft Bot <loft-bot@users.noreply.github.com>
-          branch: licenses/vcluster
-          commit-message: "license(vCluster): Updated OSS licenses"
-          title: "license(vCluster): Updated OSS licenses"
-          body: Triggered by ${{ github.repository }}@${{ github.sha }}
-          signoff: true
-          delete-branch: true
+          mode: report
+          output-path: docs/pages/licenses/vcluster.mdx
+          pr-branch: licenses/vcluster
+          pr-title: "license(vCluster): Updated OSS licenses"
+          pr-commit-message: "license(vCluster): Updated OSS licenses"
+          gh-access-token: ${{ secrets.GH_ACCESS_TOKEN }}
