@@ -55,6 +55,10 @@ before running this command:
 2. Helm v3 must be installed
 3. kubectl must be installed
 
+NOTE: TLS certificate verification is disabled by default
+during platform startup because the platform uses a self-signed
+certificate. Use --secure to enable TLS verification.
+
 ########################################################
 	`,
 		Args: cobra.NoArgs,
@@ -93,6 +97,7 @@ func (cmd *StartCmd) Run(ctx context.Context) error {
 	// Bootstrap defaults to insecure because the platform starts with a
 	// self-signed certificate. Pass --secure to enforce TLS verification.
 	if !cmd.Secure {
+		cmd.Log.Warn("TLS is disabled by default during platform startup because the platform uses a self-signed certificate. Use --secure to enable TLS verification.")
 		cfg.Platform.Insecure = true
 	}
 
