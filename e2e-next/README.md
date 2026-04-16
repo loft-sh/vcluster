@@ -130,6 +130,19 @@ Each suite file maps to one vCluster. One file, one vCluster, one function.
 | `networkpolicies` | NetworkPolicy sync (requires Calico CNI) |
 | `non-default` | Tests requiring special infra (e.g. Calico CNI) - excluded by default |
 
+## Timeout Constants
+
+Use these instead of hardcoded durations. Defined in `constants/timeouts.go`.
+
+| Constant | Duration | Use for |
+|----------|----------|---------|
+| `PollingInterval` | 2s | Polling interval for all `Eventually`/`Consistently` |
+| `PollingTimeoutVeryShort` | 5s | Immediate state checks (resource already exists) |
+| `PollingTimeoutShort` | 20s | Quick API operations (get, list, delete) |
+| `PollingTimeout` | 60s | Standard operations (pod ready, secret created) |
+| `PollingTimeoutLong` | 120s | Resource creation (namespace, VCI becoming Ready) |
+| `PollingTimeoutVeryLong` | 300s | vCluster startup, cluster creation |
+
 ## Running Tests
 
 ### Prerequisites
@@ -263,7 +276,7 @@ from `.custom-gcl.yml`). These run in CI and locally via `just lint ./e2e-next/.
 
 | Linter | What it checks |
 |--------|---------------|
-| `describefunc` | Spec functions in `test_*` packages must not call `Describe()` with `cluster.Use()`. Cluster binding belongs in suite files, not in specs. |
+| `describefunc` | Spec functions in `test_*` packages must not call `Describe()` with `cluster.Use()`. Cluster binding belongs in suite files, not in specs. This is critical because spec functions are imported by vcluster-pro via Go vendoring - if they contain `cluster.Use`, they hardcode OSS cluster references that conflict with Pro's own cluster definitions (different image, platform, `pro: true`). |
 | `defercleanupcluster` | `cluster.Create()` calls must have a matching `DeferCleanup(cluster.Destroy(...))`. |
 | `defercleanupctx` | `DeferCleanup` must not be called with a `setup.Func`; use `e2e.DeferCleanupCtx(ctx, fn)` instead. |
 | `ginkgoreturnctx` | Ginkgo node functions that reassign `context.Context` must return it. |
