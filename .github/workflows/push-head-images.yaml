@@ -109,57 +109,27 @@ jobs:
     name: Push Head Chart
     permissions:
       contents: read
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-
-      - uses: azure/setup-helm@v4
         with:
-          version: "v3.20.0"
+          persist-credentials: false
 
-      - name: Install helm-push plugin
-        run: helm plugin install https://github.com/chartmuseum/helm-push.git
-
-      - name: Add ChartMuseum repo
-        run: helm repo add chartmuseum "$CHART_MUSEUM_URL" --username "$CHART_MUSEUM_USER" --password "$CHART_MUSEUM_PASSWORD"
+      - name: Compute chart-versions JSON
+        id: versions
         env:
-          CHART_MUSEUM_URL: "https://charts.loft.sh/"
-          CHART_MUSEUM_USER: ${{ secrets.CHART_MUSEUM_USER }}
-          CHART_MUSEUM_PASSWORD: ${{ secrets.CHART_MUSEUM_PASSWORD }}
-
-      - name: Set Chart.yaml name to vcluster-head
-        uses: "mikefarah/yq@v4.52.2"
-        with:
-          cmd: yq -i '.name = "vcluster-head"' 'chart/Chart.yaml'
-
-      - name: Set Chart.yaml description
-        uses: "mikefarah/yq@v4.52.2"
-        with:
-          cmd: yq -i '.description = "vCluster HEAD - Development builds from main branch"' 'chart/Chart.yaml'
-
-      - name: Set Chart.yaml appVersion
-        uses: "mikefarah/yq@v4.52.2"
-        with:
-          cmd: yq -i '.appVersion = "head-${{ github.sha }}"' 'chart/Chart.yaml'
-
-      - name: Package head charts
+          GITHUB_SHA: ${{ github.sha }}
         run: |
-          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          echo "chart_versions=[\"0.0.0-latest\",\"0.0.0-${SHORT_SHA}\"]" >> "${GITHUB_OUTPUT}"
 
-          # Package chart with version 0.0.0-latest
-          helm package chart --version "0.0.0-latest" --destination /tmp
-
-          # Package chart with version 0.0.0-<short-sha>
-          helm package chart --version "0.0.0-${SHORT_SHA}" --destination /tmp
-
-      - name: Push head charts to ChartMuseum
-        run: |
-          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-
-          # Push both versions
-          helm cm-push --force /tmp/vcluster-head-0.0.0-latest.tgz chartmuseum
-          helm cm-push --force "/tmp/vcluster-head-0.0.0-${SHORT_SHA}.tgz" chartmuseum
-        env:
-          CHART_MUSEUM_URL: "https://charts.loft.sh/"
-          CHART_MUSEUM_USER: ${{ secrets.CHART_MUSEUM_USER }}
-          CHART_MUSEUM_PASSWORD: ${{ secrets.CHART_MUSEUM_PASSWORD }}
+      - name: Publish head chart
+        uses: loft-sh/github-actions/.github/actions/publish-helm-chart@publish-helm-chart/v1
+        with:
+          chart-name: vcluster-head
+          chart-description: "vCluster HEAD - Development builds from main branch"
+          app-version: head-${{ github.sha }}
+          chart-versions: ${{ steps.versions.outputs.chart_versions }}
+          chart-museum-user: ${{ secrets.CHART_MUSEUM_USER }}
+          chart-museum-password: ${{ secrets.CHART_MUSEUM_PASSWORD }}
