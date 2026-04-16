@@ -3,6 +3,8 @@ package find
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/exec"
 	"regexp"
 	"strings"
 	"time"
@@ -11,10 +13,12 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
+	vclusterconfig "github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/kube"
 	"github.com/loft-sh/vcluster/pkg/platform/sleepmode"
+	standaloneutil "github.com/loft-sh/vcluster/pkg/util/standalone"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -49,6 +53,7 @@ type VCluster struct {
 	Status                 Status
 	Context                string
 	Version                string
+	IsStandalone           bool
 }
 
 type Status string
@@ -128,6 +133,35 @@ func GetPlatformVCluster(ctx context.Context, platformClient platform.Client, na
 	}
 
 	return nil, fmt.Errorf("unexpected error searching for selected virtual cluster")
+}
+
+// GetVClusterStandaloneOrVCluster supports both regular host-cluster lookup and
+// local standalone lookup. The CLI selector "local-standalone" explicitly targets
+// the standalone service on this host and makes standalone probe errors fatal.
+// For real runtime names, standalone lookup is only an opportunistic shortcut:
+// if the local standalone runtime name matches the requested name, use it;
+// otherwise fall back to regular host-cluster discovery so in-cluster vClusters
+// with arbitrary names keep working.
+func GetVClusterStandaloneOrVCluster(ctx context.Context, context, name, namespace string, log log.Logger) (*VCluster, error) {
+	if name == constants.VClusterStandaloneCLISelector {
+		vClusterStandalone, err := getVClusterStandalone()
+		if err != nil {
+			return nil, err
+		}
+		if vClusterStandalone == nil {
+			return nil, fmt.Errorf("local standalone vCluster not found on this host")
+		}
+		return vClusterStandalone, nil
+	}
+
+	vClusterStandalone, err := getVClusterStandalone()
+	if err != nil {
+		log.Debugf("standalone runtime-name probe skipped: %v", err)
+	} else if vClusterStandalone != nil && name == vClusterStandalone.Name {
+		return vClusterStandalone, nil
+	}
+
+	return GetVCluster(ctx, context, name, namespace, log)
 }
 
 func GetVCluster(ctx context.Context, context, name, namespace string, log log.Logger) (*VCluster, error) {
@@ -705,6 +739,56 @@ func isScaledDown(object client.Object) bool {
 		return o.Spec.Replicas != nil && *o.Spec.Replicas == 0
 	}
 	return false
+}
+
+// getVClusterStandalone returns a vCluster for a standalone installation.
+// Detection relies on the systemd service file existing on the local filesystem,
+// so this only works when the CLI runs on the same host as the vCluster standalone.
+// Returns nil, nil when standalone is not detected.
+func getVClusterStandalone() (*VCluster, error) {
+	unitData, found, err := standaloneutil.DetectStandaloneHost()
+	if err != nil {
+		return nil, fmt.Errorf("detect standalone host: %w", err)
+	}
+	if !found {
+		//nolint:nilnil
+		return nil, nil
+	}
+
+	vConfig, err := vclusterconfig.LoadLocalStandaloneConfig("", nil)
+	if err != nil {
+		return nil, fmt.Errorf("load standalone config: %w", err)
+	}
+	kubeClientConfig, err := getStandaloneKubeClientConfig(vConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	version := standaloneutil.ParseEnvFromSystemdUnit(unitData, "VCLUSTER_VERSION")
+
+	// Use the systemd unit file's modification time as a proxy for cluster creation time.
+	fi, err := os.Stat(constants.VClusterStandaloneSystemdUnitFile)
+	if err != nil {
+		return nil, fmt.Errorf("stat standalone unit file: %w", err)
+	}
+	created := metav1.NewTime(fi.ModTime())
+
+	// Check if the systemd service is actually running.
+	status := StatusUnknown
+	out, err := exec.Command("systemctl", "is-active", constants.VClusterStandaloneSystemdServiceName).Output()
+	if err == nil && strings.TrimSpace(string(out)) == "active" {
+		status = StatusRunning
+	}
+
+	return &VCluster{
+		Name:          vConfig.Name,
+		Namespace:     constants.VClusterStandaloneSnapshotNamespace,
+		ClientFactory: kubeClientConfig,
+		Created:       created,
+		Version:       version,
+		Status:        status,
+		IsStandalone:  true,
+	}, nil
 }
 
 // isVirtualClusterInstanceResourceAvailable checks if VirtualClusterInstance resources from storage.loft.sh/v1 exist

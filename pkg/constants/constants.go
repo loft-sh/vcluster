@@ -2,6 +2,10 @@ package constants
 
 import "path/filepath"
 
+const (
+	VClusterStorageOptionsEnv = "VCLUSTER_STORAGE_OPTIONS"
+)
+
 var (
 	K3sKineEndpoint   = "unix:///data/server/kine.sock"
 	K3sSqliteDatabase = "/data/server/db/state.db"

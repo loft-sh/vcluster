@@ -66,8 +66,8 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 // StartInCluster is invoked when running in a container
 func StartInCluster(ctx context.Context, options *StartOptions) error {
 	vClusterName := os.Getenv("VCLUSTER_NAME")
-	// parse vCluster config
-	vConfig, err := config.ParseConfig(options.Config, vClusterName, options.SetValues)
+	// load vCluster config
+	vConfig, err := config.LoadInClusterRuntimeConfig(vClusterName, options.Config, options.SetValues)
 	if err != nil {
 		return err
 	}

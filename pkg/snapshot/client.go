@@ -11,6 +11,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/etcd"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/snapshot/types"
 	"k8s.io/klog/v2"
 )
@@ -25,15 +26,22 @@ type Client struct {
 	skipKeys map[string]struct{}
 }
 
-func (c *Client) Run(ctx context.Context) error {
-	// parse vCluster config
-	vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
-	if err != nil {
-		return err
+func (c *Client) Run(ctx context.Context, vConfig *config.VirtualClusterConfig) error {
+	if vConfig == nil {
+		return fmt.Errorf("snapshot client requires vCluster config")
+	}
+
+	var err error
+	if vConfig.ControlPlane.Standalone.Enabled {
+		vConfig.HostNamespace = constants.VClusterStandaloneSnapshotNamespace
+		err = pro.SetStandaloneConstants(vConfig)
+		if err != nil {
+			return fmt.Errorf("set standalone constants: %w", err)
+		}
 	}
 
 	// make sure to validate options
-	err = ValidateConfigAndOptions(vConfig, &c.Options, false, false)
+	err = Validate(&c.Options, false)
 	if err != nil {
 		return err
 	}
@@ -62,14 +70,9 @@ func (c *Client) Run(ctx context.Context) error {
 }
 
 func (c *Client) List(ctx context.Context) ([]types.Snapshot, error) {
-	// parse vCluster config
-	vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
-	if err != nil {
-		return nil, err
-	}
-
+	var err error
 	// make sure to validate options
-	err = ValidateConfigAndOptions(vConfig, &c.Options, false, true)
+	err = Validate(&c.Options, true)
 	if err != nil {
 		return nil, err
 	}
@@ -85,14 +88,9 @@ func (c *Client) List(ctx context.Context) ([]types.Snapshot, error) {
 }
 
 func (c *Client) Delete(ctx context.Context) error {
-	// parse vCluster config
-	vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
-	if err != nil {
-		return err
-	}
-
+	var err error
 	// make sure to validate options
-	err = ValidateConfigAndOptions(vConfig, &c.Options, false, false)
+	err = Validate(&c.Options, false)
 	if err != nil {
 		return err
 	}
@@ -231,16 +229,6 @@ func writeKeyValue(tarWriter *tar.Writer, key, value []byte) error {
 
 	// write value to tar archive
 	_, err = tarWriter.Write(value)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func ValidateConfigAndOptions(vConfig *config.VirtualClusterConfig, options *Options, isRestore, isList bool) error {
-	// storage needs to be either s3 or file
-	err := Validate(options, isList)
 	if err != nil {
 		return err
 	}
