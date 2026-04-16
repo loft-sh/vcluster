@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/snapshot/azure"
 	"github.com/loft-sh/vcluster/pkg/snapshot/container"
 	"github.com/loft-sh/vcluster/pkg/snapshot/oci"
@@ -156,7 +157,7 @@ func Parse(snapshotURL string, snapshotOptions *Options) error {
 }
 
 func ParseOptionsFromEnv() (*Options, error) {
-	snapshotOptions := os.Getenv("VCLUSTER_STORAGE_OPTIONS")
+	snapshotOptions := os.Getenv(constants.VClusterStorageOptionsEnv)
 	if snapshotOptions == "" {
 		return &Options{}, nil
 	}

@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"github.com/loft-sh/vcluster/pkg/config"
-	"github.com/loft-sh/vcluster/pkg/constants"
 	setupconfig "github.com/loft-sh/vcluster/pkg/setup/config"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/spf13/cobra"
@@ -18,7 +17,7 @@ func NewDeleteCmd() *cobra.Command {
 		Short: "delete vCluster snapshot",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			vConfig, err := config.ParseConfig(constants.DefaultVClusterConfigLocation, os.Getenv("VCLUSTER_NAME"), nil)
+			vConfig, err := config.LoadAutoDetectedRuntimeConfig(os.Getenv("VCLUSTER_NAME"))
 			if err != nil {
 				return err
 			}

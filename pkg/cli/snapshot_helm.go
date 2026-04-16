@@ -12,6 +12,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	vclusterconfig "github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
@@ -33,21 +34,25 @@ func CreateSnapshot(ctx context.Context, args []string, globalFlags *flags.Globa
 		return err
 	}
 
-	// get vCluster release
-	vClusterRelease, err := helm.NewSecrets(kubeClient).Get(ctx, vCluster.Name, vCluster.Namespace)
-	if err != nil {
-		return fmt.Errorf("failed to get vCluster release: %w", err)
-	}
+	if !vCluster.IsStandalone {
+		// Standalone is not Helm-deployed; no release metadata to include in the snapshot.
 
-	// set helm release
-	if vClusterRelease != nil && vClusterRelease.Chart != nil && vClusterRelease.Chart.Metadata != nil {
-		values, _ := yaml.Marshal(vClusterRelease.Config)
-		snapshotOpts.Release = &snapshot.HelmRelease{
-			ReleaseName:      vClusterRelease.Name,
-			ReleaseNamespace: vClusterRelease.Namespace,
-			ChartName:        vClusterRelease.Chart.Metadata.Name,
-			ChartVersion:     vClusterRelease.Chart.Metadata.Version,
-			Values:           values,
+		// get vCluster release
+		vClusterRelease, err := helm.NewSecrets(kubeClient).Get(ctx, vCluster.Name, vCluster.Namespace)
+		if err != nil {
+			return fmt.Errorf("failed to get vCluster release: %w", err)
+		}
+
+		// set helm release
+		if vClusterRelease != nil && vClusterRelease.Chart != nil && vClusterRelease.Chart.Metadata != nil {
+			values, _ := yaml.Marshal(vClusterRelease.Config)
+			snapshotOpts.Release = &snapshot.HelmRelease{
+				ReleaseName:      vClusterRelease.Name,
+				ReleaseNamespace: vClusterRelease.Namespace,
+				ChartName:        vClusterRelease.Chart.Metadata.Name,
+				ChartVersion:     vClusterRelease.Chart.Metadata.Version,
+				Values:           values,
+			}
 		}
 	}
 
@@ -119,7 +124,7 @@ func initSnapshotCommand(
 
 	// find the vCluster
 	vClusterName := args[0]
-	vCluster, err := find.GetVCluster(ctx, globalFlags.Context, vClusterName, globalFlags.Namespace, log)
+	vCluster, err := find.GetVClusterStandaloneOrVCluster(ctx, globalFlags.Context, vClusterName, globalFlags.Namespace, log)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -156,12 +161,16 @@ func createSnapshotRequest(ctx context.Context, vCluster *find.VCluster, kubeCli
 		return fmt.Errorf("failed to get vcluster config: %w", err)
 	}
 	// Create snapshot request resources
-	_, err = snapshot.CreateSnapshotRequestResources(ctx, vCluster.Namespace, vCluster.Name, vClusterConfig, snapshotOpts, kubeClient)
+	_, err = snapshot.CreateSnapshotRequestResources(ctx, vCluster.Namespace, vClusterConfig.Name, vClusterConfig, snapshotOpts, kubeClient)
 	if err != nil {
 		return fmt.Errorf("failed to create snapshot request resources: %w", err)
 	}
 
-	snapshotGetCommand := fmt.Sprintf("vcluster snapshot get %s %s", vCluster.Name, snapshotOpts.GetURL())
+	snapshotGetName := vCluster.Name
+	if vCluster.IsStandalone {
+		snapshotGetName = constants.VClusterStandaloneCLISelector
+	}
+	snapshotGetCommand := fmt.Sprintf("vcluster snapshot get %s %s", snapshotGetName, snapshotOpts.GetURL())
 	if snapshotOpts.Type == "azure" {
 		if snapshotOpts.Azure.SubscriptionID != "" {
 			snapshotGetCommand += fmt.Sprintf(" --azure-subscription-id %s", snapshotOpts.Azure.SubscriptionID)
@@ -188,10 +197,16 @@ func checkIfVClusterSupportsSnapshotRequests(vCluster *find.VCluster, log log.Lo
 func getVClusterConfig(ctx context.Context, vCluster *find.VCluster, kubeClient *kubernetes.Clientset, snapshotOpts *snapshot.Options) (*vclusterconfig.VirtualClusterConfig, error) {
 	var err error
 	var vClusterConfig *vclusterconfig.VirtualClusterConfig
-	if snapshotOpts.Release.Values != nil {
+	if snapshotOpts.Release != nil && snapshotOpts.Release.Values != nil {
 		vClusterConfig, err = vclusterconfig.ParseConfigBytes(snapshotOpts.Release.Values, vCluster.Name, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse vcluster config: %w", err)
+		}
+	} else if vCluster.IsStandalone {
+		// Standalone config lives on disk, not in a Kubernetes Secret.
+		vClusterConfig, err = vclusterconfig.LoadLocalStandaloneConfig("", nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse standalone vcluster config: %w", err)
 		}
 	} else {
 		// get vCluster config

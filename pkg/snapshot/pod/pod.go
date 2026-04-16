@@ -15,6 +15,7 @@ import (
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
 	"github.com/loft-sh/vcluster/pkg/util/osutil"
@@ -75,12 +76,12 @@ func SnapshotExec(
 	}
 
 	// build env variables
-	optionsString, err := toOptionsString(snapshotOptions)
+	optionsString, err := ToOptionsString(snapshotOptions)
 	if err != nil {
 		return err
 	}
 	envVariables := append([]string{
-		"VCLUSTER_STORAGE_OPTIONS=" + optionsString,
+		constants.VClusterStorageOptionsEnv + "=" + optionsString,
 		"POD_NAME=" + vCluster.Name + "-0",
 	}, podOptions.Env...)
 
@@ -222,12 +223,12 @@ func CreateSnapshotPod(
 
 	// build args
 	env := syncerContainer.Env
-	optionsString, err := toOptionsString(snapshotOptions)
+	optionsString, err := ToOptionsString(snapshotOptions)
 	if err != nil {
 		return nil, err
 	}
 	env = append(env, corev1.EnvVar{
-		Name:  "VCLUSTER_STORAGE_OPTIONS",
+		Name:  constants.VClusterStorageOptionsEnv,
 		Value: optionsString,
 	})
 
@@ -386,7 +387,7 @@ func CreateSnapshotPod(
 	return newPod, nil
 }
 
-func toOptionsString(options *snapshot.Options) (string, error) {
+func ToOptionsString(options *snapshot.Options) (string, error) {
 	jsonBytes, err := json.Marshal(options)
 	if err != nil {
 		return "", err
