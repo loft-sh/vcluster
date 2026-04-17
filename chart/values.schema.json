@@ -4471,11 +4471,30 @@
         "container": {
           "$ref": "#/$defs/SnapshotStorageContainer",
           "description": "Container holds configuration for storing snapshots as local files inside a vCluster container\n+optional"
+        },
+        "azure": {
+          "$ref": "#/$defs/SnapshotStorageAzure",
+          "description": "Azure holds configuration for storing snapshots in Azure Blob Storage\n+optional"
         }
       },
       "additionalProperties": false,
       "type": "object",
       "description": "SnapshotStorage holds snapshot storage configuration"
+    },
+    "SnapshotStorageAzure": {
+      "properties": {
+        "blobUrl": {
+          "type": "string",
+          "description": "BlobURL specifies the Azure Blob Storage URL in the format https://{account}.blob.core.windows.net/{container}/{path}\n+optional"
+        },
+        "credential": {
+          "$ref": "#/$defs/SnapshotSecretCredential",
+          "description": "Credential secret with the Azure credentials. The secret should contain either:\nAZURE_STORAGE_KEY (storage account access key), or\nAZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_SUBSCRIPTION_ID, AZURE_RESOURCE_GROUP (service principal)\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "SnapshotStorageAzure holds Azure Blob Storage configuration."
     },
     "SnapshotStorageContainer": {
       "properties": {

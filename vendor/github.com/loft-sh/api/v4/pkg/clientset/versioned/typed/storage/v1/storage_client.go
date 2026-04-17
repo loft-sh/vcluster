@@ -22,7 +22,9 @@ type StorageV1Interface interface {
 	NodeEnvironmentsGetter
 	NodeProvidersGetter
 	NodeTypesGetter
+	OSImagesGetter
 	ProjectsGetter
+	SSHKeysGetter
 	SharedSecretsGetter
 	SpaceInstancesGetter
 	SpaceTemplatesGetter
@@ -78,8 +80,16 @@ func (c *StorageV1Client) NodeTypes() NodeTypeInterface {
 	return newNodeTypes(c)
 }
 
+func (c *StorageV1Client) OSImages() OSImageInterface {
+	return newOSImages(c)
+}
+
 func (c *StorageV1Client) Projects() ProjectInterface {
 	return newProjects(c)
+}
+
+func (c *StorageV1Client) SSHKeys() SSHKeyInterface {
+	return newSSHKeys(c)
 }
 
 func (c *StorageV1Client) SharedSecrets(namespace string) SharedSecretInterface {

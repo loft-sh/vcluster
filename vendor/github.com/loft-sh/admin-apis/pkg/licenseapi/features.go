@@ -70,6 +70,10 @@ const (
 
 	RegionalClusterEndpoints FeatureName = "regional-cluster-endpoints" // Regional Cluster Endpoints
 
+	MachineManagement FeatureName = "machine-management" // Machine Management
+
+	LeastPrivilegeMode FeatureName = "least-privilege-mode" // Least Privilege Mode
+
 	ProjectQuotas FeatureName = "project-quotas" // Project Quotas
 
 	AuditLogging FeatureName = "audit-logging" // Audit Logging
@@ -87,6 +91,8 @@ const (
 	Netris FeatureName = "netris" // Netris
 
 	KubeVip FeatureName = "kube-vip" // Kube-vip Integration
+
+	Metal3 FeatureName = "metal3" // Metal3 Integration
 
 	ArgoIntegration FeatureName = "argo-integration" // Argo Integration
 
@@ -108,6 +114,8 @@ const (
 
 	AutoNodesClusterapi FeatureName = "auto-nodes-clusterapi" // ClusterAPI Node Provider
 
+	AutoNodesMetal3 FeatureName = "auto-nodes-metal3" // Metal3 Node Provider
+
 	VirtualClusterProDistroGenericSync FeatureName = "vcp-distro-generic-sync" // Generic Sync
 
 	VirtualClusterProDistroSyncPatches FeatureName = "vcp-distro-sync-patches" // Sync Patches
@@ -121,6 +129,8 @@ const (
 	VirtualClusterProDistroSleepMode FeatureName = "vcp-distro-sleep-mode" // SleepMode
 
 	DisablePlatformDB FeatureName = "disable-platform-db" // Disable Platform Database
+
+	PlatformExternalDB FeatureName = "platform-external-db" // Platform External Database
 
 	AutoIngressAuth FeatureName = "auto-ingress-authentication" // Automatic Auth For Ingresses
 
@@ -175,6 +185,8 @@ func GetFeatures() []FeatureName {
 		ScheduledSnapshots,
 		MultiRegionPlatform,
 		RegionalClusterEndpoints,
+		MachineManagement,
+		LeastPrivilegeMode,
 		ProjectQuotas,
 		AuditLogging,
 		SSOAuth,
@@ -184,6 +196,7 @@ func GetFeatures() []FeatureName {
 		VNodeRuntime,
 		Netris,
 		KubeVip,
+		Metal3,
 		ArgoIntegration,
 		VirtualClusterProDistroIntegrationsKubeVirt,
 		VaultIntegration,
@@ -194,6 +207,7 @@ func GetFeatures() []FeatureName {
 		AutoNodesKubevirt,
 		AutoNodesTerraform,
 		AutoNodesClusterapi,
+		AutoNodesMetal3,
 		VirtualClusterProDistroGenericSync,
 		VirtualClusterProDistroSyncPatches,
 		VirtualClusterProDistroTranslatePatches,
@@ -201,6 +215,7 @@ func GetFeatures() []FeatureName {
 		VirtualClusterSleepMode,
 		VirtualClusterProDistroSleepMode,
 		DisablePlatformDB,
+		PlatformExternalDB,
 		AutoIngressAuth,
 		VirtualClusterEnterprisePlugins,
 		RancherIntegration,
@@ -380,6 +395,16 @@ func GetAllFeatures() []*Feature {
 			Module:      "operations",
 		},
 		{
+			DisplayName: "Machine Management",
+			Name:        "machine-management",
+			Module:      "operations",
+		},
+		{
+			DisplayName: "Least Privilege Mode",
+			Name:        "least-privilege-mode",
+			Module:      "operations",
+		},
+		{
 			DisplayName: "Project Quotas",
 			Name:        "project-quotas",
 			Module:      "cost",
@@ -422,6 +447,11 @@ func GetAllFeatures() []*Feature {
 		{
 			DisplayName: "Kube-vip Integration",
 			Name:        "kube-vip",
+			Module:      "bare-metal",
+		},
+		{
+			DisplayName: "Metal3 Integration",
+			Name:        "metal3",
 			Module:      "bare-metal",
 		},
 		{
@@ -475,6 +505,11 @@ func GetAllFeatures() []*Feature {
 			Module:      "auto-nodes",
 		},
 		{
+			DisplayName: "Metal3 Node Provider",
+			Name:        "auto-nodes-metal3",
+			Module:      "auto-nodes",
+		},
+		{
 			DisplayName: "Generic Sync",
 			Name:        "vcp-distro-generic-sync",
 			Module:      "syncing",
@@ -507,6 +542,11 @@ func GetAllFeatures() []*Feature {
 		{
 			DisplayName: "Disable Platform Database",
 			Name:        "disable-platform-db",
+			Module:      "operations",
+		},
+		{
+			DisplayName: "Platform External Database",
+			Name:        "platform-external-db",
 			Module:      "operations",
 		},
 		{
