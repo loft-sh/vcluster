@@ -37,15 +37,21 @@ func NewFromHostTranslatorForGVK(ctx *synccontext.RegisterContext, gvk schema.Gr
 		virtualToHost[virtual] = host
 	}
 
-	return &fromHostTranslate{
+	t := &fromHostTranslate{
 		gvk:            gvk,
-		eventRecorder:  ctx.VirtualManager.GetEventRecorder("from-host-" + strings.ToLower(gvk.Kind) + "-syncer"),
 		virtualToHost:  virtualToHost,
 		hostToVirtual:  hostToVirtual,
 		namespace:      ctx.Config.HostNamespace,
 		translatorName: "from-host-" + strings.ToLower(gvk.Kind),
 		skipFuncs:      skipFuncs,
-	}, nil
+	}
+	syncCtx := ctx.ToSyncContext("from-host-" + strings.ToLower(gvk.Kind))
+	t.eventRecorder = newSanitisingEventRecorder(
+		syncCtx,
+		ctx.VirtualManager.GetEventRecorder("from-host-"+strings.ToLower(gvk.Kind)+"-syncer"),
+		t,
+	)
+	return t, nil
 }
 
 func (c *fromHostTranslate) Name() string {
