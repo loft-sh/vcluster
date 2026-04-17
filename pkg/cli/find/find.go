@@ -135,35 +135,6 @@ func GetPlatformVCluster(ctx context.Context, platformClient platform.Client, na
 	return nil, fmt.Errorf("unexpected error searching for selected virtual cluster")
 }
 
-// GetVClusterStandaloneOrVCluster supports both regular host-cluster lookup and
-// local standalone lookup. The CLI selector "local-standalone" explicitly targets
-// the standalone service on this host and makes standalone probe errors fatal.
-// For real runtime names, standalone lookup is only an opportunistic shortcut:
-// if the local standalone runtime name matches the requested name, use it;
-// otherwise fall back to regular host-cluster discovery so in-cluster vClusters
-// with arbitrary names keep working.
-func GetVClusterStandaloneOrVCluster(ctx context.Context, context, name, namespace string, log log.Logger) (*VCluster, error) {
-	if name == constants.VClusterStandaloneCLISelector {
-		vClusterStandalone, err := getVClusterStandalone()
-		if err != nil {
-			return nil, err
-		}
-		if vClusterStandalone == nil {
-			return nil, fmt.Errorf("local standalone vCluster not found on this host")
-		}
-		return vClusterStandalone, nil
-	}
-
-	vClusterStandalone, err := getVClusterStandalone()
-	if err != nil {
-		log.Debugf("standalone runtime-name probe skipped: %v", err)
-	} else if vClusterStandalone != nil && name == vClusterStandalone.Name {
-		return vClusterStandalone, nil
-	}
-
-	return GetVCluster(ctx, context, name, namespace, log)
-}
-
 func GetVCluster(ctx context.Context, context, name, namespace string, log log.Logger) (*VCluster, error) {
 	if name == "" {
 		return nil, fmt.Errorf("please specify a name")
@@ -741,11 +712,11 @@ func isScaledDown(object client.Object) bool {
 	return false
 }
 
-// getVClusterStandalone returns a vCluster for a standalone installation.
-// Detection relies on the systemd service file existing on the local filesystem,
-// so this only works when the CLI runs on the same host as the vCluster standalone.
-// Returns nil, nil when standalone is not detected.
-func getVClusterStandalone() (*VCluster, error) {
+// GetStandaloneVCluster returns a vCluster for a standalone installation on the
+// current host. Detection relies on the systemd service file existing on the
+// local filesystem, so this only works when the CLI runs on the same host as
+// the vCluster standalone. Returns nil, nil when standalone is not detected.
+func GetStandaloneVCluster() (*VCluster, error) {
 	unitData, found, err := standaloneutil.DetectStandaloneHost()
 	if err != nil {
 		return nil, fmt.Errorf("detect standalone host: %w", err)
@@ -755,7 +726,7 @@ func getVClusterStandalone() (*VCluster, error) {
 		return nil, nil
 	}
 
-	vConfig, err := vclusterconfig.LoadLocalStandaloneConfig("", nil)
+	vConfig, err := vclusterconfig.LoadStandaloneConfig("", nil)
 	if err != nil {
 		return nil, fmt.Errorf("load standalone config: %w", err)
 	}
