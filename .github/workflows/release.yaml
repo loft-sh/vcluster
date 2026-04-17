@@ -233,7 +233,8 @@ jobs:
       - publish
       - publish-chart
       - sync_linear
-    permissions: {}
+    permissions:
+      contents: read
     uses: loft-sh/github-actions/.github/workflows/notify-release.yaml@55d5b751b3c096231e7fc1e291c152a3d2449b9c # release-notification/v2
     with:
       release_version: ${{ github.event.release.tag_name }}
