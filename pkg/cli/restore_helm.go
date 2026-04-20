@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/loft-sh/log"
+	rawconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	vclusterconfig "github.com/loft-sh/vcluster/pkg/config"
@@ -138,6 +139,13 @@ func runRestoreBinary(vClusterConfig *vclusterconfig.VirtualClusterConfig, snaps
 		constants.VClusterStandaloneEnvVar+"=true",
 		constants.VClusterStorageOptionsEnv+"="+optionsString,
 	)
+	if vClusterConfig.BackingStoreType() == rawconfig.StoreTypeEmbeddedEtcd && os.Getenv(constants.VClusterStandaloneIPAddressEnvVar) == "" {
+		standaloneIPAddress, err := standaloneutil.ResolveStandaloneIPAddress(vClusterConfig.ControlPlane.Standalone.DataDir)
+		if err != nil {
+			return fmt.Errorf("resolve standalone IP address for restore: %w", err)
+		}
+		env = append(env, constants.VClusterStandaloneIPAddressEnvVar+"="+standaloneIPAddress)
+	}
 
 	cmd := exec.Command(binaryPath, args...)
 	cmd.Env = env
