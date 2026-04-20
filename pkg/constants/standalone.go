@@ -25,4 +25,7 @@ const (
 	// VClusterStandaloneDefaultConfigPath is the config location for a standalone binary installation.
 	// Kept outside the data directory so it survives a data wipe or re-install.
 	VClusterStandaloneDefaultConfigPath = "/etc/vcluster/vcluster.yaml"
+
+	// StandaloneRuntimeMetadataFileName stores persisted standalone runtime metadata in the data directory.
+	StandaloneRuntimeMetadataFileName = "standalone-runtime-metadata"
 )
