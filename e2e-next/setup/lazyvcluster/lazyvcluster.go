@@ -11,6 +11,8 @@ package lazyvcluster
 import (
 	"context"
 	"maps"
+	"os/exec"
+	"strings"
 
 	"github.com/loft-sh/e2e-framework/pkg/e2e"
 	providervcluster "github.com/loft-sh/e2e-framework/pkg/provider/vcluster"
@@ -108,6 +110,7 @@ func LazyVCluster(ctx context.Context, name, yamlTemplate string, opts ...LazyVC
 	vcOpts = append(vcOpts, cfg.extraClusterOpts...)
 
 	var err error
+	//nolint:defercleanupcluster // Teardown is wired below via a DeferCleanupCtx closure that conditionally calls cluster.Destroy based on spec failure state; the linter only recognizes the direct DeferCleanup(cluster.Destroy(...)) pattern.
 	ctx, err = cluster.Create(
 		cluster.WithName(name),
 		cluster.WithConfigFile(filePath),
@@ -116,9 +119,55 @@ func LazyVCluster(ctx context.Context, name, yamlTemplate string, opts ...LazyVC
 		cluster.WithDependencies(clusters.HostCluster),
 	)(ctx)
 	Expect(err).To(Succeed(), "lazy vcluster %q create", name)
-	e2e.DeferCleanupCtx(ctx, cluster.Destroy(name))
+	e2e.DeferCleanupCtx(ctx, func(ctx context.Context) (context.Context, error) {
+		if CurrentSpecReport().Failed() {
+			// A spec failed in this Ordered container. Dump diagnostics
+			// inline so they appear next to the failure in Ginkgo output
+			// (works for both local runs and CI logs), and keep the
+			// vCluster alive so the developer / CI debug-collection step
+			// can kubectl into it. HostCluster teardown in
+			// SynchronizedAfterSuite cleans it up eventually.
+			dumpVClusterDiagnostics(ctx, name)
+			GinkgoWriter.Printf(
+				"[lazy-vcluster] %q kept alive for failure diagnosis\n"+
+					"  inspect: kubectl --context kind-%s get pods -n vcluster-%s\n",
+				name, constants.GetHostClusterName(), name)
+			return ctx, nil
+		}
+		return cluster.Destroy(name)(ctx)
+	})
 
 	ctx, err = cluster.UseCluster(name)(ctx)
 	Expect(err).To(Succeed(), "lazy vcluster %q use", name)
 	return ctx
+}
+
+// dumpVClusterDiagnostics prints pod state, events, and syncer logs for a
+// vCluster to GinkgoWriter. Called from DeferCleanup when the enclosing
+// Ordered container had a failing spec.
+//
+// Each kubectl call is best-effort: the returned error is intentionally
+// discarded because CombinedOutput merges stderr into `out`, so any
+// kubectl diagnostic (ns not found, pod not ready, context missing) is
+// still visible to the reader. A transient kubectl failure here must not
+// obscure the real test failure by introducing a second error path.
+//
+// We deliberately do NOT wrap these calls in Eventually: the purpose is a
+// point-in-time snapshot of cluster state at the moment of spec failure,
+// not an eventually-consistent check (F1 exception for diagnostics).
+func dumpVClusterDiagnostics(ctx context.Context, vclusterName string) {
+	hostCtx := "kind-" + constants.GetHostClusterName()
+	ns := "vcluster-" + vclusterName
+
+	GinkgoWriter.Printf("\n=== [lazy-vcluster] diagnostics for %s ===\n", vclusterName)
+	for _, args := range [][]string{
+		{"get", "pods", "-n", ns, "-o", "wide"},
+		{"get", "events", "-n", ns, "--sort-by=.lastTimestamp"},
+		{"logs", "-n", ns, "-l", "app=vcluster", "-c", "syncer", "--tail=200"},
+	} {
+		cmd := exec.CommandContext(ctx, "kubectl", append([]string{"--context", hostCtx}, args...)...)
+		out, _ := cmd.CombinedOutput() //nolint:errcheck // diagnostic emission; stderr is in `out` via CombinedOutput
+		GinkgoWriter.Printf("\n$ kubectl --context %s %s\n%s", hostCtx, strings.Join(args, " "), out)
+	}
+	GinkgoWriter.Printf("\n=== [lazy-vcluster] end diagnostics ===\n")
 }
