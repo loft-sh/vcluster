@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
-	"github.com/loft-sh/vcluster/e2e-next/clusters"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	. "github.com/onsi/ginkgo/v2"
@@ -65,7 +64,7 @@ func ExportKubeConfigSpec() {
 				By("waiting for the same-namespace additional secret to exist", func() {
 					Eventually(func(g Gomega) {
 						secret, err := hostClient.CoreV1().Secrets(vClusterHostNS).Get(
-							ctx, clusters.ExportKubeConfigSameNSSecretName, metav1.GetOptions{})
+							ctx, SameNSSecretName, metav1.GetOptions{})
 						g.Expect(err).NotTo(HaveOccurred(),
 							"same-namespace additional secret should exist in %s", vClusterHostNS)
 
@@ -76,11 +75,11 @@ func ExportKubeConfigSpec() {
 
 						g.Expect(kubeConfig.Clusters).To(HaveLen(1), "should have exactly one cluster entry")
 						for _, clusterEntry := range kubeConfig.Clusters {
-							g.Expect(clusterEntry.Server).To(Equal(clusters.ExportKubeConfigSameNSServer),
+							g.Expect(clusterEntry.Server).To(Equal(SameNSServer),
 								"server should match configured override")
 						}
 
-						g.Expect(kubeConfig.Contexts).To(HaveKey(clusters.ExportKubeConfigSameNSContext),
+						g.Expect(kubeConfig.Contexts).To(HaveKey(SameNSContext),
 							"context name should match configured override")
 
 						g.Expect(secret.Data["certificate-authority"]).NotTo(BeEmpty(),
@@ -99,10 +98,10 @@ func ExportKubeConfigSpec() {
 			It("creates cross-namespace additional secret", func(ctx context.Context) {
 				By("waiting for the cross-namespace additional secret to exist", func() {
 					Eventually(func(g Gomega) {
-						secret, err := hostClient.CoreV1().Secrets(clusters.ExportKubeConfigTargetNS).Get(
-							ctx, clusters.ExportKubeConfigCrossNSSecretName, metav1.GetOptions{})
+						secret, err := hostClient.CoreV1().Secrets(TargetNS).Get(
+							ctx, CrossNSSecretName, metav1.GetOptions{})
 						g.Expect(err).NotTo(HaveOccurred(),
-							"cross-namespace additional secret should exist in %s", clusters.ExportKubeConfigTargetNS)
+							"cross-namespace additional secret should exist in %s", TargetNS)
 
 						g.Expect(secret.Data["config"]).NotTo(BeEmpty(), "kubeconfig data should not be empty")
 
@@ -111,11 +110,11 @@ func ExportKubeConfigSpec() {
 
 						g.Expect(kubeConfig.Clusters).To(HaveLen(1), "should have exactly one cluster entry")
 						for _, clusterEntry := range kubeConfig.Clusters {
-							g.Expect(clusterEntry.Server).To(Equal(clusters.ExportKubeConfigCrossNSServer),
+							g.Expect(clusterEntry.Server).To(Equal(CrossNSServer),
 								"server should match configured override")
 						}
 
-						g.Expect(kubeConfig.Contexts).To(HaveKey(clusters.ExportKubeConfigCrossNSContext),
+						g.Expect(kubeConfig.Contexts).To(HaveKey(CrossNSContext),
 							"context name should match configured override")
 
 						g.Expect(secret.Labels).To(HaveKeyWithValue("app", "vcluster"),
@@ -132,7 +131,7 @@ func ExportKubeConfigSpec() {
 				By("verifying the kubeconfig from the same-namespace secret produces a valid REST config", func() {
 					Eventually(func(g Gomega) {
 						secret, err := hostClient.CoreV1().Secrets(vClusterHostNS).Get(
-							ctx, clusters.ExportKubeConfigSameNSSecretName, metav1.GetOptions{})
+							ctx, SameNSSecretName, metav1.GetOptions{})
 						g.Expect(err).NotTo(HaveOccurred(), "additional secret should exist")
 						g.Expect(secret.Data["config"]).NotTo(BeEmpty(), "kubeconfig data should not be empty")
 
@@ -153,7 +152,7 @@ func ExportKubeConfigSpec() {
 					// server URL is in-cluster DNS not reachable from the test runner.
 					Eventually(func(g Gomega) {
 						secret, err := hostClient.CoreV1().Secrets(vClusterHostNS).Get(
-							ctx, clusters.ExportKubeConfigSameNSSecretName, metav1.GetOptions{})
+							ctx, SameNSSecretName, metav1.GetOptions{})
 						g.Expect(err).NotTo(HaveOccurred(), "additional secret should exist")
 
 						restConfig, err := clientcmd.RESTConfigFromKubeConfig(secret.Data["config"])

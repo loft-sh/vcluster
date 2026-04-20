@@ -1,5 +1,6 @@
 // Suite: cli-vcluster
-// vCluster: CLIVCluster (dedicated instance for CLI connect tests)
+// vCluster: dedicated instance for CLI connect tests.
+// Lifecycle owned by this Describe's BeforeAll + DeferCleanup.
 // Run:      just run-e2e 'cli'
 // Prereq:   vcluster binary must be in $PATH
 // Separate from CommonVCluster because connect operations create port-forward
@@ -7,11 +8,20 @@
 package e2e_next
 
 import (
+	"context"
+	_ "embed"
+
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	"github.com/loft-sh/vcluster/e2e-next/clusters"
+	"github.com/loft-sh/vcluster/e2e-next/setup/lazyvcluster"
 	"github.com/loft-sh/vcluster/e2e-next/test_core/lifecycle"
 	. "github.com/onsi/ginkgo/v2"
 )
+
+//go:embed vcluster-cli.yaml
+var cliVClusterYAML string
+
+const cliVClusterName = "cli-vcluster"
 
 func init() {
 	suiteCLIVCluster()
@@ -25,9 +35,12 @@ func init() {
 // and background proxy. ConnectSpec must run first while the vcluster is healthy.
 func suiteCLIVCluster() {
 	Describe("cli-vcluster", Ordered,
-		cluster.Use(clusters.CLIVCluster),
 		cluster.Use(clusters.HostCluster),
 		func() {
+			BeforeAll(func(ctx context.Context) context.Context {
+				return lazyvcluster.LazyVCluster(ctx, cliVClusterName, cliVClusterYAML)
+			})
+
 			lifecycle.ConnectSpec()
 			lifecycle.PauseResumeSpec()
 		},
