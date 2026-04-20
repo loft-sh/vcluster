@@ -721,7 +721,6 @@ github.com/loft-sh/e2e-framework/pkg/provider/vcluster
 github.com/loft-sh/e2e-framework/pkg/setup
 github.com/loft-sh/e2e-framework/pkg/setup/cluster
 github.com/loft-sh/e2e-framework/pkg/setup/suite
-github.com/loft-sh/e2e-framework/pkg/setup/vcluster
 # github.com/loft-sh/image v0.0.0-20250625154753-87447a6ad364
 ## explicit; go 1.23.3
 github.com/loft-sh/image/copy
