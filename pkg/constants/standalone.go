@@ -7,12 +7,6 @@ const (
 	VClusterStandaloneIPAddressEnvVar     = "VCLUSTER_STANDALONE_IP_ADDRESS"
 	VClusterStandaloneDefaultName         = "standalone"
 
-	// VClusterStandaloneCLISelector is a CLI-only alias that tells commands to target
-	// the local standalone service on this host. It triggers local systemd discovery
-	// and uses the standalone kubeconfig from disk; it is not the standalone runtime
-	// vCluster name used in request resources.
-	VClusterStandaloneCLISelector = "local-standalone"
-
 	// Standalone has no host-cluster namespace, so snapshot/restore request
 	// ConfigMaps and Secrets live in the virtual cluster's own kube-system.
 	VClusterStandaloneSnapshotNamespace = "kube-system"

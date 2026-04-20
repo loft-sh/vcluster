@@ -12,7 +12,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	vclusterconfig "github.com/loft-sh/vcluster/pkg/config"
-	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
@@ -27,9 +26,9 @@ const (
 	minAsyncSnapshotVersion = "0.29.0-alpha.1"
 )
 
-func CreateSnapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, podOptions *pod.Options, log log.Logger, delegateFromCLIToCluster bool) error {
+func CreateSnapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, podOptions *pod.Options, log log.Logger, delegateFromCLIToCluster, standalone bool) error {
 	// init kube client and vCluster
-	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log, delegateFromCLIToCluster)
+	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log, delegateFromCLIToCluster, standalone)
 	if err != nil {
 		return err
 	}
@@ -69,11 +68,11 @@ func CreateSnapshot(ctx context.Context, args []string, globalFlags *flags.Globa
 	return nil
 }
 
-func GetSnapshots(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, log log.Logger) error {
-	if len(args) != 2 {
-		return fmt.Errorf("unexpected amount of arguments: %d, need exactly 2 arguments. E.g. vcluster snapshot get my-vcluster s3://my-bucket/my-key", len(args))
+func GetSnapshots(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, log log.Logger, standalone bool) error {
+	_, snapshotURL, err := resolveSnapshotArgs(args, standalone)
+	if err != nil {
+		return err
 	}
-	snapshotURL := args[1]
 	parsedURL, err := url.Parse(snapshotURL)
 	if err != nil {
 		return fmt.Errorf("failed to parse snapshot URL: %w", err)
@@ -82,7 +81,7 @@ func GetSnapshots(ctx context.Context, args []string, globalFlags *flags.GlobalF
 	// command runs on a local machine.
 	credentialsRequiredInCluster := parsedURL.Scheme == "container"
 	// init kube client and vCluster
-	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log, credentialsRequiredInCluster)
+	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log, credentialsRequiredInCluster, standalone)
 	if err != nil {
 		return fmt.Errorf("failed to init snapshot command: %w", err)
 	}
@@ -112,21 +111,33 @@ func initSnapshotCommand(
 	snapshotOptions *snapshot.Options,
 	log log.Logger,
 	credentialsRequiredInCluster bool,
+	standalone bool,
 ) (*find.VCluster, *kubernetes.Clientset, *rest.Config, error) {
-	if len(args) != 2 {
-		return nil, nil, nil, fmt.Errorf("unexpected amount of arguments: %d, need exactly 2 arguments. E.g. vcluster [snapshot|restore] my-vcluster s3://my-bucket/my-key", len(args))
+	vClusterName, snapshotURL, err := resolveSnapshotArgs(args, standalone)
+	if err != nil {
+		return nil, nil, nil, err
 	}
 
-	err := snapshotOptions.SetURLAndFillCredentials(ctx, args[1], credentialsRequiredInCluster)
+	err = snapshotOptions.SetURLAndFillCredentials(ctx, snapshotURL, credentialsRequiredInCluster)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to set snapshot url and fill credentials: %w", err)
 	}
 
 	// find the vCluster
-	vClusterName := args[0]
-	vCluster, err := find.GetVClusterStandaloneOrVCluster(ctx, globalFlags.Context, vClusterName, globalFlags.Namespace, log)
-	if err != nil {
-		return nil, nil, nil, err
+	var vCluster *find.VCluster
+	if standalone {
+		vCluster, err = find.GetStandaloneVCluster()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		if vCluster == nil {
+			return nil, nil, nil, fmt.Errorf("local standalone vCluster not found on this host")
+		}
+	} else {
+		vCluster, err = find.GetVCluster(ctx, globalFlags.Context, vClusterName, globalFlags.Namespace, log)
+		if err != nil {
+			return nil, nil, nil, err
+		}
 	}
 
 	// check if snapshot is supported
@@ -166,11 +177,10 @@ func createSnapshotRequest(ctx context.Context, vCluster *find.VCluster, kubeCli
 		return fmt.Errorf("failed to create snapshot request resources: %w", err)
 	}
 
-	snapshotGetName := vCluster.Name
+	snapshotGetCommand := fmt.Sprintf("vcluster snapshot get %s %s", vCluster.Name, snapshotOpts.GetURL())
 	if vCluster.IsStandalone {
-		snapshotGetName = constants.VClusterStandaloneCLISelector
+		snapshotGetCommand = fmt.Sprintf("vcluster snapshot get %s --standalone", snapshotOpts.GetURL())
 	}
-	snapshotGetCommand := fmt.Sprintf("vcluster snapshot get %s %s", snapshotGetName, snapshotOpts.GetURL())
 	if snapshotOpts.Type == "azure" {
 		if snapshotOpts.Azure.SubscriptionID != "" {
 			snapshotGetCommand += fmt.Sprintf(" --azure-subscription-id %s", snapshotOpts.Azure.SubscriptionID)
@@ -181,6 +191,21 @@ func createSnapshotRequest(ctx context.Context, vCluster *find.VCluster, kubeCli
 	}
 	log.Infof("Beginning snapshot creation... Check the snapshot status by running `%s`", snapshotGetCommand)
 	return nil
+}
+
+func resolveSnapshotArgs(args []string, standalone bool) (string, string, error) {
+	if standalone {
+		if len(args) != 1 {
+			return "", "", fmt.Errorf("unexpected amount of arguments: %d, need exactly 1 argument. E.g. vcluster [snapshot|restore] s3://my-bucket/my-key --standalone", len(args))
+		}
+		return "", args[0], nil
+	}
+
+	if len(args) != 2 {
+		return "", "", fmt.Errorf("unexpected amount of arguments: %d, need exactly 2 arguments. E.g. vcluster [snapshot|restore] my-vcluster s3://my-bucket/my-key", len(args))
+	}
+
+	return args[0], args[1], nil
 }
 
 func checkIfVClusterSupportsSnapshotRequests(vCluster *find.VCluster, log log.Logger) error {
@@ -204,7 +229,7 @@ func getVClusterConfig(ctx context.Context, vCluster *find.VCluster, kubeClient 
 		}
 	} else if vCluster.IsStandalone {
 		// Standalone config lives on disk, not in a Kubernetes Secret.
-		vClusterConfig, err = vclusterconfig.LoadLocalStandaloneConfig("", nil)
+		vClusterConfig, err = vclusterconfig.LoadStandaloneConfig("", nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse standalone vcluster config: %w", err)
 		}
