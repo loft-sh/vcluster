@@ -34,11 +34,6 @@ jobs:
     timeout-minutes: 180
 
     steps:
-      - name: Free disk space
-        uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          tool-cache: false
-
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
@@ -77,11 +72,6 @@ jobs:
           TELEMETRY_PRIVATE_KEY="" goreleaser build \
             --single-target --snapshot --id vcluster-cli --clean --output ./vcluster
 
-      - name: Install Ginkgo CLI
-        run: |
-          cd e2e-next
-          go install github.com/onsi/ginkgo/v2/ginkgo
-
       - name: Set up vCluster CLI in GOBIN
         run: |
           GOBIN=$(go env GOPATH)/bin
@@ -100,18 +90,12 @@ jobs:
           fi
 
       - name: Run e2e-next tests
-        run: |
-          LABEL_FILTER="${{ inputs.ginkgo-label }}"
-          ginkgo \
-            -v \
-            --procs=8 \
-            --timeout=0 \
-            --poll-progress-after=20s \
-            --poll-progress-interval=10s \
-            --label-filter="${LABEL_FILTER}" \
-            ./e2e-next -- \
-            --vcluster-image="${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}" \
-            --teardown=false
+        uses: loft-sh/github-actions/.github/actions/run-ginkgo@run-ginkgo/v1
+        with:
+          ginkgo-label: ${{ inputs.ginkgo-label }}
+          timeout: "60m"
+          additional-args: "--vcluster-image=${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }} --teardown=false"
+          additional-ginkgo-flags: "-v"
 
       - name: Collect debug info on failure
         if: failure()
