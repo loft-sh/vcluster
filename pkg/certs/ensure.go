@@ -14,10 +14,12 @@ import (
 	"path/filepath"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/kubeadm"
+	"github.com/loft-sh/vcluster/pkg/util/certhelper"
 	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -91,6 +93,22 @@ func EnsureCerts(
 			if err != nil {
 				return err
 			}
+
+			return nil
+		}
+
+		// Certs exist on disk, check if leaf certs are expiring
+		if diskCertsExpiringSoon(certificateDir) {
+			klog.Infof("Leaf certificates in %s are expiring soon, regenerating", certificateDir)
+
+			// Remove only leaf certs; preserve SA keys and CA keys
+			if err := removeFiles(certificateDir, excludeSAFiles, excludeCAFiles); err != nil {
+				return fmt.Errorf("remove expiring leaf certs: %w", err)
+			}
+
+			if err := generateCertificates(certificateDir, kubeadmConfig); err != nil {
+				return fmt.Errorf("regenerate certs: %w", err)
+			}
 		}
 
 		return nil
@@ -102,7 +120,35 @@ func EnsureCerts(
 	secretName := CertSecretName(options.Name)
 	secret, err := currentNamespaceClient.CoreV1().Secrets(currentNamespace).Get(ctx, secretName, metav1.GetOptions{})
 	if err == nil {
-		return downloadCertsFromSecret(secret, certificateDir)
+		warnIfCAExpiring(secret.Data)
+
+		if !certsExpiringSoon(secret.Data) {
+			return downloadCertsFromSecret(secret, certificateDir)
+		}
+
+		klog.Infof("Leaf certificates in secret %s/%s are expiring soon, regenerating", currentNamespace, secretName)
+
+		// Download existing certs to disk (preserves CA and SA keys)
+		if err := downloadCertsFromSecret(secret, certificateDir); err != nil {
+			return fmt.Errorf("download certs before renewal: %w", err)
+		}
+
+		// Remove only expiring leaf certs from disk (preserves CA and SA keys)
+		if err := removeFiles(certificateDir, excludeSAFiles, excludeCAFiles); err != nil {
+			return fmt.Errorf("remove expiring leaf certs: %w", err)
+		}
+
+		// Regenerate missing certs
+		if err := generateCertificates(certificateDir, kubeadmConfig); err != nil {
+			return fmt.Errorf("regenerate certs: %w", err)
+		}
+
+		// Patch the secret in-place
+		if err := SyncSecret(ctx, currentNamespace, secretName, certificateDir, currentNamespaceClient); err != nil {
+			return fmt.Errorf("sync renewed certs to secret: %w", err)
+		}
+
+		return nil
 	}
 
 	err = generateCertificates(certificateDir, kubeadmConfig)
@@ -152,15 +198,6 @@ func EnsureCerts(
 		secret.Data[toName] = data
 	}
 
-	// find extra files in the folder and add them to the secret
-	extraFiles, err := extraFiles(certificateDir)
-	if err != nil {
-		return fmt.Errorf("read extra file: %w", err)
-	}
-	for k, v := range extraFiles {
-		secret.Data[k] = v
-	}
-
 	// finally create the secret
 	secret, err = currentNamespaceClient.CoreV1().Secrets(currentNamespace).Create(ctx, secret, metav1.CreateOptions{})
 	if err != nil {
@@ -178,6 +215,100 @@ func EnsureCerts(
 	}
 
 	return downloadCertsFromSecret(secret, certificateDir)
+}
+
+// certsExpiringSoon checks whether any leaf certificate in the secret data is
+// expired or within the renewal threshold. CA certificates are excluded.
+func certsExpiringSoon(secretData map[string][]byte) bool {
+	for _, secretKey := range certMap {
+		if !strings.HasSuffix(secretKey, ".crt") {
+			continue
+		}
+		// Skip CA certs
+		if isCAFile(secretKey) {
+			continue
+		}
+		pemBytes, ok := secretData[secretKey]
+		if !ok || len(pemBytes) == 0 {
+			return true // missing cert → needs regeneration
+		}
+		certs, err := certhelper.ParseCertsPEM(pemBytes)
+		if err != nil {
+			return true // unparseable → needs regeneration
+		}
+		for _, cert := range certs {
+			if certhelper.IsCertExpired(cert) {
+				klog.Infof("Leaf certificate %s (CN=%s) expires at %s, within renewal threshold",
+					secretKey, cert.Subject.CommonName, cert.NotAfter.Format(time.RFC3339))
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// diskCertsExpiringSoon checks whether any leaf certificate on disk is expired
+// or within the renewal threshold. Used for standalone mode.
+func diskCertsExpiringSoon(certificateDir string) bool {
+	for certFile, secretKey := range certMap {
+		if !strings.HasSuffix(secretKey, ".crt") {
+			continue
+		}
+		if isCAFile(secretKey) {
+			continue
+		}
+		pemBytes, err := os.ReadFile(filepath.Join(certificateDir, certFile))
+		if err != nil {
+			return true // missing cert → needs regeneration
+		}
+		certs, err := certhelper.ParseCertsPEM(pemBytes)
+		if err != nil {
+			return true // unparseable → needs regeneration
+		}
+		for _, cert := range certs {
+			if certhelper.IsCertExpired(cert) {
+				klog.Infof("Leaf certificate %s (CN=%s) expires at %s, within renewal threshold",
+					certFile, cert.Subject.CommonName, cert.NotAfter.Format(time.RFC3339))
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// isCAFile returns true if the given secret key corresponds to a CA certificate.
+func isCAFile(secretKey string) bool {
+	return secretKey == CACertName ||
+		secretKey == ServerCACertName ||
+		secretKey == ClientCACertName ||
+		secretKey == FrontProxyCACertName ||
+		secretKey == strings.ReplaceAll(EtcdCACertName, "/", "-")
+}
+
+// warnIfCAExpiring logs warnings for any CA certificates approaching expiry.
+func warnIfCAExpiring(secretData map[string][]byte) {
+	for _, secretKey := range certMap {
+		if !strings.HasSuffix(secretKey, ".crt") {
+			continue
+		}
+		if !isCAFile(secretKey) {
+			continue
+		}
+		pemBytes, ok := secretData[secretKey]
+		if !ok || len(pemBytes) == 0 {
+			continue
+		}
+		certs, err := certhelper.ParseCertsPEM(pemBytes)
+		if err != nil {
+			continue
+		}
+		for _, cert := range certs {
+			if certhelper.IsCertExpired(cert) {
+				klog.Warningf("CA certificate (CN=%s) expires at %s; run %q to renew",
+					cert.Subject.CommonName, cert.NotAfter.Format(time.RFC3339), "vcluster certs rotate-ca")
+			}
+		}
+	}
 }
 
 func CertSecretName(vClusterName string) string {
@@ -325,36 +456,6 @@ func copyFileIfNotExists(src, dst string) error {
 		return os.WriteFile(dst, srcBytes, 0666)
 	}
 	return nil
-}
-
-func extraFiles(certificateDir string) (map[string][]byte, error) {
-	files := make(map[string][]byte)
-	entries, err := os.ReadDir(certificateDir)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, v := range entries {
-		if v.IsDir() {
-			// ignore subdirectories for now
-			// etcd files should be picked up by the map
-			continue
-		}
-
-		// if it's not in the cert map, add to the map
-		name := v.Name()
-		_, ok := certMap[name]
-		if !ok {
-			b, err := os.ReadFile(filepath.Join(certificateDir, name))
-			if err != nil {
-				return nil, err
-			}
-
-			files[name] = b
-		}
-	}
-
-	return files, err
 }
 
 // KubeConfigOptions struct holds info required to build a KubeConfig object

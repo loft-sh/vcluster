@@ -10,6 +10,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/config"
@@ -138,6 +139,7 @@ func GenAPIServerServingCerts(
 		CommonName: commonName,
 		AltNames:   *altNames,
 		Usages:     extKeyUsage,
+		Duration:   servingCertDuration(),
 	}
 	cert, err := certhelper.NewSignedCert(cfg, key.(crypto.Signer), caCert[0], caKey.(crypto.Signer))
 	if err != nil {
@@ -311,6 +313,27 @@ func getExtraSANs(ctx context.Context, workloadNamespaceClient, vClient client.C
 
 	sort.Strings(retSANs)
 	return retSANs, nil
+}
+
+var (
+	servingCertDurationOnce  sync.Once
+	servingCertDurationValue time.Duration
+)
+
+// servingCertDuration returns the validity period for the API server serving
+// certificate. It defaults to 365 days but can be overridden by setting both
+// DEVELOPMENT=true and VCLUSTER_CERTS_VALIDITYPERIOD (e.g. "5m") for testing.
+func servingCertDuration() time.Duration {
+	servingCertDurationOnce.Do(func() {
+		servingCertDurationValue = certhelper.DefaultCertDuration
+		dev, period := os.Getenv("DEVELOPMENT"), os.Getenv("VCLUSTER_CERTS_VALIDITYPERIOD")
+		if dev == "true" && period != "" {
+			if d, err := time.ParseDuration(period); err == nil {
+				servingCertDurationValue = d
+			}
+		}
+	})
+	return servingCertDurationValue
 }
 
 func addSANs(altNames *certhelper.AltNames, sans []string) {
