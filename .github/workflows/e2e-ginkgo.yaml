@@ -242,6 +242,14 @@ jobs:
           additional-ginkgo-flags: "-v --show-node-events"
         continue-on-error: true
 
+      - name: Upload Ginkgo JSON report
+        if: success() || failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: ginkgo-report
+          path: test-reports/report.json
+          if-no-files-found: ignore
+
       - name: Collect debug info on failure
         if: steps.execute-e2e-tests.outcome == 'failure'
         run: |
