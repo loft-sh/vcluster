@@ -2090,3 +2090,98 @@ func noErrExpected(t *testing.T, err error) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestValidateAutoUpgradeSecurityContext(t *testing.T) {
+	type testCase struct {
+		name           string
+		vclusterConfig *VirtualClusterConfig
+		checkErr       func(t *testing.T, err error)
+	}
+
+	testCases := []testCase{
+		{
+			name: "Valid: no security context configured",
+			vclusterConfig: &VirtualClusterConfig{
+				Config: config.Config{
+					PrivateNodes: config.PrivateNodes{
+						Enabled:     true,
+						AutoUpgrade: config.AutoUpgrade{},
+					},
+				},
+			},
+			checkErr: noErrExpected,
+		},
+		{
+			name: "Valid: correct podSecurityContext",
+			vclusterConfig: &VirtualClusterConfig{
+				Config: config.Config{
+					PrivateNodes: config.PrivateNodes{
+						Enabled: true,
+						AutoUpgrade: config.AutoUpgrade{
+							PodSecurityContext: map[string]interface{}{
+								"runAsUser":  int64(0),
+								"runAsGroup": int64(0),
+							},
+						},
+					},
+				},
+			},
+			checkErr: noErrExpected,
+		},
+		{
+			name: "Valid: correct containerSecurityContext",
+			vclusterConfig: &VirtualClusterConfig{
+				Config: config.Config{
+					PrivateNodes: config.PrivateNodes{
+						Enabled: true,
+						AutoUpgrade: config.AutoUpgrade{
+							ContainerSecurityContext: map[string]interface{}{
+								"runAsUser": int64(0),
+							},
+						},
+					},
+				},
+			},
+			checkErr: noErrExpected,
+		},
+		{
+			name: "Invalid: podSecurityContext with wrong type",
+			vclusterConfig: &VirtualClusterConfig{
+				Config: config.Config{
+					PrivateNodes: config.PrivateNodes{
+						Enabled: true,
+						AutoUpgrade: config.AutoUpgrade{
+							PodSecurityContext: map[string]interface{}{
+								"runAsUser": "not-a-number",
+							},
+						},
+					},
+				},
+			},
+			checkErr: expectErr("invalid privateNodes.autoUpgrade.podSecurityContext: unrecognized type: int64"),
+		},
+		{
+			name: "Invalid: containerSecurityContext with wrong type",
+			vclusterConfig: &VirtualClusterConfig{
+				Config: config.Config{
+					PrivateNodes: config.PrivateNodes{
+						Enabled: true,
+						AutoUpgrade: config.AutoUpgrade{
+							ContainerSecurityContext: map[string]interface{}{
+								"runAsUser": "not-a-number",
+							},
+						},
+					},
+				},
+			},
+			checkErr: expectErr("invalid privateNodes.autoUpgrade.containerSecurityContext: unrecognized type: int64"),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validatePrivatedNodesMode(tc.vclusterConfig)
+			tc.checkErr(t, err)
+		})
+	}
+}
