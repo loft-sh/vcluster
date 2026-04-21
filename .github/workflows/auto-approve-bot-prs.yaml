@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   auto-approve:
+    if: startsWith(github.head_ref, 'backport/')
     uses: loft-sh/github-actions/.github/workflows/auto-approve-bot-prs.yaml@auto-approve-bot-prs/v1 # a889ee9
     with:
       trusted-authors: 'loft-bot'
