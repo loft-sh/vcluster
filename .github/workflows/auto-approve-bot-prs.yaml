@@ -10,9 +10,9 @@ permissions:
 
 jobs:
   auto-approve:
-    uses: loft-sh/github-actions/.github/workflows/auto-approve-bot-prs.yaml@auto-approve-bot-prs/v1 # 9d33031
+    uses: loft-sh/github-actions/.github/workflows/auto-approve-bot-prs.yaml@auto-approve-bot-prs/v1 # a889ee9
     with:
       trusted-authors: 'loft-bot'
       auto-merge: false
     secrets:
-      gh-access-token: ${{ secrets.GH_ACCESS_TOKEN }}
+      gh-access-token: ${{ secrets.BOT_APPROVER_PAT }}
