@@ -9,8 +9,10 @@ import (
 	"strings"
 
 	"github.com/kballard/go-shellquote"
+	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	standaloneutil "github.com/loft-sh/vcluster/pkg/util/standalone"
+	"sigs.k8s.io/yaml"
 )
 
 // LoadConfig loads config for commands that should use the current
@@ -93,12 +95,20 @@ func LoadStandaloneConfig(name string, setValues []string) (*VirtualClusterConfi
 // config before merging chart defaults. Missing custom config paths still
 // return an error.
 func LoadStandaloneRuntimeConfig(name, path string, setValues []string) (*VirtualClusterConfig, error) {
+	if name == "" {
+		return nil, fmt.Errorf("empty vCluster name")
+	}
+
 	rawConfig, err := os.ReadFile(path)
 	if err != nil {
 		if !os.IsNotExist(err) || !isDefaultStandaloneConfigPath(path) {
 			return nil, err
 		}
 		rawConfig = nil
+	}
+
+	if err := validateStrictStandaloneRawConfig(rawConfig); err != nil {
+		return nil, err
 	}
 
 	rawConfig, err = applySetValues(rawConfig, setValues)
@@ -111,12 +121,11 @@ func LoadStandaloneRuntimeConfig(name, path string, setValues []string) (*Virtua
 		return nil, err
 	}
 
-	cfg, err := ParseConfigBytes(mergedConfig, name, nil)
+	cfg, err := ParseStandaloneConfigBytes(mergedConfig, name, nil)
 	if err != nil {
 		return nil, err
 	}
 	cfg.Path = path
-	normalizeStandaloneConfig(cfg)
 
 	return cfg, nil
 }
@@ -145,17 +154,6 @@ func ResolveStandaloneConfigPath(path string) (string, error) {
 	return configPath, nil
 }
 
-// normalizeStandaloneConfig enforces the standalone runtime toggles that are
-// required for host-installed standalone vClusters, regardless of how the
-// underlying config was loaded.
-func normalizeStandaloneConfig(cfg *VirtualClusterConfig) {
-	cfg.ControlPlane.Standalone.Enabled = true
-	cfg.PrivateNodes.Enabled = true
-	if cfg.ControlPlane.Standalone.DataDir == "" {
-		cfg.ControlPlane.Standalone.DataDir = constants.VClusterStandaloneDefaultDataDir
-	}
-}
-
 // resolveStandaloneConfigFromSystemd resolves a standalone config path from the
 // local systemd unit, falling back to shared standalone default locations when
 // the unit does not provide an explicit config flag. This is intended for
@@ -182,6 +180,14 @@ func resolveStandaloneConfigFromSystemd() (string, []byte, error) {
 
 func isDefaultStandaloneConfigPath(path string) bool {
 	return path == constants.VClusterStandaloneDefaultConfigPath || path == constants.DefaultVClusterConfigLocation
+}
+
+func validateStrictStandaloneRawConfig(rawConfig []byte) error {
+	if len(rawConfig) == 0 {
+		return nil
+	}
+
+	return yaml.UnmarshalStrict(rawConfig, &vclusterconfig.Config{})
 }
 
 func resolveStandaloneRuntimeName(unitData []byte) string {
