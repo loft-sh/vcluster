@@ -16,6 +16,14 @@
 
 **[Website](https://www.vcluster.com)** • **[Quickstart](https://www.vcluster.com/docs/get-started/)** • **[Documentation](https://www.vcluster.com/docs/vcluster/introduction/what-are-virtual-clusters)** • **[Blog](https://loft.sh/blog)** • **[Slack](https://slack.loft.sh/)**
 
+<br/>
+
+<a href="https://www.cncf.io/training/certification/software-conformance/"><img src="https://raw.githubusercontent.com/cncf/artwork/main/projects/kubernetes/certified-kubernetes/versionless/color/certified-kubernetes-color.svg" alt="Certified Kubernetes — Distribution" height="100"></a>
+&nbsp;&nbsp;&nbsp;&nbsp;
+<a href="https://github.com/cncf/k8s-ai-conformance/tree/main/v1.35/vcluster-private-nodes"><img src="https://raw.githubusercontent.com/cncf/artwork/main/projects/kubernetes/certified-kubernetes-ai/versionless/color/CNCF_AI_Conformance_Logo-Color-V2.png" alt="Kubernetes AI Conformant" height="100"></a>
+
+**CNCF Certified Kubernetes — Distribution** · **Kubernetes AI Conformant** (v1.35)
+
 </div>
 
 ---
@@ -25,6 +33,8 @@
 **vCluster** creates **Tenant Clusters** — fully isolated Kubernetes environments that run on top of a Control Plane Cluster, on dedicated infrastructure, or standalone on bare metal. Each tenant gets its own API server, CRDs, and RBAC, with a cluster experience indistinguishable from a dedicated Kubernetes cluster.
 
 Built for production. Trusted in production. **40M+ Tenant Clusters deployed** by teams at Adobe, CoreWeave, NVIDIA, Lintasarta, Atlan, Deloitte, and hundreds of AI clouds, AI factories, and Fortune 500 platform organizations.
+
+**[CNCF Certified Kubernetes — Distribution](https://www.cncf.io/training/certification/software-conformance/)** and **[Kubernetes AI Conformant](https://github.com/cncf/k8s-ai-conformance/tree/main/v1.35/vcluster-private-nodes)** (v1.35) — every Tenant Cluster is upstream Kubernetes with no vendor lock‑in, validated for portable AI/ML workloads (training, inference, agentic).
 
 > **The public-cloud experience, on your own infrastructure.** Give every team the Kubernetes they need — with strict isolation, hardware-aware scheduling, and zero tenant sprawl — whether you run one region or 100K GPUs.
 
