@@ -21,6 +21,7 @@ Environment=LOFT_PLATFORM_HOST="test.vcluster.platform"
 Environment=LOFT_PLATFORM_INSECURE="false"
 Environment=LOFT_PLATFORM_INSTANCE_NAME="test-instance"
 Environment=LOFT_PLATFORM_PROJECT_NAME="test-project"
+Environment=LOFT_PLATFORM_SKIP_CONFIG_SYNC="false"
 `
 
 	got, err := renderSystemdPlatformConfFile(options)

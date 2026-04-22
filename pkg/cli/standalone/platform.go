@@ -14,11 +14,12 @@ import (
 
 // AddToPlatformOptions holds the configuration for connecting a standalone vcluster to the vCluster Platform.
 type AddToPlatformOptions struct {
-	AccessKey    string
-	Host         string
-	Insecure     bool
-	InstanceName string
-	ProjectName  string
+	AccessKey      string
+	Host           string
+	Insecure       bool
+	InstanceName   string
+	ProjectName    string
+	SkipConfigSync bool
 }
 
 // AddToPlatform configures the standalone vcluster to connect to the vCluster Platform by creating a systemd
@@ -99,6 +100,7 @@ Environment=LOFT_PLATFORM_HOST="{{.options.Host}}"
 Environment=LOFT_PLATFORM_INSECURE="{{.options.Insecure}}"
 Environment=LOFT_PLATFORM_INSTANCE_NAME="{{.options.InstanceName}}"
 Environment=LOFT_PLATFORM_PROJECT_NAME="{{.options.ProjectName}}"
+Environment=LOFT_PLATFORM_SKIP_CONFIG_SYNC="{{.options.SkipConfigSync}}"
 `
 
 	serviceTemplate, err := template.New("platformConf").Parse(platformConfTemplateText)
