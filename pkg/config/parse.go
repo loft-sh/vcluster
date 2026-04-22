@@ -52,6 +52,35 @@ func ParseConfigBytes(data []byte, name string, setValues []string) (*VirtualClu
 		return nil, err
 	}
 
+	return parseConfigBytes(name, rawConfig)
+}
+
+func ParseStandaloneConfigBytes(data []byte, name string, setValues []string) (*VirtualClusterConfig, error) {
+	// apply set values
+	rawFile, err := applySetValues(data, setValues)
+	if err != nil {
+		return nil, fmt.Errorf("apply set values: %w", err)
+	}
+
+	// create a new strict decoder
+	rawConfig := &config.Config{}
+	err = yaml.UnmarshalStrict(rawFile, rawConfig)
+	if err != nil {
+		fmt.Printf("%#+v\n", errors.Unwrap(err))
+		return nil, err
+	}
+
+	// set standalone config
+	rawConfig.ControlPlane.Standalone.Enabled = true
+	rawConfig.PrivateNodes.Enabled = true
+	if rawConfig.ControlPlane.Standalone.DataDir == "" {
+		rawConfig.ControlPlane.Standalone.DataDir = constants.VClusterStandaloneDefaultDataDir
+	}
+
+	return parseConfigBytes(name, rawConfig)
+}
+
+func parseConfigBytes(name string, rawConfig *config.Config) (*VirtualClusterConfig, error) {
 	// build config
 	retConfig := &VirtualClusterConfig{
 		Config: *rawConfig,
@@ -59,7 +88,7 @@ func ParseConfigBytes(data []byte, name string, setValues []string) (*VirtualClu
 	}
 
 	// validate config
-	err = ValidateConfigAndSetDefaults(retConfig)
+	err := ValidateConfigAndSetDefaults(retConfig)
 	if err != nil {
 		return nil, err
 	}
