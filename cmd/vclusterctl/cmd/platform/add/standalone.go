@@ -35,6 +35,7 @@ vcluster platform add standalone my-cluster --project my-project --access-key my
 	addCmd.Flags().StringVar(&options.AccessKey, "access-key", "", "The access key for the vCluster to connect to the platform. If empty, the CLI will generate one")
 	addCmd.Flags().StringVar(&options.Host, "host", "", "The host where to reach the platform")
 	addCmd.Flags().BoolVar(&options.Insecure, "insecure", false, "If the platform host is insecure")
+	addCmd.Flags().BoolVar(&options.SkipConfigSync, "skip-config-sync", false, "If true, will skip syncing the config from the platform")
 
 	return addCmd
 }
