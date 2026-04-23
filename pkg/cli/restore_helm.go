@@ -16,7 +16,6 @@ import (
 	vclusterconfig "github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/lifecycle"
-	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
 	standaloneutil "github.com/loft-sh/vcluster/pkg/util/standalone"
@@ -87,10 +86,6 @@ func restoreStandaloneVCluster(ctx context.Context, vCluster *find.VCluster, sna
 
 	sm, err := standaloneutil.NewServiceManager()
 	if err != nil {
-		return err
-	}
-
-	if err := pro.CheckStandaloneHA(ctx, vClusterConfig); err != nil {
 		return err
 	}
 
