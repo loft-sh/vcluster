@@ -31,6 +31,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const compCmdName = "completion"
+
 // NewRootCmd returns a new root command
 func NewRootCmd(log log.Logger) *cobra.Command {
 	return &cobra.Command{
@@ -38,7 +40,7 @@ func NewRootCmd(log log.Logger) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Short:         "Welcome to vcluster!",
-		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
+		PersistentPreRunE: func(cobraCmd *cobra.Command, _ []string) error {
 			if globalFlags == nil {
 				return errors.New("nil globalFlags")
 			}
@@ -51,8 +53,10 @@ func NewRootCmd(log log.Logger) *cobra.Command {
 				}
 			}
 
-			// start telemetry
-			telemetry.StartCLI(globalFlags.LoadedConfig(log))
+			// start telemetry — skip for completion commands
+			if !isCompletionCommand(cobraCmd) {
+				telemetry.StartCLI(globalFlags.LoadedConfig(log))
+			}
 
 			if globalFlags.Silent {
 				log.SetLevel(logrus.FatalLevel)
@@ -181,4 +185,17 @@ func recordAndFlush(err error, log log.Logger, globalFlags *flags.GlobalFlags) {
 
 	telemetry.CollectorCLI.RecordCLI(globalFlags.LoadedConfig(log), platform.Self, err)
 	telemetry.CollectorCLI.Flush()
+}
+
+func isCompletionCommand(cmd *cobra.Command) bool {
+	name := cmd.Name()
+	if name == cobra.ShellCompRequestCmd || name == cobra.ShellCompNoDescRequestCmd {
+		return true
+	}
+	for c := cmd; c != nil; c = c.Parent() {
+		if c.Name() == compCmdName {
+			return true
+		}
+	}
+	return false
 }
