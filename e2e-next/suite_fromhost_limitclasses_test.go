@@ -23,15 +23,8 @@ const fromHostLimitClassesVClusterName = "fromhost-limitclasses-vcluster"
 
 func init() { suiteFromHostLimitClassesVCluster() }
 
-// suiteFromHostLimitClassesVCluster wraps the Describe in a named function
-// so the framework's package-init safety net allows the
-// cluster.Use(HostCluster) dependency.
-//
-// Ordered: the outer Describe owns vCluster lifecycle via BeforeAll +
-// DeferCleanup - Ginkgo only allows BeforeAll/AfterAll inside Ordered
-// containers.
 func suiteFromHostLimitClassesVCluster() {
-	Describe("fromhost-limitclasses-vcluster", labels.PR, Ordered,
+	Describe("fromhost-limitclasses-vcluster", labels.PR, labels.Sync, Ordered,
 		cluster.Use(clusters.HostCluster),
 		func() {
 			BeforeAll(func(ctx context.Context) context.Context {

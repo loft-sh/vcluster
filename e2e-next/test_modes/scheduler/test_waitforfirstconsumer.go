@@ -40,7 +40,6 @@ func int32Ptr(i int32) *int32 {
 // SchedulerWaitForFirstConsumerSpec registers WaitForFirstConsumer StatefulSet tests.
 func SchedulerWaitForFirstConsumerSpec() {
 	Describe("Schedule a StatefulSet with WaitForFirstConsumer PVCs",
-		labels.Scheduler,
 		labels.Storage,
 		func() {
 			var (

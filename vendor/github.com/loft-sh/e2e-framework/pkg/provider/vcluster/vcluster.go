@@ -22,8 +22,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/loft-sh/e2e-framework/pkg/provider"
 	"github.com/vladimirvivien/gexe"
@@ -62,9 +64,10 @@ type Cluster struct {
 	upgrade              bool
 	add                  *bool // nil = default CLI behavior, non-nil = explicit --add=true/false
 	localChartDir        string
-	backgroundProxyImage string
-	driver               string
-	rc                   *rest.Config
+	backgroundProxyImage    string
+	driver                  string
+	skipWaitForControlPlane bool
+	rc                      *rest.Config
 }
 
 // Enforce Type check always to avoid future breaks
@@ -151,6 +154,19 @@ func WithAdd(add bool) support.ClusterOpts {
 		v, ok := c.(*Cluster)
 		if ok {
 			v.add = &add
+		}
+	}
+}
+
+// WithSkipWaitForControlPlane skips the default WaitForControlPlane check that
+// waits for the kube-dns pod. Instead, it polls the API server /healthz
+// endpoint. Use this for vclusters with embedded CoreDNS where no separate
+// kube-dns pod is deployed.
+func WithSkipWaitForControlPlane() support.ClusterOpts {
+	return func(c support.E2EClusterProvider) {
+		v, ok := c.(*Cluster)
+		if ok {
+			v.skipWaitForControlPlane = true
 		}
 	}
 }
@@ -415,6 +431,11 @@ func (c *Cluster) Destroy(ctx context.Context) error {
 }
 
 func (c *Cluster) WaitForControlPlane(ctx context.Context, client klient.Client) error {
+	if c.skipWaitForControlPlane {
+		log.V(4).Info("Waiting for API server health instead of kube-dns for vcluster ", c.name)
+		return c.waitForAPIServerHealth(client.RESTConfig())
+	}
+
 	r, err := resources.New(client.RESTConfig())
 	if err != nil {
 		return err
@@ -443,6 +464,38 @@ func (c *Cluster) WaitForControlPlane(ctx context.Context, client klient.Client)
 	return nil
 }
 
+func (c *Cluster) waitForAPIServerHealth(cfg *rest.Config) error {
+	httpClient, err := rest.HTTPClientFor(cfg)
+	if err != nil {
+		return fmt.Errorf("creating HTTP client: %w", err)
+	}
+
+	healthURL := strings.TrimSuffix(cfg.Host, "/") + "/healthz"
+	deadline := time.Now().Add(2 * time.Minute)
+	var lastErr error
+	for time.Now().Before(deadline) {
+		req, err := http.NewRequest("GET", healthURL, nil)
+		if err != nil {
+			return fmt.Errorf("creating health request: %w", err)
+		}
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			lastErr = err
+			log.V(4).Info("API server not ready yet: ", err)
+			time.Sleep(time.Second)
+			continue
+		}
+		resp.Body.Close()
+		if resp.StatusCode == http.StatusOK {
+			log.V(4).Info("API server healthy for vcluster ", c.name)
+			return nil
+		}
+		lastErr = fmt.Errorf("health check returned %d", resp.StatusCode)
+		time.Sleep(time.Second)
+	}
+	return fmt.Errorf("timed out waiting for API server health: %w", lastErr)
+}
+
 func (c *Cluster) KubernetesRestConfig() *rest.Config {
 	return c.rc
 }
@@ -467,8 +520,9 @@ type clusterJSON struct {
 	HostKubeContext      string `json:"hostKubeContext"`
 	Upgrade              bool   `json:"upgrade"`
 	Add                  *bool  `json:"add,omitempty"`
-	LocalChartDir        string `json:"localChartDir"`
-	BackgroundProxyImage string `json:"backgroundProxyImage"`
+	LocalChartDir           string `json:"localChartDir"`
+	BackgroundProxyImage    string `json:"backgroundProxyImage"`
+	SkipWaitForControlPlane bool   `json:"skipWaitForControlPlane,omitempty"`
 }
 
 func (c *Cluster) UnmarshalJSON(data []byte) error {
@@ -489,6 +543,7 @@ func (c *Cluster) UnmarshalJSON(data []byte) error {
 	c.version = clusterData.Version
 	c.localChartDir = clusterData.LocalChartDir
 	c.backgroundProxyImage = clusterData.BackgroundProxyImage
+	c.skipWaitForControlPlane = clusterData.SkipWaitForControlPlane
 
 	// Initialize the rest.Config if kubecfgFile is available
 	if c.kubecfgFile != "" {
@@ -512,8 +567,9 @@ func (c *Cluster) MarshalJSON() ([]byte, error) {
 		HostKubeContext:      c.hostKubeContext,
 		Upgrade:              c.upgrade,
 		Add:                  c.add,
-		LocalChartDir:        c.localChartDir,
-		BackgroundProxyImage: c.backgroundProxyImage,
+		LocalChartDir:           c.localChartDir,
+		BackgroundProxyImage:    c.backgroundProxyImage,
+		SkipWaitForControlPlane: c.skipWaitForControlPlane,
 	})
 }
 

@@ -1,6 +1,5 @@
 // Suite: kubelet-proxy-vcluster
 // vCluster: kubelet proxy with restricted subpaths.
-// Lifecycle owned by this Describe's BeforeAll + DeferCleanup.
 // Run:      just run-e2e 'security'
 package e2e_next
 
@@ -23,9 +22,6 @@ const kubeletProxyVClusterName = "kubelet-proxy-vcluster"
 
 func init() { suiteKubeletProxyVCluster() }
 
-// Ordered: the outer Describe owns vCluster lifecycle via BeforeAll +
-// DeferCleanup - Ginkgo only allows BeforeAll/AfterAll inside Ordered
-// containers.
 func suiteKubeletProxyVCluster() {
 	Describe("kubelet-proxy-vcluster", labels.PR, Ordered,
 		cluster.Use(clusters.HostCluster),

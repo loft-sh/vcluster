@@ -11,6 +11,7 @@ import (
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	"github.com/loft-sh/vcluster/e2e-next/clusters"
+	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/e2e-next/setup"
 	"github.com/loft-sh/vcluster/e2e-next/setup/lazyvcluster"
 	"github.com/loft-sh/vcluster/e2e-next/test_storage/snapshot"
@@ -24,11 +25,8 @@ const snapshotVClusterName = "snapshot-vcluster"
 
 func init() { suiteSnapshotVCluster() }
 
-// Ordered: the outer Describe owns vCluster lifecycle via BeforeAll +
-// DeferCleanup - Ginkgo only allows BeforeAll/AfterAll inside Ordered
-// containers.
 func suiteSnapshotVCluster() {
-	Describe("snapshot-vcluster", Ordered,
+	Describe("snapshot-vcluster", labels.Snapshots, Ordered,
 		cluster.Use(clusters.HostCluster),
 		func() {
 			BeforeAll(func(ctx context.Context) context.Context {

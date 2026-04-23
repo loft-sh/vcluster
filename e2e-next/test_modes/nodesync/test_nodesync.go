@@ -22,7 +22,6 @@ import (
 func NodeSyncSpec() {
 	Describe("Node sync",
 		labels.Sync,
-		labels.NodeSync,
 		func() {
 			var (
 				hostClient     kubernetes.Interface

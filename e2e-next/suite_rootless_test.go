@@ -1,6 +1,5 @@
 // Suite: rootless-vcluster
 // vCluster: runs as non-root (runAsUser: 12345, fsGroup: 12345).
-// Lifecycle owned by this Describe's BeforeAll + DeferCleanup.
 // Run:      just run-e2e 'rootless'
 package e2e_next
 
@@ -10,6 +9,7 @@ import (
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	"github.com/loft-sh/vcluster/e2e-next/clusters"
+	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/e2e-next/setup/lazyvcluster"
 	"github.com/loft-sh/vcluster/e2e-next/test_core/coredns"
 	test_core "github.com/loft-sh/vcluster/e2e-next/test_core/sync"
@@ -25,11 +25,8 @@ const rootlessVClusterName = "rootless-vcluster"
 
 func init() { suiteRootlessVCluster() }
 
-// Ordered: the outer Describe owns vCluster lifecycle via BeforeAll +
-// DeferCleanup - Ginkgo only allows BeforeAll/AfterAll inside Ordered
-// containers.
 func suiteRootlessVCluster() {
-	Describe("rootless-vcluster", Ordered,
+	Describe("rootless-vcluster", labels.Rootless, Ordered,
 		cluster.Use(clusters.HostCluster),
 		func() {
 			BeforeAll(func(ctx context.Context) context.Context {

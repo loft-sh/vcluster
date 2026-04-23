@@ -21,7 +21,7 @@ const (
 // InitManifestsSpec registers init manifest deployment tests.
 func InitManifestsSpec() {
 	Describe("Init manifests are synced and applied as expected",
-		labels.PR, labels.Deploy,
+		labels.Deploy,
 		func() {
 			var (
 				vClusterName   string

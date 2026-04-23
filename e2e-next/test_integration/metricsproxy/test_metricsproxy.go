@@ -22,9 +22,7 @@ import (
 // metrics-server installed (handled by MetricsProxyVCluster's preSetup).
 func MetricsProxySpec() {
 	Describe("Metrics proxy integration",
-		labels.PR,
 		labels.Integration,
-		labels.MetricsProxy,
 		func() {
 			var vClusterConfig *rest.Config
 

@@ -1,3 +1,6 @@
+// Suite: export-kubeconfig-vcluster
+// Tests exportKubeConfig additional-secret sync across namespaces.
+// Run:      just run-e2e 'exportkubeconfig'
 package e2e_next
 
 import (
@@ -8,6 +11,7 @@ import (
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	"github.com/loft-sh/vcluster/e2e-next/clusters"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
+	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/e2e-next/setup/lazyvcluster"
 	"github.com/loft-sh/vcluster/e2e-next/test_core/export_kubeconfig"
 	. "github.com/onsi/ginkgo/v2"
@@ -23,11 +27,8 @@ var exportKubeConfigVClusterYAML string
 
 func init() { suiteExportKubeConfigVCluster() }
 
-// Ordered: the outer Describe owns vCluster lifecycle via BeforeAll +
-// DeferCleanup - Ginkgo only allows BeforeAll/AfterAll inside Ordered
-// containers.
 func suiteExportKubeConfigVCluster() {
-	Describe("export-kubeconfig-vcluster", Ordered,
+	Describe("export-kubeconfig-vcluster", labels.ExportKubeConfig, Ordered,
 		cluster.Use(clusters.HostCluster),
 		func() {
 			BeforeAll(func(ctx context.Context) context.Context {

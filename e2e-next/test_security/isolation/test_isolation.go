@@ -24,9 +24,7 @@ import (
 // limitRange, and networkPolicy enabled (see vcluster-isolation-mode.yaml).
 func IsolationModeSpec() {
 	Describe("Isolated mode",
-		labels.PR,
 		labels.Security,
-		labels.Isolation,
 		func() {
 			var (
 				hostClient        kubernetes.Interface

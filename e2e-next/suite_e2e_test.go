@@ -1,6 +1,5 @@
 // Suite: common-vcluster (main PR-gating tests)
 // vCluster: comprehensive config with all sync options enabled.
-// Lifecycle owned by this Describe's BeforeAll + DeferCleanup.
 // Run:      just run-e2e 'pr && !non-default'
 package e2e_next
 
@@ -27,9 +26,6 @@ const commonVClusterName = "common-vcluster"
 
 func init() { suiteCommonVCluster() }
 
-// Ordered: the outer Describe owns vCluster lifecycle via BeforeAll +
-// DeferCleanup - Ginkgo only allows BeforeAll/AfterAll inside Ordered
-// containers.
 func suiteCommonVCluster() {
 	Describe("common-vcluster", labels.PR, Ordered,
 		cluster.Use(clusters.HostCluster),

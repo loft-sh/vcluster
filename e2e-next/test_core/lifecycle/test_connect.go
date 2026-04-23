@@ -9,7 +9,6 @@ import (
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
-	"github.com/loft-sh/vcluster/e2e-next/labels"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,10 +40,7 @@ func vclusterBin() string {
 }
 
 func ConnectSpec() {
-	Describe("vCluster connect",
-		labels.PR,
-		labels.CLI,
-		func() {
+	Describe("vCluster connect", func() {
 			var (
 				vClusterName      string
 				vClusterNamespace string

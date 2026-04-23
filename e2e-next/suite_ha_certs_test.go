@@ -1,6 +1,5 @@
 // Suite: certs-vcluster
 // vCluster: single-replica with deploy etcd.
-// Lifecycle owned by this Describe's BeforeAll + DeferCleanup.
 // Run:      just run-e2e 'certs'
 //
 // All cert tests run in a single Ordered Describe because:
@@ -16,6 +15,7 @@ import (
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	"github.com/loft-sh/vcluster/e2e-next/clusters"
+	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/e2e-next/setup/lazyvcluster"
 	"github.com/loft-sh/vcluster/e2e-next/test_security/certs"
 	. "github.com/onsi/ginkgo/v2"
@@ -33,6 +33,7 @@ func suiteCertsVCluster() {
 	// the auto-rotation test patches the cert secret and triggers pod restarts,
 	// which causes the vcluster to briefly enter "Terminating" status.
 	Describe("certs-vcluster",
+		labels.Certs,
 		Ordered,
 		cluster.Use(clusters.HostCluster),
 		func() {

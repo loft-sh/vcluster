@@ -26,7 +26,6 @@ import (
 func SingleReplicaWatcherSpec() {
 	Describe("Single-replica cert watcher rotation",
 		Ordered,
-		labels.Core,
 		labels.Security,
 		func() {
 			var (

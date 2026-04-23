@@ -34,7 +34,7 @@ const (
 // PodSyncSpec registers the spec.
 func PodSyncSpec() {
 	Describe("Pod sync from vCluster to host",
-		labels.PR, labels.Core, labels.Pods, labels.Sync,
+		labels.Core, labels.Pods, labels.Sync,
 		func() {
 			var (
 				hostClient     kubernetes.Interface

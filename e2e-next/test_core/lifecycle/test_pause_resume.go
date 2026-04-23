@@ -19,9 +19,7 @@ import (
 // PauseResumeSpec registers vcluster pause/resume tests against the framework-provisioned vcluster.
 // All tests shell out to the vcluster binary (must be in $PATH or $GOBIN).
 func PauseResumeSpec() {
-	Describe("vCluster pause and resume",
-		labels.CLI,
-		func() {
+	Describe("vCluster pause and resume", func() {
 			var (
 				vClusterName      string
 				vClusterNamespace string
@@ -123,7 +121,7 @@ func PauseResumeSpec() {
 // PauseResumeScaledDownSpec registers pause/resume tests for a scaled-down tenant cluster.
 // These tests create their own vcluster via the CLI (not framework-provisioned).
 func PauseResumeScaledDownSpec() {
-	Describe("pause and resume a scaled-down tenant cluster", labels.Core, labels.PR, Ordered, func() {
+	Describe("pause and resume a scaled-down tenant cluster", labels.Core, Ordered, func() {
 		// Ordered because each spec depends on the state from the prior spec:
 		// create → scale down → pause → resume.
 		var (

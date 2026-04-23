@@ -1,3 +1,6 @@
+// Package labels lists the Ginkgo labels used across the e2e-next suite.
+// Use them with --label-filter="..." to pick which suites run.
+// Each suite_*_test.go file tags its outer Describe with its primary label.
 package labels
 
 import (
@@ -5,9 +8,10 @@ import (
 )
 
 var (
-	// Run on every PR
+	// PR is applied to suites that gate every PR.
 	PR = Label("pr")
-	// Test Groups
+
+	// Feature-area labels.
 	Core        = Label("core")
 	Sync        = Label("sync")
 	Integration = Label("integration")
@@ -16,7 +20,7 @@ var (
 	Security    = Label("security")
 	Vind        = Label("vind")
 
-	// Resource-specific labels for fromHost sync tests
+	// Resource-specific labels for targeted filtering inside sync tests.
 	PriorityClasses = Label("priorityclasses")
 	RuntimeClasses  = Label("runtimeclasses")
 	StorageClasses  = Label("storageclasses")
@@ -31,7 +35,7 @@ var (
 	Webhooks        = Label("webhooks")
 	Snapshots       = Label("snapshots")
 
-	// Feature-specific labels for targeted filtering
+	// Suite-primary labels (one per opt-in suite).
 	Scheduler        = Label("scheduler")
 	MetricsProxy     = Label("metricsproxy")
 	Certs            = Label("certs")

@@ -1,6 +1,5 @@
 // Suite: service-sync-vcluster
 // vCluster: networking.replicateServices config.
-// Lifecycle owned by this Describe's BeforeAll + DeferCleanup.
 // Run:      just run-e2e 'pr && sync'
 package e2e_next
 
@@ -23,11 +22,8 @@ const serviceSyncVClusterName = "service-sync-vcluster"
 
 func init() { suiteServiceSyncVCluster() }
 
-// Ordered: the outer Describe owns vCluster lifecycle via BeforeAll +
-// DeferCleanup - Ginkgo only allows BeforeAll/AfterAll inside Ordered
-// containers.
 func suiteServiceSyncVCluster() {
-	Describe("service-sync-vcluster", labels.PR, Ordered,
+	Describe("service-sync-vcluster", labels.PR, labels.Sync, Ordered,
 		cluster.Use(clusters.HostCluster),
 		func() {
 			BeforeAll(func(ctx context.Context) context.Context {

@@ -21,7 +21,6 @@ import (
 // FromHostSecretsSpec registers secret sync from host tests.
 func FromHostSecretsSpec() {
 	Describe("Secrets sync from host",
-		labels.PR,
 		labels.Core,
 		labels.Sync,
 		labels.Secrets,

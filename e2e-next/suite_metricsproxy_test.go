@@ -11,6 +11,7 @@ import (
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	"github.com/loft-sh/vcluster/e2e-next/clusters"
+	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/e2e-next/setup"
 	"github.com/loft-sh/vcluster/e2e-next/setup/lazyvcluster"
 	"github.com/loft-sh/vcluster/e2e-next/test_integration/metricsproxy"
@@ -24,11 +25,8 @@ const metricsProxyVClusterName = "metricsproxy-vcluster"
 
 func init() { suiteMetricsProxyVCluster() }
 
-// Ordered: the outer Describe owns vCluster lifecycle via BeforeAll +
-// DeferCleanup - Ginkgo only allows BeforeAll/AfterAll inside Ordered
-// containers.
 func suiteMetricsProxyVCluster() {
-	Describe("metricsproxy-vcluster", Ordered,
+	Describe("metricsproxy-vcluster", labels.MetricsProxy, Ordered,
 		cluster.Use(clusters.HostCluster),
 		func() {
 			BeforeAll(func(ctx context.Context) context.Context {

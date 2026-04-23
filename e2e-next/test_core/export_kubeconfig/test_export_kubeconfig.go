@@ -15,7 +15,7 @@ import (
 
 func ExportKubeConfigSpec() {
 	Describe("export kubeconfig",
-		labels.Core, labels.ExportKubeConfig,
+		labels.Core,
 		func() {
 			var (
 				hostClient     kubernetes.Interface

@@ -21,7 +21,7 @@ import (
 // PluginSpec registers legacy plugin tests (bootstrap-with-deployment, hooks, import-secrets).
 func PluginSpec() {
 	Describe("Legacy plugin tests",
-		labels.PR, labels.Integration, labels.Plugin,
+		labels.Integration,
 		func() {
 			var (
 				vClusterClient    kubernetes.Interface

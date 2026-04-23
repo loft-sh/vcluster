@@ -21,7 +21,7 @@ import (
 // KubeletProxySpec registers the spec.
 func KubeletProxySpec() {
 	Describe("Kubelet proxy subpath access control",
-		labels.PR, labels.Security,
+		labels.Security,
 		func() {
 			var vClusterClientset *kubernetes.Clientset
 
