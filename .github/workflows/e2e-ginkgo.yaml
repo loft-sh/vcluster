@@ -208,19 +208,47 @@ jobs:
         with:
           version: "v3.19.0"
 
+      - name: Download vcluster cli
+        uses: actions/download-artifact@v6
+        with:
+          name: vcluster
+
+      - name: Download syncer image
+        uses: actions/download-artifact@v6
+        with:
+          name: vcluster_syncer
+
+      - name: Load syncer image and install vcluster CLI
+        run: |
+          docker load --input vcluster_syncer
+          chmod +x vcluster && sudo mv vcluster /usr/bin
+          docker image ls --all
+
+      - name: Ensure bridge netfilter modules are loaded
+        run: |
+          if [[ ! -f /proc/sys/net/bridge/bridge-nf-call-iptables ]]; then
+            sudo modprobe -va bridge br_netfilter
+            echo "Enabled bridge netfilter modules successfully"
+          else
+            echo "Bridge netfilter modules are already enabled"
+          fi
+
       - name: Run vCluster Ginkgo E2E Tests
         id: execute-e2e-tests
-        uses: ./.github/actions/run-ginkgo-e2e
+        uses: loft-sh/github-actions/.github/actions/run-ginkgo@run-ginkgo/v1
         with:
-          ginkgo-label: "${{ needs.parse_label-filter.outputs.label-filter }}"
-          image: ${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}
-        env:
-          REPOSITORY_NAME: ${{ env.REPOSITORY_NAME }}
-          TAG_NAME: ${{ env.TAG_NAME }}
-          VCLUSTER_SUFFIX: ${{ env.VCLUSTER_SUFFIX }}
-          VCLUSTER_NAME: ${{ env.VCLUSTER_NAME }}
-          VCLUSTER_NAMESPACE: ${{ env.VCLUSTER_NAMESPACE }}
+          ginkgo-label: "${{ needs.parse_label-filter.outputs.label-filter }} || pr"
+          additional-args: "--vcluster-image=${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }} --teardown=false"
+          additional-ginkgo-flags: "-v --show-node-events"
         continue-on-error: true
+
+      - name: Upload Ginkgo JSON report
+        if: success() || failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: ginkgo-report
+          path: test-reports/report.json
+          if-no-files-found: ignore
 
       - name: Collect debug info on failure
         if: steps.execute-e2e-tests.outcome == 'failure'
