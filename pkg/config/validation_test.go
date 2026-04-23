@@ -2015,7 +2015,7 @@ func TestValidateExperimentalProxyCustomResourcesConfig(t *testing.T) {
 					},
 				},
 			},
-			expectedErr: "experimental.proxy.customResources['myresources.example.com']: invalid resource path \"myresources.example.com\", expected format 'resource.group/version' (e.g., 'resource.my-org.com/v1')",
+			expectedErr: "experimental.proxy.customResources['myresources.example.com']: invalid resource path \"myresources.example.com\", expected format 'resource.group/version' or '*.group/version' (e.g., 'resource.my-org.com/v1' or '*.my-org.com/v1')",
 		},
 		{
 			name: "invalid resource path - empty resource",
@@ -2027,7 +2027,7 @@ func TestValidateExperimentalProxyCustomResourcesConfig(t *testing.T) {
 					},
 				},
 			},
-			expectedErr: "experimental.proxy.customResources['/v1']: invalid resource path \"/v1\", expected format 'resource.group/version' (e.g., 'resource.my-org.com/v1')",
+			expectedErr: "experimental.proxy.customResources['/v1']: invalid resource path \"/v1\", expected format 'resource.group/version' or '*.group/version' (e.g., 'resource.my-org.com/v1' or '*.my-org.com/v1')",
 		},
 		{
 			name: "missing targetVirtualCluster.name",
@@ -2051,6 +2051,121 @@ func TestValidateExperimentalProxyCustomResourcesConfig(t *testing.T) {
 				},
 			},
 			expectedErr: "experimental.proxy.customResources['myresources.example.com/v1'].accessResources: invalid value \"invalid\", must be 'owned' or 'all'",
+		},
+		{
+			name: "valid wildcard entry",
+			cfg: map[string]config.CustomResourceProxy{
+				"*.example.com/v1": {
+					Enabled: true,
+					TargetVirtualCluster: config.VirtualClusterRef{
+						Name: "target-vcluster",
+					},
+				},
+			},
+		},
+		{
+			name: "wildcard missing group",
+			cfg: map[string]config.CustomResourceProxy{
+				"*/v1": {
+					Enabled: true,
+					TargetVirtualCluster: config.VirtualClusterRef{
+						Name: "target-vcluster",
+					},
+				},
+			},
+			expectedErr: "experimental.proxy.customResources['*/v1']: invalid resource path \"*/v1\", expected format 'resource.group/version' or '*.group/version' (e.g., 'resource.my-org.com/v1' or '*.my-org.com/v1')",
+		},
+		{
+			name: "wildcard and explicit entry for same group/version conflict",
+			cfg: map[string]config.CustomResourceProxy{
+				"*.example.com/v1": {
+					Enabled: true,
+					TargetVirtualCluster: config.VirtualClusterRef{
+						Name: "target-vcluster",
+					},
+				},
+				"widgets.example.com/v1": {
+					Enabled: true,
+					TargetVirtualCluster: config.VirtualClusterRef{
+						Name: "target-vcluster",
+					},
+				},
+			},
+			expectedErr: "experimental.proxy.customResources: wildcard entry \"*.example.com/v1\" cannot be combined with explicit entry \"widgets.example.com/v1\" for the same group/version",
+		},
+		{
+			name: "wildcard and explicit entry for different versions of the same group are allowed",
+			cfg: map[string]config.CustomResourceProxy{
+				"*.example.com/v1": {
+					Enabled: true,
+					TargetVirtualCluster: config.VirtualClusterRef{
+						Name: "target-vcluster",
+					},
+				},
+				"widgets.example.com/v1alpha1": {
+					Enabled: true,
+					TargetVirtualCluster: config.VirtualClusterRef{
+						Name: "target-vcluster",
+					},
+				},
+			},
+		},
+		{
+			name: "same group/version with different targetVirtualCluster rejected",
+			cfg: map[string]config.CustomResourceProxy{
+				"widgets.example.com/v1": {
+					Enabled: true,
+					TargetVirtualCluster: config.VirtualClusterRef{
+						Name: "target-a",
+					},
+				},
+				"gadgets.example.com/v1": {
+					Enabled: true,
+					TargetVirtualCluster: config.VirtualClusterRef{
+						Name: "target-b",
+					},
+				},
+			},
+			expectedErr: "experimental.proxy.customResources: entries \"gadgets.example.com/v1\" and \"widgets.example.com/v1\" share group/version \"example.com/v1\" but set different targetVirtualCluster",
+		},
+		{
+			name: "same group/version with different accessResources rejected",
+			cfg: map[string]config.CustomResourceProxy{
+				"widgets.example.com/v1": {
+					Enabled: true,
+					TargetVirtualCluster: config.VirtualClusterRef{
+						Name: "target-vcluster",
+					},
+					AccessResources: config.AccessResourcesModeOwned,
+				},
+				"gadgets.example.com/v1": {
+					Enabled: true,
+					TargetVirtualCluster: config.VirtualClusterRef{
+						Name: "target-vcluster",
+					},
+					AccessResources: config.AccessResourcesModeAll,
+				},
+			},
+			expectedErr: "experimental.proxy.customResources: entries \"gadgets.example.com/v1\" and \"widgets.example.com/v1\" share group/version \"example.com/v1\" but set different accessResources",
+		},
+		{
+			name: "same group/version with same target and mode accepted",
+			cfg: map[string]config.CustomResourceProxy{
+				"widgets.example.com/v1": {
+					Enabled: true,
+					TargetVirtualCluster: config.VirtualClusterRef{
+						Name: "target-vcluster",
+					},
+					AccessResources: config.AccessResourcesModeAll,
+				},
+				"gadgets.example.com/v1": {
+					Enabled: true,
+					TargetVirtualCluster: config.VirtualClusterRef{
+						Name: "target-vcluster",
+					},
+					AccessResources: config.AccessResourcesModeAll,
+				},
+			},
 		},
 	}
 

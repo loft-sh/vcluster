@@ -933,19 +933,74 @@ func extractGroup(key string) string {
 }
 
 func ValidateExperimentalProxyCustomResourcesConfig(cfg map[string]config.CustomResourceProxy) error {
+	type entry struct {
+		path     string
+		gvKey    string
+		wildcard bool
+		target   config.VirtualClusterRef
+		mode     config.AccessResourcesMode
+	}
+
+	entries := make([]entry, 0, len(cfg))
 	for resourcePath, resourceConfig := range cfg {
 		basePath := fmt.Sprintf("experimental.proxy.customResources['%s']", resourcePath)
 
 		parts := strings.Split(resourcePath, "/")
-		if len(parts) != 2 || schema.ParseGroupResource(parts[0]).Resource == "" {
-			return fmt.Errorf("%s: invalid resource path %q, expected format 'resource.group/version' (e.g., 'resource.my-org.com/v1')", basePath, resourcePath)
+		if len(parts) != 2 {
+			return fmt.Errorf("%s: invalid resource path %q, expected format 'resource.group/version' or '*.group/version' (e.g., 'resource.my-org.com/v1' or '*.my-org.com/v1')", basePath, resourcePath)
+		}
+		gr := schema.ParseGroupResource(parts[0])
+		if gr.Resource == "" || gr.Group == "" {
+			return fmt.Errorf("%s: invalid resource path %q, expected format 'resource.group/version' or '*.group/version' (e.g., 'resource.my-org.com/v1' or '*.my-org.com/v1')", basePath, resourcePath)
 		}
 		if resourceConfig.TargetVirtualCluster.Name == "" {
 			return fmt.Errorf("%s.targetVirtualCluster is required", basePath)
 		}
-
 		if resourceConfig.AccessResources != "" && resourceConfig.AccessResources != config.AccessResourcesModeOwned && resourceConfig.AccessResources != config.AccessResourcesModeAll {
 			return fmt.Errorf("%s.accessResources: invalid value %q, must be 'owned' or 'all'", basePath, resourceConfig.AccessResources)
+		}
+
+		entries = append(entries, entry{
+			path:     resourcePath,
+			gvKey:    gr.Group + "/" + parts[1],
+			wildcard: gr.Resource == "*",
+			target:   resourceConfig.TargetVirtualCluster,
+			mode:     resourceConfig.AccessResources,
+		})
+	}
+	slices.SortFunc(entries, func(a, b entry) int { return strings.Compare(a.path, b.path) })
+
+	var wildcards, explicits []entry
+	for _, p := range lo.PartitionBy(entries, func(e entry) bool { return e.wildcard }) {
+		if len(p) == 0 {
+			continue
+		}
+		if p[0].wildcard {
+			wildcards = p
+		} else {
+			explicits = p
+		}
+	}
+
+	explicitByGV := lo.SliceToMap(explicits, func(e entry) (string, string) { return e.gvKey, e.path })
+	for _, w := range wildcards {
+		if explicitPath, ok := explicitByGV[w.gvKey]; ok {
+			return fmt.Errorf("experimental.proxy.customResources: wildcard entry %q cannot be combined with explicit entry %q for the same group/version", w.path, explicitPath)
+		}
+	}
+
+	// All entries sharing a group/version must agree on target vCluster and access mode —
+	// APIService aggregation routes the whole group/version to one proxy, so mismatched
+	// settings are ambiguous and would otherwise be silently dropped.
+	for _, group := range lo.GroupBy(entries, func(e entry) string { return e.gvKey }) {
+		first := group[0]
+		for _, e := range group[1:] {
+			if e.target != first.target {
+				return fmt.Errorf("experimental.proxy.customResources: entries %q and %q share group/version %q but set different targetVirtualCluster", first.path, e.path, first.gvKey)
+			}
+			if e.mode != first.mode {
+				return fmt.Errorf("experimental.proxy.customResources: entries %q and %q share group/version %q but set different accessResources", first.path, e.path, first.gvKey)
+			}
 		}
 	}
 
