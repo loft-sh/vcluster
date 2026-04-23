@@ -38,31 +38,40 @@ If the old test installs Helm charts or external services (via `values.yaml` `co
 
 ## vCluster Configuration Patterns
 
+Each vCluster lives next to the `suite_*_test.go` that uses it. `HostCluster` (the kind host) is the only eagerly-provisioned dependency in `SynchronizedBeforeSuite`; every per-test vCluster is created lazily in the suite's own `BeforeAll` via `setup/lazyvcluster.LazyVCluster`, which is a thin wrapper over the framework's `vcluster.Create`.
+
 ### Embedded YAML Templates
 
-vCluster instances are configured via embedded YAML in `e2e-next/clusters/*.go`. Templates support `{{.Repository}}` and `{{.Tag}}` placeholders for image overrides:
+Embed the `vcluster.yaml` in the suite file. Templates support `{{.Repository}}`, `{{.Tag}}`, `{{.HostClusterName}}` placeholders - the lazy helper renders them at `BeforeAll` time and registers temp-file cleanup automatically.
 
-```go
-//go:embed vcluster-servicesync.yaml
-var serviceSyncVClusterYAMLTemplate string
+### Defining a New vCluster Suite
 
-var ServiceSyncVClusterYAML, ServiceSyncVClusterYAMLCleanup = template.MustRender(
-    serviceSyncVClusterYAMLTemplate,
-    DefaultVClusterVars,
-)
-```
+1. Create `e2e-next/vcluster-myfeature.yaml` with the `vcluster.yaml` config.
+2. Create `e2e-next/suite_myfeature_test.go`:
+   ```go
+   //go:embed vcluster-myfeature.yaml
+   var myFeatureYAML string
 
-The `template.MustRender()` function (from `e2e-next/setup/template/template.go`) renders Go text/template placeholders and writes the result to a temp file. It returns the file path and a cleanup function. Register the cleanup in `SynchronizedBeforeSuite` with `DeferCleanup`.
+   const myFeatureName = "myfeature-vcluster"
 
-### Defining New vCluster Instances
+   func init() { suiteMyFeature() }
 
-Add new cluster definitions in `e2e-next/clusters/`:
+   func suiteMyFeature() {
+       Describe("myfeature-vcluster", labels.MyFeature, Ordered,
+           cluster.Use(clusters.HostCluster),
+           func() {
+               BeforeAll(func(ctx context.Context) context.Context {
+                   return lazyvcluster.LazyVCluster(ctx, myFeatureName, myFeatureYAML)
+               })
+               // spec functions...
+           },
+       )
+   }
+   ```
+3. If a new filter label is needed, add it to `labels/labels.go`. `labels.PR` goes on the outer suite (never on specs).
+4. If the vCluster needs host-side prerequisites (CRDs, PVCs, Helm install), pass `lazyvcluster.WithPreSetup(fn)`. Reusable helpers live in `setup/` (`setup.SnapshotPreSetup`, `setup.MetricsServerPreSetup`).
 
-1. Create a YAML config file (e.g., `vcluster-myfeature.yaml`) with the vcluster.yaml configuration
-2. Embed it and render with `template.MustRender()`
-3. Define the cluster using `vcluster.Define()` with appropriate options
-4. Wire it into `SynchronizedBeforeSuite` in `e2e_suite_test.go`
-5. Reference it in tests via `cluster.Use(clusters.MyFeatureVCluster)`
+Do NOT add entries to `clusters/` - that package only holds `HostCluster` and `DefaultVClusterOptions`.
 
 ## Client Accessors
 

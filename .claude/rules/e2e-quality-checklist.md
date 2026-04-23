@@ -117,22 +117,26 @@ nsName = "ns-" + suffix
 
 ---
 
-## 6. Use Existing Cluster Definitions and Setup Patterns
+## 6. Use the Lazy vCluster Pattern
 
-Use existing cluster definitions from `e2e-next/clusters/` and the `setup/template` package for vcluster configuration. During migration, agents should create setup builders as `[infra]` sub-problems when patterns repeat — place them in `e2e-next/setup/` following the functional-options pattern.
+Per-test vClusters live in `suite_*_test.go` and are created lazily in the suite's `BeforeAll` via `setup/lazyvcluster.LazyVCluster`. The only eager cluster is `clusters.HostCluster` (the kind host).
 
 ```go
-// PASS — uses existing cluster definition
-cluster.Use(clusters.DefaultVCluster)
+// PASS — lazy creation inside the suite
+Describe("myfeature-vcluster", labels.MyFeature, Ordered,
+    cluster.Use(clusters.HostCluster),
+    func() {
+        BeforeAll(func(ctx context.Context) context.Context {
+            return lazyvcluster.LazyVCluster(ctx, myFeatureName, myFeatureYAML)
+        })
+        // specs...
+    },
+)
 
-// PASS — uses template rendering for custom YAML
-var myYAML = template.MustRender(myYAMLRaw)
-
-// FAIL — hand-rolling cluster setup that duplicates existing patterns
+// FAIL — eager registration in clusters/ + cluster.Use(vc) is the old pattern; do not reintroduce it.
 ```
 
-Browse `e2e-next/clusters/` for available definitions before writing any new cluster
-configuration.
+Do not add definitions to `clusters/`. Pre-setup hooks (CRD install, PVC, Helm) go into `setup/` and are passed via `lazyvcluster.WithPreSetup`. See `e2e-next/README.md` for the full pattern.
 
 ---
 
