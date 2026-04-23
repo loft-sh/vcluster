@@ -60,12 +60,13 @@ e2e-next/
 
 Tests are split into two layers plus a shared lifecycle helper:
 
-1. **Spec functions** (`test_*/`) - self-describing: each carries its own `Describe` text and feature labels, but no cluster binding or scheduling labels.
+1. **Spec functions** (`test_*/`) - self-describing: each carries its own `Describe` text and feature labels (e.g. `labels.Core, labels.Pods, labels.Sync`). No cluster binding, no `labels.PR`. PR gating is decided by the enclosing suite.
 2. **Suite files** (`suite_*_test.go`) - one per vCluster configuration. Owns:
    - the embedded `vcluster-*.yaml` template
    - the vCluster name const
-   - the vCluster lifecycle: `Ordered` + `BeforeAll` that calls `lazyvcluster.LazyVCluster` and registers `DeferCleanup(cluster.Destroy)`
-3. **`setup/lazyvcluster`** - the shared helper that renders YAML, creates the vCluster, registers teardown, and makes it the current cluster in ctx.
+   - the vCluster lifecycle: `Ordered` + `BeforeAll` that calls `lazyvcluster.LazyVCluster`
+   - the scheduling labels (`labels.PR` on PR-gated suites, plus one primary label per suite like `labels.Rootless`)
+3. **`setup/lazyvcluster`** - the shared helper, a thin wrapper over the framework's `vcluster.Create`.
 
 Only `HostCluster` (the kind host) stays in the framework's dependency mechanism (eagerly provisioned in `SynchronizedBeforeSuite`). Every per-test vCluster is created lazily in its own suite's `BeforeAll` and destroyed after the last spec in that suite finishes.
 
@@ -106,15 +107,15 @@ The same spec can run against multiple vClusters. The suite controls which vClus
 
 ## Lazy vCluster lifecycle
 
-The outer `Describe` in each suite uses `Ordered` so Ginkgo runs `BeforeAll` + `AfterAll` once per Describe invocation. `lazyvcluster.LazyVCluster`:
+Each suite's outer `Describe` is `Ordered` so Ginkgo fires `BeforeAll` + `AfterAll` once per Describe. The local `lazyvcluster.LazyVCluster` helper is a thin wrapper over the framework's `vcluster.Create` (in `github.com/loft-sh/e2e-framework/pkg/setup/vcluster`) that:
 
 - renders the embedded YAML with `{{.Repository}}`, `{{.Tag}}`, `{{.HostClusterName}}` (plus any `WithExtraTemplateVars`)
 - runs the provided `WithPreSetup` hook first (optional - used for CSI install, metrics-server install, CRDs, etc.)
-- calls `cluster.Create` with the vCluster provider and `clusters.DefaultVClusterOptions`
-- registers `DeferCleanup(cluster.Destroy(name))`
-- calls `cluster.UseCluster(name)` so `cluster.CurrentKubeClientFrom(ctx)` resolves to this vCluster for inner specs
+- delegates to `vcluster.Create(ctx, vcluster.Spec{...})` which creates the vCluster, wires failure-aware teardown, and calls `cluster.UseCluster` so `cluster.CurrentKubeClientFrom(ctx)` resolves inside specs
 
-Peak concurrent vClusters is bounded by `ginkgo --procs` (the number of worker processes), not by the total number of suite files. Label-filtered runs (`--label-filter=foo`) only materialize vClusters for suites whose outer Describe matches.
+On spec failure the framework keeps the failed vCluster alive and attaches diagnostics (rendered config, pods, events, syncer logs) as report entries on the failing spec. On pass, teardown destroys the vCluster normally.
+
+Peak concurrent vClusters is bounded by `ginkgo --procs`, not by the number of suite files. A label-filtered run only materializes vClusters for suites whose outer Describe matches.
 
 ## Test Suites
 
@@ -142,25 +143,47 @@ Each suite file maps to one vCluster. One file, one vCluster, one function.
 
 ## Labels
 
-| Label | Description |
-|-------|-------------|
-| `pr` | Scheduling label: tests that gate pull requests (on suite, not spec) |
-| `core` | Core vCluster functionality |
-| `sync` | Resource sync tests (toHost/fromHost) |
-| `deploy` | Deployment tests (helm, manifests) |
-| `storage` | PVC/PV storage tests |
-| `security` | Webhook, cert rotation, isolation tests |
-| `scheduler` | Virtual scheduler tests |
-| `pods` | Pod sync tests |
-| `pvcs` | PVC sync tests |
-| `coredns` | CoreDNS resolution tests |
-| `webhooks` | Admission webhook tests |
-| `events` | Event sync tests |
-| `snapshots` | Snapshot & restore tests |
-| `configmaps` | ConfigMap fromHost sync |
-| `secrets` | Secret fromHost sync |
-| `networkpolicies` | NetworkPolicy sync (requires Calico CNI) |
-| `non-default` | Tests requiring special infra (e.g. Calico CNI) - excluded by default |
+Labels are defined in `labels/labels.go`. `labels.PR` goes on suites that should gate every PR. Every opt-in suite has one primary label that matches its vCluster (e.g. `labels.Rootless` for `rootless-vcluster`) so `--label-filter='rootless'` targets just that suite.
+
+**Scheduling:**
+
+| Label | Applied to | Run it with |
+|-------|------------|-------------|
+| `pr` | PR-gated suites | `--label-filter='pr'` |
+| `non-default` | Tests needing special infra (e.g. Calico) | excluded by default |
+
+**Per-suite primary labels:**
+
+| Label | Suite |
+|-------|-------|
+| `certs` | `short-certs-vcluster`, `ha-short-certs-vcluster`, `certs-vcluster` |
+| `cli` | `cli-vcluster` |
+| `exportkubeconfig` | `export-kubeconfig-vcluster` |
+| `isolation` | `isolation-mode-vcluster` |
+| `metricsproxy` | `metricsproxy-vcluster` |
+| `nodesync` | `node-sync-vcluster` |
+| `plugin` | `plugin-vcluster` |
+| `rootless` | `rootless-vcluster` |
+| `scheduler` | `scheduler-vcluster` |
+| `snapshots` | `snapshot-vcluster` |
+| `vind` | `test_vind` |
+
+**Feature-area labels (spec level, for cross-suite filters):**
+
+`core`, `sync`, `deploy`, `storage`, `security`, `integration`, plus resource-specific `pods`, `pvcs`, `coredns`, `webhooks`, `events`, `configmaps`, `secrets`, `networkpolicies`, `priorityclasses`, `runtimeclasses`, `storageclasses`, `ingressclasses`.
+
+## Timeout Constants
+
+Use these instead of hardcoded durations. Defined in `constants/timeouts.go`.
+
+| Constant | Duration | Use for |
+|----------|----------|---------|
+| `PollingInterval` | 2s | Polling interval for all `Eventually`/`Consistently` |
+| `PollingTimeoutVeryShort` | 5s | Immediate state checks (resource already exists) |
+| `PollingTimeoutShort` | 20s | Quick API operations (get, list, delete) |
+| `PollingTimeout` | 60s | Standard operations (pod ready, secret created) |
+| `PollingTimeoutLong` | 120s | Resource creation (namespace, VCI becoming Ready) |
+| `PollingTimeoutVeryLong` | 300s | vCluster startup, cluster creation |
 
 ## Running Tests
 
@@ -329,7 +352,7 @@ The e2e-next tests are checked by custom golangci-lint plugins (built via `golan
 
 | Linter | What it checks |
 |--------|---------------|
-| `describefunc` | Spec functions in `test_*` packages must not call `Describe()` with `cluster.Use()`. Cluster binding belongs in suite files, not in specs. |
+| `describefunc` | Spec functions in `test_*` packages must not call `Describe()` with `cluster.Use()`. Cluster binding belongs in suite files, not in specs. This is critical because spec functions are imported by vcluster-pro via Go vendoring - if they contain `cluster.Use`, they hardcode OSS cluster references that conflict with Pro's own cluster definitions (different image, platform, `pro: true`). |
 | `defercleanupcluster` | `cluster.Create()` calls must have a matching `DeferCleanup(cluster.Destroy(...))`. |
 | `defercleanupctx` | `DeferCleanup` must not be called with a `setup.Func`; use `e2e.DeferCleanupCtx(ctx, fn)` instead. |
 | `ginkgoreturnctx` | Ginkgo node functions that reassign `context.Context` must return it. |
