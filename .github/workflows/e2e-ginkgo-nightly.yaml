@@ -33,6 +33,9 @@ jobs:
     runs-on: large-8_32
     timeout-minutes: 180
 
+    outputs:
+      failure-summary: ${{ steps.run-tests.outputs.failure-summary }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -90,12 +93,21 @@ jobs:
           fi
 
       - name: Run e2e-next tests
+        id: run-tests
         uses: loft-sh/github-actions/.github/actions/run-ginkgo@run-ginkgo/v1
         with:
           ginkgo-label: ${{ inputs.ginkgo-label }}
           timeout: "60m"
           additional-args: "--vcluster-image=${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }} --teardown=false"
           additional-ginkgo-flags: "-v"
+
+      - name: Upload Ginkgo JSON report
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: ginkgo-report
+          path: test-reports/report.json
+          if-no-files-found: ignore
 
       - name: Collect debug info on failure
         if: failure()
@@ -147,7 +159,9 @@ jobs:
         with:
           test-name: "vCluster E2E Nightly"
           status: ${{ needs.e2e-tests.result }}
-          details: "E2E Tests: ${{ needs.e2e-tests.result }}"
+          details: |
+            E2E Tests Job: ${{ needs.e2e-tests.result }}
+            ${{ needs.e2e-tests.result == 'failure' && needs.e2e-tests.outputs.failure-summary || '' }}
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL_CI_TESTS_ALERTS }}
 
       - name: Notify dev-vcluster
@@ -156,5 +170,7 @@ jobs:
         with:
           test-name: "vCluster E2E Nightly"
           status: ${{ needs.e2e-tests.result }}
-          details: "E2E Tests: ${{ needs.e2e-tests.result }}"
+          details: |
+            E2E Tests Job: ${{ needs.e2e-tests.result }}
+            ${{ needs.e2e-tests.outputs.failure-summary || 'No detailed failure summary available. Check the build logs for more details.' }}
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL_DEV_VCLUSTER }}
