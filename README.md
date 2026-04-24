@@ -6,14 +6,23 @@
       <img alt="vCluster" src="docs/static/media/vcluster_horizontal_orange_white.svg" width="400">
     </picture>
   </a>
-  <p><strong>Flexible Tenancy For Kubernetes and AI Infra</strong></p>
+  <p><strong>Tenant Clusters for Production Kubernetes and AI Infrastructure</strong></p>
+  <p><em>Virtual control planes, real isolation — from a single node to 100K-GPU superclusters.</em></p>
 
 [![GitHub stars](https://img.shields.io/github/stars/loft-sh/vcluster?style=for-the-badge&logo=github&color=orange)](https://github.com/loft-sh/vcluster/stargazers)
 [![Slack](https://img.shields.io/badge/Slack-5K+-4A154B?style=for-the-badge&logo=slack&logoColor=white)](https://slack.loft.sh/)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-14K+-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/company/vcluster)
-[![X](https://img.shields.io/badge/X-3.5K+-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/loft_sh)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-28K+-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/company/vcluster)
+[![X](https://img.shields.io/badge/X-3.7K+-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/loft_sh)
 
 **[Website](https://www.vcluster.com)** • **[Quickstart](https://www.vcluster.com/docs/get-started/)** • **[Documentation](https://www.vcluster.com/docs/vcluster/introduction/what-are-virtual-clusters)** • **[Blog](https://loft.sh/blog)** • **[Slack](https://slack.loft.sh/)**
+
+<br/>
+
+<a href="https://www.cncf.io/training/certification/software-conformance/"><img src="https://raw.githubusercontent.com/cncf/artwork/main/projects/kubernetes/certified-kubernetes/versionless/color/certified-kubernetes-color.svg" alt="Certified Kubernetes — Distribution" height="100"></a>
+&nbsp;&nbsp;&nbsp;&nbsp;
+<a href="https://github.com/cncf/k8s-ai-conformance/tree/main/v1.35/vcluster-private-nodes"><img src="https://raw.githubusercontent.com/cncf/artwork/main/projects/kubernetes/certified-kubernetes-ai/versionless/color/CNCF_AI_Conformance_Logo-Color-V2.png" alt="Kubernetes AI Conformant" height="100"></a>
+
+**CNCF Certified Kubernetes — Distribution** · **Kubernetes AI Conformant** (v1.35)
 
 </div>
 
@@ -21,13 +30,17 @@
 
 ## What is vCluster?
 
-**vCluster** creates fully functional virtual Kubernetes clusters that run inside namespaces of a host cluster. Each virtual cluster has its own API server, runs on shared or dedicated infrastructure, and gives you flexible tenancy options—from simple namespaces to fully dedicated clusters.
+**vCluster** creates **Tenant Clusters** — fully isolated Kubernetes environments that run on top of a Control Plane Cluster, on dedicated infrastructure, or standalone on bare metal. Each tenant gets its own API server, CRDs, and RBAC, with a cluster experience indistinguishable from a dedicated Kubernetes cluster.
 
-**40M+ virtual clusters deployed** by companies like Adobe, CoreWeave, Atlan, and NVIDIA.
+Built for production. Trusted in production. **40M+ Tenant Clusters deployed** by teams at Adobe, CoreWeave, NVIDIA, Lintasarta, Atlan, Deloitte, and hundreds of AI clouds, AI factories, and Fortune 500 platform organizations.
+
+**[CNCF Certified Kubernetes — Distribution](https://www.cncf.io/training/certification/software-conformance/)** and **[Kubernetes AI Conformant](https://github.com/cncf/k8s-ai-conformance/tree/main/v1.35/vcluster-private-nodes)** (v1.35) — every Tenant Cluster is upstream Kubernetes with no vendor lock‑in, validated for portable AI/ML workloads (training, inference, agentic).
+
+> **The public-cloud experience, on your own infrastructure.** Give every team the Kubernetes they need — with strict isolation, hardware-aware scheduling, and zero tenant sprawl — whether you run one region or 100K GPUs.
 
 <div align="center">
 
-![vCluster gif](./docs/static/media/vcluster-github-gif-1280.gif)
+![vCluster demo — create a Tenant Cluster locally with vind, in seconds](./docs/static/media/vcluster-github-demo.gif)
 
 </div>
 
@@ -39,22 +52,33 @@
 # Install vCluster CLI
 brew install loft-sh/tap/vcluster
 
-# Create a virtual cluster
+# Create a Tenant Cluster
 vcluster create my-vcluster --namespace team-x
 
-# Use kubectl as usual - you're now in your virtual cluster!
+# Use kubectl as usual — you're now in your Tenant Cluster
 kubectl get namespaces
 ```
 
-**Prerequisites:** A running Kubernetes cluster and `kubectl` configured.
+**Prerequisites:** A running Kubernetes cluster and `kubectl` configured. Or go straight to bare metal with [vCluster Standalone](https://www.vcluster.com/docs/vcluster/deploy/control-plane/binary/).
 
 👉 **[Full Quickstart Guide](https://www.vcluster.com/docs/get-started)**
 
-### 🎮 Try Without Installing
+### 🐳 Run Locally with Docker — [vind](https://github.com/loft-sh/vind)
 
-No Kubernetes cluster? Try vCluster instantly in your browser:
+No Kubernetes cluster? Run vCluster directly on Docker with **vind** (vCluster in Docker) — like `kind`, but with the full vCluster feature set (UI, sleep/resume, LoadBalancer, image cache):
+
+```bash
+vcluster create my-vcluster --driver docker
+kubectl get namespaces
+```
+
+### 🎮 Try in the Browser
 
 [![Try on Killercoda](https://img.shields.io/badge/Try%20on-Killercoda-22B573?style=for-the-badge&logo=kubernetes&logoColor=white)](https://killercoda.com/vcluster)
+
+### 🎁 vCluster Free Tier
+
+Real usage, not a gated demo. Unlimited Tenant Clusters up to 64 CPUs / 32 GPUs, Private Nodes, Auto Nodes, Standalone, and the Platform UI — for free. **[Get Started Free →](https://www.vcluster.com/free)**
 
 ---
 
@@ -62,11 +86,11 @@ No Kubernetes cluster? Try vCluster instantly in your browser:
 
 | Version | Feature | Description |
 |---------|---------|-------------|
-| **v0.30** | [vCluster VPN & Netris Integration](https://www.vcluster.com/releases/en/changelog/platform-v45-and-vcluster-v030-secure-cloud-bursting-on-prem) | Tailscale-powered overlay network and automated network isolation for hybrid infrastructures |
-| **v0.29** | [Standalone Mode](https://www.vcluster.com/docs/vcluster/deploy/control-plane/binary/) | Run vCluster without a host cluster—directly on bare metal or VMs |
-| **v0.28** | [Auto Nodes](https://www.vcluster.com/docs/vcluster/deploy/worker-nodes/private-nodes/auto-nodes/) | Karpenter-powered dynamic autoscaling for private nodes |
-| **v0.27** | [Private Nodes](https://www.vcluster.com/docs/vcluster/deploy/worker-nodes/private-nodes) | External nodes with full CNI/CSI isolation |
-| **v0.26** | [Hybrid Scheduling & Namespace Syncing](https://www.vcluster.com/releases/en/changelog/vcluster-v026-namespace-syncing-and-hybrid-scheduling) | Multiple scheduler support for AI/ML workloads and fine-grained namespace synchronization |
+| **v0.33** | [Enterprise Reliability & Storage](https://github.com/loft-sh/vcluster/releases/tag/v0.33.0) | Automatic leaf-cert regeneration, Azure Blob snapshot destinations, workload-level sleep annotations |
+| **v0.32** | [Docker Driver & DRA](https://github.com/loft-sh/vcluster/releases/tag/v0.32.0) | Run vCluster on Docker, Dynamic Resource Allocation (DRA) for GPU workloads, in-place pod resizing |
+| **v0.31** | [Snapshots & Cross-Cluster APIs](https://github.com/loft-sh/vcluster/releases/tag/v0.31.0) | Expanded snapshot/restore lifecycle, PDBs for Tenant Cluster control planes, cross-cluster resource proxying |
+| **v0.30** | [vCluster VPN & Netris Integration](https://www.vcluster.com/releases/en/changelog/platform-v45-and-vcluster-v030-secure-cloud-bursting-on-prem) | Tailscale-powered overlay networking and automated hardware isolation via Netris |
+| **v0.27–v0.29** | [Architecture Foundations](https://www.vcluster.com/docs/vcluster/introduction/architecture/) | [Private Nodes](https://www.vcluster.com/docs/vcluster/deploy/worker-nodes/private-nodes) (v0.27, CNI/CSI isolation), [Auto Nodes](https://www.vcluster.com/docs/vcluster/deploy/worker-nodes/private-nodes/auto-nodes/) (v0.28, Karpenter autoscaling), [Standalone Mode](https://www.vcluster.com/docs/vcluster/deploy/control-plane/binary/) (v0.29, bare metal / no Control Plane Cluster) |
 
 👉 **[Full Changelog](https://www.vcluster.com/releases)**
 
@@ -76,27 +100,28 @@ No Kubernetes cluster? Try vCluster instantly in your browser:
 
 | Use Case | Description | Learn More |
 |----------|-------------|------------|
-| **GPU Cloud Providers** | Launch managed K8s for GPUs. Give customers isolated, production-grade Kubernetes fast. | [View →](https://www.vcluster.com/solutions/gpu-cloud-providers) |
-| **Internal GPU Platform** | Maximize GPU utilization without sacrificing isolation. Self-service access for AI/ML teams. | [View →](https://www.vcluster.com/solutions/internal-gpu-platform) |
-| **AI Factory** | Run AI on-prem where your data lives. Multi-tenant K8s for training, fine-tuning, inference. | [View →](https://www.vcluster.com/solutions/ai-factory) |
-| **Bare Metal K8s** | Run Kubernetes on bare metal with zero VMs. Isolation without expensive overhead. | [View →](https://www.vcluster.com/solutions/bare-metal-kubernetes) |
-| **Software Vendors** | Ship Kubernetes-native software. Each customer gets their own isolated virtual cluster. | [View →](https://www.vcluster.com/solutions/software-vendors) |
-| **Cost Savings** | Cut Kubernetes costs by consolidating clusters. Sleep mode pauses inactive clusters. | [View →](https://www.vcluster.com/cost-savings) |
+| **AI Factory** | Run AI on-prem where your data and GPUs live. Give every team the GPU access they need without multiplying infrastructure. | [View →](https://www.vcluster.com/solutions/ai-factory) |
+| **AI Cloud Providers** | Launch a hyperscaler-like Kubernetes experience for your GPU customers. Isolated, production-grade, in minutes. | [View →](https://www.vcluster.com/solutions/gpu-cloud-providers) |
+| **Internal GPU Platform** | Maximize GPU utilization without sacrificing isolation. Self-service Kubernetes for AI/ML teams. | [View →](https://www.vcluster.com/solutions/internal-gpu-platform) |
+| **Bare Metal Kubernetes** | Run production Kubernetes on bare metal with zero VMs. Isolation without expensive virtualization overhead. | [View →](https://www.vcluster.com/solutions/bare-metal-kubernetes) |
+| **Software Vendors** | Ship Kubernetes-native products. Each customer gets their own isolated Tenant Cluster. | [View →](https://www.vcluster.com/solutions/software-vendors) |
+| **Environments & Cost Savings** | Consolidate clusters, pause idle workloads with sleep mode, and cut Kubernetes cost at scale. | [View →](https://www.vcluster.com/cost-savings) |
 
 ---
 
 ## 🏗️ Architectures
 
-vCluster offers multiple deployment architectures. Each builds on the previous, offering progressively more isolation.
+vCluster supports multiple deployment architectures. Each builds on the previous, offering progressively stronger isolation — from dense shared infrastructure to fully standalone bare metal.
 
 ### Architecture Comparison
 
 | | **Shared Nodes** | **Dedicated Nodes** | **Private Nodes** | **Standalone** |
 |---|:---:|:---:|:---:|:---:|
-| **Host Cluster** | Required | Required | Required | Not Required |
+| **Control Plane Cluster** | Required | Required | Required | Not Required |
 | **Node Isolation** | ❌ | ✅ | ✅ | ✅ |
 | **CNI/CSI Isolation** | ❌ | ❌ | ✅ | ✅ |
-| **Best For** | Dev/test, cost | Production | Compliance, GPU | Bare metal, edge |
+| **Bare Metal Ready** | — | — | ✅ | ✅ |
+| **Best For** | Dev/test, density | Production tenants | Compliance, GPU | AI factories, edge |
 
 👉 **[Full Architecture Guide](https://www.vcluster.com/docs/vcluster/introduction/architecture/)**
 
@@ -104,7 +129,7 @@ vCluster offers multiple deployment architectures. Each builds on the previous, 
 
 <details>
 <summary>🔹 Shared Nodes — Maximum density, minimum cost</summary>
-Virtual clusters share the host cluster's nodes. Workloads run as regular pods in a namespace.
+Tenant Clusters share the Control Plane Cluster's nodes. Workloads run as regular pods in a namespace.
 <div align="center">
 <img src="./assets/vcluster-architecture-shared-nodes.png" alt="Shared Nodes Architecture" width="600">
 </div>
@@ -118,7 +143,7 @@ sync:
 </details>
 <details>
 <summary>🔹 Dedicated Nodes — Isolated compute on labeled node pools</summary>
-Virtual clusters get their own set of labeled host nodes. Workloads are isolated but still managed by the host.
+Tenant Clusters get their own set of labeled nodes on the Control Plane Cluster. Workloads are isolated but still managed by the Control Plane Cluster.
 <div align="center">
 <img src="./assets/vcluster-architecture-dedicated-nodes.png" alt="Dedicated Nodes Architecture" width="600">
 </div>
@@ -135,7 +160,7 @@ sync:
 </details>
 <details>
 <summary>🔹 Private Nodes <sup>v0.27+</sup> — Full CNI/CSI isolation</summary>
-External nodes join the virtual cluster directly with their own CNI, CSI, and networking stack. Complete workload isolation from the host cluster.
+External nodes join the Tenant Cluster directly with their own CNI, CSI, and networking stack. Complete workload isolation from the Control Plane Cluster.
 <div align="center">
 <img src="./assets/vcluster-architecture-private-nodes.png" alt="Private Nodes Architecture" width="600">
 </div>
@@ -150,8 +175,8 @@ controlPlane:
 ```
 </details>
 <details>
-<summary>🔹 vCluster Standalone <sup>v0.29+</sup> — No host cluster required</summary>
-Run vCluster without any host cluster. Deploy the control plane directly on bare metal or VMs. The highest level of isolation—vCluster becomes the cluster.
+<summary>🔹 vCluster Standalone <sup>v0.29+</sup> — No Control Plane Cluster required</summary>
+Run vCluster without any Control Plane Cluster. Deploy the Virtual Control Plane directly on bare metal or VMs. The highest level of isolation — vCluster becomes the cluster.
 <div align="center">
 <img src="./assets/vcluster-architecture-standalone.png" alt="Standalone Architecture" width="600">
 </div>
@@ -188,13 +213,29 @@ privateNodes:
 
 | Feature | Description |
 |---------|-------------|
-| **🎛️ Isolated Control Plane** | Each vCluster gets its own API server, controller manager, and data store—complete Kubernetes API isolation |
-| **🔗 Shared Platform Stack** | Leverage the host cluster's CNI, CSI, ingress, and other infrastructure—no duplicate platform components |
-| **🔒 Security & Multi-Tenancy** | Tenants get admin access inside their vCluster while having minimal permissions on the host cluster |
-| **🔄 Resource Syncing** | Bidirectional sync of any Kubernetes resource. Pods, services, secrets, configmaps, CRDs, and more |
-| **💤 Sleep Mode** | Pause inactive virtual clusters to save resources. Instant wake when needed |
-| **🔌 Integrations** | Native support for cert-manager, external-secrets, KubeVirt, Istio, and metrics-server |
+| **🎛️ Isolated Virtual Control Plane** | Each Tenant Cluster gets its own API server, controller manager, and data store — complete Kubernetes API isolation |
+| **🔗 Shared Platform Stack** | Leverage the Control Plane Cluster's CNI, CSI, ingress, and other infrastructure — no duplicate platform components |
+| **🔒 Strong Tenant Isolation** | Tenants get admin access inside their Tenant Cluster while having minimal permissions on the Control Plane Cluster |
+| **🔄 Resource Syncing** | Bidirectional sync of any Kubernetes resource — pods, services, secrets, configmaps, CRDs, and more |
+| **💤 Sleep Mode** | Pause inactive Tenant Clusters to save resources. Instant wake when needed |
+| **🖥️ Bare Metal & Standalone** | Run with or without a Control Plane Cluster. Purpose-built for AI factories and on-prem GPU fleets |
+| **🧩 Integrations** | Native support for cert-manager, external-secrets, KubeVirt, Istio, and metrics-server |
 | **📊 High Availability** | Multiple replicas with leader election. Embedded etcd or external databases (PostgreSQL, MySQL, RDS) |
+
+---
+
+## 🌐 The vCluster Platform
+
+vCluster is the foundation of a broader platform for running production Kubernetes and AI infrastructure on your own hardware — from a single rack to 100K-GPU supercomputers.
+
+| Product | What it does |
+|---------|--------------|
+| **[vCluster](https://www.vcluster.com)** | Tenant Clusters — Virtual Control Planes with API, data, and (optionally) network isolation |
+| **[vNode](https://www.vnode.com/)** | Runtime-level tenant isolation. Kernel-enforced boundaries (seccomp, cgroups, namespaces, AppArmor) without VM overhead |
+| **[vMetal](https://www.vmetal.ai/)** | Zero-touch bare metal provisioning for GPU fleets. Turns GPU racks into a cloud platform |
+| **[Netris](https://www.vcluster.com/solutions/netris-kubernetes-network-automation)** *(integration)* | Hardware-enforced network isolation via programmatic VLANs, VRFs, and ACLs |
+
+Together these deliver the four layers of an AI factory: **Certified Stacks → Tenant Isolation → Tenant Clusters → GPU Infrastructure Operations** — the same pattern used to run production AI on hundreds of GPU clouds and Fortune 500 on-prem platforms.
 
 ---
 
@@ -207,8 +248,8 @@ privateNodes:
 <td align="center"><a href="https://www.vcluster.com/case-studies/coreweave"><strong>CoreWeave</strong></a><br/>GPU cloud at scale</td>
 </tr>
 <tr>
-<td align="center"><a href="https://www.vcluster.com/case-studies/lintasarta"><strong>Lintasarta</strong></a><br/>170+ virtual clusters in prod</td>
-<td align="center"><a href="https://www.vcluster.com/case-studies/fortune-500-insurance-company"><strong>Fortune 500 Insurance Company</strong></a><br/>70% reduction in Kubernetes cost</td>
+<td align="center"><a href="https://www.vcluster.com/case-studies/lintasarta"><strong>Lintasarta</strong></a><br/>170+ Tenant Clusters in prod</td>
+<td align="center"><a href="https://www.vcluster.com/case-studies/fortune-500-insurance-company"><strong>Fortune 500 Insurance</strong></a><br/>70% reduction in Kubernetes cost</td>
 <td align="center"><a href="https://www.vcluster.com/case-studies/scanmetrix"><strong>Scanmetrix</strong></a><br/>99% faster deployments</td>
 </tr>
 <tr>
@@ -218,7 +259,7 @@ privateNodes:
 </tr>
 </table>
 
-**Also used by:** NVIDIA, ABBYY, Lintasarta, Precisely, Shipwire, Trade Connectors, and many more.
+**Also used by:** NVIDIA, ABBYY, Precisely, Shipwire, and many more — with 50+ GPU clouds and Fortune 500s running vCluster in production.
 
 👉 **[View All Case Studies](https://www.vcluster.com/case-studies)**
 
@@ -264,64 +305,6 @@ privateNodes:
 </details>
 
 👉 **[YouTube Channel](https://www.youtube.com/@vcluster)** • **[Blog](https://loft.sh/blog)**
-
----
-
-## Custom e2e-next Linters
-
-The project uses custom golangci-lint plugins from
-[e2e-framework](https://github.com/loft-sh/e2e-framework/tree/main/linters) that
-enforce correctness patterns in Ginkgo test code:
-
-| Linter | What it checks |
-|--------|---------------|
-| `defercleanupcluster` | Every `cluster.Create()` call must have a matching `DeferCleanup(cluster.Destroy(...))` in the same scope |
-| `defercleanupctx` | `DeferCleanup` must not be called with a `setup.Func` - use `e2e.DeferCleanupCtx(ctx, fn)` instead |
-| `ginkgoreturnctx` | Ginkgo node functions (`BeforeEach`, `It`, etc.) that reassign their `context.Context` parameter must also return `context.Context` |
-| `describefunc` | Package-level `var _ = Describe(...)` with `cluster.Use()` must use an exported function pattern instead of auto-registration |
-
-These linters run automatically as part of `just lint` and `just lint-e2e`.
-The custom binary is auto-rebuilt when `.custom-gcl.yml` changes.
-
-### Quick commands
-
-```bash
-# Run custom linters against e2e-next (with autofix)
-just lint-e2e
-
-# Rebuild custom golangci-lint binary explicitly
-just build-linters
-```
-
-### Suppressing a finding
-
-Use `//nolint:<linter-name>` with a reason:
-
-```go
-ctx, err = cluster.Create(...)(...) //nolint:defercleanupcluster // destroyed in SynchronizedAfterSuite
-```
-
-### GoLand / IntelliJ setup
-
-GoLand (2025.1+) has built-in golangci-lint support, but it must be pointed at
-the **custom-built** binary - the system `golangci-lint` doesn't know about our
-plugins.
-
-1. Build the custom binary once: `just build-linters`
-2. In GoLand: **Settings > Go > Linters**
-3. In the **Executable** dropdown, click **+** > **Browse** and select the
-   **absolute path** to `<project-root>/tools/golangci-lint`
-4. Leave **"Use config"** unchecked - GoLand will auto-discover `.golangci.yml`
-
-Findings from the custom linters will appear inline in the editor and in the
-Problems tool window.
-
-> **Troubleshooting:** If you see "unknown linter" errors, you're probably running the
-> system binary instead of the custom one. Verify the executable path in
-> Settings > Go > Linters.
->
-> After updating linter versions in `.custom-gcl.yml`, re-run `just build-linters` and restart
-> the GoLand inspection (or reopen the file).
 
 ---
 

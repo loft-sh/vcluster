@@ -19,7 +19,7 @@ func NewCreateCmd() *cobra.Command {
 		Short: "create vCluster snapshots",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			vConfig, err := config.LoadAutoDetectedRuntimeConfig(os.Getenv("VCLUSTER_NAME"))
+			vConfig, err := config.LoadConfig(os.Getenv("VCLUSTER_NAME"))
 			if err != nil {
 				return err
 			}

@@ -9,42 +9,42 @@ import (
 	"strings"
 
 	"github.com/kballard/go-shellquote"
+	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	standaloneutil "github.com/loft-sh/vcluster/pkg/util/standalone"
+	"sigs.k8s.io/yaml"
 )
 
-// LoadAutoDetectedRuntimeConfig loads vCluster config for commands that run in
-// an existing vCluster runtime and need to work in both standalone and
-// in-cluster mode. It may inspect local host-side standalone signals such as
-// systemd before falling back to the in-cluster config path. It is not intended
-// for standalone runtime startup, which should use LoadStandaloneRuntimeConfig
-// directly.
+// LoadConfig loads config for commands that should use the current
+// runtime context. It first respects the explicit VCLUSTER_STANDALONE
+// environment override, then falls back to local standalone host detection, and
+// finally falls back to the regular in-cluster config path.
 //
 // When VCLUSTER_STANDALONE is set, it acts as an explicit mode override:
 // "true" forces standalone loading and any other value forces the normal
 // in-cluster/default config path. Only when the env var is unset we fall back
 // to local standalone host detection via the systemd unit marker.
-func LoadAutoDetectedRuntimeConfig(vClusterName string) (*VirtualClusterConfig, error) {
+func LoadConfig(vClusterName string) (*VirtualClusterConfig, error) {
 	// Respect explicit runtime context from the caller before attempting any
 	// local host detection. This allows parent processes to force standalone or
 	// non-standalone behavior for child vcluster commands.
 	if standaloneEnv, ok := os.LookupEnv(constants.VClusterStandaloneEnvVar); ok {
 		if standaloneEnv == "true" {
-			vConfig, err := LoadLocalStandaloneConfig(vClusterName, nil)
+			vConfig, err := LoadStandaloneConfig(vClusterName, nil)
 			if err != nil {
 				return nil, fmt.Errorf("loading standalone vCluster config: %w", err)
 			}
 			return vConfig, nil
 		}
 
-		vConfig, err := LoadInClusterRuntimeConfig(vClusterName, "", nil)
+		vConfig, err := LoadInClusterConfig(vClusterName, "", nil)
 		if err != nil {
 			return nil, fmt.Errorf("loading vCluster config: %w", err)
 		}
 		return vConfig, nil
 	}
 
-	vConfig, err := LoadLocalStandaloneConfig(vClusterName, nil)
+	vConfig, err := LoadStandaloneConfig(vClusterName, nil)
 	if err == nil {
 		return vConfig, nil
 	}
@@ -52,18 +52,18 @@ func LoadAutoDetectedRuntimeConfig(vClusterName string) (*VirtualClusterConfig, 
 		return nil, fmt.Errorf("loading standalone vCluster config from systemd: %w", err)
 	}
 
-	vConfig, err = LoadInClusterRuntimeConfig(vClusterName, "", nil)
+	vConfig, err = LoadInClusterConfig(vClusterName, "", nil)
 	if err != nil {
 		return nil, fmt.Errorf("loading vCluster config: %w", err)
 	}
 	return vConfig, nil
 }
 
-// LoadInClusterRuntimeConfig loads config for a vCluster running as a regular
+// LoadInClusterConfig loads config for a vCluster running as a regular
 // in-cluster control plane. When path is empty, it falls back to the default
 // pod/container config location. It does not perform standalone detection or
 // standalone normalization.
-func LoadInClusterRuntimeConfig(name, path string, setValues []string) (*VirtualClusterConfig, error) {
+func LoadInClusterConfig(name, path string, setValues []string) (*VirtualClusterConfig, error) {
 	if path == "" {
 		path = constants.DefaultVClusterConfigLocation
 	}
@@ -71,35 +71,12 @@ func LoadInClusterRuntimeConfig(name, path string, setValues []string) (*Virtual
 	return ParseConfig(path, name, setValues)
 }
 
-// LoadStandaloneRuntimeConfig loads config for standalone runtime startup. It is
-// intended for standalone runtime paths that already know they are operating in
-// standalone mode, not for host-side command autodetection.
-//
-// For historical compatibility, when path is empty or points at the legacy
-// in-cluster config location, it resolves from shared standalone default
-// locations. Regardless of where the file was loaded from, the resulting config
-// is normalized as standalone.
-func LoadStandaloneRuntimeConfig(name, path string, setValues []string) (*VirtualClusterConfig, error) {
-	var err error
-
-	if path == "" || path == constants.DefaultVClusterConfigLocation {
-		path, err = resolveStandaloneConfigFromCandidates([]string{
-			constants.VClusterStandaloneDefaultConfigPath,
-			constants.DefaultVClusterConfigLocation,
-		})
-		if err != nil {
-			return nil, err
-		}
-	}
-	return loadNormalizedStandaloneConfig(name, path, setValues)
-}
-
-// LoadLocalStandaloneConfig loads config for a standalone vCluster installed on
+// LoadStandaloneConfig loads config for a standalone vCluster installed on
 // this host. It discovers the config path from the local systemd unit, uses the
-// runtime vCluster name from that unit when name is empty, and normalizes the
-// result as standalone. This is for host-side CLI/API flows such as
+// runtime vCluster name from that unit when name is empty, and then delegates
+// to LoadStandaloneRuntimeConfig. This is for host-side CLI/API flows such as
 // vclusterctl, not for standalone runtime startup.
-func LoadLocalStandaloneConfig(name string, setValues []string) (*VirtualClusterConfig, error) {
+func LoadStandaloneConfig(name string, setValues []string) (*VirtualClusterConfig, error) {
 	resolvedPath, unitData, err := resolveStandaloneConfigFromSystemd()
 	if err != nil {
 		return nil, err
@@ -108,30 +85,73 @@ func LoadLocalStandaloneConfig(name string, setValues []string) (*VirtualCluster
 		name = resolveStandaloneRuntimeName(unitData)
 	}
 
-	return loadNormalizedStandaloneConfig(name, resolvedPath, setValues)
+	return LoadStandaloneRuntimeConfig(name, resolvedPath, setValues)
 }
 
-func loadNormalizedStandaloneConfig(name, path string, setValues []string) (*VirtualClusterConfig, error) {
-	cfg, err := LoadInClusterRuntimeConfig(name, path, setValues)
+// LoadStandaloneRuntimeConfig loads a standalone config from the given path,
+// applies set values, overlays the chart default config values, and normalizes
+// it as standalone. When the path is one of the default standalone config
+// locations and the file does not exist, it falls back to an in-memory default
+// config before merging chart defaults. Missing custom config paths still
+// return an error.
+func LoadStandaloneRuntimeConfig(name, path string, setValues []string) (*VirtualClusterConfig, error) {
+	if name == "" {
+		return nil, fmt.Errorf("empty vCluster name")
+	}
+
+	rawConfig, err := os.ReadFile(path)
+	if err != nil {
+		if !os.IsNotExist(err) || !isDefaultStandaloneConfigPath(path) {
+			return nil, err
+		}
+		rawConfig = nil
+	}
+
+	if err := validateStrictStandaloneRawConfig(rawConfig); err != nil {
+		return nil, err
+	}
+
+	rawConfig, err = applySetValues(rawConfig, setValues)
 	if err != nil {
 		return nil, err
 	}
-	if cfg == nil {
-		return nil, fmt.Errorf("config is nil")
-	}
 
-	cfg.ControlPlane.Standalone.Enabled = true
-	cfg.PrivateNodes.Enabled = true
-	if cfg.ControlPlane.Standalone.DataDir == "" {
-		cfg.ControlPlane.Standalone.DataDir = constants.VClusterStandaloneDefaultDataDir
-	}
-
-	err = ValidateConfigAndSetDefaults(cfg)
+	mergedConfig, err := mergeConfigBytesWithDefaults(rawConfig)
 	if err != nil {
 		return nil, err
 	}
+
+	cfg, err := ParseStandaloneConfigBytes(mergedConfig, name, nil)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Path = path
 
 	return cfg, nil
+}
+
+// ResolveStandaloneConfigPath resolves the standalone config path from an
+// explicit path or the default standalone locations. When path is empty or
+// points at the shared in-cluster default location, it prefers the standalone
+// default path and falls back to the in-cluster default path if that file
+// exists. If neither file exists, it returns the standalone default path.
+func ResolveStandaloneConfigPath(path string) (string, error) {
+	if path != "" && path != constants.DefaultVClusterConfigLocation {
+		return path, nil
+	}
+
+	configPath, err := resolveStandaloneConfigFromCandidates([]string{
+		constants.VClusterStandaloneDefaultConfigPath,
+		constants.DefaultVClusterConfigLocation,
+	})
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return "", err
+		}
+		return constants.VClusterStandaloneDefaultConfigPath, nil
+	}
+
+	return configPath, nil
 }
 
 // resolveStandaloneConfigFromSystemd resolves a standalone config path from the
@@ -151,14 +171,23 @@ func resolveStandaloneConfigFromSystemd() (string, []byte, error) {
 		return configPath, unitData, nil
 	}
 
-	configPath, err := resolveStandaloneConfigFromCandidates([]string{
-		constants.VClusterStandaloneDefaultConfigPath,
-		constants.DefaultVClusterConfigLocation,
-	})
+	configPath, err := ResolveStandaloneConfigPath("")
 	if err != nil {
 		return "", nil, err
 	}
 	return configPath, unitData, nil
+}
+
+func isDefaultStandaloneConfigPath(path string) bool {
+	return path == constants.VClusterStandaloneDefaultConfigPath || path == constants.DefaultVClusterConfigLocation
+}
+
+func validateStrictStandaloneRawConfig(rawConfig []byte) error {
+	if len(rawConfig) == 0 {
+		return nil
+	}
+
+	return yaml.UnmarshalStrict(rawConfig, &vclusterconfig.Config{})
 }
 
 func resolveStandaloneRuntimeName(unitData []byte) string {

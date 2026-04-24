@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -9,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/loft-sh/log"
+	rawconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	vclusterconfig "github.com/loft-sh/vcluster/pkg/config"
@@ -28,9 +30,9 @@ const (
 	RestoreResourceQuota = "vcluster-restore"
 )
 
-func Restore(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, podOpts *pod.Options, newVCluster, restoreVolumes bool, log log.Logger) error {
+func Restore(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, podOpts *pod.Options, newVCluster, restoreVolumes, standalone bool, log log.Logger) error {
 	// init kube client and vCluster
-	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log, true)
+	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log, true, standalone)
 	if err != nil {
 		return err
 	}
@@ -73,11 +75,12 @@ func restoreVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, rest
 }
 
 // restoreStandaloneVCluster stops the standalone service, invokes the vcluster binary
-// directly to perform the restore, and restarts the service. The CLI must run on the
-// same host as the standalone installation because it needs filesystem access to the
-// binary and config.
-func restoreStandaloneVCluster(ctx context.Context, vCluster *find.VCluster, snapshotOpts *snapshot.Options, cmdArgs []string, log log.Logger) error {
-	vClusterConfig, err := vclusterconfig.LoadLocalStandaloneConfig("", nil)
+// directly to perform the restore, and always attempts to start the service again
+// before returning. If both the restore and restart fail, the returned error retains
+// both failures. The CLI must run on the same host as the standalone installation
+// because it needs filesystem access to the binary and config.
+func restoreStandaloneVCluster(ctx context.Context, vCluster *find.VCluster, snapshotOpts *snapshot.Options, cmdArgs []string, log log.Logger) (retErr error) {
+	vClusterConfig, err := vclusterconfig.LoadStandaloneConfig("", nil)
 	if err != nil {
 		return fmt.Errorf("load standalone config: %w", err)
 	}
@@ -96,13 +99,22 @@ func restoreStandaloneVCluster(ctx context.Context, vCluster *find.VCluster, sna
 		return fmt.Errorf("stop vCluster service: %w", err)
 	}
 
-	restoreErr := runRestoreBinary(vClusterConfig, snapshotOpts, cmdArgs)
+	defer func() {
+		log.Infof("Starting vCluster service")
+		if startErr := sm.Start(); startErr != nil {
+			restartErr := fmt.Errorf("restart vCluster service: %w", startErr)
+			if retErr != nil {
+				retErr = errors.Join(retErr, restartErr)
+			} else {
+				retErr = restartErr
+			}
+		}
+	}()
 
-	log.Infof("Starting vCluster service")
-	if startErr := sm.Start(); startErr != nil {
-		return fmt.Errorf("restore succeeded but failed to restart vCluster service (cluster is stopped): %w", startErr)
+	if err := runRestoreBinary(vClusterConfig, snapshotOpts, cmdArgs); err != nil {
+		return fmt.Errorf("restore standalone vCluster: %w", err)
 	}
-	return restoreErr
+	return nil
 }
 
 func runRestoreBinary(vClusterConfig *vclusterconfig.VirtualClusterConfig, snapshotOpts *snapshot.Options, args []string) error {
@@ -127,6 +139,13 @@ func runRestoreBinary(vClusterConfig *vclusterconfig.VirtualClusterConfig, snaps
 		constants.VClusterStandaloneEnvVar+"=true",
 		constants.VClusterStorageOptionsEnv+"="+optionsString,
 	)
+	if vClusterConfig.BackingStoreType() == rawconfig.StoreTypeEmbeddedEtcd && os.Getenv(constants.VClusterStandaloneIPAddressEnvVar) == "" {
+		standaloneIPAddress, err := standaloneutil.ResolveStandaloneIPAddress(vClusterConfig.ControlPlane.Standalone.DataDir)
+		if err != nil {
+			return fmt.Errorf("resolve standalone IP address for restore: %w", err)
+		}
+		env = append(env, constants.VClusterStandaloneIPAddressEnvVar+"="+standaloneIPAddress)
+	}
 
 	cmd := exec.Command(binaryPath, args...)
 	cmd.Env = env

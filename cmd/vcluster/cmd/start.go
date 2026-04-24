@@ -67,7 +67,7 @@ func ExecuteStart(ctx context.Context, options *StartOptions) error {
 func StartInCluster(ctx context.Context, options *StartOptions) error {
 	vClusterName := os.Getenv("VCLUSTER_NAME")
 	// load vCluster config
-	vConfig, err := config.LoadInClusterRuntimeConfig(vClusterName, options.Config, options.SetValues)
+	vConfig, err := config.LoadInClusterConfig(vClusterName, options.Config, options.SetValues)
 	if err != nil {
 		return err
 	}
