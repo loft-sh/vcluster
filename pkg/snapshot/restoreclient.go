@@ -135,12 +135,28 @@ func (o *RestoreClient) Run(ctx context.Context, vConfig *config.VirtualClusterC
 	encoder := protobuf.NewSerializer(scheme.Scheme, scheme.Scheme)
 
 	var err error
+	revertStandaloneRestore := func() error { return nil }
+
 	if vConfig.ControlPlane.Standalone.Enabled {
 		vConfig.HostNamespace = constants.VClusterStandaloneSnapshotNamespace
 		err = pro.SetStandaloneConstants(vConfig)
 		if err != nil {
 			return fmt.Errorf("set standalone constants: %w", err)
 		}
+
+		revertStandaloneRestore, err = pro.SetupStandaloneRestore(vConfig)
+		if err != nil {
+			return fmt.Errorf("setup standalone restore: %w", err)
+		}
+
+		defer func() {
+			if retErr != nil {
+				revertErr := revertStandaloneRestore()
+				if revertErr != nil {
+					retErr = errors.Join(retErr, fmt.Errorf("revert standalone restore state: %w", revertErr))
+				}
+			}
+		}()
 	}
 
 	// make sure to validate options
