@@ -138,7 +138,7 @@ setup-csi-volume-snapshots:
   (teardown label-filter)
 
 @run-e2e label-filter="core" image="ghcr.io/loft-sh/vcluster:dev-next" teardown="true":
-  ginkgo -timeout=0 -v --procs=10 --label-filter="{{label-filter}}" ./e2e-next -- --vcluster-image="{{image}}" --teardown={{teardown}}
+  ginkgo -timeout=0 -v --procs=8 --randomize-all --label-filter="{{label-filter}}" ./e2e-next -- --vcluster-image="{{image}}" --teardown={{teardown}}
 
 @iterate-e2e label-filter="core" image="ghcr.io/loft-sh/vcluster:dev-next": \
   (run-e2e label-filter image "false")

@@ -119,7 +119,7 @@ runs:
         GINKGO_ARGS=(
           "run"
           "--timeout=${{ inputs.timeout }}"
-          "--procs=10"
+          "--procs=8"
           "--show-node-events"
           "--poll-progress-after=20s"
           "--poll-progress-interval=10s"

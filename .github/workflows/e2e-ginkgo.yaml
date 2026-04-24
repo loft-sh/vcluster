@@ -239,7 +239,7 @@ jobs:
         with:
           ginkgo-label: "${{ needs.parse_label-filter.outputs.label-filter }} || pr"
           additional-args: "--vcluster-image=${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }} --teardown=false"
-          additional-ginkgo-flags: "-v --show-node-events"
+          additional-ginkgo-flags: "-v --show-node-events --randomize-all"
         continue-on-error: true
 
       - name: Upload Ginkgo JSON report
