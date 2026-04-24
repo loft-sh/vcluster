@@ -50,7 +50,7 @@ func NewUpgradeCommand(globalFlags *flags.GlobalFlags) *cobra.Command {
 		},
 	}
 
-	upgradeCmd.Flags().StringVar(&options.BundleRepository, "bundle-repository", "https://github.com/loft-sh/kubernetes/releases/download", "The repository to use for downloading the Kubernetes bundle")
+	upgradeCmd.Flags().StringVar(&options.BundleRepository, "bundle-repository", "", "The repository to use for downloading the Kubernetes bundle. If empty, the default baked into the upgrade image is used.")
 	upgradeCmd.Flags().StringVar(&options.BinariesPath, "binaries-path", "/usr/local/bin", "The path to the kubeadm binaries")
 	upgradeCmd.Flags().StringVar(&options.CNIBinariesPath, "cni-binaries-path", "/opt/cni/bin", "The path to the CNI binaries")
 	upgradeCmd.Flags().StringVar(&options.Image, "image", "", "The image to use for the upgrade")
@@ -97,6 +97,9 @@ func (o *UpgradeOptions) Run(ctx context.Context, args []string) error {
 	}
 	if o.CNIBinariesPath != "" {
 		command = append(command, "--cni-binaries-path", o.CNIBinariesPath)
+	}
+	if o.BundleRepository != "" {
+		command = append(command, "--bundle-repository", o.BundleRepository)
 	}
 
 	// create a pod with the image
