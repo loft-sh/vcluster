@@ -54,10 +54,6 @@ import (
 	fakeautoscalingv1 "k8s.io/client-go/kubernetes/typed/autoscaling/v1/fake"
 	autoscalingv2 "k8s.io/client-go/kubernetes/typed/autoscaling/v2"
 	fakeautoscalingv2 "k8s.io/client-go/kubernetes/typed/autoscaling/v2/fake"
-	autoscalingv2beta1 "k8s.io/client-go/kubernetes/typed/autoscaling/v2beta1"
-	fakeautoscalingv2beta1 "k8s.io/client-go/kubernetes/typed/autoscaling/v2beta1/fake"
-	autoscalingv2beta2 "k8s.io/client-go/kubernetes/typed/autoscaling/v2beta2"
-	fakeautoscalingv2beta2 "k8s.io/client-go/kubernetes/typed/autoscaling/v2beta2/fake"
 	batchv1 "k8s.io/client-go/kubernetes/typed/batch/v1"
 	fakebatchv1 "k8s.io/client-go/kubernetes/typed/batch/v1/fake"
 	batchv1beta1 "k8s.io/client-go/kubernetes/typed/batch/v1beta1"
@@ -124,8 +120,8 @@ import (
 	fakeresourcev1beta2 "k8s.io/client-go/kubernetes/typed/resource/v1beta2/fake"
 	schedulingv1 "k8s.io/client-go/kubernetes/typed/scheduling/v1"
 	fakeschedulingv1 "k8s.io/client-go/kubernetes/typed/scheduling/v1/fake"
-	schedulingv1alpha1 "k8s.io/client-go/kubernetes/typed/scheduling/v1alpha1"
-	fakeschedulingv1alpha1 "k8s.io/client-go/kubernetes/typed/scheduling/v1alpha1/fake"
+	schedulingv1alpha2 "k8s.io/client-go/kubernetes/typed/scheduling/v1alpha2"
+	fakeschedulingv1alpha2 "k8s.io/client-go/kubernetes/typed/scheduling/v1alpha2/fake"
 	schedulingv1beta1 "k8s.io/client-go/kubernetes/typed/scheduling/v1beta1"
 	fakeschedulingv1beta1 "k8s.io/client-go/kubernetes/typed/scheduling/v1beta1/fake"
 	storagev1 "k8s.io/client-go/kubernetes/typed/storage/v1"
@@ -143,10 +139,6 @@ import (
 // It's backed by a very simple object tracker that processes creates, updates and deletions as-is,
 // without applying any field management, validations and/or defaults. It shouldn't be considered a replacement
 // for a real clientset and is mostly useful in simple unit tests.
-//
-// Deprecated: NewClientset replaces this with support for field management, which significantly improves
-// server side apply testing. NewClientset is only available when apply configurations are generated (e.g.
-// via --with-applyconfig).
 func NewSimpleClientset(objects ...runtime.Object) *Clientset {
 	o := testing.NewObjectTracker(scheme, codecs.UniversalDecoder())
 	for _, obj := range objects {
@@ -192,7 +184,7 @@ func (c *Clientset) Tracker() testing.ObjectTracker {
 	return c.tracker
 }
 
-// IsWatchListSemanticsSupported informs the reflector that this client
+// IsWatchListSemanticsUnSupported informs the reflector that this client
 // doesn't support WatchList semantics.
 //
 // This is a synthetic method whose sole purpose is to satisfy the optional
@@ -207,6 +199,10 @@ func (c *Clientset) IsWatchListSemanticsUnSupported() bool {
 // It's backed by a very simple object tracker that processes creates, updates and deletions as-is,
 // without applying any validations and/or defaults. It shouldn't be considered a replacement
 // for a real clientset and is mostly useful in simple unit tests.
+//
+// Compared to NewSimpleClientset, the Clientset returned here supports field tracking and thus
+// server-side apply. Beware though that support in that for CRDs is missing
+// (https://github.com/kubernetes/kubernetes/issues/126850).
 func NewClientset(objects ...runtime.Object) *Clientset {
 	o := testing.NewFieldManagedObjectTracker(
 		scheme,
@@ -312,16 +308,6 @@ func (c *Clientset) AutoscalingV1() autoscalingv1.AutoscalingV1Interface {
 // AutoscalingV2 retrieves the AutoscalingV2Client
 func (c *Clientset) AutoscalingV2() autoscalingv2.AutoscalingV2Interface {
 	return &fakeautoscalingv2.FakeAutoscalingV2{Fake: &c.Fake}
-}
-
-// AutoscalingV2beta1 retrieves the AutoscalingV2beta1Client
-func (c *Clientset) AutoscalingV2beta1() autoscalingv2beta1.AutoscalingV2beta1Interface {
-	return &fakeautoscalingv2beta1.FakeAutoscalingV2beta1{Fake: &c.Fake}
-}
-
-// AutoscalingV2beta2 retrieves the AutoscalingV2beta2Client
-func (c *Clientset) AutoscalingV2beta2() autoscalingv2beta2.AutoscalingV2beta2Interface {
-	return &fakeautoscalingv2beta2.FakeAutoscalingV2beta2{Fake: &c.Fake}
 }
 
 // BatchV1 retrieves the BatchV1Client
@@ -484,9 +470,9 @@ func (c *Clientset) ResourceV1alpha3() resourcev1alpha3.ResourceV1alpha3Interfac
 	return &fakeresourcev1alpha3.FakeResourceV1alpha3{Fake: &c.Fake}
 }
 
-// SchedulingV1alpha1 retrieves the SchedulingV1alpha1Client
-func (c *Clientset) SchedulingV1alpha1() schedulingv1alpha1.SchedulingV1alpha1Interface {
-	return &fakeschedulingv1alpha1.FakeSchedulingV1alpha1{Fake: &c.Fake}
+// SchedulingV1alpha2 retrieves the SchedulingV1alpha2Client
+func (c *Clientset) SchedulingV1alpha2() schedulingv1alpha2.SchedulingV1alpha2Interface {
+	return &fakeschedulingv1alpha2.FakeSchedulingV1alpha2{Fake: &c.Fake}
 }
 
 // SchedulingV1beta1 retrieves the SchedulingV1beta1Client

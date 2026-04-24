@@ -19,7 +19,7 @@ import (
 func (s *podSyncer) isPodSecurityStandardsValid(ctx context.Context, pod *corev1.Pod, log loghelper.Logger) (bool, error) {
 	result, err := s.validatePodSecurityStandards(ctx, pod)
 	if err != nil {
-		log.Errorf(err.Error())
+		log.Errorf("%v", err)
 	} else if result != nil {
 		if !result.Allowed {
 			log.Errorf("%s pod creation not allowed: %s", pod.Name, result.Result.Message)

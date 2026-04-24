@@ -51,16 +51,7 @@ var _ error = (*ErrCacheNotStarted)(nil)
 // ErrResourceNotCached indicates that the resource type
 // the client asked the cache for is not cached, i.e. the
 // corresponding informer does not exist yet.
-type ErrResourceNotCached struct {
-	GVK schema.GroupVersionKind
-}
-
-// Error returns the error
-func (r ErrResourceNotCached) Error() string {
-	return fmt.Sprintf("%s is not cached", r.GVK.String())
-}
-
-var _ error = (*ErrResourceNotCached)(nil)
+type ErrResourceNotCached = internal.ErrResourceNotCached
 
 // informerCache is a Kubernetes Object cache populated from internal.Informers.
 // informerCache wraps internal.Informers.
@@ -157,7 +148,7 @@ func (ic *informerCache) GetInformerForKind(ctx context.Context, gvk schema.Grou
 		return nil, err
 	}
 
-	_, i, err := ic.Informers.Get(ctx, gvk, obj, applyGetOptions(opts...))
+	_, i, err := ic.Informers.Get(ctx, gvk, obj, false, applyGetOptions(opts...))
 	if err != nil {
 		return nil, err
 	}
@@ -171,7 +162,7 @@ func (ic *informerCache) GetInformer(ctx context.Context, obj client.Object, opt
 		return nil, err
 	}
 
-	_, i, err := ic.Informers.Get(ctx, gvk, obj, applyGetOptions(opts...))
+	_, i, err := ic.Informers.Get(ctx, gvk, obj, false, applyGetOptions(opts...))
 	if err != nil {
 		return nil, err
 	}
@@ -179,15 +170,11 @@ func (ic *informerCache) GetInformer(ctx context.Context, obj client.Object, opt
 }
 
 func (ic *informerCache) getInformerForKind(ctx context.Context, gvk schema.GroupVersionKind, obj runtime.Object) (bool, *internal.Cache, error) {
-	if ic.readerFailOnMissingInformer {
-		cache, started, ok := ic.Informers.Peek(gvk, obj)
-		if !ok {
-			return false, nil, &ErrResourceNotCached{GVK: gvk}
-		}
-		return started, cache, nil
+	started, cache, err := ic.Informers.Get(ctx, gvk, obj, ic.readerFailOnMissingInformer, &internal.GetOptions{})
+	if err != nil {
+		return false, nil, err
 	}
-
-	return ic.Informers.Get(ctx, gvk, obj, &internal.GetOptions{})
+	return started, cache, nil
 }
 
 // RemoveInformer deactivates and removes the informer from the cache.
@@ -213,7 +200,7 @@ func (ic *informerCache) NeedLeaderElection() bool {
 // The values may be anything. They will automatically be prefixed with the namespace of the
 // given object, if present. The objects passed are guaranteed to be objects of the correct type.
 func (ic *informerCache) IndexField(ctx context.Context, obj client.Object, field string, extractValue client.IndexerFunc) error {
-	informer, err := ic.GetInformer(ctx, obj)
+	informer, err := ic.GetInformer(ctx, obj, BlockUntilSynced(false))
 	if err != nil {
 		return err
 	}
