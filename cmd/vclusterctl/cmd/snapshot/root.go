@@ -1,6 +1,8 @@
 package snapshot
 
 import (
+	"fmt"
+
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
 	"github.com/loft-sh/vcluster/pkg/cli/completion"
@@ -14,8 +16,9 @@ import (
 type RootCmd struct {
 	*flags.GlobalFlags
 
-	Snapshot snapshot.Options
-	Pod      pod.Options
+	Snapshot   snapshot.Options
+	Pod        pod.Options
+	Standalone bool
 
 	Log log.Logger
 }
@@ -45,15 +48,24 @@ vcluster snapshot my-vcluster s3://my-bucket/my-bucket-key
 vcluster snapshot my-vcluster container:///data/my-local-snapshot.tar.gz
 #######################################################
 	`,
-		Args:              nameValidator,
+		Args: func(cobraCmd *cobra.Command, args []string) error {
+			if rootCmd.Standalone {
+				if len(args) != 1 {
+					return fmt.Errorf("%s\nInvalid Args: received %d arguments, expected 1, please specify: %q\nRun with --help for more details on arguments", cobraCmd.UseLine(), len(args), "SNAPSHOT_URL")
+				}
+				return nil
+			}
+			return nameValidator(cobraCmd, args)
+		},
 		ValidArgsFunction: completion.NewValidVClusterNameFunc(globalFlags),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cli.CreateSnapshot(cobraCmd.Context(), args, rootCmd.GlobalFlags, &rootCmd.Snapshot, &rootCmd.Pod, rootCmd.Log, false)
+			return cli.CreateSnapshot(cobraCmd.Context(), args, rootCmd.GlobalFlags, &rootCmd.Snapshot, &rootCmd.Pod, rootCmd.Log, false, rootCmd.Standalone)
 		},
 	}
 
 	// add storage flags
 	pod.AddFlags(cobraCmd.Flags(), &rootCmd.Pod, false)
+	cobraCmd.Flags().BoolVar(&rootCmd.Standalone, "standalone", false, "Target the local standalone vCluster on this host")
 	snapshot.AddFlags(cobraCmd.Flags(), &rootCmd.Snapshot)
 
 	// add subcommands

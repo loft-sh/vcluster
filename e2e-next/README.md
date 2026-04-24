@@ -185,6 +185,19 @@ Use these instead of hardcoded durations. Defined in `constants/timeouts.go`.
 | `PollingTimeoutLong` | 120s | Resource creation (namespace, VCI becoming Ready) |
 | `PollingTimeoutVeryLong` | 300s | vCluster startup, cluster creation |
 
+## Timeout Constants
+
+Use these instead of hardcoded durations. Defined in `constants/timeouts.go`.
+
+| Constant | Duration | Use for |
+|----------|----------|---------|
+| `PollingInterval` | 2s | Polling interval for all `Eventually`/`Consistently` |
+| `PollingTimeoutVeryShort` | 5s | Immediate state checks (resource already exists) |
+| `PollingTimeoutShort` | 20s | Quick API operations (get, list, delete) |
+| `PollingTimeout` | 60s | Standard operations (pod ready, secret created) |
+| `PollingTimeoutLong` | 120s | Resource creation (namespace, VCI becoming Ready) |
+| `PollingTimeoutVeryLong` | 300s | vCluster startup, cluster creation |
+
 ## Running Tests
 
 ### Prerequisites
