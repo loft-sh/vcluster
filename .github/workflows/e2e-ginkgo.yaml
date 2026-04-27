@@ -291,7 +291,9 @@ jobs:
           exit 1
 
       - name: Upsert sticky e2e status comment
-        if: always() && github.event_name == 'pull_request'
+        # Skip on fork PRs: GITHUB_TOKEN is read-only for forks regardless of
+        # the permissions block, so the upsert would 403.
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         uses: loft-sh/github-actions/.github/actions/sticky-pr-comment@sticky-pr-comment/v1
         with:
           marker: '<!-- e2e-ginkgo-status -->'
