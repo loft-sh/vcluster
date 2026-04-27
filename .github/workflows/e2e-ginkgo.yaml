@@ -2,7 +2,7 @@ name: vCluster E2E CI (Ginkgo)
 
 permissions:
   contents: read
-  pull-requests: read
+  pull-requests: write
 
 on:
   release:
@@ -289,3 +289,16 @@ jobs:
           done
 
           exit 1
+
+      - name: Upsert sticky e2e status comment
+        if: always() && github.event_name == 'pull_request'
+        uses: loft-sh/github-actions/.github/actions/sticky-pr-comment@sticky-pr-comment/v1
+        with:
+          marker: '<!-- e2e-ginkgo-status -->'
+          body: |
+            ### E2E Ginkgo Tests
+
+            | Status | Commit | Run |
+            | --- | --- | --- |
+            | ${{ job.status == 'success' && 'Passed' || (job.status == 'cancelled' && 'Cancelled' || 'Failed') }} | `${{ github.event.pull_request.head.sha }}` | [View run #${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |
+          github-token: ${{ secrets.GITHUB_TOKEN }}
