@@ -9,16 +9,17 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+const (
+	controllerManagerMetricsHost = "https://127.0.0.1:10257"
+	schedulerMetricsHost         = "https://127.0.0.1:10259"
+	embeddedEtcdMetricsHost      = "http://127.0.0.1:2381"
+)
+
 func WithK8sMetrics(h http.Handler, registerCtx *synccontext.RegisterContext) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if req.URL.Path == "/controller-manager/metrics" {
-			restConfig := rest.CopyConfig(registerCtx.VirtualManager.GetConfig())
-			restConfig.Host = "https://127.0.0.1:10257"
-			restConfig.TLSClientConfig.Insecure = true
-			restConfig.TLSClientConfig.CAData = nil
-			restConfig.TLSClientConfig.CAFile = ""
-
-			h, err := handler.Handler("", restConfig, nil)
+		restConfig := metricsRestConfig(req.URL.Path, registerCtx)
+		if restConfig != nil {
+			metricsHandler, err := handler.Handler("", restConfig, nil)
 			if err != nil {
 				requestpkg.FailWithStatus(w, req, http.StatusInternalServerError, err)
 				return
@@ -26,27 +27,34 @@ func WithK8sMetrics(h http.Handler, registerCtx *synccontext.RegisterContext) ht
 
 			req.URL.Path = "/metrics"
 			req.Header.Del("Authorization")
-			h.ServeHTTP(w, req)
-			return
-		} else if req.URL.Path == "/scheduler/metrics" {
-			restConfig := rest.CopyConfig(registerCtx.VirtualManager.GetConfig())
-			restConfig.Host = "https://127.0.0.1:10259"
-			restConfig.TLSClientConfig.Insecure = true
-			restConfig.TLSClientConfig.CAData = nil
-			restConfig.TLSClientConfig.CAFile = ""
-
-			h, err := handler.Handler("", restConfig, nil)
-			if err != nil {
-				requestpkg.FailWithStatus(w, req, http.StatusInternalServerError, err)
-				return
-			}
-
-			req.URL.Path = "/metrics"
-			req.Header.Del("Authorization")
-			h.ServeHTTP(w, req)
+			metricsHandler.ServeHTTP(w, req)
 			return
 		}
 
 		h.ServeHTTP(w, req)
 	})
+}
+
+func metricsRestConfig(path string, registerCtx *synccontext.RegisterContext) *rest.Config {
+	switch path {
+	case "/controller-manager/metrics", "/metrics/controller-manager":
+		return localK8sMetricsConfig(registerCtx, controllerManagerMetricsHost)
+	case "/scheduler/metrics", "/metrics/scheduler":
+		return localK8sMetricsConfig(registerCtx, schedulerMetricsHost)
+	case "/metrics/etcd":
+		if registerCtx.Config.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
+			return &rest.Config{Host: embeddedEtcdMetricsHost}
+		}
+	}
+
+	return nil
+}
+
+func localK8sMetricsConfig(registerCtx *synccontext.RegisterContext, host string) *rest.Config {
+	restConfig := rest.CopyConfig(registerCtx.VirtualManager.GetConfig())
+	restConfig.Host = host
+	restConfig.TLSClientConfig.Insecure = true
+	restConfig.TLSClientConfig.CAData = nil
+	restConfig.TLSClientConfig.CAFile = ""
+	return restConfig
 }

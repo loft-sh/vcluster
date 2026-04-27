@@ -31,6 +31,9 @@ tests:
       - lengthEqual:
           path: spec.endpoints
           count: 2
+      - equal:
+          path: spec.endpoints[1].path
+          value: /metrics/controller-manager
 
   - it: override release label
     release:
@@ -68,6 +71,9 @@ tests:
     - lengthEqual:
         path: spec.endpoints
         count: 3
+    - equal:
+        path: spec.endpoints[2].path
+        value: /metrics/scheduler
 
   - it: check virtual scheduler (deprecated)
     release:
@@ -86,3 +92,28 @@ tests:
       - lengthEqual:
           path: spec.endpoints
           count: 3
+      - equal:
+          path: spec.endpoints[2].path
+          value: /metrics/scheduler
+
+  - it: check embedded etcd
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            embedded:
+              enabled: true
+        serviceMonitor:
+          enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: spec.endpoints
+          count: 3
+      - equal:
+          path: spec.endpoints[2].path
+          value: /metrics/etcd
