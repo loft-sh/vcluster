@@ -140,6 +140,7 @@ func NewServer(ctx *synccontext.ControllerContext) (*Server, error) {
 	}
 
 	// add filters if not dedicated
+	h = filters.WithK8sMetrics(h, registerCtx)
 	if !ctx.Config.PrivateNodes.Enabled {
 		localConfig := ctx.HostManager.GetConfig()
 		uncachedLocalClient, err := client.New(localConfig, client.Options{
@@ -153,7 +154,6 @@ func NewServer(ctx *synccontext.ControllerContext) (*Server, error) {
 
 		h = filters.WithServiceCreateRedirect(h, registerCtx, uncachedLocalClient, uncachedVirtualClient)
 		h = filters.WithRedirect(h, registerCtx, uncachedVirtualClient, admissionHandler, s.redirectResources)
-		h = filters.WithK8sMetrics(h, registerCtx)
 		h = filters.WithMetricsProxy(h, registerCtx)
 
 		// inject apis
@@ -259,6 +259,10 @@ func (s *Server) ServeOnListenerTLS(ctx *synccontext.ControllerContext) error {
 			Verb: "*",
 		},
 	)
+	redirectAuthNonResources = append(
+		redirectAuthNonResources,
+		metricsAuthNonResources()...,
+	)
 	serverConfig.Authorization.Authorizer = union.New(
 		kubeletauthorizer.New(s.uncachedVirtualClient),
 		delegatingauthorizer.New(s.uncachedVirtualClient, redirectAuthResources, redirectAuthNonResources),
@@ -305,6 +309,33 @@ func (s *Server) ServeOnListenerTLS(ctx *synccontext.ControllerContext) error {
 
 	<-stopped
 	return nil
+}
+
+func metricsAuthNonResources() []delegatingauthorizer.PathVerb {
+	pathVerbs := []delegatingauthorizer.PathVerb{
+		{
+			Path: "/controller-manager/metrics",
+			Verb: "*",
+		},
+		{
+			Path: "/scheduler/metrics",
+			Verb: "*",
+		},
+		{
+			Path: "/metrics/controller-manager",
+			Verb: "*",
+		},
+		{
+			Path: "/metrics/scheduler",
+			Verb: "*",
+		},
+		{
+			Path: "/metrics/etcd",
+			Verb: "*",
+		},
+	}
+
+	return pathVerbs
 }
 
 func (s *Server) buildHandlerChain(ctx *synccontext.ControllerContext, serverConfig *server.Config) http.Handler {
