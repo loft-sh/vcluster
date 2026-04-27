@@ -121,7 +121,7 @@ func PauseResumeSpec() {
 // PauseResumeScaledDownSpec registers pause/resume tests for a scaled-down tenant cluster.
 // These tests create their own vcluster via the CLI (not framework-provisioned).
 func PauseResumeScaledDownSpec() {
-	Describe("pause and resume a scaled-down tenant cluster", labels.Core, Ordered, func() {
+	Describe("pause and resume a scaled-down tenant cluster", labels.PR, labels.Core, Ordered, func() {
 		// Ordered because each spec depends on the state from the prior spec:
 		// create → scale down → pause → resume.
 		var (

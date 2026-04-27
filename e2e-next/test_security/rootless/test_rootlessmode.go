@@ -19,6 +19,7 @@ import (
 // RootlessModeSpec registers rootless mode tests.
 func RootlessModeSpec() {
 	Describe("vCluster rootless mode",
+		labels.PR,
 		labels.Security,
 		func() {
 			var (
