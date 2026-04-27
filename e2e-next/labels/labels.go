@@ -14,7 +14,6 @@ var (
 	Deploy      = Label("deploy")
 	Storage     = Label("storage")
 	Security    = Label("security")
-	Vind        = Label("vind")
 
 	// Resource-specific labels for fromHost sync tests
 	PriorityClasses = Label("priorityclasses")
