@@ -191,7 +191,11 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 						nonVClusterPods++
 					}
 
-					reqs := resourceutil.PodRequests(&pod, resourceutil.PodResourcesOptions{})
+					reqs := resourceutil.PodRequests(&pod, resourceutil.PodResourcesOptions{
+						UseStatusResources: true,
+						InPlacePodLevelResourcesVerticalScalingEnabled: true, // Feature gate is in beta and enabled by default starting with k8s 1.36: https://github.com/kubernetes/enhancements/issues/5419
+						SkipPodLevelResources:                          false,
+					})
 
 					for _, resName := range []corev1.ResourceName{corev1.ResourceCPU, corev1.ResourceMemory, corev1.ResourceEphemeralStorage} {
 						if req, ok := reqs[resName]; ok {
