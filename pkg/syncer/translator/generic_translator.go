@@ -16,7 +16,7 @@ func NewGenericTranslator(ctx *synccontext.RegisterContext, name string, obj cli
 
 		obj: obj,
 
-		eventRecorder: newSanitisingEventRecorder(syncCtx, ctx.VirtualManager.GetEventRecorder(name+"-syncer"), mapper),
+		eventRecorder: newSanitisingEventRecorder(syncCtx, ctx.VirtualManager.GetEventRecorder(name+"-syncer"), mapper.VirtualToHost),
 	}
 }
 

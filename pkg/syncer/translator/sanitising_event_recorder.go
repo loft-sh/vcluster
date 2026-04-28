@@ -21,10 +21,10 @@ import (
 // Two passes are applied:
 //
 //  1. Exact replacement for the regarding object's translated name.
-//     The mapper's VirtualToHost is called with the regarding object's virtual
-//     name/namespace to obtain the actual host name — this correctly handles all
-//     naming schemes (namespaced, cluster-scoped, hashed, or custom) without
-//     duplicating translation logic in the recorder.
+//     virtualToHost is called with the regarding object's virtual name/namespace
+//     to obtain the actual host name — this correctly handles all naming schemes
+//     (namespaced, cluster-scoped, hashed, or custom) without duplicating
+//     translation logic in the recorder.
 //
 //  2. Suffix stripping for secondary namespaced resource names that may appear
 //     in API server error messages (e.g. a ConfigMap or Secret in a "not found"
@@ -32,14 +32,22 @@ import (
 //     message. Skipped entirely when the regarding object's virtual name ends with
 //     that suffix (stripping would corrupt it). Only applied when the regarding
 //     object has a namespace. Hashed secondary names are left unchanged.
-func newSanitisingEventRecorder(syncCtx *synccontext.SyncContext, underlying events.EventRecorder, mapper synccontext.Mapper) events.EventRecorder {
-	return &sanitisingEventRecorder{syncCtx: syncCtx, underlying: underlying, mapper: mapper}
+//
+// virtualToHost must be a plain translation function — it must not emit events
+// itself, as that would cause infinite recursion (recorder → virtualToHost →
+// recorder → …).
+func newSanitisingEventRecorder(
+	syncCtx *synccontext.SyncContext,
+	underlying events.EventRecorder,
+	virtualToHost func(*synccontext.SyncContext, types.NamespacedName, client.Object) types.NamespacedName,
+) events.EventRecorder {
+	return &sanitisingEventRecorder{syncCtx: syncCtx, underlying: underlying, virtualToHost: virtualToHost}
 }
 
 type sanitisingEventRecorder struct {
-	syncCtx    *synccontext.SyncContext
-	underlying events.EventRecorder
-	mapper     synccontext.Mapper
+	syncCtx       *synccontext.SyncContext
+	underlying    events.EventRecorder
+	virtualToHost func(*synccontext.SyncContext, types.NamespacedName, client.Object) types.NamespacedName
 }
 
 // Eventf formats the note+args into a single message, sanitises any
@@ -70,10 +78,10 @@ func (s *sanitisingEventRecorder) Eventf(
 		vName    string
 		hostName types.NamespacedName
 	)
-	if s.mapper != nil {
+	if s.virtualToHost != nil {
 		vName = acc.GetName()
 		vObj, _ := regarding.(client.Object)
-		hostName = s.mapper.VirtualToHost(s.syncCtx, types.NamespacedName{Name: vName, Namespace: acc.GetNamespace()}, vObj)
+		hostName = s.virtualToHost(s.syncCtx, types.NamespacedName{Name: vName, Namespace: acc.GetNamespace()}, vObj)
 	}
 
 	// Pass 1: exact replacement for the regarding object's host name.
