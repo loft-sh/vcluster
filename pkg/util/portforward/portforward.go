@@ -33,7 +33,7 @@ import (
 	klog "k8s.io/klog/v2"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/httpstream"
+	"k8s.io/apimachinery/pkg/util/httpstream" //nolint:staticcheck // k8s.io/client-go/transport/spdy still returns this type; migrate once upstream spdy does.
 	"k8s.io/apimachinery/pkg/util/runtime"
 	netutils "k8s.io/utils/net"
 )

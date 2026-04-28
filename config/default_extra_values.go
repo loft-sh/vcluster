@@ -17,6 +17,7 @@ const (
 
 // K8SVersionMap holds the supported k8s api servers
 var K8SVersionMap = map[string]string{
+	"1.36": "ghcr.io/loft-sh/kubernetes:v1.36.0",
 	"1.35": "ghcr.io/loft-sh/kubernetes:v1.35.0",
 	"1.34": "ghcr.io/loft-sh/kubernetes:v1.34.0",
 	"1.33": "ghcr.io/loft-sh/kubernetes:v1.33.4",
@@ -27,6 +28,7 @@ var K8SVersionMap = map[string]string{
 
 // K8SEtcdVersionMap holds the supported etcd
 var K8SEtcdVersionMap = map[string]string{
+	"1.36": "registry.k8s.io/etcd:3.6.8-0",
 	"1.35": "registry.k8s.io/etcd:3.6.7-0",
 	"1.34": "registry.k8s.io/etcd:3.6.4-0",
 	"1.33": "registry.k8s.io/etcd:3.5.21-0",

@@ -159,10 +159,29 @@ func (f *fakeInformer) IsStopped() bool {
 	return false
 }
 
+func (f *fakeInformer) HasSyncedChecker() toolscache.DoneChecker {
+	return syncedDoneChecker{}
+}
+
 type fakeHandlerRegistration struct{}
 
 func (f *fakeHandlerRegistration) HasSynced() bool {
 	return true
+}
+
+func (f *fakeHandlerRegistration) HasSyncedChecker() toolscache.DoneChecker {
+	return syncedDoneChecker{}
+}
+
+// syncedDoneChecker is a toolscache.DoneChecker that is always done.
+type syncedDoneChecker struct{}
+
+func (syncedDoneChecker) Name() string { return "fake" }
+
+func (syncedDoneChecker) Done() <-chan struct{} {
+	ch := make(chan struct{})
+	close(ch)
+	return ch
 }
 
 type fakeEventBroadcaster struct{}

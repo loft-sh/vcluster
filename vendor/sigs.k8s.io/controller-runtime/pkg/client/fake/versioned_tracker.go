@@ -231,15 +231,17 @@ func (t versionedTracker) updateObject(
 	}
 
 	if t.withStatusSubresource.Has(gvk) {
-		if isStatus { // copy everything but status and metadata.ResourceVersion from original object
+		if isStatus { // copy everything but status, managedFields and metadata.ResourceVersion from original object
 			if err := copyStatusFrom(obj, oldObject); err != nil {
 				return nil, false, fmt.Errorf("failed to copy non-status field for object with status subresouce: %w", err)
 			}
 			passedRV := accessor.GetResourceVersion()
+			passedManagedFields := accessor.GetManagedFields()
 			if err := copyFrom(oldObject, obj); err != nil {
 				return nil, false, fmt.Errorf("failed to restore non-status fields: %w", err)
 			}
 			accessor.SetResourceVersion(passedRV)
+			accessor.SetManagedFields(passedManagedFields)
 		} else { // copy status from original object
 			if err := copyStatusFrom(oldObject, obj); err != nil {
 				return nil, false, fmt.Errorf("failed to copy the status for object with status subresource: %w", err)
@@ -265,13 +267,15 @@ func (t versionedTracker) updateObject(
 			// apiserver accepts such a patch, but it does so we just copy that behavior.
 			// Kubernetes apiserver behavior can be checked like this:
 			// `kubectl patch configmap foo --patch '{"metadata":{"annotations":{"foo":"bar"},"resourceVersion":null}}' -v=9`
-		case bytes.Contains(debug.Stack(), []byte("sigs.k8s.io/controller-runtime/pkg/client/fake.(*fakeClient).Patch")):
+		case bytes.Contains(debug.Stack(), []byte("sigs.k8s.io/controller-runtime/pkg/client/fake.(*fakeClient).Patch")),
+			bytes.Contains(debug.Stack(), []byte("sigs.k8s.io/controller-runtime/pkg/client/fake.(*fakeSubResourceClient).Patch")):
 			// We apply patches using a client-go reaction that ends up calling the trackers Update. As we can't change
-			// that reaction, we use the callstack to figure out if this originated from the "fakeClient.Patch" func.
+			// that reaction, we use the callstack to figure out if this originated from the "fake[SubResource]Client.Patch" func.
 			accessor.SetResourceVersion(oldAccessor.GetResourceVersion())
-		case bytes.Contains(debug.Stack(), []byte("sigs.k8s.io/controller-runtime/pkg/client/fake.(*fakeClient).Apply")):
+		case bytes.Contains(debug.Stack(), []byte("sigs.k8s.io/controller-runtime/pkg/client/fake.(*fakeClient).Apply")),
+			bytes.Contains(debug.Stack(), []byte("sigs.k8s.io/controller-runtime/pkg/client/fake.(*fakeSubResourceClient).Apply")):
 			// We apply patches using a client-go reaction that ends up calling the trackers Update. As we can't change
-			// that reaction, we use the callstack to figure out if this originated from the "fakeClient.Apply" func.
+			// that reaction, we use the callstack to figure out if this originated from the "fake[SubResource]Client.Apply" func.
 			accessor.SetResourceVersion(oldAccessor.GetResourceVersion())
 		}
 	}

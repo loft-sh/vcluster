@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	DefaultImage    = "coredns/coredns:1.14.1"
+	DefaultImage    = "coredns/coredns:1.14.2"
 	VarImage        = "IMAGE"
 	VarHostDNS      = "HOST_CLUSTER_DNS"
 	VarRunAsUser    = "RUN_AS_USER"

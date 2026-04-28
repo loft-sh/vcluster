@@ -13,8 +13,8 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/stringutil"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
+	resourceutil "k8s.io/component-helpers/resource"
 	"k8s.io/klog/v2"
-	resourceutil "k8s.io/kubectl/pkg/util/resource"
 )
 
 var (
@@ -191,7 +191,11 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 						nonVClusterPods++
 					}
 
-					reqs, _ := resourceutil.PodRequestsAndLimits(&pod)
+					reqs := resourceutil.PodRequests(&pod, resourceutil.PodResourcesOptions{
+						UseStatusResources: true,
+						InPlacePodLevelResourcesVerticalScalingEnabled: true, // Feature gate is in beta and enabled by default starting with k8s 1.36: https://github.com/kubernetes/enhancements/issues/5419
+						SkipPodLevelResources:                          false,
+					})
 
 					for _, resName := range []corev1.ResourceName{corev1.ResourceCPU, corev1.ResourceMemory, corev1.ResourceEphemeralStorage} {
 						if req, ok := reqs[resName]; ok {
