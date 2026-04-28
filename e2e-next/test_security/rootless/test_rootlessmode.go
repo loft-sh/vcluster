@@ -21,7 +21,6 @@ func RootlessModeSpec() {
 	Describe("vCluster rootless mode",
 		labels.PR,
 		labels.Security,
-		labels.Rootless,
 		func() {
 			var (
 				hostClient        kubernetes.Interface

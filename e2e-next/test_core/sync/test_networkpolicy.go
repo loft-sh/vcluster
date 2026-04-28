@@ -19,7 +19,7 @@ import (
 // NetworkPolicySyncSpec registers the spec.
 func NetworkPolicySyncSpec() {
 	Describe("NetworkPolicy sync from vCluster to host",
-		labels.PR, labels.Core, labels.Sync, labels.NetworkPolicies,
+		labels.Core, labels.Sync, labels.NetworkPolicies,
 		func() {
 			var (
 				hostClient        kubernetes.Interface

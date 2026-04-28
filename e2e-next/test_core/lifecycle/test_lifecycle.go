@@ -19,7 +19,7 @@ import (
 // TenantClusterLifecycleSpec registers tenant cluster create/list/delete tests.
 // These tests create their own vclusters via the CLI (not framework-provisioned).
 func TenantClusterLifecycleSpec() {
-	Describe("Tenant cluster lifecycle - create and delete", labels.Core, labels.PR, func() {
+	Describe("Tenant cluster lifecycle - create and delete", labels.PR, labels.Core, func() {
 		Context("create, list and delete tenant cluster", Ordered, func() {
 			// Ordered because each spec operates on the tenant cluster
 			// created by the first spec, and the last spec deletes it.

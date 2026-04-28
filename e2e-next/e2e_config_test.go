@@ -22,7 +22,6 @@ import (
 
 	// Initialize framework
 	_ "github.com/loft-sh/vcluster/e2e-next/init"
-	// All tests are registered in suite_*_test.go with explicit cluster dependencies
 )
 
 var (
@@ -79,10 +78,6 @@ var _ = SynchronizedBeforeSuite(
 	func(ctx context.Context) (context.Context, []byte) {
 		var err error
 
-		// Re-render YAML templates with current flag values (--vcluster-image)
-		// and register temp-file cleanup for each one.
-		Expect(clusters.PrepareAndDeferCleanup(DeferCleanup)).To(Succeed())
-
 		ctx, err = setup.All(
 			clusters.HostCluster.Setup,
 			func(ctx context.Context) (context.Context, error) {
@@ -96,14 +91,9 @@ var _ = SynchronizedBeforeSuite(
 				})
 				return ctx, err
 			},
-			func(ctx context.Context) (context.Context, error) {
-				var err error
-				By("Creating all virtual clusters...", func() {
-					ctx, err = setup.AllConcurrent(clusters.SetupFuncs()...)(ctx)
-					Expect(err).To(Succeed())
-				})
-				return ctx, err
-			},
+			// Per-test vClusters are now provisioned lazily in each suite's
+			// BeforeAll via setup/lazyvcluster.LazyVCluster - no upfront
+			// provisioning step needed here.
 		)(ctx)
 		Expect(err).To(Succeed())
 

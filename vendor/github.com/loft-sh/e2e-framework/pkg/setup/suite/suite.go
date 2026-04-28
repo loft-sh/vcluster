@@ -302,6 +302,20 @@ func NodeTransformer(nodeType types.NodeType, _ Offset, text string, args []any)
 	return text, newArgs, nil
 }
 
+// isInitFuncName reports whether funcName (a fully qualified Go function name
+// as returned by runtime.Frame.Function) belongs to a package-level init
+// function or a closure nested inside one.
+// Matches: "pkg.init", "pkg.init.func1", "pkg.init.func1.1", etc.
+func isInitFuncName(funcName string) bool {
+	if idx := strings.Index(funcName, ".init"); idx >= 0 {
+		rest := funcName[idx+len(".init"):]
+		if rest == "" || rest[0] == '.' {
+			return true
+		}
+	}
+	return false
+}
+
 // isCalledFromPackageInit walks the call stack to determine whether the current
 // Describe call originates from a package-level var initialization (init).
 // Go runs package-level `var _ = Describe(...)` inside compiler-generated init
@@ -323,16 +337,7 @@ func isCalledFromPackageInit() bool {
 			continue
 		}
 		// The first non-framework frame tells us the call site.
-		// init functions: "pkg.init", "pkg.init.func1", "pkg.init.func1.1", etc.
-		funcName := frame.Function
-		lastDot := strings.LastIndex(funcName, ".")
-		if lastDot >= 0 {
-			shortName := funcName[lastDot+1:]
-			if shortName == "init" || strings.HasPrefix(shortName, "init.") {
-				return true
-			}
-		}
-		return false
+		return isInitFuncName(frame.Function)
 	}
 	return false
 }

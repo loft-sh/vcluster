@@ -22,7 +22,6 @@ import (
 // FromHostConfigMapsSpec registers configmap sync from host tests.
 func FromHostConfigMapsSpec() {
 	Describe("ConfigMaps sync from host",
-		labels.PR,
 		labels.Core,
 		labels.Sync,
 		labels.ConfigMaps,

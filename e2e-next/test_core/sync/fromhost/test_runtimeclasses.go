@@ -21,7 +21,6 @@ import (
 // FromHostRuntimeClassesSpec registers runtimeClass sync from host tests.
 func FromHostRuntimeClassesSpec() {
 	Describe("RuntimeClasses sync from host",
-		labels.PR,
 		labels.Core,
 		labels.Sync,
 		labels.RuntimeClasses,

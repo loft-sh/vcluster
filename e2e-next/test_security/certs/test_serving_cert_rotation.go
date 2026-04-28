@@ -28,7 +28,6 @@ import (
 func ServingCertRotationSpec() {
 	Describe("API server serving cert runtime rotation",
 		Ordered,
-		labels.Core,
 		labels.Security,
 		func() {
 			var (

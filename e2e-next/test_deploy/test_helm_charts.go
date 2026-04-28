@@ -28,7 +28,7 @@ const (
 // HelmChartsSpec registers helm chart deployment tests.
 func HelmChartsSpec() {
 	Describe("Helm charts (regular and OCI) are synced and applied as expected",
-		labels.PR, labels.Deploy,
+		labels.Deploy,
 		func() {
 			var (
 				HelmSecretLabels = map[string]string{

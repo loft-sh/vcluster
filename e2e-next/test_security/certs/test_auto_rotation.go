@@ -29,7 +29,6 @@ import (
 func CertAutoRotationSpec() {
 	Describe("vCluster cert auto-rotation",
 		Ordered,
-		labels.Core,
 		labels.Security,
 		func() {
 			var (

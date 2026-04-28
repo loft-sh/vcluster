@@ -18,7 +18,7 @@ import (
 // K8sDefaultEndpointSpec registers the spec.
 func K8sDefaultEndpointSpec() {
 	Describe("map default/kubernetes endpoint to physical vcluster endpoint",
-		labels.PR, labels.Core, labels.Sync,
+		labels.Core, labels.Sync,
 		func() {
 			var (
 				hostClient        kubernetes.Interface

@@ -41,86 +41,46 @@ AfterAll(func(ctx context.Context) {
 
 ---
 
-## Cluster-level provisioning (Kind clusters, vClusters)
+## Cluster-level provisioning (Kind host, vClusters)
 
-Use this for: tests that need a full ephemeral Kubernetes cluster or vCluster, not a service inside the existing cluster.
+Use this for: tests that need a full ephemeral Kubernetes cluster or vCluster, not a service inside an existing cluster.
 
-The framework provides a dependency system via `pkg/setup/suite`:
+**Two-layer model:**
+
+1. **Host kind cluster** - eagerly provisioned once in `SynchronizedBeforeSuite` via the framework's `cluster.Define` + `cluster.Setup`. Defined in `e2e-next/clusters/registry.go` as `clusters.HostCluster`. Reused by every per-test vCluster.
+2. **Per-test vClusters** - created lazily, one per `suite_*_test.go`, in the suite's outer `BeforeAll` via `setup/lazyvcluster.LazyVCluster`. The helper is a thin wrapper over the framework's `vcluster.Create` (see `github.com/loft-sh/e2e-framework/pkg/setup/vcluster`). Peak concurrent vClusters is bounded by `ginkgo --procs`, not by the number of suite files.
 
 ```go
-var (
-    host = cluster.Define(
-        cluster.WithName("host"),
-        cluster.WithProvider(kind.NewProvider()),
-    )
+// e2e-next/suite_myfeature_test.go
+//go:embed vcluster-myfeature.yaml
+var myFeatureYAML string
 
-    vc = vcluster.Define(
-        vcluster.WithName("my-vcluster"),
-        vcluster.WithVersion("v0.30.0"),
-        vcluster.WithHostCluster("host"),
-    )
-)
+const myFeatureName = "myfeature-vcluster"
 
-var _ = Describe("Feature tests", func() {
-    Context("runs on the host cluster",
-        cluster.Use(host),
+func init() { suiteMyFeature() }
+
+func suiteMyFeature() {
+    Describe("myfeature-vcluster", labels.MyFeature, Ordered,
+        cluster.Use(clusters.HostCluster),
         func() {
-            It("can access current cluster clients", func(ctx context.Context) {
-                crc := cluster.CurrentClusterClientFrom(ctx)
-                kube := cluster.CurrentKubeClientFrom(ctx)
+            BeforeAll(func(ctx context.Context) context.Context {
+                return lazyvcluster.LazyVCluster(ctx, myFeatureName, myFeatureYAML,
+                    // optional: host-side prerequisites (CRDs, PVCs, Helm install)
+                    lazyvcluster.WithPreSetup(setup.MyPrereq()),
+                )
             })
+
+            // spec functions...
         },
-    )
-})
-```
-
-Wire setup/teardown in `SynchronizedBeforeSuite`/`SynchronizedAfterSuite`:
-
-```go
-var _ = SynchronizedBeforeSuite(
-    func(ctx context.Context) (context.Context, []byte) {
-        ctx, err = setup.All(
-            host.Setup,
-            setup.AllConcurrent(vc1.Setup, vc2.Setup),
-        )(ctx)
-        Expect(err).NotTo(HaveOccurred())
-        data, err := cluster.ExportAll(ctx)
-        Expect(err).NotTo(HaveOccurred())
-        return ctx, data
-    },
-    func(ctx context.Context, data []byte) context.Context {
-        ctx, err = cluster.ImportAll(ctx, data)
-        Expect(err).NotTo(HaveOccurred())
-        return ctx
-    },
-)
-
-var _ = SynchronizedAfterSuite(
-    func(ctx context.Context) {},
-    func(ctx context.Context) {
-        _, err := setup.All(host.Teardown)(ctx)
-        Expect(err).NotTo(HaveOccurred())
-    },
-)
-```
-
-**Ordering matters:** Host cluster must be ready before vClusters. Use `setup.All` for sequential ordering, nest `setup.AllConcurrent` for parallel vCluster creation. Teardown order is the reverse — vClusters are torn down automatically via their dependency on the host cluster.
-
-Required wiring in `TestRunE2ETests`:
-```go
-var _ = AddTreeConstructionNodeArgsTransformer(suite.NodeTransformer)
-
-func TestRunE2ETests(t *testing.T) {
-    config, _ := GinkgoConfiguration()
-    RegisterFailHandler(Fail)
-    RunSpecs(t, "vCluster E2E Suite",
-        AroundNode(suite.PreviewSpecsAroundNode(config)),
-        AroundNode(e2e.ContextualAroundNode),
     )
 }
 ```
 
-**Focus is automatic**: dependencies only execute `Setup/Teardown` when their label appears in the focused specs. No cluster is spun up for tests that don't need it.
+Inside specs: `cluster.CurrentKubeClientFrom(ctx)` resolves to the suite's vCluster. `cluster.KubeClientFrom(ctx, constants.GetHostClusterName())` resolves to the host.
+
+**Failure-aware teardown**: on spec failure the framework keeps the vCluster alive and attaches diagnostics (rendered config, pods, events, syncer logs) to the failing spec's report entries via `AddReportEntry`. On pass, teardown destroys the vCluster.
+
+**Focus is automatic**: a label-filtered run only materializes vClusters whose outer suite Describe matches. Unmatched suites' `BeforeAll` never fires, so no vCluster is spun up for tests that do not need it.
 
 ---
 

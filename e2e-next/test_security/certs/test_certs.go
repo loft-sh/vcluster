@@ -36,7 +36,6 @@ func CertTestsSpec() {
 	Describe("vCluster cert tests",
 		Ordered,
 		labels.Security,
-		labels.Certs,
 		func() {
 			var (
 				hostClient        kubernetes.Interface

@@ -264,7 +264,6 @@ func (w *webhookInfra) registerWebhook(ctx context.Context, configName string) {
 // AdmissionWebhookSpec registers admission webhook tests.
 func AdmissionWebhookSpec() {
 	Describe("AdmissionWebhook",
-		labels.PR,
 		labels.Security,
 		labels.Webhooks,
 		func() {

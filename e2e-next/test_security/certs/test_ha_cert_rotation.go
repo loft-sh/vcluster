@@ -31,7 +31,6 @@ import (
 func HACertRotationSpec() {
 	Describe("HA coordinated cert rotation",
 		Ordered,
-		labels.Core,
 		labels.Security,
 		func() {
 			var (
