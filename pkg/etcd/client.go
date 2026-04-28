@@ -35,6 +35,7 @@ type Client interface {
 	DeletePrefix(ctx context.Context, prefix string) error
 	Compact(ctx context.Context, revision int64) error
 	Close() error
+	SnapshotWithVersion(ctx context.Context) (*clientv3.SnapshotResponse, error)
 }
 
 type client struct {
@@ -289,6 +290,10 @@ func (c *client) DeletePrefix(ctx context.Context, prefix string) error {
 
 func (c *client) Close() error {
 	return c.c.Close()
+}
+
+func (c *client) SnapshotWithVersion(ctx context.Context) (*clientv3.SnapshotResponse, error) {
+	return c.c.SnapshotWithVersion(ctx)
 }
 
 func nextStartKey(key []byte) string {
