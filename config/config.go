@@ -619,6 +619,11 @@ type AutoUpgrade struct {
 
 	// ContainerSecurityContext specifies security context options on the container level for the upgrade container.
 	ContainerSecurityContext map[string]interface{} `json:"containerSecurityContext,omitempty"`
+
+	// Insecure skips TLS certificate verification when the upgrade pod downloads
+	// the Kubernetes bundle. Set to true only when the bundle repository (typically
+	// the in-cluster /node/download endpoint) is served by a non-publicly-trusted CA.
+	Insecure bool `json:"insecure,omitempty"`
 }
 
 type Kubelet struct {

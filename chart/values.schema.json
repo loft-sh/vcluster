@@ -72,6 +72,10 @@
         "containerSecurityContext": {
           "type": "object",
           "description": "ContainerSecurityContext specifies security context options on the container level for the upgrade container."
+        },
+        "insecure": {
+          "type": "boolean",
+          "description": "Insecure skips TLS certificate verification when the upgrade pod downloads\nthe Kubernetes bundle. Set to true only when the bundle repository (typically\nthe in-cluster /node/download endpoint) is served by a non-publicly-trusted CA."
         }
       },
       "additionalProperties": false,
