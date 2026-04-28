@@ -188,8 +188,9 @@ jobs:
       needs.detect_changes.outputs.has_changed == 'true'
     runs-on: large-8_32
     permissions:
-      id-token: write   # needed for OIDC → AWS
+      id-token: write        # needed for OIDC → AWS
       contents: read
+      pull-requests: write   # needed for sticky-pr-comment upsert
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
