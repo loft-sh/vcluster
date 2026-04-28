@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,7 +27,11 @@ import (
 	setupconfig "github.com/loft-sh/vcluster/pkg/setup/config"
 	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/etcdutl/v3/snapshot"
+	etcdservererrors "go.etcd.io/etcd/server/v3/etcdserver/errors"
 	"go.etcd.io/etcd/server/v3/storage/backend"
+	"go.etcd.io/etcd/server/v3/storage/datadir"
 	"go.etcd.io/etcd/server/v3/storage/mvcc"
 	"go.etcd.io/etcd/server/v3/storage/schema"
 	"go.uber.org/zap"
@@ -130,10 +135,6 @@ func (o *RestoreClient) Run(ctx context.Context, vConfig *config.VirtualClusterC
 		return fmt.Errorf("restore run requires vCluster config")
 	}
 
-	// create decoder and encoder
-	decoder := serializer.NewCodecFactory(scheme.Scheme).UniversalDeserializer()
-	encoder := protobuf.NewSerializer(scheme.Scheme, scheme.Scheme)
-
 	var err error
 	revertStandaloneRestore := func() error { return nil }
 
@@ -165,24 +166,222 @@ func (o *RestoreClient) Run(ctx context.Context, vConfig *config.VirtualClusterC
 		return err
 	}
 
-	// set global vCluster name
-	translate.VClusterName = vConfig.Name
-
 	// create store
 	objectStore, err := CreateStore(ctx, &o.Snapshot)
 	if err != nil {
 		return fmt.Errorf("failed to create store: %w", err)
 	}
 
-	// now stream objects from object store to etcd
-	reader, err := objectStore.GetObject(ctx)
+	klog.Infof("Start restoring etcd snapshot from %s...", objectStore.Target())
+
+	snapshotReader, err := objectStore.GetObject(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get snapshot: %w", err)
+	}
+	defer snapshotReader.Close()
+
+	snapshotPath, err := writeTempFile(snapshotReader)
+	if err != nil {
+		return fmt.Errorf("failed to write snapshot to temp file: %w", err)
+	}
+	defer os.Remove(snapshotPath)
+
+	if vConfig.BackingStoreType() == vclusterconfig.StoreTypeEmbeddedEtcd {
+		typeMetaStamp, err := gzipCommentFromFile(snapshotPath)
+		if err != nil {
+			return fmt.Errorf("failed to check if snapshot is etcd snapshot: %w", err)
+		}
+
+		if typeMetaStamp == EtcdSnapshotTypeMetaStamp {
+			if err := o.restoreSnapshot(ctx, vConfig, snapshotPath); err != nil {
+				return fmt.Errorf("failed to restore etcd snapshot: %w", err)
+			}
+
+			klog.Infof("Successfully restored snapshot from %s", objectStore.Target())
+			return nil
+		}
+	}
+
+	if err := o.restoreKeyValueSnapshot(ctx, vConfig, snapshotPath); err != nil {
+		return fmt.Errorf("restore key-value snapshot: %w", err)
+	}
+
+	klog.Infof("Successfully restored snapshot from %s", objectStore.Target())
+	return nil
+}
+
+func (o *RestoreClient) restoreSnapshot(ctx context.Context, vConfig *config.VirtualClusterConfig, snapshotPath string) (retErr error) {
+	log := klog.FromContext(ctx)
+
+	log.Info("Reading snapshot archive", "snapshotPath", snapshotPath)
+	reader, err := os.Open(snapshotPath)
 	if err != nil {
 		return fmt.Errorf("failed to get backup: %w", err)
 	}
 	defer reader.Close()
 
-	// print log message that we start restoring
-	klog.Infof("Start restoring etcd snapshot from %s...", objectStore.Target())
+	gzipReader, err := gzip.NewReader(reader)
+	if err != nil {
+		return fmt.Errorf("failed to create gzip reader: %w", err)
+	}
+	defer gzipReader.Close()
+
+	tarReader := tar.NewReader(gzipReader)
+
+	dbPath := ""
+	defer func() {
+		if dbPath != "" {
+			_ = os.Remove(dbPath)
+		}
+	}()
+
+	encoder := protobuf.NewSerializer(scheme.Scheme, scheme.Scheme)
+
+	var skipKeys map[string]struct{}
+
+	for {
+		header, err := tarReader.Next()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+
+			return fmt.Errorf("failed to read tar header: %w", err)
+		}
+
+		if header.Name == DBStoreKey {
+			dbPath, err = writeTempFile(tarReader)
+			if err != nil {
+				return fmt.Errorf("failed to write snapshot to temp file: %w", err)
+			}
+
+			continue
+		}
+
+		if strings.HasPrefix(header.Name, RequestStoreKey) {
+			if o.RestoreVolumes {
+				buf := &bytes.Buffer{}
+				_, err = io.Copy(buf, tarReader)
+				if err != nil {
+					return fmt.Errorf("failed to read snapshot request: %w", err)
+				}
+
+				err = o.createRestoreRequest(ctx, vConfig, buf.Bytes(), encoder)
+				if err != nil {
+					return fmt.Errorf("failed to create restore request: %w", err)
+				}
+			}
+
+			continue
+		}
+
+		if header.Name == SkipKeysStoreKey {
+			skipKeysBytes, err := io.ReadAll(tarReader)
+			if err != nil {
+				return fmt.Errorf("failed to read skipKeys from tar archive: %w", err)
+			}
+			err = json.Unmarshal(skipKeysBytes, &skipKeys)
+			if err != nil {
+				return fmt.Errorf("failed to unmarshal skipKeys: %w", err)
+			}
+
+			continue
+		}
+	}
+
+	if dbPath == "" {
+		return fmt.Errorf("failed to find etcd snapshot in tar archive")
+	}
+
+	if err := backupFolder(ctx, constants.EmbeddedEtcdData); err != nil {
+		return fmt.Errorf("failed to backup etcd dataDir: %w", err)
+	}
+	defer func() {
+		if retErr != nil {
+			if err := restoreBackupFolder(ctx, constants.EmbeddedEtcdData); err != nil {
+				klog.Errorf("Failed to revert etcd dataDir: %v", err)
+			}
+		}
+	}()
+
+	log.Info("Restoring etcd snapshot", "dbPath", dbPath)
+	if err := snapshot.NewV3(zap.L().Named("restore-etcd")).Restore(snapshot.RestoreConfig{
+		SnapshotPath:        dbPath,
+		Name:                "default",
+		OutputDataDir:       constants.EmbeddedEtcdData,
+		OutputWALDir:        datadir.ToWALDir(constants.EmbeddedEtcdData),
+		PeerURLs:            []string{"http://127.0.0.1:2380"},
+		InitialCluster:      "default=http://127.0.0.1:2380",
+		InitialClusterToken: "etcd-cluster",
+		SkipHashCheck:       false,
+		InitialMmapSize:     backend.InitialMmapSize,
+		RevisionBump:        uint64(BumpRevision),
+		MarkCompacted:       true,
+	}); err != nil {
+		return fmt.Errorf("restore etcd: %w", err)
+	}
+
+	log.Info("Starting embedded etcd to reset cluster membership")
+	stop, err := startEmbeddedEtcd(ctx, vConfig)
+	if err != nil {
+		return fmt.Errorf("failed to start embedded etcd: %w", err)
+	}
+	defer stop()
+
+	log.Info("Waiting for embedded etcd to be ready")
+	etcdEndpoint, etcdCertificates := etcd.GetEtcdEndpoint(vConfig)
+
+	if err := etcd.WaitForEtcd(ctx, etcdCertificates, etcdEndpoint); err != nil {
+		return fmt.Errorf("failed to wait for embedded etcd: %w", err)
+	}
+
+	etcdClient, err := etcd.GetEtcdClient(ctx, zap.L().Named("etcd-client"), etcdCertificates, etcdEndpoint)
+	if err != nil {
+		return fmt.Errorf("failed to get etcd client: %w", err)
+	}
+
+	if err := fixSeedMemberPeerUrls(ctx, etcdClient); err != nil {
+		return fmt.Errorf("failed to fix seed member peer urls: %w", err)
+	}
+
+	if len(skipKeys) > 0 {
+		log.Info("Deleting skip keys")
+		for key := range skipKeys {
+			if _, err := etcdClient.Delete(ctx, key); ignoreKeyNotFound(err) != nil {
+				return fmt.Errorf("failed to delete key %s: %w", key, err)
+			}
+		}
+	}
+
+	if o.NewVCluster {
+		log.Info("Deleting old kube-root-ca.crt")
+		if _, err := etcdClient.Delete(ctx, "/registry/configmaps/default/kube-root-ca.crt"); ignoreKeyNotFound(err) != nil {
+			return fmt.Errorf("failed to delete kube-root-ca.crt: %w", err)
+		}
+
+		log.Info("Deleting old vcluster mappings")
+		if _, err := etcdClient.Delete(ctx, store.MappingsPrefix, clientv3.WithPrefix(), clientv3.WithRev(int64(0))); ignoreKeyNotFound(err) != nil {
+			return fmt.Errorf("failed to delete mappings prefix: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (o *RestoreClient) restoreKeyValueSnapshot(ctx context.Context, vConfig *config.VirtualClusterConfig, snapshotPath string) (retErr error) {
+	// create decoder and encoder
+	decoder := serializer.NewCodecFactory(scheme.Scheme).UniversalDeserializer()
+	encoder := protobuf.NewSerializer(scheme.Scheme, scheme.Scheme)
+
+	// set global vCluster name
+	translate.VClusterName = vConfig.Name
+
+	// now stream objects from object store to etcd
+	reader, err := os.Open(snapshotPath)
+	if err != nil {
+		return fmt.Errorf("failed to get backup: %w", err)
+	}
+	defer reader.Close()
 
 	// optionally decompress
 	gzipReader, err := gzip.NewReader(reader)
@@ -292,7 +491,6 @@ func (o *RestoreClient) Run(ctx context.Context, vConfig *config.VirtualClusterC
 	}
 
 	klog.Infof("Successfully restored %d etcd keys from snapshot", restoredKeys)
-	klog.Infof("Successfully restored snapshot from %s", objectStore.Target())
 	return nil
 }
 
@@ -826,6 +1024,24 @@ func backupFolder(ctx context.Context, dir string) error {
 	return os.MkdirAll(dir, 0777)
 }
 
+func restoreBackupFolder(ctx context.Context, dir string) error {
+	backupName := dir + ".backup"
+	if _, err := os.Stat(backupName); os.IsNotExist(err) {
+		return nil
+	}
+
+	klog.FromContext(ctx).Info(fmt.Sprintf("Restoring etcd dataDir %s from backup...", constants.EmbeddedEtcdData))
+	if err := os.RemoveAll(dir); err != nil {
+		return fmt.Errorf("restoreBackupFolder: failed to remove %s: %w", dir, err)
+	}
+
+	if err := os.Rename(backupName, dir); err != nil {
+		return fmt.Errorf("restoreBackupFolder: failed to rename %s: %w", dir, err)
+	}
+
+	return nil
+}
+
 func readKeyValue(tarReader *tar.Reader) ([]byte, []byte, error) {
 	header, err := tarReader.Next()
 	if err != nil {
@@ -851,4 +1067,87 @@ func getTranslatedPVCName(pvcName string) string {
 	vNamespace, vName := parts[0], parts[1]
 	hostName := translate.Default.HostName(nil, vName, vNamespace)
 	return hostName.Namespace + "/" + hostName.Name
+}
+
+func writeTempFile(reader io.Reader) (string, error) {
+	f, err := os.CreateTemp("", "snapshot-")
+	if err != nil {
+		return "", fmt.Errorf("create temp file: %w", err)
+	}
+	defer f.Close()
+
+	if _, err := io.Copy(f, reader); err != nil {
+		return "", fmt.Errorf("write temp file: %w", err)
+	}
+
+	return f.Name(), nil
+}
+
+func gzipCommentFromFile(fileName string) (string, error) {
+	f, err := os.Open(fileName)
+	if err != nil {
+		return "", fmt.Errorf("open file: %w", err)
+	}
+	defer f.Close()
+
+	gzipReader, err := gzip.NewReader(f)
+	if err != nil {
+		return "", fmt.Errorf("create gzip reader: %w", err)
+	}
+	defer gzipReader.Close()
+	return gzipReader.Comment, nil
+}
+
+func ignoreKeyNotFound(err error) error {
+	if errors.Is(err, etcdservererrors.ErrKeyNotFound) {
+		return nil
+	}
+
+	return err
+}
+
+// fixSeedMemberPeerUrls fixes the peer urls of the seed member to match the expected value.
+// The required value is not available at the time of the WAL restore.
+func fixSeedMemberPeerUrls(ctx context.Context, etcdClient *clientv3.Client) error {
+	log := klog.FromContext(ctx)
+
+	memberList, err := etcdClient.MemberList(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get member list: %w", err)
+	}
+
+	if len(memberList.Members) != 1 {
+		log.Info("Not a single member cluster, skipping fixing seed member peer urls")
+		return nil
+	}
+
+	member := memberList.Members[0]
+
+	if len(member.PeerURLs) != 1 {
+		log.Info("Unexpected number of peer urls, skipping fixing seed member peer urls", "peerUrls", member.PeerURLs)
+		return nil
+	}
+
+	if member.PeerURLs[0] != "http://127.0.0.1:2380" {
+		log.Info("Unexpected peer url, skipping fixing seed member peer urls", "peerUrl", member.PeerURLs[0])
+		return nil
+	}
+
+	if len(member.ClientURLs) == 0 {
+		log.Info("No client urls, skipping fixing seed member peer urls")
+		return nil
+	}
+
+	clientURL, err := url.Parse(member.ClientURLs[0])
+	if err != nil {
+		return fmt.Errorf("failed to parse client url: %w", err)
+	}
+
+	peerURL := fmt.Sprintf("https://%s:2380", clientURL.Hostname())
+	log.Info("Updating seed member peer url", "peerUrl", peerURL)
+	if _, err := etcdClient.MemberUpdate(ctx, member.ID, []string{peerURL}); err != nil {
+		return fmt.Errorf("failed to update peer url: %w", err)
+	}
+
+	return nil
 }
