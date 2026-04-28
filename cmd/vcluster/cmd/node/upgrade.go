@@ -27,6 +27,7 @@ func NewUpgradeCommand() *cobra.Command {
 	upgradeCmd.Flags().StringVar(&options.BundleRepository, "bundle-repository", "https://github.com/loft-sh/kubernetes/releases/download", "The repository to use for downloading the Kubernetes bundle")
 	upgradeCmd.Flags().StringVar(&options.BinariesPath, "binaries-path", "/usr/local/bin", "The path to the kubeadm binaries")
 	upgradeCmd.Flags().StringVar(&options.CNIBinariesPath, "cni-binaries-path", "/opt/cni/bin", "The path to the CNI binaries")
+	upgradeCmd.Flags().BoolVar(&options.Insecure, "insecure", false, "Skip TLS certificate verification when downloading the Kubernetes bundle")
 
 	return upgradeCmd
 }

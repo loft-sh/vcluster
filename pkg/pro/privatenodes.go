@@ -48,6 +48,7 @@ type UpgradeOptions struct {
 	BinariesPath      string
 	CNIBinariesPath   string
 	BundleRepository  string
+	Insecure          bool
 }
 
 var UpgradeNode = func(_ context.Context, _ *UpgradeOptions) error {

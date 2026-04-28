@@ -30,6 +30,7 @@ type UpgradeOptions struct {
 	BinariesPath     string
 	CNIBinariesPath  string
 	BundleRepository string
+	Insecure         bool
 
 	Image           string
 	ImagePullPolicy string
@@ -53,6 +54,7 @@ func NewUpgradeCommand(globalFlags *flags.GlobalFlags) *cobra.Command {
 	upgradeCmd.Flags().StringVar(&options.BundleRepository, "bundle-repository", "https://github.com/loft-sh/kubernetes/releases/download", "The repository to use for downloading the Kubernetes bundle")
 	upgradeCmd.Flags().StringVar(&options.BinariesPath, "binaries-path", "/usr/local/bin", "The path to the kubeadm binaries")
 	upgradeCmd.Flags().StringVar(&options.CNIBinariesPath, "cni-binaries-path", "/opt/cni/bin", "The path to the CNI binaries")
+	upgradeCmd.Flags().BoolVar(&options.Insecure, "insecure", false, "Skip TLS certificate verification when downloading the Kubernetes bundle")
 	upgradeCmd.Flags().StringVar(&options.Image, "image", "", "The image to use for the upgrade")
 	upgradeCmd.Flags().StringVar(&options.ImagePullPolicy, "image-pull-policy", "IfNotPresent", "The image pull policy")
 
@@ -97,6 +99,9 @@ func (o *UpgradeOptions) Run(ctx context.Context, args []string) error {
 	}
 	if o.CNIBinariesPath != "" {
 		command = append(command, "--cni-binaries-path", o.CNIBinariesPath)
+	}
+	if o.Insecure {
+		command = append(command, "--insecure")
 	}
 
 	// create a pod with the image
