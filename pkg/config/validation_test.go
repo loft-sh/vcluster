@@ -2167,6 +2167,50 @@ func TestValidateExperimentalProxyCustomResourcesConfig(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "disabled wildcard does not conflict with enabled explicit entry",
+			cfg: map[string]config.CustomResourceProxy{
+				"*.example.com/v1": {
+					Enabled: false,
+					TargetVirtualCluster: config.VirtualClusterRef{
+						Name: "target-vcluster",
+					},
+				},
+				"widgets.example.com/v1": {
+					Enabled: true,
+					TargetVirtualCluster: config.VirtualClusterRef{
+						Name: "target-vcluster",
+					},
+				},
+			},
+		},
+		{
+			name: "disabled entry with different target does not trigger group/version mismatch",
+			cfg: map[string]config.CustomResourceProxy{
+				"widgets.example.com/v1": {
+					Enabled: true,
+					TargetVirtualCluster: config.VirtualClusterRef{
+						Name: "target-a",
+					},
+				},
+				"gadgets.example.com/v1": {
+					Enabled: false,
+					TargetVirtualCluster: config.VirtualClusterRef{
+						Name: "target-b",
+					},
+				},
+			},
+		},
+		{
+			name: "disabled entry still has per-entry validation",
+			cfg: map[string]config.CustomResourceProxy{
+				"widgets.example.com/v1": {
+					Enabled:              false,
+					TargetVirtualCluster: config.VirtualClusterRef{},
+				},
+			},
+			expectedErr: "experimental.proxy.customResources['widgets.example.com/v1'].targetVirtualCluster is required",
+		},
 	}
 
 	for _, tc := range cases {

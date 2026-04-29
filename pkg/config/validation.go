@@ -960,6 +960,12 @@ func ValidateExperimentalProxyCustomResourcesConfig(cfg map[string]config.Custom
 			return fmt.Errorf("%s.accessResources: invalid value %q, must be 'owned' or 'all'", basePath, resourceConfig.AccessResources)
 		}
 
+		// Disabled entries do not produce a route at runtime, so they must not
+		// participate in cross-entry conflict or agreement checks below.
+		if !resourceConfig.Enabled {
+			continue
+		}
+
 		entries = append(entries, entry{
 			path:     resourcePath,
 			gvKey:    gr.Group + "/" + parts[1],
