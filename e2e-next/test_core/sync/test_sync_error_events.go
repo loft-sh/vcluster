@@ -28,7 +28,7 @@ import (
 // virtual name before the event is persisted.
 func SyncErrorSanitisationSpec() {
 	Describe("SyncError event sanitisation",
-		labels.PR, labels.Core, labels.Events, labels.Pods, labels.Sync,
+		labels.Core, labels.Events, labels.Pods, labels.Sync,
 		func() {
 			var (
 				hostClient     kubernetes.Interface
@@ -54,14 +54,13 @@ func SyncErrorSanitisationSpec() {
 						ObjectMeta: metav1.ObjectMeta{Name: ns},
 					}, metav1.CreateOptions{})
 					Expect(err).To(Succeed())
-					DeferCleanup(func(ctx context.Context) {
-						err := vClusterClient.CoreV1().Namespaces().Delete(ctx, ns, metav1.DeleteOptions{})
-						if !kerrors.IsNotFound(err) {
-							Expect(err).To(Succeed())
-						}
-					})
 				})
-
+				DeferCleanup(func(ctx context.Context) {
+					err := vClusterClient.CoreV1().Namespaces().Delete(ctx, ns, metav1.DeleteOptions{})
+					if !kerrors.IsNotFound(err) {
+						Expect(err).To(Succeed())
+					}
+				})
 				// hostPodName is the translated host-side name that MUST NOT appear
 				// in any virtual pod event (e.g. "test-pod-abc123-x-sync-err-test-abc123-x-my-vc").
 				hostPodName := translate.SingleNamespaceHostName(podName, ns, vClusterName)
@@ -100,11 +99,12 @@ func SyncErrorSanitisationSpec() {
 				})
 
 				By("waiting for the syncer to create the host pod", func() {
-					Eventually(func(g Gomega) {
+					Eventually(func(g Gomega, ctx context.Context) {
 						_, err := hostClient.CoreV1().Pods(hostNS).Get(ctx, hostPodName, metav1.GetOptions{})
 						g.Expect(err).NotTo(HaveOccurred(),
 							"host pod %s/%s should exist after sync", hostNS, hostPodName)
-					}).WithPolling(constants.PollingInterval).
+					}).WithContext(ctx).
+						WithPolling(constants.PollingInterval).
 						WithTimeout(constants.PollingTimeout).
 						Should(Succeed())
 				})
@@ -174,7 +174,7 @@ func SyncErrorSanitisationSpec() {
 					//
 					// If no SyncError events are produced within PollingTimeout the test fails
 					// — it does NOT pass vacuously when events are absent.
-					Eventually(func(g Gomega) {
+					Eventually(func(g Gomega, ctx context.Context) {
 						eventList, err := vClusterClient.CoreV1().Events(ns).List(ctx, metav1.ListOptions{
 							FieldSelector: "involvedObject.name=" + podName,
 						})
@@ -192,7 +192,8 @@ func SyncErrorSanitisationSpec() {
 						}
 						g.Expect(syncErrorCount).To(BeNumerically(">", 0),
 							"expected at least one SyncError event to verify the sanitiser ran")
-					}).WithPolling(constants.PollingInterval).
+					}).WithContext(ctx).
+						WithPolling(constants.PollingInterval).
 						WithTimeout(constants.PollingTimeout).
 						Should(Succeed())
 				})
