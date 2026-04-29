@@ -125,7 +125,7 @@ func PodSyncSpec() {
 					vpod, err := vClusterClient.CoreV1().Pods(ns).Get(ctx, podName, metav1.GetOptions{})
 					Expect(err).To(Succeed())
 					pPodName := translate.SingleNamespaceHostName(podName, ns, vClusterName)
-					hostNS := "vcluster-" + vClusterName
+					hostNS := vClusterHostNamespace(vClusterName)
 					pod, err := hostClient.CoreV1().Pods(hostNS).Get(ctx, pPodName, metav1.GetOptions{})
 					Expect(err).To(Succeed())
 
@@ -268,7 +268,7 @@ func PodSyncSpec() {
 					vpod, err := vClusterClient.CoreV1().Pods(ns).Get(ctx, podName, metav1.GetOptions{})
 					Expect(err).To(Succeed())
 					pPodName := translate.SingleNamespaceHostName(podName, ns, vClusterName)
-					hostNS := "vcluster-" + vClusterName
+					hostNS := vClusterHostNamespace(vClusterName)
 					pod, err := hostClient.CoreV1().Pods(hostNS).Get(ctx, pPodName, metav1.GetOptions{})
 					Expect(err).To(Succeed())
 					pod.Status.QOSClass = vpod.Status.QOSClass
@@ -288,7 +288,7 @@ func PodSyncSpec() {
 					waitPodRunning(ctx, podName, ns)
 
 					pPodName := translate.SingleNamespaceHostName(podName, ns, vClusterName)
-					hostNS := "vcluster-" + vClusterName
+					hostNS := vClusterHostNamespace(vClusterName)
 					Eventually(func(g Gomega) {
 						pPod, err := hostClient.CoreV1().Pods(hostNS).Get(ctx, pPodName, metav1.GetOptions{})
 						g.Expect(err).To(Succeed())
@@ -416,7 +416,7 @@ func PodSyncSpec() {
 				waitPodRunning(ctx, podName, ns)
 
 				pPodName := translate.SingleNamespaceHostName(podName, ns, vClusterName)
-				hostNS := "vcluster-" + vClusterName
+				hostNS := vClusterHostNamespace(vClusterName)
 
 				By("Checking the env var value", func() {
 					stdout, stderr, err := podhelper.ExecBuffered(ctx, hostConfig, hostNS, pPodName, testingContainerName, []string{"sh", "-c", "echo $" + envVarName}, nil)
@@ -499,7 +499,7 @@ func PodSyncSpec() {
 				waitPodRunning(ctx, podName, ns)
 
 				pPodName := translate.SingleNamespaceHostName(podName, ns, vClusterName)
-				hostNS := "vcluster-" + vClusterName
+				hostNS := vClusterHostNamespace(vClusterName)
 
 				By("Checking the env var value", func() {
 					stdout, stderr, err := podhelper.ExecBuffered(ctx, hostConfig, hostNS, pPodName, testingContainerName, []string{"sh", "-c", "echo $" + envVarName}, nil)
@@ -538,7 +538,7 @@ func PodSyncSpec() {
 				})
 
 				// Wait for the service to be synced to the host with a ClusterIP assigned
-				hostNSForSvc := "vcluster-" + vClusterName
+				hostNSForSvc := vClusterHostNamespace(vClusterName)
 				Eventually(func(g Gomega) {
 					pSvcName := translate.SingleNamespaceHostName(svcName, ns, vClusterName)
 					pSvc, err := hostClient.CoreV1().Services(hostNSForSvc).Get(ctx, pSvcName, metav1.GetOptions{})
@@ -574,7 +574,7 @@ func PodSyncSpec() {
 				waitPodRunning(ctx, podName, ns)
 
 				pPodName := translate.SingleNamespaceHostName(podName, ns, vClusterName)
-				hostNS := "vcluster-" + vClusterName
+				hostNS := vClusterHostNamespace(vClusterName)
 
 				By("Checking dependent env var resolution", func() {
 					stdout, stderr, err := podhelper.ExecBuffered(ctx, hostConfig, hostNS, pPodName, testingContainerName, []string{"sh", "-c", "echo $HELLO_WORLD"}, nil)
@@ -624,7 +624,7 @@ func PodSyncSpec() {
 				waitPodRunning(ctx, podName, ns)
 
 				pPodName := translate.SingleNamespaceHostName(podName, ns, vClusterName)
-				hostNS := "vcluster-" + vClusterName
+				hostNS := vClusterHostNamespace(vClusterName)
 
 				// findNsLabel scans pod labels for a namespace-prefixed label matching the
 				// expected value. translate.HostLabelNamespace uses a process-global VClusterName
@@ -697,7 +697,7 @@ func PodSyncSpec() {
 				waitPodRunning(ctx, podName, ns)
 
 				pPodName := translate.SingleNamespaceHostName(podName, ns, vClusterName)
-				hostNS := "vcluster-" + vClusterName
+				hostNS := vClusterHostNamespace(vClusterName)
 
 				By("Verifying the service account token annotation is not present on host pod", func() {
 					pPod, err := hostClient.CoreV1().Pods(hostNS).Get(ctx, pPodName, metav1.GetOptions{})
@@ -734,7 +734,7 @@ func PodSyncSpec() {
 				createTestNamespace(ctx, ns)
 
 				podName := "pod-bidir-" + suffix
-				hostNS := "vcluster-" + vClusterName
+				hostNS := vClusterHostNamespace(vClusterName)
 
 				By("Creating a pod with initial annotations and labels", func() {
 					_, err := vClusterClient.CoreV1().Pods(ns).Create(ctx, &corev1.Pod{
@@ -901,3 +901,7 @@ func PodSyncSpec() {
 
 func boolPtr(b bool) *bool    { return &b }
 func int64Ptr(i int64) *int64 { return &i }
+
+// vClusterHostNamespace returns the Control Plane Cluster namespace that
+// vcluster uses for a Tenant Cluster with the given name.
+func vClusterHostNamespace(vClusterName string) string { return "vcluster-" + vClusterName }

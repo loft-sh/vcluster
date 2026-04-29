@@ -41,7 +41,7 @@ func PVCSyncSpec() {
 				nsName := "pvc-sync-test-" + suffix
 				pvcName := "pvc-" + suffix
 				podName := "nginx-pvc-" + suffix
-				hostNS := "vcluster-" + vClusterName
+				hostNS := vClusterHostNamespace(vClusterName)
 
 				By("Creating a test namespace", func() {
 					_, err := vClusterClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{

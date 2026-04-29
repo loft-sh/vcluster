@@ -5,6 +5,7 @@ timestamp := `date +%s`
 GOOS := env("GOOS", `go env GOOS`)
 GOARCH := env("GOARCH", `go env GOARCH`)
 GOBIN := env("GOBIN", `go env GOPATH`+"/bin")
+PRIVATE_GO_ENV := "GOPRIVATE=github.com/loft-sh/* GONOSUMDB=github.com/loft-sh/*"
 
 DIST_FOLDER := if GOARCH == "amd64" { "dist/vcluster_linux_amd64_v1" } else if GOARCH == "arm64" { "dist/vcluster_linux_arm64_v8.0" } else { "unknown" }
 DIST_FOLDER_CLI := if GOARCH == "amd64" { "dist/vcluster-cli_" + GOOS + "_amd64_v1" } else if GOARCH == "arm64" { "dist/vcluster-cli_" + GOOS + "_arm64_v8.0" } else { "unknown" }
@@ -97,7 +98,7 @@ _ensure-linters:
   if [ ! -f ./tools/golangci-lint ] || \
      [ -n "$(find .custom-gcl.yml -newer ./tools/golangci-lint \( -name '*.yml' \) 2>/dev/null | head -1)" ]; then
     echo "Custom linters changed - rebuilding tools/golangci-lint..."
-    golangci-lint custom
+    {{PRIVATE_GO_ENV}} golangci-lint custom
   fi
 
 # Run golangci-lint for all packages

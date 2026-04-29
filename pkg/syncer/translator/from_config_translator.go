@@ -37,15 +37,21 @@ func NewFromHostTranslatorForGVK(ctx *synccontext.RegisterContext, gvk schema.Gr
 		virtualToHost[virtual] = host
 	}
 
-	return &fromHostTranslate{
+	t := &fromHostTranslate{
 		gvk:            gvk,
-		eventRecorder:  ctx.VirtualManager.GetEventRecorder("from-host-" + strings.ToLower(gvk.Kind) + "-syncer"),
 		virtualToHost:  virtualToHost,
 		hostToVirtual:  hostToVirtual,
 		namespace:      ctx.Config.HostNamespace,
 		translatorName: "from-host-" + strings.ToLower(gvk.Kind),
 		skipFuncs:      skipFuncs,
-	}, nil
+	}
+	syncCtx := ctx.ToSyncContext("from-host-" + strings.ToLower(gvk.Kind))
+	t.eventRecorder = newSanitisingEventRecorder(
+		syncCtx,
+		ctx.VirtualManager.GetEventRecorder("from-host-"+strings.ToLower(gvk.Kind)+"-syncer"),
+		t.VirtualToHost,
+	)
+	return t, nil
 }
 
 func (c *fromHostTranslate) Name() string {
@@ -74,6 +80,9 @@ func (c *fromHostTranslate) GroupVersionKind() schema.GroupVersionKind {
 	return c.gvk
 }
 
+// VirtualToHost must never emit events: it is passed as the translation
+// function to newSanitisingEventRecorder, so calling Eventf here would
+// recurse infinitely (recorder → VirtualToHost → recorder → …).
 func (c *fromHostTranslate) VirtualToHost(_ *synccontext.SyncContext, req types.NamespacedName, _ client.Object) types.NamespacedName {
 	vName, vNs := req.Name, req.Namespace
 	nn, _ := matchesVirtualObject(vNs, vName, c.virtualToHost, c.namespace)

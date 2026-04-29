@@ -8,6 +8,7 @@ import (
 )
 
 func NewGenericTranslator(ctx *synccontext.RegisterContext, name string, obj client.Object, mapper synccontext.Mapper) syncertypes.GenericTranslator {
+	syncCtx := ctx.ToSyncContext("generic-translator")
 	return &genericTranslator{
 		Mapper: mapper,
 
@@ -15,7 +16,7 @@ func NewGenericTranslator(ctx *synccontext.RegisterContext, name string, obj cli
 
 		obj: obj,
 
-		eventRecorder: ctx.VirtualManager.GetEventRecorder(name + "-syncer"),
+		eventRecorder: newSanitisingEventRecorder(syncCtx, ctx.VirtualManager.GetEventRecorder(name+"-syncer"), mapper.VirtualToHost),
 	}
 }
 
