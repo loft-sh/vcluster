@@ -22,7 +22,7 @@
 &nbsp;&nbsp;&nbsp;&nbsp;
 <a href="https://github.com/cncf/k8s-ai-conformance/tree/main/v1.35/vcluster-private-nodes"><img src="https://raw.githubusercontent.com/cncf/artwork/main/projects/kubernetes/certified-kubernetes-ai/versionless/color/CNCF_AI_Conformance_Logo-Color-V2.png" alt="Kubernetes AI Conformant" height="100"></a>
 
-**CNCF Certified Kubernetes — Distribution** · **Kubernetes AI Conformant** (v1.35)
+**CNCF Certified Kubernetes — Distribution** · **Kubernetes AI Conformant**
 
 </div>
 
@@ -30,11 +30,11 @@
 
 ## What is vCluster?
 
-**vCluster** creates **Tenant Clusters** — fully isolated Kubernetes environments that run on top of a Control Plane Cluster, on dedicated infrastructure, or standalone on bare metal. Each tenant gets its own API server, CRDs, and RBAC, with a cluster experience indistinguishable from a dedicated Kubernetes cluster.
+**vCluster** creates **Tenant Clusters** — fully isolated Kubernetes environments that run on top of a Control Plane Cluster or standalone on dedicated infrastructure or bare metal. Each tenant gets its own API server, CRDs, and RBAC, with a cluster experience indistinguishable from a dedicated Kubernetes cluster.
 
 Built for production. Trusted in production. **40M+ Tenant Clusters deployed** by teams at Adobe, CoreWeave, NVIDIA, Lintasarta, Atlan, Deloitte, and hundreds of AI clouds, AI factories, and Fortune 500 platform organizations.
 
-**[CNCF Certified Kubernetes — Distribution](https://www.cncf.io/training/certification/software-conformance/)** and **[Kubernetes AI Conformant](https://github.com/cncf/k8s-ai-conformance/tree/main/v1.35/vcluster-private-nodes)** (v1.35) — every Tenant Cluster is upstream Kubernetes with no vendor lock‑in, validated for portable AI/ML workloads (training, inference, agentic).
+**[CNCF Certified Kubernetes — Distribution](https://www.cncf.io/training/certification/software-conformance/)** and **[Kubernetes AI Conformant](https://github.com/cncf/k8s-ai-conformance/tree/main/v1.35/vcluster-private-nodes)** — every Tenant Cluster is upstream Kubernetes with no vendor lock‑in, validated for portable AI/ML workloads (training, inference, agentic).
 
 > **The public-cloud experience, on your own infrastructure.** Give every team the Kubernetes they need — with strict isolation, hardware-aware scheduling, and zero tenant sprawl — whether you run one region or 100K GPUs.
 
@@ -59,7 +59,7 @@ vcluster create my-vcluster --namespace team-x
 kubectl get namespaces
 ```
 
-**Prerequisites:** A running Kubernetes cluster and `kubectl` configured. Or go straight to bare metal with [vCluster Standalone](https://www.vcluster.com/docs/vcluster/deploy/control-plane/binary/).
+**Prerequisites:** A running Kubernetes cluster and `kubectl` configured. Or skip the Control Plane Cluster entirely with [vCluster Standalone](https://www.vcluster.com/docs/vcluster/deploy/control-plane/binary/) — runs directly on dedicated infrastructure or bare metal.
 
 👉 **[Full Quickstart Guide](https://www.vcluster.com/docs/get-started)**
 
@@ -78,7 +78,7 @@ kubectl get namespaces
 
 ### 🎁 vCluster Free Tier
 
-Real usage, not a gated demo. Unlimited Tenant Clusters up to 64 CPUs / 32 GPUs, Private Nodes, Auto Nodes, Standalone, and the Platform UI — for free. **[Get Started Free →](https://www.vcluster.com/free)**
+Real usage, not a gated demo. Unlimited Tenant Clusters up to 64 CPUs / 32 GPUs, plus the full vCluster Platform UI — for free. **[Get Started Free →](https://www.vcluster.com/free)**
 
 ---
 
@@ -90,7 +90,7 @@ Real usage, not a gated demo. Unlimited Tenant Clusters up to 64 CPUs / 32 GPUs,
 | **v0.32** | [Docker Driver & DRA](https://github.com/loft-sh/vcluster/releases/tag/v0.32.0) | Run vCluster on Docker, Dynamic Resource Allocation (DRA) for GPU workloads, in-place pod resizing |
 | **v0.31** | [Snapshots & Cross-Cluster APIs](https://github.com/loft-sh/vcluster/releases/tag/v0.31.0) | Expanded snapshot/restore lifecycle, PDBs for Tenant Cluster control planes, cross-cluster resource proxying |
 | **v0.30** | [vCluster VPN & Netris Integration](https://www.vcluster.com/releases/en/changelog/platform-v45-and-vcluster-v030-secure-cloud-bursting-on-prem) | Tailscale-powered overlay networking and automated hardware isolation via Netris |
-| **v0.27–v0.29** | [Architecture Foundations](https://www.vcluster.com/docs/vcluster/introduction/architecture/) | [Private Nodes](https://www.vcluster.com/docs/vcluster/deploy/worker-nodes/private-nodes) (v0.27, CNI/CSI isolation), [Auto Nodes](https://www.vcluster.com/docs/vcluster/deploy/worker-nodes/private-nodes/auto-nodes/) (v0.28, Karpenter autoscaling), [Standalone Mode](https://www.vcluster.com/docs/vcluster/deploy/control-plane/binary/) (v0.29, bare metal / no Control Plane Cluster) |
+| **v0.27–v0.29** | [Architecture Foundations](https://www.vcluster.com/docs/vcluster/introduction/architecture/) | [Private Nodes](https://www.vcluster.com/docs/vcluster/deploy/worker-nodes/private-nodes) (v0.27, CNI/CSI isolation), [Auto Nodes](https://www.vcluster.com/docs/vcluster/deploy/worker-nodes/private-nodes/auto-nodes/) (v0.28, Karpenter autoscaling), [Standalone Mode](https://www.vcluster.com/docs/vcluster/deploy/control-plane/binary/) (v0.29, no Control Plane Cluster — dedicated infrastructure or bare metal) |
 
 👉 **[Full Changelog](https://www.vcluster.com/releases)**
 
@@ -111,7 +111,7 @@ Real usage, not a gated demo. Unlimited Tenant Clusters up to 64 CPUs / 32 GPUs,
 
 ## 🏗️ Architectures
 
-vCluster supports multiple deployment architectures. Each builds on the previous, offering progressively stronger isolation — from dense shared infrastructure to fully standalone bare metal.
+vCluster supports multiple deployment architectures. Each builds on the previous, offering progressively stronger isolation — from dense shared infrastructure to fully standalone deployments on dedicated infrastructure or bare metal.
 
 ### Architecture Comparison
 
@@ -214,13 +214,15 @@ privateNodes:
 | Feature | Description |
 |---------|-------------|
 | **🎛️ Isolated Virtual Control Plane** | Each Tenant Cluster gets its own API server, controller manager, and data store — complete Kubernetes API isolation |
-| **🔗 Shared Platform Stack** | Leverage the Control Plane Cluster's CNI, CSI, ingress, and other infrastructure — no duplicate platform components |
+| **🔗 Shared Platform Stack** *(Control Plane Cluster modes)* | Leverage the Control Plane Cluster's CNI, CSI, ingress, and other infrastructure — no duplicate platform components |
 | **🔒 Strong Tenant Isolation** | Tenants get admin access inside their Tenant Cluster while having minimal permissions on the Control Plane Cluster |
-| **🔄 Resource Syncing** | Bidirectional sync of any Kubernetes resource — pods, services, secrets, configmaps, CRDs, and more |
+| **🔄 Resource Syncing** *(Control Plane Cluster modes)* | Bidirectional sync of any Kubernetes resource — pods, services, secrets, configmaps, CRDs, and more |
 | **💤 Sleep Mode** | Pause inactive Tenant Clusters to save resources. Instant wake when needed |
-| **🖥️ Bare Metal & Standalone** | Run with or without a Control Plane Cluster. Purpose-built for AI factories and on-prem GPU fleets |
-| **🧩 Integrations** | Native support for cert-manager, external-secrets, KubeVirt, Istio, and metrics-server |
+| **🖥️ Standalone Deployment** | Run without a Control Plane Cluster on dedicated infrastructure or bare metal — purpose-built for AI factories and on-prem GPU fleets |
+| **🧩 Integrations** | Native support for cert-manager, external-secrets, KubeVirt, Istio, and metrics-server (host integrations apply in Control Plane Cluster modes) |
 | **📊 High Availability** | Multiple replicas with leader election. Embedded etcd or external databases (PostgreSQL, MySQL, RDS) |
+
+> *Shared Platform Stack and Resource Syncing apply when vCluster runs on a Control Plane Cluster (Shared / Dedicated / Private Nodes). In Standalone mode, the Tenant Cluster manages its own platform stack directly.*
 
 ---
 
@@ -231,7 +233,7 @@ vCluster is the foundation of a broader platform for running production Kubernet
 | Product | What it does |
 |---------|--------------|
 | **[vCluster](https://www.vcluster.com)** | Tenant Clusters — Virtual Control Planes with API, data, and (optionally) network isolation |
-| **[vNode](https://www.vnode.com/)** | Runtime-level tenant isolation. Kernel-enforced boundaries (seccomp, cgroups, namespaces, AppArmor) without VM overhead |
+| **[vNode](https://www.vnode.com/)** | Runtime-level isolation. Kernel-enforced boundaries (seccomp, cgroups, namespaces, AppArmor) without VM overhead |
 | **[vMetal](https://www.vmetal.ai/)** | Zero-touch bare metal provisioning for GPU fleets. Turns GPU racks into a cloud platform |
 | **[Netris](https://www.vcluster.com/solutions/netris-kubernetes-network-automation)** *(integration)* | Hardware-enforced network isolation via programmatic VLANs, VRFs, and ACLs |
 
@@ -314,16 +316,14 @@ We welcome contributions! Check out our **[Contributing Guide](https://github.co
 
 ---
 
-## 🔗 Links
+## 🤝 Connect with us
 
-| Resource | Link |
-|----------|------|
-| 📖 Documentation | [vcluster.com/docs](https://www.vcluster.com/docs/vcluster/introduction/what-are-virtual-clusters) |
-| 💬 Slack Community | [slack.loft.sh](https://slack.loft.sh/) |
-| 🌐 Website | [vcluster.com](https://www.vcluster.com) |
-| 🐦 X (Twitter) | [@vcluster](https://x.com/vcluster) |
-| 💼 LinkedIn | [vCluster](https://www.linkedin.com/company/vcluster) |
-| 💬 Chat with Expert | [Start Chat](https://start-chat.com/slack/Loft-Labs/NnQl1M) |
+- 💬 Join our [Slack community](https://slack.loft.sh/) — 5K+ engineers
+- 💼 Follow on [LinkedIn](https://www.linkedin.com/company/vcluster) — 28K+
+- 🐦 Follow on [X](https://x.com/vcluster) — 3.7K+
+- 📺 Watch on [YouTube](https://www.youtube.com/@vcluster)
+- 📝 Read the [Blog](https://loft.sh/blog)
+- 📅 Book a [consultation](https://start-chat.com/slack/Loft-Labs/NnQl1M)
 
 ---
 
