@@ -4,6 +4,11 @@ import "path/filepath"
 
 const (
 	VClusterStorageOptionsEnv = "VCLUSTER_STORAGE_OPTIONS"
+
+	// LocalBackingStoreMetricsHost is the loopback host:port that the in-pod
+	// backing store (kine or embedded etcd) binds its Prometheus metrics
+	// endpoint to. The two are mutually exclusive, so they share a port.
+	LocalBackingStoreMetricsHost = "127.0.0.1:2381"
 )
 
 var (
