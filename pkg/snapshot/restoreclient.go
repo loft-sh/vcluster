@@ -339,6 +339,7 @@ func (o *RestoreClient) restoreSnapshot(ctx context.Context, vConfig *config.Vir
 	if err != nil {
 		return fmt.Errorf("failed to get etcd client: %w", err)
 	}
+	defer etcdClient.Close()
 
 	if err := fixSeedMemberPeerUrls(ctx, etcdClient); err != nil {
 		return fmt.Errorf("failed to fix seed member peer urls: %w", err)

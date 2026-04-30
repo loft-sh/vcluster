@@ -22,7 +22,7 @@ const (
 	RequestStoreKey           = "/vcluster/snapshot/request"
 	DBStoreKey                = "/vcluster/snapshot/db"
 	SkipKeysStoreKey          = "/vcluster/snapshot/skipkeys"
-	EtcdSnapshotTypeMetaStamp = `{"apiVersion":snapshot.vcluster.com/v1","kind":"EtcdSnapshot"}`
+	EtcdSnapshotTypeMetaStamp = `{"apiVersion":"snapshot.vcluster.com/v1","kind":"EtcdSnapshot"}`
 )
 
 type Client struct {
