@@ -101,7 +101,7 @@ func (cmd *NamespaceCmd) connectSpace(ctx context.Context, platformClient platfo
 	}
 
 	// wait until space is ready
-	spaceInstance, err := platform.WaitForSpaceInstance(ctx, managementClient, projectutil.ProjectNamespace(cmd.Project), spaceName, !cmd.SkipWait, cmd.log)
+	spaceInstance, err := platform.WaitForSpaceInstance(ctx, managementClient, projectutil.ProjectNamespace(cmd.Project), spaceName, !cmd.SkipWait, false, cmd.log)
 	if err != nil {
 		return err
 	}

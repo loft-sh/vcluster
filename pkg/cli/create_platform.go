@@ -135,7 +135,7 @@ func CreatePlatform(ctx context.Context, options *CreateOptions, globalFlags *fl
 	}
 
 	// wait until virtual cluster is ready
-	virtualClusterInstance, err = platform.WaitForVirtualClusterInstance(ctx, managementClient, virtualClusterInstance.Namespace, virtualClusterInstance.Name, !options.SkipWait, log)
+	virtualClusterInstance, err = platform.WaitForVirtualClusterInstance(ctx, managementClient, virtualClusterInstance.Namespace, virtualClusterInstance.Name, !options.SkipWait, false, log)
 	if err != nil {
 		return err
 	}

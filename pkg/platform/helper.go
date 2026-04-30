@@ -550,7 +550,7 @@ func GetCurrentUser(ctx context.Context, managementClient kube.Interface) (*mana
 	return self.Status.User, self.Status.Team, nil
 }
 
-func WaitForSpaceInstance(ctx context.Context, managementClient kube.Interface, namespace, name string, waitUntilReady bool, log log.Logger) (*managementv1.SpaceInstance, error) {
+func WaitForSpaceInstance(ctx context.Context, managementClient kube.Interface, namespace, name string, waitUntilReady, forceWakeup bool, log log.Logger) (*managementv1.SpaceInstance, error) {
 	pollInterval := min(clihelper.Timeout()/5, defaultPollInterval)
 	now := time.Now()
 	nextMessage := now.Add(pollInterval)
@@ -560,6 +560,15 @@ func WaitForSpaceInstance(ctx context.Context, managementClient kube.Interface, 
 	}
 
 	if spaceInstance.Status.Phase == storagev1.InstanceSleeping {
+		if !forceWakeup {
+			if err := canAutoWakeup(spaceInstance); err != nil {
+				project := projectutil.ProjectFromNamespace(spaceInstance.Namespace)
+				return nil, fmt.Errorf(
+					"space %s is force-sleeping (%s is set) and will not be auto-woken. Wake it explicitly: vcluster platform wakeup space %s --project %s",
+					spaceInstance.Name, clusterv1.SleepModeForceDurationAnnotation, spaceInstance.Name, project,
+				)
+			}
+		}
 		log.Info("Wait until space wakes up")
 		defer log.Donef("Successfully woken up space %s", name)
 		err := wakeupSpace(ctx, managementClient, spaceInstance)
@@ -1021,7 +1030,7 @@ func ListVClusters(ctx context.Context, client Client, virtualClusterName, proje
 	return virtualClusters, nil
 }
 
-func WaitForVirtualClusterInstance(ctx context.Context, managementClient kube.Interface, namespace, name string, waitUntilReady bool, log log.Logger) (*managementv1.VirtualClusterInstance, error) {
+func WaitForVirtualClusterInstance(ctx context.Context, managementClient kube.Interface, namespace, name string, waitUntilReady, forceWakeup bool, log log.Logger) (*managementv1.VirtualClusterInstance, error) {
 	now := time.Now()
 	pollInterval := min(clihelper.Timeout()/5, defaultPollInterval)
 	nextMessage := now.Add(pollInterval)
@@ -1031,6 +1040,15 @@ func WaitForVirtualClusterInstance(ctx context.Context, managementClient kube.In
 	}
 
 	if virtualClusterInstance.Status.Phase == storagev1.InstanceSleeping {
+		if !forceWakeup {
+			if err := canAutoWakeup(virtualClusterInstance); err != nil {
+				project := projectutil.ProjectFromNamespace(virtualClusterInstance.Namespace)
+				return nil, fmt.Errorf(
+					"tenant cluster %s is force-sleeping (%s is set) and will not be auto-woken. Wake it explicitly: vcluster platform wakeup vcluster %s --project %s",
+					virtualClusterInstance.Name, clusterv1.SleepModeForceDurationAnnotation, virtualClusterInstance.Name, project,
+				)
+			}
+		}
 		log.Info("Wait until vcluster instance wakes up")
 		defer log.Donef("virtual cluster %s wakeup successful", name)
 		err := wakeupVCluster(ctx, managementClient, virtualClusterInstance)
@@ -1206,6 +1224,27 @@ func wakeupSpace(ctx context.Context, managementClient kube.Interface, spaceInst
 	_, err = managementClient.Loft().ManagementV1().SpaceInstances(spaceInstance.Namespace).Patch(ctx, spaceInstance.Name, patch.Type(), patchData, metav1.PatchOptions{})
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func canAutoWakeup(obj metav1.Object) error {
+	annotations := obj.GetAnnotations()
+	raw, ok := annotations[clusterv1.SleepModeForceDurationAnnotation]
+	if !ok {
+		return nil
+	}
+	duration, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || duration < 0 {
+		return nil
+	}
+	if duration == 0 {
+		return fmt.Errorf("instance is force-sleeping")
+	}
+	sleepingSince, _ := strconv.ParseInt(annotations[clusterv1.SleepModeSleepingSinceAnnotation], 10, 64)
+	if sleepingSince > 0 && time.Now().Before(time.Unix(sleepingSince+duration, 0)) {
+		return fmt.Errorf("instance is force-sleeping")
 	}
 
 	return nil
@@ -1426,7 +1465,7 @@ func EnablePlatformManagement(ctx context.Context, kubeClient *kubernetes.Client
 	vciNamespace := ns.Labels[namespaceLabel]
 
 	log.Infof("Waiting until the virtual cluster instance %s/%s is ready", vciNamespace, vciName)
-	_, err = WaitForVirtualClusterInstance(ctx, managementClient, vciNamespace, vciName, true, log)
+	_, err = WaitForVirtualClusterInstance(ctx, managementClient, vciNamespace, vciName, true, false, log)
 	if err != nil {
 		return fmt.Errorf("failed while waiting for the virtual cluster instance %s/%s to be ready: %w", vciNamespace, vciName, err)
 	}
@@ -1469,7 +1508,7 @@ func EnablePlatformManagement(ctx context.Context, kubeClient *kubernetes.Client
 	}
 
 	log.Infof("Waiting until the virtual cluster instance %s/%s is ready", vciNamespace, vciName)
-	_, err = WaitForVirtualClusterInstance(ctx, managementClient, vciNamespace, vciName, true, log)
+	_, err = WaitForVirtualClusterInstance(ctx, managementClient, vciNamespace, vciName, true, false, log)
 	if err != nil {
 		return fmt.Errorf("failed while waiting for the virtual cluster instance %s/%s to be ready: %w", vciNamespace, vciName, err)
 	}

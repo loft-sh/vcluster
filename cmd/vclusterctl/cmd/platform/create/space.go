@@ -308,7 +308,7 @@ func (cmd *NamespaceCmd) createSpace(ctx context.Context, platformClient platfor
 	}
 
 	// wait until space is ready
-	spaceInstance, err = platform.WaitForSpaceInstance(ctx, managementClient, spaceInstance.Namespace, spaceInstance.Name, !cmd.SkipWait, cmd.Log)
+	spaceInstance, err = platform.WaitForSpaceInstance(ctx, managementClient, spaceInstance.Namespace, spaceInstance.Name, !cmd.SkipWait, false, cmd.Log)
 	if err != nil {
 		return err
 	}
