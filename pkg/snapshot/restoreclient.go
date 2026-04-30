@@ -107,23 +107,29 @@ func (o *RestoreClient) GetSnapshotRequest(ctx context.Context) (*Request, error
 	tarReader := tar.NewReader(gzipReader)
 
 	for {
-		// read from archive
-		key, value, err := readKeyValue(tarReader)
-		if err != nil && !errors.Is(err, io.EOF) {
-			return nil, fmt.Errorf("read etcd key/value: %w", err)
-		} else if errors.Is(err, io.EOF) || len(key) == 0 {
-			break
+		header, err := tarReader.Next()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+
+			return nil, fmt.Errorf("read snapshot archive: %w", err)
 		}
 
-		if !strings.HasPrefix(string(key), RequestStoreKey) {
+		if !strings.HasPrefix(header.Name, RequestStoreKey) {
 			continue
 		}
 
-		var snapshotRequest Request
-		err = json.Unmarshal(value, &snapshotRequest)
+		value, err := io.ReadAll(tarReader)
 		if err != nil {
+			return nil, fmt.Errorf("failed to read snapshot request: %w", err)
+		}
+
+		var snapshotRequest Request
+		if err := json.Unmarshal(value, &snapshotRequest); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal snapshot request: %w", err)
 		}
+
 		return &snapshotRequest, nil
 	}
 
