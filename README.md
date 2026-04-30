@@ -59,7 +59,7 @@ vcluster create my-vcluster --namespace team-x
 kubectl get namespaces
 ```
 
-**Prerequisites:** A running Kubernetes cluster and `kubectl` configured. Or skip the Control Plane Cluster entirely with [vCluster Standalone](https://www.vcluster.com/docs/vcluster/deploy/control-plane/binary/) — runs directly on dedicated infrastructure or bare metal.
+**Prerequisites:** A running Kubernetes cluster and `kubectl` configured.
 
 👉 **[Full Quickstart Guide](https://www.vcluster.com/docs/get-started)**
 
@@ -214,15 +214,15 @@ privateNodes:
 | Feature | Description |
 |---------|-------------|
 | **🎛️ Isolated Virtual Control Plane** | Each Tenant Cluster gets its own API server, controller manager, and data store — complete Kubernetes API isolation |
-| **🔗 Shared Platform Stack** *(Control Plane Cluster modes)* | Leverage the Control Plane Cluster's CNI, CSI, ingress, and other infrastructure — no duplicate platform components |
+| **🔗 Shared Platform Stack** *(Shared / Dedicated Nodes)* | Leverage the Control Plane Cluster's CNI, CSI, ingress, and other infrastructure — no duplicate platform components |
 | **🔒 Strong Tenant Isolation** | Tenants get admin access inside their Tenant Cluster while having minimal permissions on the Control Plane Cluster |
-| **🔄 Resource Syncing** *(Control Plane Cluster modes)* | Bidirectional sync of any Kubernetes resource — pods, services, secrets, configmaps, CRDs, and more |
+| **🔄 Resource Syncing** *(Shared / Dedicated Nodes)* | Bidirectional sync of any Kubernetes resource — pods, services, secrets, configmaps, CRDs, and more |
 | **💤 Sleep Mode** | Pause inactive Tenant Clusters to save resources. Instant wake when needed |
 | **🖥️ Standalone Deployment** | Run without a Control Plane Cluster on dedicated infrastructure or bare metal — purpose-built for AI factories and on-prem GPU fleets |
-| **🧩 Integrations** | Native support for cert-manager, external-secrets, KubeVirt, Istio, and metrics-server (host integrations apply in Control Plane Cluster modes) |
+| **🧩 Integrations** | Native support for cert-manager, external-secrets, KubeVirt, Istio, and metrics-server (host-side integrations apply in Shared / Dedicated Nodes modes) |
 | **📊 High Availability** | Multiple replicas with leader election. Embedded etcd or external databases (PostgreSQL, MySQL, RDS) |
 
-> *Shared Platform Stack and Resource Syncing apply when vCluster runs on a Control Plane Cluster (Shared / Dedicated / Private Nodes). In Standalone mode, the Tenant Cluster manages its own platform stack directly.*
+> *Shared Platform Stack, Resource Syncing, and host-cluster integrations apply only in **Shared** and **Dedicated Nodes** modes, where the Tenant Cluster shares the Control Plane Cluster's CNI, CSI, and platform stack. **Private Nodes** and **Standalone** deployments bring their own CNI, CSI, and platform components.*
 
 ---
 
