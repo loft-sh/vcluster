@@ -3,6 +3,7 @@ package filters
 import (
 	"net/http"
 
+	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/server/handler"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	requestpkg "github.com/loft-sh/vcluster/pkg/util/request"
@@ -13,6 +14,7 @@ const (
 	controllerManagerMetricsHost = "https://127.0.0.1:10257"
 	schedulerMetricsHost         = "https://127.0.0.1:10259"
 	embeddedEtcdMetricsHost      = "http://127.0.0.1:2381"
+	kineMetricsHost              = "http://127.0.0.1:2381"
 )
 
 func WithK8sMetrics(h http.Handler, registerCtx *synccontext.RegisterContext) http.Handler {
@@ -44,6 +46,13 @@ func metricsRestConfig(path string, registerCtx *synccontext.RegisterContext) *r
 	case "/metrics/etcd":
 		if registerCtx.Config.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
 			return &rest.Config{Host: embeddedEtcdMetricsHost}
+		}
+	case "/metrics/kine":
+		switch registerCtx.Config.BackingStoreType() {
+		case config.StoreTypeEmbeddedDatabase, config.StoreTypeExternalDatabase:
+			return &rest.Config{Host: kineMetricsHost}
+		case config.StoreTypeEmbeddedEtcd, config.StoreTypeExternalEtcd, config.StoreTypeDeployedEtcd:
+			// kine is not used with etcd backing stores
 		}
 	}
 

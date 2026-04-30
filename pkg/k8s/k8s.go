@@ -278,7 +278,7 @@ func StartKineWithDone(ctx context.Context, dataSource, listenAddress string, ce
 				args = append(args, "--cert-file="+certificates.ServerCert)
 			}
 		}
-		args = append(args, "--metrics-bind-address=0")
+		args = append(args, "--metrics-bind-address=127.0.0.1:2381")
 		args = append(args, "--listen-address="+listenAddress)
 		args = command.MergeArgs(args, extraArgs)
 
