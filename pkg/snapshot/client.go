@@ -56,6 +56,7 @@ func (c *Client) Run(ctx context.Context, vConfig *config.VirtualClusterConfig) 
 	if err != nil {
 		return fmt.Errorf("failed to create etcd client: %w", err)
 	}
+	defer etcdClient.Close()
 
 	// create store
 	objectStore, err := CreateStore(ctx, &c.Options)
