@@ -133,6 +133,7 @@ func (c *Client) writeSnapshot(ctx context.Context, etcdClient etcd.Client, obje
 	if err != nil {
 		return fmt.Errorf("snapshot request failed: %w", err)
 	}
+	defer res.Snapshot.Close()
 
 	dbPath, err := writeTempFile(res.Snapshot)
 	if err != nil {
