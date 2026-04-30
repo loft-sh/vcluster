@@ -188,7 +188,7 @@ func (o *RestoreClient) Run(ctx context.Context, vConfig *config.VirtualClusterC
 
 	typeMetaStamp, err := gzipCommentFromFile(snapshotPath)
 	if err != nil {
-		return fmt.Errorf("failed to check if snapshot is etcd snapshot: %w", err)
+		return fmt.Errorf("failed to extract type meta stamp from snapshot: %w", err)
 	}
 
 	if typeMetaStamp == EtcdSnapshotTypeMetaStamp {
