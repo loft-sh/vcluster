@@ -186,24 +186,23 @@ func (o *RestoreClient) Run(ctx context.Context, vConfig *config.VirtualClusterC
 	}
 	defer os.Remove(snapshotPath)
 
-	if vConfig.BackingStoreType() == vclusterconfig.StoreTypeEmbeddedEtcd {
-		typeMetaStamp, err := gzipCommentFromFile(snapshotPath)
-		if err != nil {
-			return fmt.Errorf("failed to check if snapshot is etcd snapshot: %w", err)
-		}
+	typeMetaStamp, err := gzipCommentFromFile(snapshotPath)
+	if err != nil {
+		return fmt.Errorf("failed to check if snapshot is etcd snapshot: %w", err)
+	}
 
-		if typeMetaStamp == EtcdSnapshotTypeMetaStamp {
+	if typeMetaStamp == EtcdSnapshotTypeMetaStamp {
+		if vConfig.BackingStoreType() == vclusterconfig.StoreTypeEmbeddedEtcd {
 			if err := o.restoreSnapshot(ctx, vConfig, snapshotPath); err != nil {
 				return fmt.Errorf("failed to restore etcd snapshot: %w", err)
 			}
-
-			klog.Infof("Successfully restored snapshot from %s", objectStore.Target())
-			return nil
+		} else {
+			return fmt.Errorf("restore etcd snapshot is not supported for store type %s", vConfig.BackingStoreType())
 		}
-	}
-
-	if err := o.restoreKeyValueSnapshot(ctx, vConfig, snapshotPath); err != nil {
-		return fmt.Errorf("restore key-value snapshot: %w", err)
+	} else {
+		if err := o.restoreKeyValueSnapshot(ctx, vConfig, snapshotPath); err != nil {
+			return fmt.Errorf("restore key-value snapshot: %w", err)
+		}
 	}
 
 	klog.Infof("Successfully restored snapshot from %s", objectStore.Target())
