@@ -14,6 +14,10 @@ func TestMetricsRestConfig(t *testing.T) {
 		name         string
 		path         string
 		embeddedEtcd bool
+		externalEtcd bool
+		deployedEtcd bool
+		externalDB   bool
+		embeddedDB   bool
 		wantHost     string
 		wantNil      bool
 	}{
@@ -49,6 +53,41 @@ func TestMetricsRestConfig(t *testing.T) {
 			wantNil: true,
 		},
 		{
+			name:     "kine route default backing store (embedded sqlite)",
+			path:     "/metrics/kine",
+			wantHost: kineMetricsHost,
+		},
+		{
+			name:       "kine route explicit embedded database",
+			path:       "/metrics/kine",
+			embeddedDB: true,
+			wantHost:   kineMetricsHost,
+		},
+		{
+			name:       "kine route external database",
+			path:       "/metrics/kine",
+			externalDB: true,
+			wantHost:   kineMetricsHost,
+		},
+		{
+			name:         "kine route disabled with embedded etcd",
+			path:         "/metrics/kine",
+			embeddedEtcd: true,
+			wantNil:      true,
+		},
+		{
+			name:         "kine route disabled with deployed etcd",
+			path:         "/metrics/kine",
+			deployedEtcd: true,
+			wantNil:      true,
+		},
+		{
+			name:         "kine route disabled with external etcd",
+			path:         "/metrics/kine",
+			externalEtcd: true,
+			wantNil:      true,
+		},
+		{
 			name:    "unrelated route",
 			path:    "/metrics",
 			wantNil: true,
@@ -65,6 +104,22 @@ func TestMetricsRestConfig(t *testing.T) {
 								Etcd: rawconfig.Etcd{
 									Embedded: rawconfig.EtcdEmbedded{
 										Enabled: tt.embeddedEtcd,
+									},
+									Deploy: rawconfig.EtcdDeploy{
+										Enabled: tt.deployedEtcd,
+									},
+									External: rawconfig.EtcdExternal{
+										Enabled: tt.externalEtcd,
+									},
+								},
+								Database: rawconfig.Database{
+									Embedded: rawconfig.DatabaseKine{
+										Enabled: tt.embeddedDB,
+									},
+									External: rawconfig.ExternalDatabaseKine{
+										DatabaseKine: rawconfig.DatabaseKine{
+											Enabled: tt.externalDB,
+										},
 									},
 								},
 							},

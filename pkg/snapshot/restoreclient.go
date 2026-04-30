@@ -626,7 +626,10 @@ func setLatestRevisionSQLite(ctx context.Context, file string, revision int64) e
 	defer cancel()
 
 	// start & stop kine to create the database
-	doneChan := k8s.StartKineWithDone(kineCtx, fmt.Sprintf("sqlite://%s%s", file, k8s.SQLiteParams), constants.K8sKineEndpoint, nil, nil)
+	doneChan := k8s.StartKineWithDone(kineCtx, fmt.Sprintf("sqlite://%s%s", file, k8s.SQLiteParams), constants.K8sKineEndpoint, nil,
+		// disable the kine metrics listener, not required for snapshots and would conflict on port
+		[]string{"--metrics-bind-address=0"},
+	)
 
 	// wait until file is created or kine fails or timeout
 	kineStartTimeout := 30 * time.Second
