@@ -79,7 +79,7 @@ func (cmd *NamespaceCmd) spaceWakeUp(ctx context.Context, platformClient platfor
 		return err
 	}
 
-	_, err = platform.WaitForSpaceInstance(ctx, managementClient, projectutil.ProjectNamespace(cmd.Project), spaceName, true, cmd.Log)
+	_, err = platform.WaitForSpaceInstance(ctx, managementClient, projectutil.ProjectNamespace(cmd.Project), spaceName, true, true, cmd.Log)
 	if err != nil {
 		return err
 	}

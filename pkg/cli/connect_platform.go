@@ -62,7 +62,7 @@ func ConnectPlatform(ctx context.Context, options *ConnectOptions, globalFlags *
 		return errors.New("nil virtual cluster object")
 	}
 
-	vc, err := platform.WaitForVirtualClusterInstance(ctx, managementClient, vCluster.VirtualCluster.Namespace, vCluster.VirtualCluster.Name, true, log)
+	vc, err := platform.WaitForVirtualClusterInstance(ctx, managementClient, vCluster.VirtualCluster.Namespace, vCluster.VirtualCluster.Name, true, false, log)
 	if err != nil {
 		return err
 	}
