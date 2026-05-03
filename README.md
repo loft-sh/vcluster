@@ -86,6 +86,7 @@ Real usage, not a gated demo. Unlimited Tenant Clusters up to 64 CPUs / 32 GPUs,
 
 | Version | Feature | Description |
 |---------|---------|-------------|
+| **v0.34** | [Multi-Region Platform & Standalone Snapshots](https://www.vcluster.com/releases/changelog/vcluster-platform-v49-vcluster-v034-multi-region-platform-snapshot-support) | Active/active vCluster Platform across regions (Route 53 + RDS), Standalone snapshots (S3 / OCI / local), first-class template parameters |
 | **v0.33** | [Enterprise Reliability & Storage](https://github.com/loft-sh/vcluster/releases/tag/v0.33.0) | Automatic leaf-cert regeneration, Azure Blob snapshot destinations, workload-level sleep annotations |
 | **v0.32** | [Docker Driver & DRA](https://github.com/loft-sh/vcluster/releases/tag/v0.32.0) | Run vCluster on Docker, Dynamic Resource Allocation (DRA) for GPU workloads, in-place pod resizing |
 | **v0.31** | [Snapshots & Cross-Cluster APIs](https://github.com/loft-sh/vcluster/releases/tag/v0.31.0) | Expanded snapshot/restore lifecycle, PDBs for Tenant Cluster control planes, cross-cluster resource proxying |
@@ -237,7 +238,7 @@ vCluster is the foundation of a broader platform for running production Kubernet
 | **[vMetal](https://www.vmetal.ai/)** | Zero-touch bare metal provisioning for GPU fleets. Turns GPU racks into a cloud platform |
 | **[Netris](https://www.vcluster.com/solutions/netris-kubernetes-network-automation)** *(integration)* | Hardware-enforced network isolation via programmatic VLANs, VRFs, and ACLs |
 
-Together these deliver the four layers of an AI factory: **Certified Stacks → Tenant Isolation → Tenant Clusters → GPU Infrastructure Operations** — the same pattern used to run production AI on hundreds of GPU clouds and Fortune 500 on-prem platforms.
+Together these provide a complete foundation for AI factories — certified Kubernetes stacks, isolated Tenant Clusters, runtime workload sandboxing, and GPU infrastructure operations — the same pattern used to run production AI on hundreds of AI clouds and Fortune 500 on-prem platforms.
 
 ---
 
