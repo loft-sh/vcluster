@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 func NewMappingsRegistry(store synccontext.MappingsStore) synccontext.MappingsRegistry {
@@ -141,6 +142,38 @@ func NetworkingPolicies() schema.GroupVersionKind {
 
 func Ingresses() schema.GroupVersionKind {
 	return networkingv1.SchemeGroupVersion.WithKind("Ingress")
+}
+
+func Gateways() schema.GroupVersionKind {
+	return schema.GroupVersionKind{
+		Group:   gatewayv1.GroupVersion.Group,
+		Version: gatewayv1.GroupVersion.Version,
+		Kind:    "Gateway",
+	}
+}
+
+func HTTPRoutes() schema.GroupVersionKind {
+	return schema.GroupVersionKind{
+		Group:   gatewayv1.GroupVersion.Group,
+		Version: gatewayv1.GroupVersion.Version,
+		Kind:    "HTTPRoute",
+	}
+}
+
+func TLSRoutes() schema.GroupVersionKind {
+	return schema.GroupVersionKind{
+		Group:   gatewayv1.GroupVersion.Group,
+		Version: gatewayv1.GroupVersion.Version,
+		Kind:    "TLSRoute",
+	}
+}
+
+func BackendTLSPolicies() schema.GroupVersionKind {
+	return schema.GroupVersionKind{
+		Group:   gatewayv1.GroupVersion.Group,
+		Version: gatewayv1.GroupVersion.Version,
+		Kind:    "BackendTLSPolicy",
+	}
 }
 
 func PersistentVolumeClaims() schema.GroupVersionKind {

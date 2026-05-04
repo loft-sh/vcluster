@@ -81,6 +81,10 @@ sync:
     ingresses:
       # Enabled defines if this option should be enabled.
       enabled: false
+    # GatewayAPI defines if Gateway API resources created within the virtual cluster should get synced to the host cluster. When enabled, vCluster syncs Gateways, HTTPRoutes, TLSRoutes, and BackendTLSPolicies. GRPCRoutes, TCPRoutes, UDPRoutes, and ReferenceGrants are not synced. The host cluster must provide Gateway API CRDs compatible with the embedded v1.5.1 CRDs. Gateway status addresses mirror host network addresses.
+    gatewayApi:
+      # Enabled defines if this option should be enabled.
+      enabled: false
     # PriorityClasses defines if priority classes created within the virtual cluster should get synced to the host cluster.
     priorityClasses:
       # Enabled defines if this option should be enabled.
@@ -176,6 +180,10 @@ sync:
       enabled: auto
     # IngressClasses defines if ingress classes should get synced from the host cluster to the virtual cluster, but not back.
     ingressClasses:
+      # Enabled defines if this option should be enabled.
+      enabled: false
+    # GatewayClasses defines if gateway classes should get synced from the host cluster to the virtual cluster, but not back. When enabled, host GatewayClasses are the source of truth and virtual-only GatewayClasses are deleted.
+    gatewayClasses:
       # Enabled defines if this option should be enabled.
       enabled: false
     # RuntimeClasses defines if runtime classes should get synced from the host cluster to the virtual cluster, but not back.

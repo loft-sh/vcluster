@@ -1233,6 +1233,9 @@ type SyncToHost struct {
 	// Ingresses defines if ingresses created within the virtual cluster should get synced to the host cluster.
 	Ingresses EnableSwitchWithPatches `json:"ingresses,omitempty"`
 
+	// GatewayAPI defines if Gateway API resources created within the virtual cluster should get synced to the host cluster. When enabled, vCluster syncs Gateways, HTTPRoutes, TLSRoutes, and BackendTLSPolicies. GRPCRoutes, TCPRoutes, UDPRoutes, and ReferenceGrants are not synced. The host cluster must provide Gateway API CRDs compatible with the embedded v1.5.1 CRDs. Gateway status addresses mirror host network addresses.
+	GatewayAPI GatewayAPIEnableSwitchWithPatches `json:"gatewayApi,omitempty"`
+
 	// Services defines if services created within the virtual cluster should get synced to the host cluster.
 	Services EnableSwitchWithPatches `json:"services,omitempty"`
 
@@ -1291,6 +1294,23 @@ type EnableSwitchWithPatches struct {
 	Patches []TranslatePatch `json:"patches,omitempty"`
 }
 
+type GatewayAPIEnableSwitchWithPatches struct {
+	// Enabled defines if this option should be enabled.
+	Enabled bool `json:"enabled,omitempty"`
+
+	// Patches patch Gateway resources according to the provided specification.
+	Patches []TranslatePatch `json:"patches,omitempty"`
+
+	// HTTPRoutePatches patch HTTPRoute resources according to the provided specification.
+	HTTPRoutePatches []TranslatePatch `json:"httpRoutePatches,omitempty"`
+
+	// TLSRoutePatches patch TLSRoute resources according to the provided specification.
+	TLSRoutePatches []TranslatePatch `json:"tlsRoutePatches,omitempty"`
+
+	// BackendTLSPolicyPatches patch BackendTLSPolicy resources according to the provided specification.
+	BackendTLSPolicyPatches []TranslatePatch `json:"backendTLSPolicyPatches,omitempty"`
+}
+
 type EnableSwitchWithResourcesMappings struct {
 	// Enabled defines if this option should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
@@ -1332,6 +1352,9 @@ type SyncFromHost struct {
 
 	// IngressClasses defines if ingress classes should get synced from the host cluster to the virtual cluster, but not back.
 	IngressClasses EnableSwitchWithPatchesAndSelector `json:"ingressClasses,omitempty"`
+
+	// GatewayClasses defines if gateway classes should get synced from the host cluster to the virtual cluster, but not back. When enabled, host GatewayClasses are the source of truth and virtual-only GatewayClasses are deleted.
+	GatewayClasses EnableSwitchWithPatchesAndSelector `json:"gatewayClasses,omitempty"`
 
 	// RuntimeClasses defines if runtime classes should get synced from the host cluster to the virtual cluster, but not back.
 	RuntimeClasses EnableSwitchWithPatchesAndSelector `json:"runtimeClasses,omitempty"`

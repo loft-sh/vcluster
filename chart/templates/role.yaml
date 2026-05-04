@@ -82,6 +82,22 @@ rules:
     resources: ["ingresses"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- end }}
+  {{- if .Values.sync.toHost.gatewayApi.enabled}}
+  # Gateway API /status subresources are intentionally omitted for this block:
+  # vCluster only mirrors host status to virtual resources.
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["gateways"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["httproutes"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["tlsroutes"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["backendtlspolicies"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
   {{- if .Values.sync.toHost.networkPolicies.enabled }}
   - apiGroups: ["networking.k8s.io"]
     resources: ["networkpolicies"]

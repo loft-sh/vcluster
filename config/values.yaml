@@ -43,6 +43,8 @@ sync:
               memory: 64Mi
     ingresses:
       enabled: false
+    gatewayApi:
+      enabled: false
     priorityClasses:
       enabled: false
     networkPolicies:
@@ -83,6 +85,8 @@ sync:
     storageClasses:
       enabled: auto
     ingressClasses:
+      enabled: false
+    gatewayClasses:
       enabled: false
     runtimeClasses:
       enabled: false
@@ -683,7 +687,7 @@ experimental:
       manifests: ""
       manifestsTemplate: ""
       helm: []
-  
+
   nodeMonitors: []
 
 telemetry:

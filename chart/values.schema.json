@@ -2526,6 +2526,44 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "GatewayAPIEnableSwitchWithPatches": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if this option should be enabled."
+        },
+        "patches": {
+          "items": {
+            "$ref": "#/$defs/TranslatePatch"
+          },
+          "type": "array",
+          "description": "Patches patch Gateway resources according to the provided specification."
+        },
+        "httpRoutePatches": {
+          "items": {
+            "$ref": "#/$defs/TranslatePatch"
+          },
+          "type": "array",
+          "description": "HTTPRoutePatches patch HTTPRoute resources according to the provided specification."
+        },
+        "tlsRoutePatches": {
+          "items": {
+            "$ref": "#/$defs/TranslatePatch"
+          },
+          "type": "array",
+          "description": "TLSRoutePatches patch TLSRoute resources according to the provided specification."
+        },
+        "backendTLSPolicyPatches": {
+          "items": {
+            "$ref": "#/$defs/TranslatePatch"
+          },
+          "type": "array",
+          "description": "BackendTLSPolicyPatches patch BackendTLSPolicy resources according to the provided specification."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "HostAlias": {
       "properties": {
         "ip": {
@@ -4917,6 +4955,10 @@
           "$ref": "#/$defs/EnableSwitchWithPatchesAndSelector",
           "description": "IngressClasses defines if ingress classes should get synced from the host cluster to the virtual cluster, but not back."
         },
+        "gatewayClasses": {
+          "$ref": "#/$defs/EnableSwitchWithPatchesAndSelector",
+          "description": "GatewayClasses defines if gateway classes should get synced from the host cluster to the virtual cluster, but not back. When enabled, host GatewayClasses are the source of truth and virtual-only GatewayClasses are deleted."
+        },
         "runtimeClasses": {
           "$ref": "#/$defs/EnableSwitchWithPatchesAndSelector",
           "description": "RuntimeClasses defines if runtime classes should get synced from the host cluster to the virtual cluster, but not back."
@@ -5139,6 +5181,10 @@
         "ingresses": {
           "$ref": "#/$defs/EnableSwitchWithPatches",
           "description": "Ingresses defines if ingresses created within the virtual cluster should get synced to the host cluster."
+        },
+        "gatewayApi": {
+          "$ref": "#/$defs/GatewayAPIEnableSwitchWithPatches",
+          "description": "GatewayAPI defines if Gateway API resources created within the virtual cluster should get synced to the host cluster. When enabled, vCluster syncs Gateways, HTTPRoutes, TLSRoutes, and BackendTLSPolicies. GRPCRoutes, TCPRoutes, UDPRoutes, and ReferenceGrants are not synced. The host cluster must provide Gateway API CRDs compatible with the embedded v1.5.1 CRDs. Gateway status addresses mirror host network addresses."
         },
         "services": {
           "$ref": "#/$defs/EnableSwitchWithPatches",

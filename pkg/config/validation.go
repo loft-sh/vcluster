@@ -101,7 +101,7 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 		if customResource.Scope != "" && customResource.Scope != config.ScopeNamespaced {
 			return fmt.Errorf("unsupported scope %s for sync.toHost.customResources['%s'].scope. Only 'Namespaced' is allowed", customResource.Scope, key)
 		}
-		err := validatePatches(patchesValidation{basePath: "sync.toHost.customResources." + key, patches: customResource.Patches})
+		err := validatePatches(patchesValidation{patchesPath: "sync.toHost.customResources." + key + ".patches", patches: customResource.Patches})
 		if err != nil {
 			return err
 		}
@@ -229,55 +229,62 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 	return nil
 }
 
+// patchesValidation pairs a YAML path (the full path to the patches list itself,
+// e.g. "sync.toHost.services.patches") with the patches at that path. The path is
+// used verbatim in error messages, so callers must include the trailing key name.
 type patchesValidation struct {
-	basePath string
-	patches  []config.TranslatePatch
+	patchesPath string
+	patches     []config.TranslatePatch
 }
 
 // ValidateAllSyncPatches validates all sync patches
 func ValidateAllSyncPatches(sync config.Sync) error {
 	return validatePatches(
 		[]patchesValidation{
-			{"sync.toHost.configMaps", sync.ToHost.ConfigMaps.Patches},
-			{"sync.toHost.secrets", sync.ToHost.Secrets.Patches},
-			{"sync.toHost.endpoints", sync.ToHost.Endpoints.Patches},
-			{"sync.toHost.services", sync.ToHost.Services.Patches},
-			{"sync.toHost.pods", sync.ToHost.Pods.Patches},
-			{"sync.toHost.serviceAccounts", sync.ToHost.ServiceAccounts.Patches},
-			{"sync.toHost.ingresses", sync.ToHost.Ingresses.Patches},
-			{"sync.toHost.namespaces", sync.ToHost.Namespaces.Patches},
-			{"sync.toHost.networkPolicies", sync.ToHost.NetworkPolicies.Patches},
-			{"sync.toHost.persistentVolumeClaims", sync.ToHost.PersistentVolumeClaims.Patches},
-			{"sync.toHost.persistentVolumes", sync.ToHost.PersistentVolumes.Patches},
-			{"sync.toHost.podDisruptionBudgets", sync.ToHost.PodDisruptionBudgets.Patches},
-			{"sync.toHost.priorityClasses", sync.ToHost.PriorityClasses.Patches},
-			{"sync.toHost.resourceClaims", sync.ToHost.ResourceClaims.Patches},
-			{"sync.toHost.resourceClaimTemplates", sync.ToHost.ResourceClaimTemplates.Patches},
-			{"sync.toHost.storageClasses", sync.ToHost.StorageClasses.Patches},
-			{"sync.toHost.volumeSnapshots", sync.ToHost.VolumeSnapshots.Patches},
-			{"sync.toHost.volumeSnapshotContents", sync.ToHost.VolumeSnapshotContents.Patches},
-			{"sync.fromHost.nodes", sync.FromHost.Nodes.Patches},
-			{"sync.fromHost.storageClasses", sync.FromHost.StorageClasses.Patches},
-			{"sync.fromHost.priorityClasses", sync.FromHost.PriorityClasses.Patches},
-			{"sync.fromHost.ingressClasses", sync.FromHost.IngressClasses.Patches},
-			{"sync.fromHost.csiDrivers", sync.FromHost.CSIDrivers.Patches},
-			{"sync.fromHost.runtimeClasses", sync.FromHost.RuntimeClasses.Patches},
-			{"sync.fromHost.csiNodes", sync.FromHost.CSINodes.Patches},
-			{"sync.fromHost.csiStorageCapacities", sync.FromHost.CSIStorageCapacities.Patches},
-			{"sync.fromHost.events", sync.FromHost.Events.Patches},
-			{"sync.fromHost.volumeSnapshotClasses", sync.FromHost.VolumeSnapshotClasses.Patches},
-			{"sync.fromHost.configMaps", sync.FromHost.ConfigMaps.Patches},
-			{"sync.fromHost.deviceClasses", sync.FromHost.DeviceClasses.Patches},
+			{"sync.toHost.configMaps.patches", sync.ToHost.ConfigMaps.Patches},
+			{"sync.toHost.secrets.patches", sync.ToHost.Secrets.Patches},
+			{"sync.toHost.endpoints.patches", sync.ToHost.Endpoints.Patches},
+			{"sync.toHost.services.patches", sync.ToHost.Services.Patches},
+			{"sync.toHost.pods.patches", sync.ToHost.Pods.Patches},
+			{"sync.toHost.serviceAccounts.patches", sync.ToHost.ServiceAccounts.Patches},
+			{"sync.toHost.ingresses.patches", sync.ToHost.Ingresses.Patches},
+			{"sync.toHost.gatewayApi.patches", sync.ToHost.GatewayAPI.Patches},
+			{"sync.toHost.gatewayApi.httpRoutePatches", sync.ToHost.GatewayAPI.HTTPRoutePatches},
+			{"sync.toHost.gatewayApi.tlsRoutePatches", sync.ToHost.GatewayAPI.TLSRoutePatches},
+			{"sync.toHost.gatewayApi.backendTLSPolicyPatches", sync.ToHost.GatewayAPI.BackendTLSPolicyPatches},
+			{"sync.toHost.namespaces.patches", sync.ToHost.Namespaces.Patches},
+			{"sync.toHost.networkPolicies.patches", sync.ToHost.NetworkPolicies.Patches},
+			{"sync.toHost.persistentVolumeClaims.patches", sync.ToHost.PersistentVolumeClaims.Patches},
+			{"sync.toHost.persistentVolumes.patches", sync.ToHost.PersistentVolumes.Patches},
+			{"sync.toHost.podDisruptionBudgets.patches", sync.ToHost.PodDisruptionBudgets.Patches},
+			{"sync.toHost.priorityClasses.patches", sync.ToHost.PriorityClasses.Patches},
+			{"sync.toHost.resourceClaims.patches", sync.ToHost.ResourceClaims.Patches},
+			{"sync.toHost.resourceClaimTemplates.patches", sync.ToHost.ResourceClaimTemplates.Patches},
+			{"sync.toHost.storageClasses.patches", sync.ToHost.StorageClasses.Patches},
+			{"sync.toHost.volumeSnapshots.patches", sync.ToHost.VolumeSnapshots.Patches},
+			{"sync.toHost.volumeSnapshotContents.patches", sync.ToHost.VolumeSnapshotContents.Patches},
+			{"sync.fromHost.nodes.patches", sync.FromHost.Nodes.Patches},
+			{"sync.fromHost.storageClasses.patches", sync.FromHost.StorageClasses.Patches},
+			{"sync.fromHost.priorityClasses.patches", sync.FromHost.PriorityClasses.Patches},
+			{"sync.fromHost.ingressClasses.patches", sync.FromHost.IngressClasses.Patches},
+			{"sync.fromHost.gatewayClasses.patches", sync.FromHost.GatewayClasses.Patches},
+			{"sync.fromHost.csiDrivers.patches", sync.FromHost.CSIDrivers.Patches},
+			{"sync.fromHost.runtimeClasses.patches", sync.FromHost.RuntimeClasses.Patches},
+			{"sync.fromHost.csiNodes.patches", sync.FromHost.CSINodes.Patches},
+			{"sync.fromHost.csiStorageCapacities.patches", sync.FromHost.CSIStorageCapacities.Patches},
+			{"sync.fromHost.events.patches", sync.FromHost.Events.Patches},
+			{"sync.fromHost.volumeSnapshotClasses.patches", sync.FromHost.VolumeSnapshotClasses.Patches},
+			{"sync.fromHost.configMaps.patches", sync.FromHost.ConfigMaps.Patches},
+			{"sync.fromHost.deviceClasses.patches", sync.FromHost.DeviceClasses.Patches},
 		}...,
 	)
 }
 
 func validatePatches(patchesValidation ...patchesValidation) error {
 	for _, p := range patchesValidation {
-		patches := p.patches
-		basePath := p.basePath
+		patchesPath := p.patchesPath
 		usedPaths := map[string]int{}
-		for idx, patch := range patches {
+		for idx, patch := range p.patches {
 			used := 0
 			if patch.Expression != "" || patch.ReverseExpression != "" {
 				used++
@@ -289,12 +296,12 @@ func validatePatches(patchesValidation ...patchesValidation) error {
 				used++
 			}
 			if used > 1 {
-				return fmt.Errorf("%s.patches[%d] can only use one of: expression, labels or reference", basePath, idx)
+				return fmt.Errorf("%s[%d] can only use one of: expression, labels or reference", patchesPath, idx)
 			} else if used == 0 {
-				return fmt.Errorf("%s.patches[%d] need to use one of: expression, labels or reference", basePath, idx)
+				return fmt.Errorf("%s[%d] need to use one of: expression, labels or reference", patchesPath, idx)
 			}
 			if j, ok := usedPaths[patch.Path]; ok {
-				return fmt.Errorf("%s.patches[%d] and %s.patches[%d] have the same path %q", basePath, j, basePath, idx, patch.Path)
+				return fmt.Errorf("%s[%d] and %s[%d] have the same path %q", patchesPath, j, patchesPath, idx, patch.Path)
 			}
 			usedPaths[patch.Path] = idx
 		}
@@ -330,6 +337,9 @@ func ValidateSyncFromHostClasses(fromHost config.SyncFromHost) error {
 		return err
 	}
 	if err := errorFn(fromHost.IngressClasses.Selector, "ingressClasses"); err != nil {
+		return err
+	}
+	if err := errorFn(fromHost.GatewayClasses.Selector, "gatewayClasses"); err != nil {
 		return err
 	}
 	if err := errorFn(fromHost.PriorityClasses.Selector, "priorityClasses"); err != nil {
@@ -566,7 +576,7 @@ func validateFromHostSyncCustomResources(customResources map[string]config.SyncF
 		if customResource.Scope == config.ScopeNamespaced && len(customResource.Mappings.ByName) == 0 {
 			return fmt.Errorf(".selector.mappings is required for Namespaced scope sync.fromHost.customResources['%s']", key)
 		}
-		err := validatePatches(patchesValidation{basePath: "sync.fromHost.customResources." + key, patches: customResource.Patches})
+		err := validatePatches(patchesValidation{patchesPath: "sync.fromHost.customResources." + key + ".patches", patches: customResource.Patches})
 		if err != nil {
 			return err
 		}
