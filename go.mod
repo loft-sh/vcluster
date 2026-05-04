@@ -51,6 +51,7 @@ require (
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.9
+	go.etcd.io/etcd/etcdutl/v3 v3.6.8
 	go.etcd.io/etcd/server/v3 v3.6.8
 	go.uber.org/atomic v1.11.0
 	golang.org/x/mod v0.33.0
@@ -172,6 +173,7 @@ require (
 	github.com/vladimirvivien/gexe v0.4.1 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
+	github.com/xiang90/probing v0.0.0-20221125231312-a49e3df8f510 // indirect
 	go.etcd.io/bbolt v1.4.3 // indirect
 	go.etcd.io/etcd/pkg/v3 v3.6.8 // indirect
 	go.etcd.io/raft/v3 v3.6.0 // indirect

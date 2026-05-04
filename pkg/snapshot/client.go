@@ -6,8 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 
+	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/etcd"
@@ -17,7 +19,10 @@ import (
 )
 
 const (
-	RequestStoreKey = "/vcluster/snapshot/request"
+	RequestStoreKey           = "/vcluster/snapshot/request"
+	DBStoreKey                = "/vcluster/snapshot/db"
+	SkipKeysStoreKey          = "/vcluster/snapshot/skipkeys"
+	EtcdSnapshotTypeMetaStamp = `{"apiVersion":"snapshot.vcluster.com/v1","kind":"EtcdSnapshot"}`
 )
 
 type Client struct {
@@ -51,6 +56,7 @@ func (c *Client) Run(ctx context.Context, vConfig *config.VirtualClusterConfig) 
 	if err != nil {
 		return fmt.Errorf("failed to create etcd client: %w", err)
 	}
+	defer etcdClient.Close()
 
 	// create store
 	objectStore, err := CreateStore(ctx, &c.Options)
@@ -60,9 +66,17 @@ func (c *Client) Run(ctx context.Context, vConfig *config.VirtualClusterConfig) 
 
 	// write the snapshot
 	klog.Infof("Start writing etcd snapshot %s...", objectStore.Target())
-	err = c.writeSnapshot(ctx, etcdClient, objectStore)
-	if err != nil {
-		return err
+
+	if vConfig.BackingStoreType() == vclusterconfig.StoreTypeEmbeddedEtcd {
+		err = c.writeSnapshot(ctx, etcdClient, objectStore)
+		if err != nil {
+			return err
+		}
+	} else {
+		err = c.writeKeyValueSnapshot(ctx, etcdClient, objectStore)
+		if err != nil {
+			return err
+		}
 	}
 
 	klog.Infof("Successfully wrote snapshot to %s", objectStore.Target())
@@ -110,7 +124,115 @@ func (c *Client) Delete(ctx context.Context) error {
 	return nil
 }
 
+// writeSnapshot pulls a point-in-time snapshot from etcd, wraps it into a tar.gz archive, and stores it in the object store.
 func (c *Client) writeSnapshot(ctx context.Context, etcdClient etcd.Client, objectStore types.Storage) error {
+	log := klog.FromContext(ctx)
+
+	log.Info("Getting point-in-time etcd snapshot")
+	res, err := etcdClient.SnapshotWithVersion(ctx)
+	if err != nil {
+		return fmt.Errorf("snapshot request failed: %w", err)
+	}
+	defer res.Snapshot.Close()
+
+	dbPath, err := writeTempFile(res.Snapshot)
+	if err != nil {
+		return fmt.Errorf("failed to write snapshot to temp file: %w", err)
+	}
+	defer os.Remove(dbPath)
+
+	log.Info("Creating snapshot archive")
+	snapshotFileWrite, err := os.CreateTemp("", "snapshot-")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+	defer snapshotFileWrite.Close()
+	defer os.Remove(snapshotFileWrite.Name())
+
+	// don't compress with default level as this can get quite cpu heavy
+	gzipWriter, err := gzip.NewWriterLevel(snapshotFileWrite, 3)
+	if err != nil {
+		return fmt.Errorf("failed to create gzip writer: %w", err)
+	}
+	defer gzipWriter.Close()
+
+	// stamp snapshot archive with type meta
+	gzipWriter.Comment = EtcdSnapshotTypeMetaStamp
+
+	tarWriter := tar.NewWriter(gzipWriter)
+	defer tarWriter.Close()
+
+	if c.Options.Release != nil {
+		log.Info("Adding vCluster config to snapshot archive")
+		releaseBytes, err := json.Marshal(c.Options.Release)
+		if err != nil {
+			return fmt.Errorf("failed to marshal vCluster release: %w", err)
+		}
+
+		err = writeKeyValue(tarWriter, []byte(SnapshotReleaseKey), releaseBytes)
+		if err != nil {
+			return fmt.Errorf("failed to snapshot vCluster release: %w", err)
+		}
+	}
+
+	if c.Request != nil {
+		log.Info("Adding snapshot request to snapshot archive")
+		requestBytes, err := json.Marshal(c.Request)
+		if err != nil {
+			return fmt.Errorf("failed to marshal snapshot request: %w", err)
+		}
+		key := fmt.Sprintf("%s/%s", RequestStoreKey, APIVersion)
+		err = writeKeyValue(tarWriter, []byte(key), requestBytes)
+		if err != nil {
+			return fmt.Errorf("failed to snapshot snapshot request: %w", err)
+		}
+	}
+
+	log.Info("Adding etcd snapshot to snapshot archive")
+	if err := writeKeyValueFile(tarWriter, DBStoreKey, dbPath); err != nil {
+		return fmt.Errorf("failed to write etcd snapshot to tar archive: %w", err)
+	}
+
+	if c.skipKeys != nil {
+		log.Info("Adding skipKeys to snapshot archive")
+		skipKeysBytes, err := json.Marshal(c.skipKeys)
+		if err != nil {
+			return fmt.Errorf("failed to marshal skipKeys: %w", err)
+		}
+		err = writeKeyValue(tarWriter, []byte(SkipKeysStoreKey), skipKeysBytes)
+		if err != nil {
+			return fmt.Errorf("failed to snapshot skipKeys: %w", err)
+		}
+	}
+
+	log.Info("Closing snapshot archive")
+	if err := tarWriter.Close(); err != nil {
+		return fmt.Errorf("failed to close tar writer: %w", err)
+	}
+
+	if err := gzipWriter.Close(); err != nil {
+		return fmt.Errorf("failed to close gzip writer: %w", err)
+	}
+
+	if err := snapshotFileWrite.Close(); err != nil {
+		return fmt.Errorf("failed to close snapshot archive writer: %w", err)
+	}
+
+	log.Info("Storing snapshot archive into the object store")
+	snapshotFileRead, err := os.Open(snapshotFileWrite.Name())
+	if err != nil {
+		return fmt.Errorf("failed to open snapshot file for reading: %w", err)
+	}
+	defer snapshotFileRead.Close()
+
+	if err := objectStore.PutObject(ctx, snapshotFileRead); err != nil {
+		return fmt.Errorf("failed to write snapshot to object store: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Client) writeKeyValueSnapshot(ctx context.Context, etcdClient etcd.Client, objectStore types.Storage) error {
 	// now stream objects from etcd to object store
 	errChan := make(chan error)
 	reader, writer, err := os.Pipe()
@@ -231,6 +353,34 @@ func writeKeyValue(tarWriter *tar.Writer, key, value []byte) error {
 	_, err = tarWriter.Write(value)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func writeKeyValueFile(tarWriter *tar.Writer, key, path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("failed to open file: %w", err)
+	}
+	defer f.Close()
+
+	stat, err := f.Stat()
+	if err != nil {
+		return fmt.Errorf("failed to stat file: %w", err)
+	}
+
+	if err := tarWriter.WriteHeader(&tar.Header{
+		Typeflag: tar.TypeReg,
+		Name:     key,
+		Size:     stat.Size(),
+		Mode:     0666,
+	}); err != nil {
+		return err
+	}
+
+	if _, err := io.Copy(tarWriter, f); err != nil {
+		return fmt.Errorf("failed to write file to tar archive: %w", err)
 	}
 
 	return nil

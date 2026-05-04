@@ -1028,6 +1028,9 @@ github.com/wk8/go-ordered-map/v2
 # github.com/x448/float16 v0.8.4
 ## explicit; go 1.11
 github.com/x448/float16
+# github.com/xiang90/probing v0.0.0-20221125231312-a49e3df8f510
+## explicit
+github.com/xiang90/probing
 # github.com/xlab/treeprint v1.2.0
 ## explicit; go 1.13
 github.com/xlab/treeprint
@@ -1050,6 +1053,8 @@ go.etcd.io/etcd/api/v3/versionpb
 ## explicit; go 1.24.0
 go.etcd.io/etcd/client/pkg/v3/fileutil
 go.etcd.io/etcd/client/pkg/v3/logutil
+go.etcd.io/etcd/client/pkg/v3/pathutil
+go.etcd.io/etcd/client/pkg/v3/srv
 go.etcd.io/etcd/client/pkg/v3/systemd
 go.etcd.io/etcd/client/pkg/v3/tlsutil
 go.etcd.io/etcd/client/pkg/v3/transport
@@ -1062,31 +1067,63 @@ go.etcd.io/etcd/client/v3/credentials
 go.etcd.io/etcd/client/v3/internal/endpoint
 go.etcd.io/etcd/client/v3/internal/resolver
 go.etcd.io/etcd/client/v3/kubernetes
+go.etcd.io/etcd/client/v3/snapshot
+# go.etcd.io/etcd/etcdutl/v3 v3.6.8
+## explicit; go 1.24.0
+go.etcd.io/etcd/etcdutl/v3/snapshot
 # go.etcd.io/etcd/pkg/v3 v3.6.8
 ## explicit; go 1.24.0
 go.etcd.io/etcd/pkg/v3/adt
+go.etcd.io/etcd/pkg/v3/contention
 go.etcd.io/etcd/pkg/v3/cpuutil
 go.etcd.io/etcd/pkg/v3/crc
+go.etcd.io/etcd/pkg/v3/featuregate
+go.etcd.io/etcd/pkg/v3/httputil
+go.etcd.io/etcd/pkg/v3/idutil
 go.etcd.io/etcd/pkg/v3/ioutil
 go.etcd.io/etcd/pkg/v3/netutil
 go.etcd.io/etcd/pkg/v3/notify
 go.etcd.io/etcd/pkg/v3/pbutil
+go.etcd.io/etcd/pkg/v3/runtime
 go.etcd.io/etcd/pkg/v3/schedule
 go.etcd.io/etcd/pkg/v3/traceutil
+go.etcd.io/etcd/pkg/v3/wait
 # go.etcd.io/etcd/server/v3 v3.6.8
 ## explicit; go 1.24.0
 go.etcd.io/etcd/server/v3/auth
+go.etcd.io/etcd/server/v3/config
+go.etcd.io/etcd/server/v3/etcdserver
+go.etcd.io/etcd/server/v3/etcdserver/api
+go.etcd.io/etcd/server/v3/etcdserver/api/etcdhttp/types
 go.etcd.io/etcd/server/v3/etcdserver/api/membership
+go.etcd.io/etcd/server/v3/etcdserver/api/rafthttp
+go.etcd.io/etcd/server/v3/etcdserver/api/snap
+go.etcd.io/etcd/server/v3/etcdserver/api/snap/snappb
+go.etcd.io/etcd/server/v3/etcdserver/api/v2discovery
 go.etcd.io/etcd/server/v3/etcdserver/api/v2error
+go.etcd.io/etcd/server/v3/etcdserver/api/v2stats
 go.etcd.io/etcd/server/v3/etcdserver/api/v2store
+go.etcd.io/etcd/server/v3/etcdserver/api/v3alarm
+go.etcd.io/etcd/server/v3/etcdserver/api/v3compactor
+go.etcd.io/etcd/server/v3/etcdserver/api/v3discovery
+go.etcd.io/etcd/server/v3/etcdserver/apply
+go.etcd.io/etcd/server/v3/etcdserver/cindex
+go.etcd.io/etcd/server/v3/etcdserver/errors
+go.etcd.io/etcd/server/v3/etcdserver/txn
 go.etcd.io/etcd/server/v3/etcdserver/version
+go.etcd.io/etcd/server/v3/features
+go.etcd.io/etcd/server/v3/internal/clientv2
 go.etcd.io/etcd/server/v3/lease
+go.etcd.io/etcd/server/v3/lease/leasehttp
 go.etcd.io/etcd/server/v3/lease/leasepb
+go.etcd.io/etcd/server/v3/storage
 go.etcd.io/etcd/server/v3/storage/backend
+go.etcd.io/etcd/server/v3/storage/datadir
 go.etcd.io/etcd/server/v3/storage/mvcc
 go.etcd.io/etcd/server/v3/storage/schema
 go.etcd.io/etcd/server/v3/storage/wal
 go.etcd.io/etcd/server/v3/storage/wal/walpb
+go.etcd.io/etcd/server/v3/verify
 # go.etcd.io/raft/v3 v3.6.0
 ## explicit; go 1.23
 go.etcd.io/raft/v3
