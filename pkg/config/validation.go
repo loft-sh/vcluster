@@ -245,6 +245,7 @@ func ValidateAllSyncPatches(sync config.Sync) error {
 			{"sync.toHost.pods", sync.ToHost.Pods.Patches},
 			{"sync.toHost.serviceAccounts", sync.ToHost.ServiceAccounts.Patches},
 			{"sync.toHost.ingresses", sync.ToHost.Ingresses.Patches},
+			{"sync.toHost.gateways", sync.ToHost.Gateways.Patches},
 			{"sync.toHost.namespaces", sync.ToHost.Namespaces.Patches},
 			{"sync.toHost.networkPolicies", sync.ToHost.NetworkPolicies.Patches},
 			{"sync.toHost.persistentVolumeClaims", sync.ToHost.PersistentVolumeClaims.Patches},
@@ -260,6 +261,7 @@ func ValidateAllSyncPatches(sync config.Sync) error {
 			{"sync.fromHost.storageClasses", sync.FromHost.StorageClasses.Patches},
 			{"sync.fromHost.priorityClasses", sync.FromHost.PriorityClasses.Patches},
 			{"sync.fromHost.ingressClasses", sync.FromHost.IngressClasses.Patches},
+			{"sync.fromHost.gatewayClasses", sync.FromHost.GatewayClasses.Patches},
 			{"sync.fromHost.csiDrivers", sync.FromHost.CSIDrivers.Patches},
 			{"sync.fromHost.runtimeClasses", sync.FromHost.RuntimeClasses.Patches},
 			{"sync.fromHost.csiNodes", sync.FromHost.CSINodes.Patches},
@@ -330,6 +332,9 @@ func ValidateSyncFromHostClasses(fromHost config.SyncFromHost) error {
 		return err
 	}
 	if err := errorFn(fromHost.IngressClasses.Selector, "ingressClasses"); err != nil {
+		return err
+	}
+	if err := errorFn(fromHost.GatewayClasses.Selector, "gatewayClasses"); err != nil {
 		return err
 	}
 	if err := errorFn(fromHost.PriorityClasses.Selector, "priorityClasses"); err != nil {

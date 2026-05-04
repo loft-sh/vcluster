@@ -4839,6 +4839,10 @@
           "$ref": "#/$defs/EnableSwitchWithPatchesAndSelector",
           "description": "IngressClasses defines if ingress classes should get synced from the host cluster to the virtual cluster, but not back."
         },
+        "gatewayClasses": {
+          "$ref": "#/$defs/EnableSwitchWithPatchesAndSelector",
+          "description": "GatewayClasses defines if gateway classes should get synced from the host cluster to the virtual cluster, but not back."
+        },
         "runtimeClasses": {
           "$ref": "#/$defs/EnableSwitchWithPatchesAndSelector",
           "description": "RuntimeClasses defines if runtime classes should get synced from the host cluster to the virtual cluster, but not back."
@@ -5061,6 +5065,10 @@
         "ingresses": {
           "$ref": "#/$defs/EnableSwitchWithPatches",
           "description": "Ingresses defines if ingresses created within the virtual cluster should get synced to the host cluster."
+        },
+        "gateways": {
+          "$ref": "#/$defs/EnableSwitchWithPatches",
+          "description": "Gateways defines if gateways created within the virtual cluster should get synced to the host cluster."
         },
         "services": {
           "$ref": "#/$defs/EnableSwitchWithPatches",

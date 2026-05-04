@@ -10,6 +10,8 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/endpoints"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/endpointslices"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/events"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/gatewayclasses"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/gateways"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingressclasses"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/namespaces"
@@ -54,7 +56,9 @@ func getSyncers(ctx *synccontext.RegisterContext) []BuildController {
 		isEnabled(ctx.Config.Sync.FromHost.Events.Enabled, events.New),
 		isEnabled(ctx.Config.Sync.ToHost.PersistentVolumeClaims.Enabled, persistentvolumeclaims.New),
 		isEnabled(ctx.Config.Sync.ToHost.Ingresses.Enabled, ingresses.New),
+		isEnabled(ctx.Config.Sync.ToHost.Gateways.Enabled, gateways.New),
 		isEnabled(ctx.Config.Sync.FromHost.IngressClasses.Enabled, ingressclasses.New),
+		isEnabled(ctx.Config.Sync.FromHost.GatewayClasses.Enabled, gatewayclasses.New),
 		isEnabled(ctx.Config.Sync.FromHost.RuntimeClasses.Enabled, runtimeclasses.New),
 		isEnabled(ctx.Config.Sync.ToHost.StorageClasses.Enabled, storageclasses.New),
 		isEnabled(ctx.Config.Sync.FromHost.StorageClasses.Enabled == "true", storageclasses.NewHostStorageClassSyncer),

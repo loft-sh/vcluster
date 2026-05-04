@@ -1227,6 +1227,9 @@ type SyncToHost struct {
 	// Ingresses defines if ingresses created within the virtual cluster should get synced to the host cluster.
 	Ingresses EnableSwitchWithPatches `json:"ingresses,omitempty"`
 
+	// Gateways defines if gateways created within the virtual cluster should get synced to the host cluster.
+	Gateways EnableSwitchWithPatches `json:"gateways,omitempty"`
+
 	// Services defines if services created within the virtual cluster should get synced to the host cluster.
 	Services EnableSwitchWithPatches `json:"services,omitempty"`
 
@@ -1326,6 +1329,9 @@ type SyncFromHost struct {
 
 	// IngressClasses defines if ingress classes should get synced from the host cluster to the virtual cluster, but not back.
 	IngressClasses EnableSwitchWithPatchesAndSelector `json:"ingressClasses,omitempty"`
+
+	// GatewayClasses defines if gateway classes should get synced from the host cluster to the virtual cluster, but not back.
+	GatewayClasses EnableSwitchWithPatchesAndSelector `json:"gatewayClasses,omitempty"`
 
 	// RuntimeClasses defines if runtime classes should get synced from the host cluster to the virtual cluster, but not back.
 	RuntimeClasses EnableSwitchWithPatchesAndSelector `json:"runtimeClasses,omitempty"`
