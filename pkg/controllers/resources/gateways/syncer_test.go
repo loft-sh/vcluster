@@ -272,6 +272,40 @@ func TestSyncCertificateRefsRejectUnsupportedGroupAndKind(t *testing.T) {
 	}
 }
 
+func TestSyncCertificateRefsRejectUnsupportedGroupAndKindWithoutPatching(t *testing.T) {
+	vGateway := gatewayWithCertificateRefs(gatewayv1.SecretObjectReference{
+		Name:  "certrefsecretname",
+		Group: ptr.To(gatewayv1.Group("gateway.networking.k8s.io")),
+		Kind:  ptr.To(gatewayv1.Kind("Secret")),
+	})
+	vGateway.Labels = map[string]string{"side": "virtual"}
+
+	pGateway := gateway(hostGatewayMeta(), gatewayv1.GatewaySpec{GatewayClassName: testGatewayClassName})
+	pGateway.Labels = map[string]string{"side": "host"}
+
+	pGatewayUpdated := pGateway.DeepCopy()
+	pGatewayUpdated.Labels = map[string]string{"side": "host-updated"}
+	pGatewayUpdated.Status = gatewayv1.GatewayStatus{
+		Addresses: []gatewayv1.GatewayStatusAddress{{Value: "123.123.123.123"}},
+	}
+
+	syncCtx, syncer := startGatewaySyncer(t, []runtime.Object{pGateway.DeepCopy()}, []runtime.Object{vGateway.DeepCopy()}, nil)
+	_, err := syncer.Sync(syncCtx, synccontext.NewSyncEventWithOld(pGateway.DeepCopy(), pGatewayUpdated, vGateway.DeepCopy(), vGateway.DeepCopy()))
+	assert.ErrorContains(t, err, `group "gateway.networking.k8s.io" is not supported for certificateRefs`)
+
+	storedVirtual := &gatewayv1.Gateway{}
+	err = syncCtx.VirtualClient.Get(syncCtx, types.NamespacedName{Name: vGateway.Name, Namespace: vGateway.Namespace}, storedVirtual)
+	assert.NilError(t, err)
+	assert.DeepEqual(t, storedVirtual.Labels, map[string]string{"side": "virtual"})
+	assert.DeepEqual(t, storedVirtual.Status, gatewayv1.GatewayStatus{})
+
+	storedHost := &gatewayv1.Gateway{}
+	err = syncCtx.HostClient.Get(syncCtx, types.NamespacedName{Name: pGateway.Name, Namespace: pGateway.Namespace}, storedHost)
+	assert.NilError(t, err)
+	assert.DeepEqual(t, storedHost.Labels, map[string]string{"side": "host"})
+	assert.DeepEqual(t, storedHost.Status, gatewayv1.GatewayStatus{})
+}
+
 func TestSkipSync(t *testing.T) {
 	selector := rootconfig.StandardLabelSelector{MatchLabels: map[string]string{"sync": "yes"}}
 	enableGatewayClassSync := func(vConfig *config.VirtualClusterConfig) {

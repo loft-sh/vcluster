@@ -13,9 +13,17 @@ import (
 var gatewayClassesCRD string
 
 func EnsureGatewayClassCRD(ctx *synccontext.RegisterContext) error {
-	return util.EnsureCRD(ctx.Context, ctx.VirtualManager.GetConfig(), []byte(gatewayClassesCRD), schema.GroupVersionKind{
+	return util.EnsureCRD(ctx.Context, ctx.VirtualManager.GetConfig(), []byte(gatewayClassesCRD), gatewayClassGVK())
+}
+
+func EnsureHostGatewayClassCRD(ctx *synccontext.RegisterContext) error {
+	return ensureHostGatewayAPIKind(ctx, gatewayClassGVK(), "sync.fromHost.gatewayClasses.enabled")
+}
+
+func gatewayClassGVK() schema.GroupVersionKind {
+	return schema.GroupVersionKind{
 		Group:   gatewayv1.GroupVersion.Group,
 		Version: gatewayv1.GroupVersion.Version,
 		Kind:    "GatewayClass",
-	})
+	}
 }

@@ -50,9 +50,9 @@ var EnsureCRD = func(ctx context.Context, config *rest.Config, manifest []byte, 
 	return nil
 }
 
-// KindExists checks if given CRDs exist in the given group.
-// Returns foundKinds, notFoundKinds, error
-func KindExists(config *rest.Config, groupVersionKind schema.GroupVersionKind) (bool, error) {
+// KindExists checks if the given group/version kind is advertised by API discovery.
+// It should be replaceable by unit tests.
+var KindExists = func(config *rest.Config, groupVersionKind schema.GroupVersionKind) (bool, error) {
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
 		return false, err

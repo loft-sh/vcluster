@@ -82,6 +82,11 @@ func (s *gatewaySyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 		return ctrl.Result{}, nil
 	}
 
+	hSpec, err := translateListeners(ctx, event.Virtual)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to translate listeners: %w", err)
+	}
+
 	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.Gateways.Patches, false))
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
@@ -104,21 +109,17 @@ func (s *gatewaySyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 		}
 	}()
 
-	event.Virtual.Spec.GatewayClassName, event.Host.Spec.GatewayClassName = patcher.CopyBidirectional(
+	event.Virtual.Spec.GatewayClassName, _ = patcher.CopyBidirectional(
 		event.VirtualOld.Spec.GatewayClassName,
 		event.Virtual.Spec.GatewayClassName,
 		event.HostOld.Spec.GatewayClassName,
 		event.Host.Spec.GatewayClassName,
 	)
+	hSpec.GatewayClassName = event.Virtual.Spec.GatewayClassName
 
 	event.Virtual.Status = event.Host.Status
 	event.Virtual.Labels, event.Host.Labels = translate.LabelsBidirectionalUpdate(event)
 	event.Virtual.Annotations, event.Host.Annotations = translate.AnnotationsBidirectionalUpdate(event)
-	hSpec, err := translateListeners(ctx, event.Virtual)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to translate listeners: %w", err)
-	}
-
 	event.Host.Spec = *hSpec
 
 	return ctrl.Result{}, nil

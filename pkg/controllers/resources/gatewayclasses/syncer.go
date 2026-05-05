@@ -24,7 +24,12 @@ type gatewayClassSyncer struct {
 }
 
 func New(registerCtx *synccontext.RegisterContext) (syncertypes.Object, error) {
-	err := mapperresources.EnsureGatewayClassCRD(registerCtx)
+	err := mapperresources.EnsureHostGatewayClassCRD(registerCtx)
+	if err != nil {
+		return nil, err
+	}
+
+	err = mapperresources.EnsureGatewayClassCRD(registerCtx)
 	if err != nil {
 		return nil, err
 	}

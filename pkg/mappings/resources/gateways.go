@@ -15,11 +15,18 @@ import (
 var gatewaysCRD string
 
 func CreateGatewayMapper(ctx *synccontext.RegisterContext) (synccontext.Mapper, error) {
-	err := util.EnsureCRD(ctx.Context, ctx.VirtualManager.GetConfig(), []byte(gatewaysCRD), schema.GroupVersionKind{
+	gvk := schema.GroupVersionKind{
 		Group:   gatewayv1.GroupVersion.Group,
 		Version: gatewayv1.GroupVersion.Version,
 		Kind:    "Gateway",
-	})
+	}
+
+	err := ensureHostGatewayAPIKind(ctx, gvk, "sync.toHost.gateways.enabled")
+	if err != nil {
+		return nil, err
+	}
+
+	err = util.EnsureCRD(ctx.Context, ctx.VirtualManager.GetConfig(), []byte(gatewaysCRD), gvk)
 	if err != nil {
 		return nil, err
 	}

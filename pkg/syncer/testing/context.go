@@ -78,6 +78,9 @@ func NewFakeRegisterContext(vConfig *config.VirtualClusterConfig, pClient *testi
 	util.EnsureCRD = func(_ context.Context, _ *rest.Config, _ []byte, _ schema.GroupVersionKind) error {
 		return nil
 	}
+	util.KindExists = func(_ *rest.Config, _ schema.GroupVersionKind) (bool, error) {
+		return true, nil
+	}
 
 	// register & migrate mappers
 	resources.MustRegisterMappings(registerCtx)
