@@ -142,7 +142,6 @@ func (s *gatewaySyncer) skipSync(ctx *synccontext.SyncContext, gw *gatewayv1.Gat
 	if !ctx.Config.Sync.FromHost.GatewayClasses.Enabled ||
 		ctx.Config.Sync.FromHost.GatewayClasses.Selector.Empty() ||
 		gw.Spec.GatewayClassName == "" {
-
 		return false
 	}
 
