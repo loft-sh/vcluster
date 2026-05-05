@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/ghodss/yaml"
 	snapshotsv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/clientset/versioned"
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
@@ -798,6 +800,164 @@ func deletePVC(ctx context.Context, vClusterClient, _ kubernetes.Interface, _, _
 		_, err := vClusterClient.CoreV1().PersistentVolumeClaims(pvcNamespace).Get(ctx, pvcName, metav1.GetOptions{})
 		g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
 	}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+}
+
+// SnapshotLargeRestoreSpec registers the large-object snapshot and restore test.
+// Call this from a dedicated suite that provisions its own vCluster.
+func SnapshotLargeRestoreSpec() {
+	var s snapshotCtx
+	BeforeAll(func(ctx context.Context) {
+		s = *newSnapshotCtx(ctx)
+	})
+	describeSnapshotLargeObjectRestore(&s)
+}
+
+func describeSnapshotLargeObjectRestore(s *snapshotCtx) {
+	const (
+		objectCount   = 100_000
+		nsCount       = 100
+		objectsPerNS  = objectCount / nsCount // 1_000 per namespace
+		deleteNSCount = 4
+		createWorkers = 50
+		labelKey      = "large-restore"
+	)
+
+	// Ordered: write objects → take snapshot → delete objects → restore → verify.
+	Describe("snapshot and restore with 100,000 objects", Ordered, func() {
+		var (
+			nsPrefix     string
+			snapshotPath string
+			labelVal     string
+		)
+
+		BeforeAll(func(ctx context.Context) {
+			nsPrefix = "large-restore-" + random.String(6)
+			snapshotPath = "container:///snapshot-data/" + nsPrefix + ".tar.gz"
+			labelVal = nsPrefix
+			cleanupAllSnapshotArtifacts(ctx, s.hostClient, s.vClusterNS)
+
+			for i := range nsCount {
+				ns := fmt.Sprintf("%s-%d", nsPrefix, i)
+				_, err := s.vClusterClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{Name: ns},
+				}, metav1.CreateOptions{})
+				Expect(err).To(Or(Succeed(), Satisfy(kerrors.IsAlreadyExists)))
+			}
+		})
+
+		It("Writes 100,000 configmaps into the tenant cluster", func(ctx context.Context) {
+			By("Creating 1,000 configmaps in each of 100 namespaces concurrently", func() {
+				// The default client-go rate limiter (5 QPS, burst 10) would make 100k creates
+				// take ~20,000 seconds. Use a high-QPS client so the goroutines actually run in
+				// parallel and we hit the server's throughput ceiling instead.
+				currentClusterName := cluster.CurrentClusterNameFrom(ctx)
+				bulkRestConfig := *cluster.From(ctx, currentClusterName).KubernetesRestConfig()
+				bulkRestConfig.QPS = 500
+				bulkRestConfig.Burst = 1000
+				bulkClient, err := kubernetes.NewForConfig(&bulkRestConfig)
+				Expect(err).To(Succeed())
+
+				eg, egCtx := errgroup.WithContext(ctx)
+				ch := make(chan int, objectCount)
+				for i := range objectCount {
+					ch <- i
+				}
+				close(ch)
+
+				for range createWorkers {
+					eg.Go(func() error {
+						for i := range ch {
+							// To avoid creating a channel for each namespace, we calculate the namespace and object name from the index.
+							// eg: object 0 goes to ns-0, object 1 to ns-0, ..., object 999 to ns-0, object 1000 to ns-1, etc.
+							ns := fmt.Sprintf("%s-%d", nsPrefix, i/objectsPerNS)
+							name := fmt.Sprintf("obj-%d", i%objectsPerNS)
+							_, createErr := bulkClient.CoreV1().ConfigMaps(ns).Create(egCtx, &corev1.ConfigMap{
+								ObjectMeta: metav1.ObjectMeta{
+									Name:      name,
+									Namespace: ns,
+									Labels:    map[string]string{labelKey: labelVal},
+								},
+							}, metav1.CreateOptions{})
+							if createErr != nil {
+								return fmt.Errorf("create configmap %s/%s: %w", ns, name, createErr)
+							}
+						}
+						return nil
+					})
+				}
+				Expect(eg.Wait()).To(Succeed())
+			})
+		})
+
+		It("Takes a snapshot of the tenant cluster", func(ctx context.Context) {
+			createSnapshot(s.vClusterName, s.vClusterNS, true, snapshotPath, false)
+			waitForRequestToFinish(ctx, s.hostClient, s.vClusterNS,
+				pkgconstants.SnapshotRequestLabel, snapshot.UnmarshalSnapshotRequest,
+				constants.PollingTimeoutExtraLong)
+		})
+
+		It("Deletes the first 4 namespaces and waits for them to be removed", func(ctx context.Context) {
+			By("Deleting namespaces 0 through 3", func() {
+				for i := range deleteNSCount {
+					ns := fmt.Sprintf("%s-%d", nsPrefix, i)
+					err := s.vClusterClient.CoreV1().Namespaces().Delete(ctx, ns, metav1.DeleteOptions{})
+					Expect(err).To(Or(Succeed(), Satisfy(kerrors.IsNotFound)))
+				}
+			})
+
+			By("Waiting for the 4 namespaces to be fully terminated", func() {
+				Eventually(func(g Gomega, ctx context.Context) {
+					for i := range deleteNSCount {
+						ns := fmt.Sprintf("%s-%d", nsPrefix, i)
+						_, err := s.vClusterClient.CoreV1().Namespaces().Get(ctx, ns, metav1.GetOptions{})
+						g.Expect(kerrors.IsNotFound(err)).To(BeTrue(),
+							"namespace %s should be deleted but still exists", ns)
+					}
+				}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutExtraLong).Should(Succeed())
+			})
+		})
+
+		It("Restores snapshot and verifies the deleted namespaces are back", func(ctx context.Context) {
+			By("Restoring the tenant cluster from snapshot", func() {
+				restoreVCluster(ctx, s.hostClient, s.vClusterName, s.vClusterNS, snapshotPath, true, false)
+				s.refreshClient(ctx)
+			})
+
+			By("Verifying the deleted namespaces and their configmaps are restored", func() {
+				Eventually(func(g Gomega, ctx context.Context) {
+					for i := range deleteNSCount {
+						ns := fmt.Sprintf("%s-%d", nsPrefix, i)
+						_, err := s.vClusterClient.CoreV1().Namespaces().Get(ctx, ns, metav1.GetOptions{})
+						g.Expect(err).To(Succeed(), "namespace %s should exist after restore", ns)
+
+						count, err := countConfigMapsByLabel(ctx, s.vClusterClient, ns, labelKey+"="+labelVal)
+						g.Expect(err).To(Succeed())
+						g.Expect(count).To(Equal(objectsPerNS),
+							"namespace %s should have %d configmaps after restore, got %d", ns, objectsPerNS, count)
+					}
+				}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutExtraLong).Should(Succeed())
+			})
+
+			By("Spot-checking non-deleted namespaces survived restore", func() {
+				for _, i := range []int{nsCount / 4, nsCount / 2, nsCount - 1} {
+					ns := fmt.Sprintf("%s-%d", nsPrefix, i)
+					count, err := countConfigMapsByLabel(ctx, s.vClusterClient, ns, labelKey+"="+labelVal)
+					Expect(err).To(Succeed())
+					Expect(count).To(Equal(objectsPerNS),
+						"non-deleted namespace %s should have %d configmaps after restore, got %d", ns, objectsPerNS, count)
+				}
+			})
+		})
+
+		AfterAll(func(ctx context.Context) {
+			for i := range nsCount {
+				ns := fmt.Sprintf("%s-%d", nsPrefix, i)
+				err := s.vClusterClient.CoreV1().Namespaces().Delete(ctx, ns, metav1.DeleteOptions{})
+				Expect(err).To(Or(Succeed(), Satisfy(kerrors.IsNotFound)))
+			}
+			deleteSnapshotRequestConfigMaps(ctx, s.hostClient, s.vClusterNS)
+		})
+	})
 }
 
 func getTwoSnapshotRequests(g Gomega, ctx context.Context, hostClient kubernetes.Interface, vClusterNamespace string) (*snapshot.Request, *snapshot.Request) {

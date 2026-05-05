@@ -9,4 +9,5 @@ const (
 	PollingTimeout          = time.Second * 60
 	PollingTimeoutLong      = time.Second * 120
 	PollingTimeoutVeryLong  = time.Second * 300
+	PollingTimeoutExtraLong = time.Minute * 90
 )
