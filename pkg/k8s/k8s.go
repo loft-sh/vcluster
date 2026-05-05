@@ -108,18 +108,20 @@ func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualCl
 			// add extra args
 			args = command.MergeArgs(args, apiServer.ExtraArgs)
 
-			// wait until etcd is up and running
-			err := etcd.WaitForEtcd(ctx, etcdCertificates, etcdEndpoints)
-			if err != nil {
-				klog.Errorf("error waiting for etcd to be up: %s", err.Error())
-				osutil.Exit(1)
-				return
+			// Each supervised attempt waits for etcd, then runs apiserver. If
+			// etcd is briefly unavailable across a restart, the wait blocks
+			// until etcd recovers (or the context is cancelled), and the
+			// supervisor's backoff/budget treats it like any other failure.
+			runner := func(ctx context.Context) error {
+				if err := etcd.WaitForEtcd(ctx, etcdCertificates, etcdEndpoints); err != nil {
+					return fmt.Errorf("wait for etcd: %w", err)
+				}
+				return command.RunCommand(ctx, args, "apiserver")
 			}
 
-			// now start the api server
-			err = command.RunCommand(ctx, args, "apiserver")
+			err := runComponent(ctx, "apiserver", runner)
 			if err != nil {
-				klog.Errorf("error running apiserver: %s", err.Error())
+				klog.Errorf("apiserver supervisor exited: %v", err)
 				osutil.Exit(1)
 				return
 			}
@@ -198,9 +200,12 @@ func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualCl
 
 			// add extra args
 			args = command.MergeArgs(args, controllerManager.ExtraArgs)
-			err = command.RunCommand(ctx, args, "controller-manager")
+			runner := func(ctx context.Context) error {
+				return command.RunCommand(ctx, args, "controller-manager")
+			}
+			err = runComponent(ctx, "controller-manager", runner)
 			if err != nil {
-				klog.Errorf("error running controller-manager: %s", err.Error())
+				klog.Errorf("controller-manager supervisor exited: %v", err)
 				osutil.Exit(1)
 				return
 			}
@@ -228,9 +233,12 @@ func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualCl
 
 			// add extra args
 			args = command.MergeArgs(args, scheduler.ExtraArgs)
-			err = command.RunCommand(ctx, args, "scheduler")
+			runner := func(ctx context.Context) error {
+				return command.RunCommand(ctx, args, "scheduler")
+			}
+			err = runComponent(ctx, "scheduler", runner)
 			if err != nil {
-				klog.Errorf("error running scheduler: %s", err.Error())
+				klog.Errorf("scheduler supervisor exited: %v", err)
 				osutil.Exit(1)
 				return
 			}
