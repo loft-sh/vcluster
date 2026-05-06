@@ -30,10 +30,16 @@ tests:
           value: vcluster
       - lengthEqual:
           path: spec.endpoints
-          count: 2
+          count: 3
       - equal:
           path: spec.endpoints[1].path
           value: /metrics/controller-manager
+      - equal:
+          path: spec.endpoints[2].path
+          value: /metrics/kine
+      - equal:
+          path: spec.endpoints[2].relabelings[0].replacement
+          value: kine
 
   - it: override release label
     release:
@@ -70,10 +76,13 @@ tests:
         count: 1
     - lengthEqual:
         path: spec.endpoints
-        count: 3
+        count: 4
     - equal:
         path: spec.endpoints[2].path
         value: /metrics/scheduler
+    - equal:
+        path: spec.endpoints[3].path
+        value: /metrics/kine
 
   - it: check virtual scheduler (deprecated)
     release:
@@ -91,10 +100,13 @@ tests:
           count: 1
       - lengthEqual:
           path: spec.endpoints
-          count: 3
+          count: 4
       - equal:
           path: spec.endpoints[2].path
           value: /metrics/scheduler
+      - equal:
+          path: spec.endpoints[3].path
+          value: /metrics/kine
 
   - it: check embedded etcd
     release:
@@ -117,3 +129,75 @@ tests:
       - equal:
           path: spec.endpoints[2].path
           value: /metrics/etcd
+      - notContains:
+          path: spec.endpoints
+          content:
+            path: /metrics/kine
+
+  - it: check external database renders kine endpoint
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      controlPlane:
+        backingStore:
+          database:
+            external:
+              enabled: true
+        serviceMonitor:
+          enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: spec.endpoints
+          count: 3
+      - equal:
+          path: spec.endpoints[2].path
+          value: /metrics/kine
+
+  - it: check deployed etcd omits kine endpoint
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            deploy:
+              enabled: true
+        serviceMonitor:
+          enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: spec.endpoints
+          count: 2
+      - notContains:
+          path: spec.endpoints
+          content:
+            path: /metrics/kine
+
+  - it: check external etcd omits kine endpoint
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            external:
+              enabled: true
+        serviceMonitor:
+          enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: spec.endpoints
+          count: 2
+      - notContains:
+          path: spec.endpoints
+          content:
+            path: /metrics/kine
