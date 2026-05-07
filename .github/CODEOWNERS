@@ -3,7 +3,7 @@
 * @loft-sh/eng-dev-vcluster-platform
 
 /.github/workflows/e2e*.yaml @loft-sh/eng-qa @loft-sh/eng-tech-leads
-/.github/workflows/release.yaml @loft-sh/eng-tech-leads
+/.github/workflows/release.yaml @loft-sh/eng-devops @loft-sh/eng-tech-leads
 /.github/CODEOWNERS @loft-sh/eng-tech-leads
 
 /chart/templates/ @loft-sh/eng-tech-leads
