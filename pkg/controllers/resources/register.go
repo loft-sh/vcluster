@@ -3,6 +3,7 @@ package resources
 import (
 	"fmt"
 
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/backendtlspolicies"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/configmaps"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/csidrivers"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/csinodes"
@@ -61,6 +62,7 @@ func getSyncers(ctx *synccontext.RegisterContext) []BuildController {
 		isEnabled(ctx.Config.Sync.ToHost.Gateways.Enabled, gateways.New),
 		isEnabled(ctx.Config.Sync.ToHost.Gateways.Enabled, httproutes.New),
 		isEnabled(ctx.Config.Sync.ToHost.Gateways.Enabled, tlsroutes.New),
+		isEnabled(ctx.Config.Sync.ToHost.Gateways.Enabled, backendtlspolicies.New),
 		isEnabled(ctx.Config.Sync.FromHost.IngressClasses.Enabled, ingressclasses.New),
 		isEnabled(ctx.Config.Sync.FromHost.GatewayClasses.Enabled, gatewayclasses.New),
 		isEnabled(ctx.Config.Sync.FromHost.RuntimeClasses.Enabled, runtimeclasses.New),

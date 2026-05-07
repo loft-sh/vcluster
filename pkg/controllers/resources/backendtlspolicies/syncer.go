@@ -1,4 +1,4 @@
-package httproutes
+package backendtlspolicies
 
 import (
 	"fmt"
@@ -20,16 +20,16 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-type httpRouteSyncer struct {
+type backendTLSPolicySyncer struct {
 	syncertypes.GenericTranslator
 	syncertypes.Importer
 }
 
 var (
-	_ syncertypes.Object             = &httpRouteSyncer{}
-	_ syncertypes.Syncer             = &httpRouteSyncer{}
-	_ syncertypes.OptionsProvider    = &httpRouteSyncer{}
-	_ syncertypes.ControllerModifier = &httpRouteSyncer{}
+	_ syncertypes.Object             = &backendTLSPolicySyncer{}
+	_ syncertypes.Syncer             = &backendTLSPolicySyncer{}
+	_ syncertypes.OptionsProvider    = &backendTLSPolicySyncer{}
+	_ syncertypes.ControllerModifier = &backendTLSPolicySyncer{}
 )
 
 func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
@@ -37,32 +37,32 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 }
 
 func NewSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
-	mapper, err := ctx.Mappings.ByGVK(mappings.HTTPRoutes())
+	mapper, err := ctx.Mappings.ByGVK(mappings.BackendTLSPolicies())
 	if err != nil {
 		return nil, err
 	}
 
-	return &httpRouteSyncer{
-		GenericTranslator: translator.NewGenericTranslator(ctx, "httproute", &gatewayv1.HTTPRoute{}, mapper),
+	return &backendTLSPolicySyncer{
+		GenericTranslator: translator.NewGenericTranslator(ctx, "backendtlspolicy", &gatewayv1.BackendTLSPolicy{}, mapper),
 		Importer:          pro.NewImporter(mapper),
 	}, nil
 }
 
-func (s *httpRouteSyncer) Syncer() syncertypes.Sync[client.Object] {
-	return syncer.ToGenericSyncer[*gatewayv1.HTTPRoute](s)
+func (s *backendTLSPolicySyncer) Syncer() syncertypes.Sync[client.Object] {
+	return syncer.ToGenericSyncer[*gatewayv1.BackendTLSPolicy](s)
 }
 
-func (s *httpRouteSyncer) Options() *syncertypes.Options {
+func (s *backendTLSPolicySyncer) Options() *syncertypes.Options {
 	return &syncertypes.Options{
 		ObjectCaching: true,
 	}
 }
 
-func (s *httpRouteSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
-	return routetranslate.RegisterReferencedWatches(ctx, builder, s.GroupVersionKind(), mappings.Gateways(), mappings.Services())
+func (s *backendTLSPolicySyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
+	return routetranslate.RegisterReferencedWatches(ctx, builder, s.GroupVersionKind(), mappings.Services(), mappings.ConfigMaps())
 }
 
-func (s *httpRouteSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*gatewayv1.HTTPRoute]) (ctrl.Result, error) {
+func (s *backendTLSPolicySyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*gatewayv1.BackendTLSPolicy]) (ctrl.Result, error) {
 	if event.HostOld != nil || event.Virtual.DeletionTimestamp != nil {
 		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.HostOld, "host object was deleted")
 	}
@@ -80,8 +80,8 @@ func (s *httpRouteSyncer) SyncToHost(ctx *synccontext.SyncContext, event *syncco
 	return patcher.CreateHostObject(ctx, event.Virtual, pObj, s.EventRecorder(), true)
 }
 
-func (s *httpRouteSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*gatewayv1.HTTPRoute]) (_ ctrl.Result, retErr error) {
-	hSpec, err := specToHost(ctx, event.Virtual, false)
+func (s *backendTLSPolicySyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*gatewayv1.BackendTLSPolicy]) (_ ctrl.Result, retErr error) {
+	hSpec, err := translateSpecToHost(ctx, event.Virtual, false)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to translate spec: %w", err)
 	}
@@ -108,7 +108,7 @@ func (s *httpRouteSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.
 		}
 	}()
 
-	vStatus, err := statusToVirtual(ctx, event.Host, event.Virtual.Namespace, event.Host.Status)
+	vStatus, err := translateStatusToVirtual(ctx, event.Host, event.Virtual.Namespace, event.Host.Status)
 	if err != nil {
 		retErr = fmt.Errorf("failed to translate status: %w", err)
 	} else {
@@ -121,16 +121,16 @@ func (s *httpRouteSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.
 	return ctrl.Result{}, retErr
 }
 
-func (s *httpRouteSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*gatewayv1.HTTPRoute]) (ctrl.Result, error) {
+func (s *backendTLSPolicySyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*gatewayv1.BackendTLSPolicy]) (ctrl.Result, error) {
 	if event.VirtualOld != nil || translate.ShouldDeleteHostObject(event.Host) {
 		return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")
 	}
 
-	vRoute := translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, event.Host))
-	err := pro.ApplyPatchesVirtualObject(ctx, nil, vRoute, event.Host, nil, false)
+	vPolicy := translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, event.Host))
+	err := pro.ApplyPatchesVirtualObject(ctx, nil, vPolicy, event.Host, nil, false)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	return patcher.CreateVirtualObject(ctx, event.Host, vRoute, s.EventRecorder(), true)
+	return patcher.CreateVirtualObject(ctx, event.Host, vPolicy, s.EventRecorder(), true)
 }

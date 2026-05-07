@@ -3,6 +3,7 @@ package gateways
 import (
 	"fmt"
 
+	routetranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/gatewayroutes/translate"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/pro"
@@ -14,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -24,9 +26,10 @@ type gatewaySyncer struct {
 }
 
 var (
-	_ syncertypes.Object          = &gatewaySyncer{}
-	_ syncertypes.Syncer          = &gatewaySyncer{}
-	_ syncertypes.OptionsProvider = &gatewaySyncer{}
+	_ syncertypes.Object             = &gatewaySyncer{}
+	_ syncertypes.Syncer             = &gatewaySyncer{}
+	_ syncertypes.OptionsProvider    = &gatewaySyncer{}
+	_ syncertypes.ControllerModifier = &gatewaySyncer{}
 )
 
 func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
@@ -53,6 +56,10 @@ func (s *gatewaySyncer) Options() *syncertypes.Options {
 	return &syncertypes.Options{
 		ObjectCaching: true,
 	}
+}
+
+func (s *gatewaySyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
+	return routetranslate.RegisterReferencedWatches(ctx, builder, s.GroupVersionKind(), mappings.Secrets())
 }
 
 func (s *gatewaySyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*gatewayv1.Gateway]) (ctrl.Result, error) {
@@ -82,7 +89,7 @@ func (s *gatewaySyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 		return ctrl.Result{}, nil
 	}
 
-	hSpec, err := translateListeners(ctx, event.Virtual)
+	hSpec, err := listenersToHost(ctx, event.Virtual)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to translate listeners: %w", err)
 	}

@@ -1,4 +1,4 @@
-package gatewayroutes
+package translate
 
 import (
 	"testing"
@@ -9,7 +9,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
+	utiltranslate "github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,37 +28,81 @@ const (
 	testServiceName    = "backend"
 )
 
-func TestTranslateParentRefToHostSupportsService(t *testing.T) {
+func TestParentRefToHostSupportsService(t *testing.T) {
 	syncCtx, _ := newGatewayRouteTestContext(t, []runtime.Object{
 		managedHostService(testServiceName, testRouteNamespace),
 	}, nil)
 	ref := serviceParentRef(testServiceName)
 
-	err := TranslateParentRefToHost(syncCtx, testRouteNamespace, &ref)
+	err := ParentRefToHost(syncCtx, testRouteNamespace, &ref)
 	assert.NilError(t, err)
 	assert.Equal(t, string(ref.Name), hostName(testServiceName, testRouteNamespace))
 	assert.Assert(t, ref.Namespace == nil)
 }
 
-func TestTranslateParentRefToVirtualSupportsService(t *testing.T) {
+func TestParentRefToVirtualSupportsService(t *testing.T) {
 	syncCtx, _ := newGatewayRouteTestContext(t, nil, nil)
 	addMapping(t, syncCtx, serviceMapping(testServiceName, testRouteNamespace))
 	ref := serviceParentRef(hostName(testServiceName, testRouteNamespace))
 
-	err := TranslateParentRefToVirtual(syncCtx, hostNamespace(testRouteNamespace), testRouteNamespace, &ref)
+	err := ParentRefToVirtual(syncCtx, hostNamespace(testRouteNamespace), testRouteNamespace, &ref)
 	assert.NilError(t, err)
 	assert.Equal(t, string(ref.Name), testServiceName)
 	assert.Assert(t, ref.Namespace == nil)
 }
 
-func TestTranslateParentRefToHostRejectsObjectWhenManagedChecksDisagree(t *testing.T) {
+func TestSecretObjectRefToHost(t *testing.T) {
+	syncCtx, _ := newGatewayRouteTestContext(t, []runtime.Object{
+		managedHostSecret("tls-cert", testRouteNamespace),
+	}, nil)
+	ref := gatewayv1.SecretObjectReference{Name: gatewayv1.ObjectName("tls-cert")}
+
+	err := SecretObjectRefToHost(syncCtx, testRouteNamespace, &ref)
+	assert.NilError(t, err)
+	assert.Equal(t, string(ref.Name), hostName("tls-cert", testRouteNamespace))
+	assert.Assert(t, ref.Namespace == nil)
+}
+
+func TestLocalObjectRefToHost(t *testing.T) {
+	syncCtx, _ := newGatewayRouteTestContext(t, []runtime.Object{
+		managedHostConfigMap("ca-bundle", testRouteNamespace),
+	}, nil)
+	ref := gatewayv1.LocalObjectReference{
+		Group: gatewayv1.Group(corev1.GroupName),
+		Kind:  gatewayv1.Kind("ConfigMap"),
+		Name:  gatewayv1.ObjectName("ca-bundle"),
+	}
+
+	err := LocalObjectRefToHost(syncCtx, testRouteNamespace, &ref)
+	assert.NilError(t, err)
+	assert.Equal(t, string(ref.Name), hostName("ca-bundle", testRouteNamespace))
+}
+
+func TestPolicyTargetRefToHost(t *testing.T) {
+	syncCtx, _ := newGatewayRouteTestContext(t, []runtime.Object{
+		managedHostService(testServiceName, testRouteNamespace),
+	}, nil)
+	ref := gatewayv1.LocalPolicyTargetReferenceWithSectionName{
+		LocalPolicyTargetReference: gatewayv1.LocalPolicyTargetReference{
+			Group: gatewayv1.Group(corev1.GroupName),
+			Kind:  gatewayv1.Kind("Service"),
+			Name:  gatewayv1.ObjectName(testServiceName),
+		},
+	}
+
+	err := PolicyTargetRefToHost(syncCtx, testRouteNamespace, &ref)
+	assert.NilError(t, err)
+	assert.Equal(t, string(ref.Name), hostName(testServiceName, testRouteNamespace))
+}
+
+func TestParentRefToHostRejectsObjectWhenManagedChecksDisagree(t *testing.T) {
 	syncCtx, _ := newGatewayRouteTestContext(t, []runtime.Object{
 		bareHostService(testServiceName, testRouteNamespace),
 	}, nil)
 	addMapping(t, syncCtx, serviceMapping(testServiceName, testRouteNamespace))
 	ref := serviceParentRef(testServiceName)
 
-	err := TranslateParentRefToHost(syncCtx, testRouteNamespace, &ref)
+	err := ParentRefToHost(syncCtx, testRouteNamespace, &ref)
 	assert.ErrorContains(t, err, `is not managed by vCluster`)
 }
 
@@ -67,7 +111,7 @@ func TestMissingServiceParentRefRecordsReferenceForRequeue(t *testing.T) {
 	routeMapping := addRouteMapping(t, syncCtx)
 	ref := serviceParentRef(testServiceName)
 
-	err := TranslateParentRefToHost(syncCtx, testRouteNamespace, &ref)
+	err := ParentRefToHost(syncCtx, testRouteNamespace, &ref)
 	assert.ErrorContains(t, err, `referenced Service "backend" in namespace "default" has no synced host object`)
 
 	references := syncCtx.Mappings.Store().ReferencesTo(syncCtx, synccontext.Object{
@@ -80,11 +124,37 @@ func TestMissingServiceParentRefRecordsReferenceForRequeue(t *testing.T) {
 	queue := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[ctrl.Request]())
 	defer queue.ShutDown()
 
-	enqueueRoutesReferencingObject(registerCtx, mappings.HTTPRoutes(), serviceMapping(testServiceName, testRouteNamespace), queue)
+	enqueueObjectsReferencingObject(registerCtx, mappings.HTTPRoutes(), serviceMapping(testServiceName, testRouteNamespace), queue)
 	item, shutdown := queue.Get()
 	assert.Assert(t, !shutdown)
 	defer queue.Done(item)
 	assert.DeepEqual(t, item, reconcile.Request{NamespacedName: routeMapping.VirtualName})
+}
+
+func TestEnqueueObjectsReferencingObject(t *testing.T) {
+	syncCtx, registerCtx := newGatewayRouteTestContext(t, nil, nil)
+	policyMapping := synccontext.NameMapping{
+		GroupVersionKind: mappings.BackendTLSPolicies(),
+		VirtualName:      types.NamespacedName{Name: "policy", Namespace: testRouteNamespace},
+		HostName:         types.NamespacedName{Name: hostName("policy", testRouteNamespace), Namespace: hostNamespace(testRouteNamespace)},
+	}
+	configMapMapping := synccontext.NameMapping{
+		GroupVersionKind: mappings.ConfigMaps(),
+		VirtualName:      types.NamespacedName{Name: "ca-bundle", Namespace: testRouteNamespace},
+		HostName:         types.NamespacedName{Name: hostName("ca-bundle", testRouteNamespace), Namespace: hostNamespace(testRouteNamespace)},
+	}
+	addMapping(t, syncCtx, policyMapping)
+	err := syncCtx.Mappings.Store().AddReferenceAndSave(syncCtx, configMapMapping, policyMapping)
+	assert.NilError(t, err)
+
+	queue := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[ctrl.Request]())
+	defer queue.ShutDown()
+
+	enqueueObjectsReferencingObject(registerCtx, mappings.BackendTLSPolicies(), configMapMapping, queue)
+	item, shutdown := queue.Get()
+	assert.Assert(t, !shutdown)
+	defer queue.Done(item)
+	assert.DeepEqual(t, item, reconcile.Request{NamespacedName: policyMapping.VirtualName})
 }
 
 func TestParentStatusHostNamespace(t *testing.T) {
@@ -165,7 +235,31 @@ func serviceParentRef(name string) gatewayv1.ParentReference {
 }
 
 func managedHostService(name, namespace string) *corev1.Service {
-	return translate.HostMetadata(virtualService(name, namespace), types.NamespacedName{
+	return utiltranslate.HostMetadata(virtualService(name, namespace), types.NamespacedName{
+		Name:      hostName(name, namespace),
+		Namespace: hostNamespace(namespace),
+	})
+}
+
+func managedHostSecret(name, namespace string) *corev1.Secret {
+	return utiltranslate.HostMetadata(&corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+	}, types.NamespacedName{
+		Name:      hostName(name, namespace),
+		Namespace: hostNamespace(namespace),
+	})
+}
+
+func managedHostConfigMap(name, namespace string) *corev1.ConfigMap {
+	return utiltranslate.HostMetadata(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+	}, types.NamespacedName{
 		Name:      hostName(name, namespace),
 		Namespace: hostNamespace(namespace),
 	})
@@ -190,7 +284,7 @@ func virtualService(name, namespace string) *corev1.Service {
 }
 
 func hostName(name, namespace string) string {
-	return translate.SingleNamespaceHostName(name, namespace, translate.VClusterName)
+	return utiltranslate.SingleNamespaceHostName(name, namespace, utiltranslate.VClusterName)
 }
 
 func hostNamespace(namespace string) string {

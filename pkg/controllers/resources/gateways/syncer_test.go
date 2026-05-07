@@ -13,6 +13,7 @@ import (
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -35,6 +36,7 @@ func init() {
 func TestSync(t *testing.T) {
 	vBaseSpec := gatewaySpec()
 	pBaseSpec := hostGatewaySpec()
+	managedCertRefSecret := managedHostSecret(testCertRefName, testGatewayNamespace)
 	changedGatewayStatus := gatewayv1.GatewayStatus{
 		Addresses: []gatewayv1.GatewayStatusAddress{
 			{
@@ -60,8 +62,9 @@ func TestSync(t *testing.T) {
 
 	syncertesting.RunTestsWithContext(t, newGatewayRegisterContext, []*syncertesting.SyncTest{
 		{
-			Name:                "Create forward",
-			InitialVirtualState: []runtime.Object{baseGateway.DeepCopy()},
+			Name:                 "Create forward",
+			InitialVirtualState:  []runtime.Object{baseGateway.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{managedCertRefSecret.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
 				mappings.Gateways(): {baseGateway.DeepCopy()},
 			},
@@ -77,7 +80,7 @@ func TestSync(t *testing.T) {
 		{
 			Name:                 "Update forward",
 			InitialVirtualState:  []runtime.Object{baseGateway.DeepCopy()},
-			InitialPhysicalState: []runtime.Object{gateway(pObjectMeta, gatewayv1.GatewaySpec{})},
+			InitialPhysicalState: []runtime.Object{gateway(pObjectMeta, gatewayv1.GatewaySpec{}), managedCertRefSecret.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
 				mappings.Gateways(): {baseGateway.DeepCopy()},
 			},
@@ -96,7 +99,7 @@ func TestSync(t *testing.T) {
 		{
 			Name:                 "Update forward not needed",
 			InitialVirtualState:  []runtime.Object{baseGateway.DeepCopy()},
-			InitialPhysicalState: []runtime.Object{createdGateway.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{createdGateway.DeepCopy(), managedCertRefSecret.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
 				mappings.Gateways(): {baseGateway.DeepCopy()},
 			},
@@ -115,7 +118,7 @@ func TestSync(t *testing.T) {
 		{
 			Name:                 "Update backwards",
 			InitialVirtualState:  []runtime.Object{baseGateway.DeepCopy()},
-			InitialPhysicalState: []runtime.Object{backwardUpdateGateway.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{backwardUpdateGateway.DeepCopy(), managedCertRefSecret.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
 				mappings.Gateways(): {backwardUpdatedGateway.DeepCopy()},
 			},
@@ -153,7 +156,7 @@ func TestSync(t *testing.T) {
 		{
 			Name:                 "Update backwards not needed",
 			InitialVirtualState:  []runtime.Object{baseGateway.DeepCopy()},
-			InitialPhysicalState: []runtime.Object{createdGateway.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{createdGateway.DeepCopy(), managedCertRefSecret.DeepCopy()},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
 				mappings.Gateways(): {baseGateway.DeepCopy()},
 			},
@@ -187,6 +190,7 @@ func TestSync(t *testing.T) {
 					Namespace: createdGateway.Namespace,
 					Labels:    createdGateway.Labels,
 				}),
+				managedCertRefSecret.DeepCopy(),
 			},
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
 				mappings.Gateways(): {
@@ -249,7 +253,7 @@ func TestSyncCertificateRefsRejectUnsupportedGroupAndKind(t *testing.T) {
 				Group: ptr.To(gatewayv1.Group("gateway.networking.k8s.io")),
 				Kind:  ptr.To(gatewayv1.Kind("Secret")),
 			},
-			expectedErr: `group "gateway.networking.k8s.io" is not supported for certificateRefs`,
+			expectedErr: `secretRef group "gateway.networking.k8s.io" kind "Secret" is not supported`,
 		},
 		{
 			name: "Unsupported certificateRef kind",
@@ -258,7 +262,7 @@ func TestSyncCertificateRefsRejectUnsupportedGroupAndKind(t *testing.T) {
 				Group: ptr.To(gatewayv1.Group("")),
 				Kind:  ptr.To(gatewayv1.Kind("ConfigMap")),
 			},
-			expectedErr: `kind "ConfigMap" not supported for certificateRefs`,
+			expectedErr: `secretRef group "" kind "ConfigMap" is not supported`,
 		},
 	}
 
@@ -270,6 +274,34 @@ func TestSyncCertificateRefsRejectUnsupportedGroupAndKind(t *testing.T) {
 			assert.ErrorContains(t, err, tc.expectedErr)
 		})
 	}
+}
+
+func TestSyncRejectsUnsyncedCertificateRef(t *testing.T) {
+	vGateway := gatewayWithCertificateRefs(secretCertificateRef(testCertRefName))
+	syncCtx, syncer := startGatewaySyncer(t, nil, []runtime.Object{vGateway}, nil)
+
+	_, err := syncer.SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vGateway.DeepCopy()))
+	assert.ErrorContains(t, err, `referenced Secret "certrefsecretname" in namespace "test" has no synced host object`)
+}
+
+func TestSyncCrossNamespaceCertificateRef(t *testing.T) {
+	certNamespace := "cert-ns"
+	ref := secretCertificateRef(testCertRefName)
+	ref.Namespace = ptr.To(gatewayv1.Namespace(certNamespace))
+	vGateway := gatewayWithCertificateRefs(ref)
+	syncCtx, syncer := startGatewaySyncer(t, []runtime.Object{
+		managedHostSecret(testCertRefName, certNamespace),
+	}, []runtime.Object{vGateway}, nil)
+
+	_, err := syncer.SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vGateway.DeepCopy()))
+	assert.NilError(t, err)
+
+	storedHost := &gatewayv1.Gateway{}
+	err = syncCtx.HostClient.Get(syncCtx, types.NamespacedName{Name: hostNameForNamespace(testGatewayName, testGatewayNamespace), Namespace: testGatewayNamespace}, storedHost)
+	assert.NilError(t, err)
+	assert.Equal(t, string(storedHost.Spec.Listeners[0].TLS.CertificateRefs[0].Name), hostNameForNamespace(testCertRefName, certNamespace))
+	assert.Assert(t, storedHost.Spec.Listeners[0].TLS.CertificateRefs[0].Namespace != nil)
+	assert.Equal(t, string(*storedHost.Spec.Listeners[0].TLS.CertificateRefs[0].Namespace), testGatewayNamespace)
 }
 
 func TestSyncCertificateRefsRejectUnsupportedGroupAndKindWithoutPatching(t *testing.T) {
@@ -291,7 +323,7 @@ func TestSyncCertificateRefsRejectUnsupportedGroupAndKindWithoutPatching(t *test
 
 	syncCtx, syncer := startGatewaySyncer(t, []runtime.Object{pGateway.DeepCopy()}, []runtime.Object{vGateway.DeepCopy()}, nil)
 	_, err := syncer.Sync(syncCtx, synccontext.NewSyncEventWithOld(pGateway.DeepCopy(), pGatewayUpdated, vGateway.DeepCopy(), vGateway.DeepCopy()))
-	assert.ErrorContains(t, err, `group "gateway.networking.k8s.io" is not supported for certificateRefs`)
+	assert.ErrorContains(t, err, `secretRef group "gateway.networking.k8s.io" kind "Secret" is not supported`)
 
 	storedVirtual := &gatewayv1.Gateway{}
 	err = syncCtx.VirtualClient.Get(syncCtx, types.NamespacedName{Name: vGateway.Name, Namespace: vGateway.Namespace}, storedVirtual)
@@ -479,7 +511,6 @@ func hostGatewaySpec() gatewayv1.GatewaySpec {
 	spec := gatewaySpec()
 	ret := *spec.DeepCopy()
 	ret.Listeners[1].TLS.CertificateRefs[0].Name = "certrefsecretname-x-test-x-suffix"
-	ret.Listeners[1].TLS.CertificateRefs[0].Namespace = ptr.To(gatewayv1.Namespace(testGatewayNamespace))
 	return ret
 }
 
@@ -508,6 +539,22 @@ func secretCertificateRef(name string) gatewayv1.SecretObjectReference {
 		Group: ptr.To(gatewayv1.Group("")),
 		Kind:  ptr.To(gatewayv1.Kind("Secret")),
 	}
+}
+
+func managedHostSecret(name, namespace string) *corev1.Secret {
+	return translate.HostMetadata(&corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+	}, types.NamespacedName{
+		Name:      hostNameForNamespace(name, namespace),
+		Namespace: testGatewayNamespace,
+	})
+}
+
+func hostNameForNamespace(name, namespace string) string {
+	return translate.Default.HostName(nil, name, namespace).Name
 }
 
 func virtualGatewayMeta() metav1.ObjectMeta {

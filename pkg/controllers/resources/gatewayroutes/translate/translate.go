@@ -1,4 +1,4 @@
-package gatewayroutes
+package translate
 
 import (
 	"fmt"
@@ -7,9 +7,9 @@ import (
 	"github.com/loft-sh/vcluster/pkg/mappings/generic"
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
-	"github.com/loft-sh/vcluster/pkg/util/translate"
+	utiltranslate "github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -22,21 +22,42 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-func TranslateParentRefToHost(ctx *synccontext.SyncContext, routeNamespace string, ref *gatewayv1.ParentReference) error {
-	return translateParentRefToHost(ctx, routeNamespace, ref, true)
+// ToHostOption configures reference translation to host objects.
+type ToHostOption func(*toHostOptions)
+
+type toHostOptions struct {
+	validateHostObject bool
 }
 
-func TranslateParentRefToHostWithoutValidation(ctx *synccontext.SyncContext, routeNamespace string, ref *gatewayv1.ParentReference) error {
-	return translateParentRefToHost(ctx, routeNamespace, ref, false)
+// WithValidateHostObject configures whether referenced host objects must exist and be managed by vCluster.
+func WithValidateHostObject(validateHostObject bool) ToHostOption {
+	return func(options *toHostOptions) {
+		options.validateHostObject = validateHostObject
+	}
 }
 
-func translateParentRefToHost(ctx *synccontext.SyncContext, routeNamespace string, ref *gatewayv1.ParentReference, validateHostObject bool) error {
+func newToHostOptions(opts ...ToHostOption) toHostOptions {
+	options := toHostOptions{
+		validateHostObject: true,
+	}
+	for _, opt := range opts {
+		opt(&options)
+	}
+	return options
+}
+
+func ParentRefToHost(ctx *synccontext.SyncContext, routeNamespace string, ref *gatewayv1.ParentReference, opts ...ToHostOption) error {
+	options := newToHostOptions(opts...)
+	return parentRefToHost(ctx, routeNamespace, ref, options.validateHostObject)
+}
+
+func parentRefToHost(ctx *synccontext.SyncContext, routeNamespace string, ref *gatewayv1.ParentReference, validateHostObject bool) error {
 	gvk, err := parentReferenceGVK(ref)
 	if err != nil {
 		return err
 	}
 
-	hostName, err := translateRefToHost(ctx, routeNamespace, ref.Name, ref.Namespace, gvk, validateHostObject)
+	hostName, err := refToHost(ctx, routeNamespace, ref.Name, ref.Namespace, gvk, validateHostObject)
 	if err != nil {
 		return err
 	}
@@ -49,13 +70,13 @@ func translateParentRefToHost(ctx *synccontext.SyncContext, routeNamespace strin
 	return nil
 }
 
-func TranslateParentRefToVirtual(ctx *synccontext.SyncContext, hostRouteNamespace, virtualRouteNamespace string, ref *gatewayv1.ParentReference) error {
+func ParentRefToVirtual(ctx *synccontext.SyncContext, hostRouteNamespace, virtualRouteNamespace string, ref *gatewayv1.ParentReference) error {
 	gvk, err := parentReferenceGVK(ref)
 	if err != nil {
 		return err
 	}
 
-	virtualName, err := translateRefToVirtual(ctx, hostRouteNamespace, ref.Name, ref.Namespace, gvk)
+	virtualName, err := refToVirtual(ctx, hostRouteNamespace, ref.Name, ref.Namespace, gvk)
 	if err != nil {
 		return err
 	}
@@ -70,21 +91,33 @@ func TranslateParentRefToVirtual(ctx *synccontext.SyncContext, hostRouteNamespac
 	return nil
 }
 
-func TranslateBackendObjectRefToHost(ctx *synccontext.SyncContext, routeNamespace string, ref *gatewayv1.BackendObjectReference) error {
-	return translateBackendObjectRefToHost(ctx, routeNamespace, ref, true)
+func BackendObjectRefToHost(ctx *synccontext.SyncContext, routeNamespace string, ref *gatewayv1.BackendObjectReference, opts ...ToHostOption) error {
+	options := newToHostOptions(opts...)
+	return backendObjectRefToHost(ctx, routeNamespace, ref, options.validateHostObject)
 }
 
-func TranslateBackendObjectRefToHostWithoutValidation(ctx *synccontext.SyncContext, routeNamespace string, ref *gatewayv1.BackendObjectReference) error {
-	return translateBackendObjectRefToHost(ctx, routeNamespace, ref, false)
+func SecretObjectRefToHost(ctx *synccontext.SyncContext, localNamespace string, ref *gatewayv1.SecretObjectReference, opts ...ToHostOption) error {
+	options := newToHostOptions(opts...)
+	return secretObjectRefToHost(ctx, localNamespace, ref, options.validateHostObject)
 }
 
-func translateBackendObjectRefToHost(ctx *synccontext.SyncContext, routeNamespace string, ref *gatewayv1.BackendObjectReference, validateHostObject bool) error {
+func LocalObjectRefToHost(ctx *synccontext.SyncContext, localNamespace string, ref *gatewayv1.LocalObjectReference, opts ...ToHostOption) error {
+	options := newToHostOptions(opts...)
+	return localObjectRefToHost(ctx, localNamespace, ref, options.validateHostObject)
+}
+
+func PolicyTargetRefToHost(ctx *synccontext.SyncContext, policyNamespace string, ref *gatewayv1.LocalPolicyTargetReferenceWithSectionName, opts ...ToHostOption) error {
+	options := newToHostOptions(opts...)
+	return policyTargetRefToHost(ctx, policyNamespace, ref, options.validateHostObject)
+}
+
+func backendObjectRefToHost(ctx *synccontext.SyncContext, routeNamespace string, ref *gatewayv1.BackendObjectReference, validateHostObject bool) error {
 	gvk, err := backendReferenceGVK(ref)
 	if err != nil {
 		return err
 	}
 
-	hostName, err := translateRefToHost(ctx, routeNamespace, ref.Name, ref.Namespace, gvk, validateHostObject)
+	hostName, err := refToHost(ctx, routeNamespace, ref.Name, ref.Namespace, gvk, validateHostObject)
 	if err != nil {
 		return err
 	}
@@ -97,14 +130,63 @@ func translateBackendObjectRefToHost(ctx *synccontext.SyncContext, routeNamespac
 	return nil
 }
 
-func ModifyControllerForReferencedRoutes(ctx *synccontext.RegisterContext, builder *builder.Builder, routeGVK schema.GroupVersionKind) (*builder.Builder, error) {
-	for _, gvk := range []schema.GroupVersionKind{mappings.Gateways(), mappings.Services()} {
+func secretObjectRefToHost(ctx *synccontext.SyncContext, localNamespace string, ref *gatewayv1.SecretObjectReference, validateHostObject bool) error {
+	gvk, err := secretObjectReferenceGVK(ref)
+	if err != nil {
+		return err
+	}
+
+	hostName, err := refToHost(ctx, localNamespace, ref.Name, ref.Namespace, gvk, validateHostObject)
+	if err != nil {
+		return err
+	}
+
+	ref.Name = gatewayv1.ObjectName(hostName.Name)
+	if ref.Namespace != nil {
+		ref.Namespace = ptr.To(gatewayv1.Namespace(hostName.Namespace))
+	}
+
+	return nil
+}
+
+func localObjectRefToHost(ctx *synccontext.SyncContext, localNamespace string, ref *gatewayv1.LocalObjectReference, validateHostObject bool) error {
+	gvk, err := localObjectReferenceGVK(ref)
+	if err != nil {
+		return err
+	}
+
+	hostName, err := refToHost(ctx, localNamespace, ref.Name, nil, gvk, validateHostObject)
+	if err != nil {
+		return err
+	}
+
+	ref.Name = gatewayv1.ObjectName(hostName.Name)
+	return nil
+}
+
+func policyTargetRefToHost(ctx *synccontext.SyncContext, policyNamespace string, ref *gatewayv1.LocalPolicyTargetReferenceWithSectionName, validateHostObject bool) error {
+	gvk, err := policyTargetReferenceGVK(ref)
+	if err != nil {
+		return err
+	}
+
+	hostName, err := refToHost(ctx, policyNamespace, ref.Name, nil, gvk, validateHostObject)
+	if err != nil {
+		return err
+	}
+
+	ref.Name = gatewayv1.ObjectName(hostName.Name)
+	return nil
+}
+
+func RegisterReferencedWatches(ctx *synccontext.RegisterContext, builder *builder.Builder, objectGVK schema.GroupVersionKind, referencedGVKs ...schema.GroupVersionKind) (*builder.Builder, error) {
+	for _, gvk := range referencedGVKs {
 		if !ctx.Mappings.Has(gvk) {
 			continue
 		}
 
 		builder = builder.WatchesRawSource(ctx.Mappings.Store().Watch(gvk, func(nameMapping synccontext.NameMapping, queue workqueue.TypedRateLimitingInterface[ctrl.Request]) {
-			enqueueRoutesReferencingObject(ctx, routeGVK, nameMapping, queue)
+			enqueueObjectsReferencingObject(ctx, objectGVK, nameMapping, queue)
 		}))
 	}
 
@@ -125,7 +207,7 @@ func ParentStatusHostNamespace(hostRouteNamespace string, specParentRefs []gatew
 	return hostRouteNamespace
 }
 
-func translateRefToVirtual(ctx *synccontext.SyncContext, hostRouteNamespace string, refName gatewayv1.ObjectName, refNamespace *gatewayv1.Namespace, gvk schema.GroupVersionKind) (types.NamespacedName, error) {
+func refToVirtual(ctx *synccontext.SyncContext, hostRouteNamespace string, refName gatewayv1.ObjectName, refNamespace *gatewayv1.Namespace, gvk schema.GroupVersionKind) (types.NamespacedName, error) {
 	mapper, err := ctx.Mappings.ByGVK(gvk)
 	if err != nil {
 		return types.NamespacedName{}, err
@@ -150,7 +232,7 @@ func refNamespaceOrRouteNamespace(routeNamespace string, refNamespace *gatewayv1
 	return string(*refNamespace)
 }
 
-func translateRefToHost(ctx *synccontext.SyncContext, routeNamespace string, refName gatewayv1.ObjectName, refNamespace *gatewayv1.Namespace, gvk schema.GroupVersionKind, validateHostObject bool) (types.NamespacedName, error) {
+func refToHost(ctx *synccontext.SyncContext, routeNamespace string, refName gatewayv1.ObjectName, refNamespace *gatewayv1.Namespace, gvk schema.GroupVersionKind, validateHostObject bool) (types.NamespacedName, error) {
 	mapper, err := ctx.Mappings.ByGVK(gvk)
 	if err != nil {
 		return types.NamespacedName{}, err
@@ -196,7 +278,7 @@ func ensureManagedHostObject(ctx *synccontext.SyncContext, mapper synccontext.Ma
 	}
 
 	err = ctx.HostClient.Get(ctx.Context, hostName, hostObj)
-	if apierrors.IsNotFound(err) {
+	if kerrors.IsNotFound(err) {
 		return fmt.Errorf("referenced %s %q in namespace %q has no synced host object %q in namespace %q", gvk.Kind, virtualName.Name, virtualName.Namespace, hostName.Name, hostName.Namespace)
 	} else if err != nil {
 		return fmt.Errorf("get referenced host %s %q in namespace %q: %w", gvk.Kind, hostName.Name, hostName.Namespace, err)
@@ -206,7 +288,7 @@ func ensureManagedHostObject(ctx *synccontext.SyncContext, mapper synccontext.Ma
 	if err != nil {
 		return fmt.Errorf("check referenced host %s %q in namespace %q: %w", gvk.Kind, hostName.Name, hostName.Namespace, err)
 	}
-	if !managed || !translate.Default.IsManaged(ctx, hostObj) {
+	if !managed || !utiltranslate.Default.IsManaged(ctx, hostObj) {
 		return fmt.Errorf("referenced host %s %q in namespace %q is not managed by vCluster", gvk.Kind, hostName.Name, hostName.Namespace)
 	}
 	if hostObj.GetDeletionTimestamp() != nil {
@@ -216,13 +298,13 @@ func ensureManagedHostObject(ctx *synccontext.SyncContext, mapper synccontext.Ma
 	return nil
 }
 
-func enqueueRoutesReferencingObject(ctx *synccontext.RegisterContext, routeGVK schema.GroupVersionKind, nameMapping synccontext.NameMapping, queue workqueue.TypedRateLimitingInterface[ctrl.Request]) {
+func enqueueObjectsReferencingObject(ctx *synccontext.RegisterContext, objectGVK schema.GroupVersionKind, nameMapping synccontext.NameMapping, queue workqueue.TypedRateLimitingInterface[ctrl.Request]) {
 	references := ctx.Mappings.Store().ReferencesTo(ctx, synccontext.Object{
 		GroupVersionKind: nameMapping.GroupVersionKind,
 		NamespacedName:   nameMapping.VirtualName,
 	})
 	for _, reference := range references {
-		if reference.GroupVersionKind != routeGVK || reference.VirtualName.Name == "" {
+		if reference.GroupVersionKind != objectGVK || reference.VirtualName.Name == "" {
 			continue
 		}
 
@@ -267,7 +349,7 @@ func parentRefPort(ref gatewayv1.ParentReference) int32 {
 		return 0
 	}
 
-	return int32(*ref.Port)
+	return *ref.Port
 }
 
 func parentReferenceGVK(ref *gatewayv1.ParentReference) (schema.GroupVersionKind, error) {
@@ -307,4 +389,44 @@ func backendReferenceGVK(ref *gatewayv1.BackendObjectReference) (schema.GroupVer
 	}
 
 	return schema.GroupVersionKind{}, fmt.Errorf("backendRef group %q kind %q is not supported", group, kind)
+}
+
+func secretObjectReferenceGVK(ref *gatewayv1.SecretObjectReference) (schema.GroupVersionKind, error) {
+	group := corev1.GroupName
+	if ref.Group != nil {
+		group = string(*ref.Group)
+	}
+
+	kind := "Secret"
+	if ref.Kind != nil {
+		kind = string(*ref.Kind)
+	}
+
+	if group == corev1.GroupName && kind == "Secret" {
+		return mappings.Secrets(), nil
+	}
+
+	return schema.GroupVersionKind{}, fmt.Errorf("secretRef group %q kind %q is not supported", group, kind)
+}
+
+func localObjectReferenceGVK(ref *gatewayv1.LocalObjectReference) (schema.GroupVersionKind, error) {
+	group := string(ref.Group)
+	kind := string(ref.Kind)
+
+	if group == corev1.GroupName && kind == "ConfigMap" {
+		return mappings.ConfigMaps(), nil
+	}
+
+	return schema.GroupVersionKind{}, fmt.Errorf("localObjectRef group %q kind %q is not supported", group, kind)
+}
+
+func policyTargetReferenceGVK(ref *gatewayv1.LocalPolicyTargetReferenceWithSectionName) (schema.GroupVersionKind, error) {
+	group := string(ref.Group)
+	kind := string(ref.Kind)
+
+	if group == corev1.GroupName && kind == "Service" {
+		return mappings.Services(), nil
+	}
+
+	return schema.GroupVersionKind{}, fmt.Errorf("targetRef group %q kind %q is not supported", group, kind)
 }

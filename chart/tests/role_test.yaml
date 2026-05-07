@@ -433,6 +433,13 @@ tests:
             resources: ["tlsroutes"]
             verbs:
               ["create", "delete", "patch", "update", "get", "list", "watch"]
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["gateway.networking.k8s.io"]
+            resources: ["backendtlspolicies"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]
 
   - it: gateway sync excludes gateway routes when disabled
     set:
@@ -461,6 +468,13 @@ tests:
           content:
             apiGroups: ["gateway.networking.k8s.io"]
             resources: ["tlsroutes"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: ["gateway.networking.k8s.io"]
+            resources: ["backendtlspolicies"]
             verbs:
               ["create", "delete", "patch", "update", "get", "list", "watch"]
 

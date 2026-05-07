@@ -3,11 +3,11 @@ package resources
 import (
 	_ "embed"
 
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/mappings/generic"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -15,18 +15,12 @@ import (
 var gatewaysCRD string
 
 func CreateGatewayMapper(ctx *synccontext.RegisterContext) (synccontext.Mapper, error) {
-	gvk := schema.GroupVersionKind{
-		Group:   gatewayv1.GroupVersion.Group,
-		Version: gatewayv1.GroupVersion.Version,
-		Kind:    "Gateway",
-	}
-
-	err := ensureHostGatewayAPIKind(ctx, gvk, "sync.toHost.gateways.enabled")
+	err := ensureHostGatewayAPIKind(ctx, mappings.Gateways(), "sync.toHost.gateways.enabled")
 	if err != nil {
 		return nil, err
 	}
 
-	err = util.EnsureCRD(ctx.Context, ctx.VirtualManager.GetConfig(), []byte(gatewaysCRD), gvk)
+	err = util.EnsureCRD(ctx.Context, ctx.VirtualManager.GetConfig(), []byte(gatewaysCRD), mappings.Gateways())
 	if err != nil {
 		return nil, err
 	}

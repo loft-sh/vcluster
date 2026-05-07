@@ -3,7 +3,7 @@ package tlsroutes
 import (
 	"fmt"
 
-	"github.com/loft-sh/vcluster/pkg/controllers/resources/gatewayroutes"
+	routetranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/gatewayroutes/translate"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/pro"
@@ -59,7 +59,7 @@ func (s *tlsRouteSyncer) Options() *syncertypes.Options {
 }
 
 func (s *tlsRouteSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
-	return gatewayroutes.ModifyControllerForReferencedRoutes(ctx, builder, s.GroupVersionKind())
+	return routetranslate.RegisterReferencedWatches(ctx, builder, s.GroupVersionKind(), mappings.Gateways(), mappings.Services())
 }
 
 func (s *tlsRouteSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*gatewayv1.TLSRoute]) (ctrl.Result, error) {
@@ -81,7 +81,7 @@ func (s *tlsRouteSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccon
 }
 
 func (s *tlsRouteSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*gatewayv1.TLSRoute]) (_ ctrl.Result, retErr error) {
-	hSpec, err := translateSpecToHost(ctx, event.Virtual, false)
+	hSpec, err := specToHost(ctx, event.Virtual, false)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to translate spec: %w", err)
 	}
@@ -108,7 +108,7 @@ func (s *tlsRouteSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.S
 		}
 	}()
 
-	vStatus, err := translateStatusToVirtual(ctx, event.Host, event.Virtual.Namespace, event.Host.Status)
+	vStatus, err := statusToVirtual(ctx, event.Host, event.Virtual.Namespace, event.Host.Status)
 	if err != nil {
 		retErr = fmt.Errorf("failed to translate status: %w", err)
 	} else {

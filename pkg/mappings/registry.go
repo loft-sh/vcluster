@@ -168,6 +168,14 @@ func TLSRoutes() schema.GroupVersionKind {
 	}
 }
 
+func BackendTLSPolicies() schema.GroupVersionKind {
+	return schema.GroupVersionKind{
+		Group:   gatewayv1.GroupVersion.Group,
+		Version: gatewayv1.GroupVersion.Version,
+		Kind:    "BackendTLSPolicy",
+	}
+}
+
 func PersistentVolumeClaims() schema.GroupVersionKind {
 	return corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim")
 }

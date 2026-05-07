@@ -12,7 +12,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -94,7 +94,7 @@ func TestSyncRejectsUnsyncedParentGateway(t *testing.T) {
 
 	storedHostRoute := &gatewayv1.TLSRoute{}
 	err = syncCtx.HostClient.Get(syncCtx, types.NamespacedName{Name: hostName(testRouteName), Namespace: hostNamespace(testRouteNamespace)}, storedHostRoute)
-	assert.Assert(t, apierrors.IsNotFound(err))
+	assert.Assert(t, kerrors.IsNotFound(err))
 }
 
 func TestSyncContinuesWhenStatusTranslationFails(t *testing.T) {
