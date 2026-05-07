@@ -21,6 +21,8 @@ concurrency:
 permissions:
   contents: read
   pull-requests: read
+  id-token: write
+  actions: read
 
 env:
   REPOSITORY_NAME: ghcr.io/loft-sh/vcluster
@@ -92,10 +94,25 @@ jobs:
             echo "Bridge netfilter modules are already enabled"
           fi
 
+      - name: GCP Login
+        id: gcp-auth
+        continue-on-error: true
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+
+      - name: Set up gcloud
+        if: steps.gcp-auth.outcome == 'success'
+        uses: google-github-actions/setup-gcloud@v2
+
       - name: Run e2e-next tests
         id: run-tests
         uses: loft-sh/github-actions/.github/actions/run-ginkgo@run-ginkgo/v1
         with:
+          upload-report: "true"
+          reports-bucket: ${{ vars.E2E_INSIGHTS_BUCKET }}
+          workflow-file: e2e-ginkgo-nightly.yaml
           ginkgo-label: ${{ inputs.ginkgo-label }}
           timeout: "60m"
           additional-args: "--vcluster-image=${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }} --teardown=false"

@@ -191,6 +191,7 @@ jobs:
       id-token: write        # needed for OIDC → AWS
       contents: read
       pull-requests: write   # needed for sticky-pr-comment upsert
+      actions: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -234,10 +235,25 @@ jobs:
             echo "Bridge netfilter modules are already enabled"
           fi
 
+      - name: GCP Login
+        id: gcp-auth
+        continue-on-error: true
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+
+      - name: Set up gcloud
+        if: steps.gcp-auth.outcome == 'success'
+        uses: google-github-actions/setup-gcloud@v2
+
       - name: Run vCluster Ginkgo E2E Tests
         id: execute-e2e-tests
         uses: loft-sh/github-actions/.github/actions/run-ginkgo@run-ginkgo/v1
         with:
+          upload-report: "true"
+          reports-bucket: ${{ vars.E2E_INSIGHTS_BUCKET }}
+          workflow-file: e2e-ginkgo.yaml
           ginkgo-label: "${{ needs.parse_label-filter.outputs.label-filter }} || pr"
           additional-args: "--vcluster-image=${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }} --teardown=false"
           additional-ginkgo-flags: "-v --show-node-events"
