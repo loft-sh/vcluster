@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
+	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -392,14 +394,10 @@ func (cmd *connectHelm) getVClusterKubeConfig(ctx context.Context, vclusterName 
 
 			cluster.Server = cmd.Server
 		} else {
-			splitted := strings.Split(cluster.Server, ":")
-			if len(splitted) != 3 {
-				return nil, fmt.Errorf("unexpected server in kubeconfig: %s", cluster.Server)
+			cluster.Server, port, err = portForwardServer(cluster.Server, cmd.LocalPort)
+			if err != nil {
+				return nil, err
 			}
-
-			port = splitted[2]
-			splitted[2] = strconv.Itoa(cmd.LocalPort)
-			cluster.Server = strings.Join(splitted, ":")
 		}
 	}
 
@@ -456,6 +454,37 @@ func (cmd *connectHelm) getVClusterKubeConfig(ctx context.Context, vclusterName 
 	}
 
 	return kubeConfig, nil
+}
+
+func portForwardServer(server string, localPort int) (string, string, error) {
+	parsed, err := url.Parse(server)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return "", "", fmt.Errorf("unexpected server in kubeconfig: %s", server)
+	}
+
+	remotePort, err := serverPort(parsed)
+	if err != nil {
+		return "", "", err
+	}
+
+	parsed.Host = net.JoinHostPort("localhost", strconv.Itoa(localPort))
+	return parsed.String(), remotePort, nil
+}
+
+func serverPort(parsed *url.URL) (string, error) {
+	if parsed.Port() != "" {
+		return parsed.Port(), nil
+	}
+
+	switch parsed.Scheme {
+	case "https", "http":
+		// Port-forwarding targets the vCluster pod directly, where the proxy
+		// listens on 8443. Implicit URL ports are only Service or ingress-facing
+		// ports and are not available on the pod.
+		return "8443", nil
+	default:
+		return "", fmt.Errorf("unexpected server scheme in kubeconfig: %s", parsed.String())
+	}
 }
 
 func getServiceAccountClientAndName(kubeConfig clientcmdapi.Config, options *ConnectOptions) (kubernetes.Interface, string, string, error) {
