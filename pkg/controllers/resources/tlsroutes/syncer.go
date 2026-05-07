@@ -1,4 +1,4 @@
-package httproutes
+package tlsroutes
 
 import (
 	"fmt"
@@ -20,16 +20,16 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-type httpRouteSyncer struct {
+type tlsRouteSyncer struct {
 	syncertypes.GenericTranslator
 	syncertypes.Importer
 }
 
 var (
-	_ syncertypes.Object             = &httpRouteSyncer{}
-	_ syncertypes.Syncer             = &httpRouteSyncer{}
-	_ syncertypes.OptionsProvider    = &httpRouteSyncer{}
-	_ syncertypes.ControllerModifier = &httpRouteSyncer{}
+	_ syncertypes.Object             = &tlsRouteSyncer{}
+	_ syncertypes.Syncer             = &tlsRouteSyncer{}
+	_ syncertypes.OptionsProvider    = &tlsRouteSyncer{}
+	_ syncertypes.ControllerModifier = &tlsRouteSyncer{}
 )
 
 func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
@@ -37,32 +37,32 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 }
 
 func NewSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
-	mapper, err := ctx.Mappings.ByGVK(mappings.HTTPRoutes())
+	mapper, err := ctx.Mappings.ByGVK(mappings.TLSRoutes())
 	if err != nil {
 		return nil, err
 	}
 
-	return &httpRouteSyncer{
-		GenericTranslator: translator.NewGenericTranslator(ctx, "httproute", &gatewayv1.HTTPRoute{}, mapper),
+	return &tlsRouteSyncer{
+		GenericTranslator: translator.NewGenericTranslator(ctx, "tlsroute", &gatewayv1.TLSRoute{}, mapper),
 		Importer:          pro.NewImporter(mapper),
 	}, nil
 }
 
-func (s *httpRouteSyncer) Syncer() syncertypes.Sync[client.Object] {
-	return syncer.ToGenericSyncer[*gatewayv1.HTTPRoute](s)
+func (s *tlsRouteSyncer) Syncer() syncertypes.Sync[client.Object] {
+	return syncer.ToGenericSyncer[*gatewayv1.TLSRoute](s)
 }
 
-func (s *httpRouteSyncer) Options() *syncertypes.Options {
+func (s *tlsRouteSyncer) Options() *syncertypes.Options {
 	return &syncertypes.Options{
 		ObjectCaching: true,
 	}
 }
 
-func (s *httpRouteSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
+func (s *tlsRouteSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
 	return gatewayroutes.ModifyControllerForReferencedRoutes(ctx, builder, s.GroupVersionKind())
 }
 
-func (s *httpRouteSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*gatewayv1.HTTPRoute]) (ctrl.Result, error) {
+func (s *tlsRouteSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*gatewayv1.TLSRoute]) (ctrl.Result, error) {
 	if event.HostOld != nil || event.Virtual.DeletionTimestamp != nil {
 		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.HostOld, "host object was deleted")
 	}
@@ -80,7 +80,7 @@ func (s *httpRouteSyncer) SyncToHost(ctx *synccontext.SyncContext, event *syncco
 	return patcher.CreateHostObject(ctx, event.Virtual, pObj, s.EventRecorder(), true)
 }
 
-func (s *httpRouteSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*gatewayv1.HTTPRoute]) (_ ctrl.Result, retErr error) {
+func (s *tlsRouteSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*gatewayv1.TLSRoute]) (_ ctrl.Result, retErr error) {
 	hSpec, err := translateSpecToHost(ctx, event.Virtual, false)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to translate spec: %w", err)
@@ -121,7 +121,7 @@ func (s *httpRouteSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.
 	return ctrl.Result{}, retErr
 }
 
-func (s *httpRouteSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*gatewayv1.HTTPRoute]) (ctrl.Result, error) {
+func (s *tlsRouteSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*gatewayv1.TLSRoute]) (ctrl.Result, error) {
 	if event.VirtualOld != nil || translate.ShouldDeleteHostObject(event.Host) {
 		return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")
 	}

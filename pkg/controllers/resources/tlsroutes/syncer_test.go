@@ -1,4 +1,4 @@
-package httproutes
+package tlsroutes
 
 import (
 	"testing"
@@ -27,8 +27,6 @@ const (
 	testParentNamespace  = "gateway-ns"
 	testGatewayName      = "testgateway"
 	testServiceName      = "testservice"
-	testMirrorService    = "mirrorservice"
-	testAuthService      = "authservice"
 	testControllerName   = gatewayv1.GatewayController("example.com/gateway-controller")
 	testUnsupportedGroup = gatewayv1.Group("example.com")
 )
@@ -40,26 +38,26 @@ func TestSync(t *testing.T) {
 	virtualStatus := virtualRouteStatus()
 	vObjectMeta := virtualRouteMeta()
 	pObjectMeta := hostRouteMeta()
-	baseRoute := httpRoute(vObjectMeta, vBaseSpec)
-	createdRoute := httpRoute(pObjectMeta, pBaseSpec)
-	hostRouteWithStatus := httpRoute(pObjectMeta, gatewayv1.HTTPRouteSpec{}, withStatus(hostStatus))
-	expectedHostRouteWithStatus := httpRoute(pObjectMeta, pBaseSpec, withStatus(hostStatus))
-	expectedVirtualRouteWithStatus := httpRoute(vObjectMeta, vBaseSpec, withStatus(virtualStatus))
+	baseRoute := tlsRoute(vObjectMeta, vBaseSpec)
+	createdRoute := tlsRoute(pObjectMeta, pBaseSpec)
+	hostRouteWithStatus := tlsRoute(pObjectMeta, gatewayv1.TLSRouteSpec{}, withStatus(hostStatus))
+	expectedHostRouteWithStatus := tlsRoute(pObjectMeta, pBaseSpec, withStatus(hostStatus))
+	expectedVirtualRouteWithStatus := tlsRoute(vObjectMeta, vBaseSpec, withStatus(virtualStatus))
 
-	syncertesting.RunTestsWithContext(t, newHTTPRouteRegisterContext, []*syncertesting.SyncTest{
+	syncertesting.RunTestsWithContext(t, newTLSRouteRegisterContext, []*syncertesting.SyncTest{
 		{
 			Name:                 "Create forward",
 			InitialVirtualState:  []runtime.Object{baseRoute.DeepCopy()},
 			InitialPhysicalState: hostRefObjects(testRouteNamespace),
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				mappings.HTTPRoutes(): {baseRoute.DeepCopy()},
+				mappings.TLSRoutes(): {baseRoute.DeepCopy()},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				mappings.HTTPRoutes(): {createdRoute.DeepCopy()},
+				mappings.TLSRoutes(): {createdRoute.DeepCopy()},
 			},
 			Sync: func(registerContext *synccontext.RegisterContext) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, registerContext, NewSyncer)
-				_, err := syncer.(*httpRouteSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(baseRoute.DeepCopy()))
+				_, err := syncer.(*tlsRouteSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(baseRoute.DeepCopy()))
 				assert.NilError(t, err)
 			},
 		},
@@ -68,10 +66,10 @@ func TestSync(t *testing.T) {
 			InitialVirtualState:  []runtime.Object{baseRoute.DeepCopy(), virtualGateway()},
 			InitialPhysicalState: append([]runtime.Object{hostRouteWithStatus.DeepCopy()}, hostRefObjects(testRouteNamespace)...),
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
-				mappings.HTTPRoutes(): {expectedVirtualRouteWithStatus.DeepCopy()},
+				mappings.TLSRoutes(): {expectedVirtualRouteWithStatus.DeepCopy()},
 			},
 			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
-				mappings.HTTPRoutes(): {expectedHostRouteWithStatus.DeepCopy()},
+				mappings.TLSRoutes(): {expectedHostRouteWithStatus.DeepCopy()},
 			},
 			Sync: func(registerContext *synccontext.RegisterContext) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, registerContext, NewSyncer)
@@ -80,7 +78,7 @@ func TestSync(t *testing.T) {
 				vRoute := baseRoute.DeepCopy()
 				vRoute.ResourceVersion = "999"
 
-				_, err := syncer.(*httpRouteSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(pRoute, pRoute, vRoute, vRoute))
+				_, err := syncer.(*tlsRouteSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(pRoute, pRoute, vRoute, vRoute))
 				assert.NilError(t, err)
 			},
 		},
@@ -88,36 +86,20 @@ func TestSync(t *testing.T) {
 }
 
 func TestSyncRejectsUnsyncedParentGateway(t *testing.T) {
-	vRoute := httpRoute(virtualRouteMeta(), routeSpec())
-	syncCtx, syncer := startHTTPRouteSyncer(t, hostServiceObjects(testRouteNamespace), []runtime.Object{vRoute}, nil)
+	vRoute := tlsRoute(virtualRouteMeta(), routeSpec())
+	syncCtx, syncer := startTLSRouteSyncer(t, hostServiceObjects(testRouteNamespace), []runtime.Object{vRoute}, nil)
 
 	_, err := syncer.SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vRoute.DeepCopy()))
 	assert.ErrorContains(t, err, `referenced Gateway "testgateway" in namespace "test" has no synced host object`)
 
-	storedHostRoute := &gatewayv1.HTTPRoute{}
+	storedHostRoute := &gatewayv1.TLSRoute{}
 	err = syncCtx.HostClient.Get(syncCtx, types.NamespacedName{Name: hostName(testRouteName), Namespace: hostNamespace(testRouteNamespace)}, storedHostRoute)
 	assert.Assert(t, apierrors.IsNotFound(err))
 }
 
-func TestSyncSkipsReferenceValidationOnUpdate(t *testing.T) {
-	vRoute := httpRoute(virtualRouteMeta(), routeSpec())
-	pRoute := httpRoute(hostRouteMeta(), gatewayv1.HTTPRouteSpec{})
-	syncCtx, syncer := startHTTPRouteSyncer(
-		t,
-		[]runtime.Object{pRoute.DeepCopy()},
-		[]runtime.Object{vRoute.DeepCopy()},
-		nil,
-	)
-
-	pRoute.ResourceVersion = "999"
-	vRoute.ResourceVersion = "999"
-	_, err := syncer.Sync(syncCtx, synccontext.NewSyncEventWithOld(pRoute.DeepCopy(), pRoute.DeepCopy(), vRoute.DeepCopy(), vRoute.DeepCopy()))
-	assert.NilError(t, err)
-}
-
 func TestSyncContinuesWhenStatusTranslationFails(t *testing.T) {
-	vRoute := httpRoute(virtualRouteMeta(), routeSpec())
-	pRoute := httpRoute(hostRouteMeta(), gatewayv1.HTTPRouteSpec{}, withStatus(gatewayv1.HTTPRouteStatus{
+	vRoute := tlsRoute(virtualRouteMeta(), routeSpec())
+	pRoute := tlsRoute(hostRouteMeta(), gatewayv1.TLSRouteSpec{}, withStatus(gatewayv1.TLSRouteStatus{
 		RouteStatus: gatewayv1.RouteStatus{
 			Parents: []gatewayv1.RouteParentStatus{
 				{
@@ -127,7 +109,7 @@ func TestSyncContinuesWhenStatusTranslationFails(t *testing.T) {
 			},
 		},
 	}))
-	syncCtx, syncer := startHTTPRouteSyncer(
+	syncCtx, syncer := startTLSRouteSyncer(
 		t,
 		append([]runtime.Object{pRoute.DeepCopy()}, hostRefObjects(testRouteNamespace)...),
 		[]runtime.Object{vRoute.DeepCopy()},
@@ -139,16 +121,16 @@ func TestSyncContinuesWhenStatusTranslationFails(t *testing.T) {
 	_, err := syncer.Sync(syncCtx, synccontext.NewSyncEventWithOld(pRoute.DeepCopy(), pRoute.DeepCopy(), vRoute.DeepCopy(), vRoute.DeepCopy()))
 	assert.ErrorContains(t, err, `failed to translate status`)
 
-	storedHostRoute := &gatewayv1.HTTPRoute{}
+	storedHostRoute := &gatewayv1.TLSRoute{}
 	err = syncCtx.HostClient.Get(syncCtx, types.NamespacedName{Name: pRoute.Name, Namespace: pRoute.Namespace}, storedHostRoute)
 	assert.NilError(t, err)
 	assert.DeepEqual(t, storedHostRoute.Spec, hostRouteSpec())
 }
 
 func TestSyncCrossNamespaceParentRef(t *testing.T) {
-	vRoute := httpRoute(virtualRouteMeta(), routeSpecWithParentNamespace(testParentNamespace))
-	pRoute := httpRoute(hostRouteMeta(), hostRouteSpecWithParentNamespace(testParentNamespace), withStatus(hostRouteStatusForNamespace(testParentNamespace, false)))
-	syncCtx, syncer := startHTTPRouteSyncer(
+	vRoute := tlsRoute(virtualRouteMeta(), routeSpecWithParentNamespace(testParentNamespace))
+	pRoute := tlsRoute(hostRouteMeta(), hostRouteSpecWithParentNamespace(testParentNamespace), withStatus(hostRouteStatusForNamespace(testParentNamespace, false)))
+	syncCtx, syncer := startTLSRouteSyncer(
 		t,
 		append([]runtime.Object{pRoute.DeepCopy()}, hostRefObjects(testRouteNamespace, testParentNamespace)...),
 		[]runtime.Object{vRoute.DeepCopy(), virtualGatewayWithNamespace(testParentNamespace)},
@@ -158,7 +140,7 @@ func TestSyncCrossNamespaceParentRef(t *testing.T) {
 	_, err := syncer.SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vRoute.DeepCopy()))
 	assert.NilError(t, err)
 
-	storedHostRoute := &gatewayv1.HTTPRoute{}
+	storedHostRoute := &gatewayv1.TLSRoute{}
 	err = syncCtx.HostClient.Get(syncCtx, types.NamespacedName{Name: hostName(testRouteName), Namespace: hostNamespace(testRouteNamespace)}, storedHostRoute)
 	assert.NilError(t, err)
 	assert.Equal(t, string(storedHostRoute.Spec.ParentRefs[0].Name), hostNameForNamespace(testGatewayName, testParentNamespace))
@@ -170,7 +152,7 @@ func TestSyncCrossNamespaceParentRef(t *testing.T) {
 	_, err = syncer.Sync(syncCtx, synccontext.NewSyncEventWithOld(pRoute.DeepCopy(), pRoute.DeepCopy(), vRoute.DeepCopy(), vRoute.DeepCopy()))
 	assert.NilError(t, err)
 
-	storedVirtualRoute := &gatewayv1.HTTPRoute{}
+	storedVirtualRoute := &gatewayv1.TLSRoute{}
 	err = syncCtx.VirtualClient.Get(syncCtx, types.NamespacedName{Name: vRoute.Name, Namespace: vRoute.Namespace}, storedVirtualRoute)
 	assert.NilError(t, err)
 	assert.Equal(t, string(storedVirtualRoute.Status.Parents[0].ParentRef.Name), testGatewayName)
@@ -181,12 +163,12 @@ func TestSyncCrossNamespaceParentRef(t *testing.T) {
 func TestSyncRejectsUnsupportedRefs(t *testing.T) {
 	tests := []struct {
 		name        string
-		route       *gatewayv1.HTTPRoute
+		route       *gatewayv1.TLSRoute
 		expectedErr string
 	}{
 		{
 			name: "Unsupported parentRef",
-			route: httpRoute(virtualRouteMeta(), gatewayv1.HTTPRouteSpec{
+			route: tlsRoute(virtualRouteMeta(), gatewayv1.TLSRouteSpec{
 				CommonRouteSpec: gatewayv1.CommonRouteSpec{
 					ParentRefs: []gatewayv1.ParentReference{
 						{
@@ -201,20 +183,18 @@ func TestSyncRejectsUnsupportedRefs(t *testing.T) {
 		},
 		{
 			name: "Unsupported backendRef",
-			route: httpRoute(virtualRouteMeta(), gatewayv1.HTTPRouteSpec{
+			route: tlsRoute(virtualRouteMeta(), gatewayv1.TLSRouteSpec{
 				CommonRouteSpec: gatewayv1.CommonRouteSpec{
 					ParentRefs: []gatewayv1.ParentReference{{Name: gatewayv1.ObjectName(testGatewayName)}},
 				},
-				Rules: []gatewayv1.HTTPRouteRule{
+				Rules: []gatewayv1.TLSRouteRule{
 					{
-						BackendRefs: []gatewayv1.HTTPBackendRef{
+						BackendRefs: []gatewayv1.BackendRef{
 							{
-								BackendRef: gatewayv1.BackendRef{
-									BackendObjectReference: gatewayv1.BackendObjectReference{
-										Group: ptr.To(testUnsupportedGroup),
-										Kind:  ptr.To(gatewayv1.Kind("ExampleBackend")),
-										Name:  gatewayv1.ObjectName(testServiceName),
-									},
+								BackendObjectReference: gatewayv1.BackendObjectReference{
+									Group: ptr.To(testUnsupportedGroup),
+									Kind:  ptr.To(gatewayv1.Kind("ExampleBackend")),
+									Name:  gatewayv1.ObjectName(testServiceName),
 								},
 							},
 						},
@@ -227,24 +207,24 @@ func TestSyncRejectsUnsupportedRefs(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			syncCtx, syncer := startHTTPRouteSyncer(t, hostRefObjects(testRouteNamespace), []runtime.Object{tc.route}, nil)
+			syncCtx, syncer := startTLSRouteSyncer(t, hostRefObjects(testRouteNamespace), []runtime.Object{tc.route}, nil)
 			_, err := syncer.SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(tc.route.DeepCopy()))
 			assert.ErrorContains(t, err, tc.expectedErr)
 		})
 	}
 }
 
-func newHTTPRouteRegisterContext(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
+func newTLSRouteRegisterContext(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
 	vConfig.Sync.ToHost.Gateways.Enabled = true
 	return syncertesting.NewFakeRegisterContext(vConfig, pClient, vClient)
 }
 
-func startHTTPRouteSyncer(
+func startTLSRouteSyncer(
 	t *testing.T,
 	initialPhysicalState []runtime.Object,
 	initialVirtualState []runtime.Object,
 	adjustConfig func(*config.VirtualClusterConfig),
-) (*synccontext.SyncContext, *httpRouteSyncer) {
+) (*synccontext.SyncContext, *tlsRouteSyncer) {
 	t.Helper()
 
 	pClient := testingutil.NewFakeClient(scheme.Scheme, initialPhysicalState...)
@@ -254,21 +234,21 @@ func startHTTPRouteSyncer(
 		adjustConfig(vConfig)
 	}
 
-	registerContext := newHTTPRouteRegisterContext(vConfig, pClient, vClient)
+	registerContext := newTLSRouteRegisterContext(vConfig, pClient, vClient)
 	syncCtx, syncer := syncertesting.FakeStartSyncer(t, registerContext, NewSyncer)
-	return syncCtx, syncer.(*httpRouteSyncer)
+	return syncCtx, syncer.(*tlsRouteSyncer)
 }
 
-type httpRouteOption func(*gatewayv1.HTTPRoute)
+type tlsRouteOption func(*gatewayv1.TLSRoute)
 
-func withStatus(status gatewayv1.HTTPRouteStatus) httpRouteOption {
-	return func(route *gatewayv1.HTTPRoute) {
+func withStatus(status gatewayv1.TLSRouteStatus) tlsRouteOption {
+	return func(route *gatewayv1.TLSRoute) {
 		route.Status = status
 	}
 }
 
-func httpRoute(meta metav1.ObjectMeta, spec gatewayv1.HTTPRouteSpec, opts ...httpRouteOption) *gatewayv1.HTTPRoute {
-	ret := &gatewayv1.HTTPRoute{
+func tlsRoute(meta metav1.ObjectMeta, spec gatewayv1.TLSRouteSpec, opts ...tlsRouteOption) *gatewayv1.TLSRoute {
+	ret := &gatewayv1.TLSRoute{
 		ObjectMeta: meta,
 		Spec:       spec,
 	}
@@ -278,42 +258,37 @@ func httpRoute(meta metav1.ObjectMeta, spec gatewayv1.HTTPRouteSpec, opts ...htt
 	return ret
 }
 
-func routeSpec() gatewayv1.HTTPRouteSpec {
+func routeSpec() gatewayv1.TLSRouteSpec {
 	return routeSpecWithParentNamespace("")
 }
 
-func routeSpecWithParentNamespace(parentNamespace string) gatewayv1.HTTPRouteSpec {
+func routeSpecWithParentNamespace(parentNamespace string) gatewayv1.TLSRouteSpec {
 	parentRef := gatewayv1.ParentReference{Name: gatewayv1.ObjectName(testGatewayName)}
 	if parentNamespace != "" {
 		parentRef.Namespace = ptr.To(gatewayv1.Namespace(parentNamespace))
 	}
 
-	return gatewayv1.HTTPRouteSpec{
+	return gatewayv1.TLSRouteSpec{
 		CommonRouteSpec: gatewayv1.CommonRouteSpec{
 			ParentRefs: []gatewayv1.ParentReference{
 				parentRef,
 			},
 		},
 		Hostnames: []gatewayv1.Hostname{"example.com"},
-		Rules: []gatewayv1.HTTPRouteRule{
+		Rules: []gatewayv1.TLSRouteRule{
 			{
-				BackendRefs: []gatewayv1.HTTPBackendRef{
-					serviceBackendRef(testServiceName, withBackendRefFilter(mirrorFilter(testMirrorService))),
-				},
-				Filters: []gatewayv1.HTTPRouteFilter{
-					mirrorFilter(testMirrorService),
-					externalAuthFilter(testAuthService),
-				},
+				Name:        ptr.To(gatewayv1.SectionName("tls")),
+				BackendRefs: []gatewayv1.BackendRef{serviceBackendRef(testServiceName)},
 			},
 		},
 	}
 }
 
-func hostRouteSpec() gatewayv1.HTTPRouteSpec {
+func hostRouteSpec() gatewayv1.TLSRouteSpec {
 	return hostRouteSpecWithParentNamespace("")
 }
 
-func hostRouteSpecWithParentNamespace(parentNamespace string) gatewayv1.HTTPRouteSpec {
+func hostRouteSpecWithParentNamespace(parentNamespace string) gatewayv1.TLSRouteSpec {
 	spec := routeSpecWithParentNamespace(parentNamespace)
 	ret := *spec.DeepCopy()
 	ret.ParentRefs[0].Name = gatewayv1.ObjectName(hostNameForNamespace(testGatewayName, refNamespaceOrDefault(parentNamespace, testRouteNamespace)))
@@ -321,9 +296,6 @@ func hostRouteSpecWithParentNamespace(parentNamespace string) gatewayv1.HTTPRout
 		ret.ParentRefs[0].Namespace = ptr.To(gatewayv1.Namespace(hostNamespace(parentNamespace)))
 	}
 	ret.Rules[0].BackendRefs[0].Name = gatewayv1.ObjectName(hostName(testServiceName))
-	ret.Rules[0].BackendRefs[0].Filters[0].RequestMirror.BackendRef.Name = gatewayv1.ObjectName(hostName(testMirrorService))
-	ret.Rules[0].Filters[0].RequestMirror.BackendRef.Name = gatewayv1.ObjectName(hostName(testMirrorService))
-	ret.Rules[0].Filters[1].ExternalAuth.BackendRef.Name = gatewayv1.ObjectName(hostName(testAuthService))
 	return ret
 }
 
@@ -335,72 +307,34 @@ func refNamespaceOrDefault(namespace, defaultNamespace string) string {
 	return namespace
 }
 
-type backendRefOption func(*gatewayv1.HTTPBackendRef)
-
-func withBackendRefFilter(filter gatewayv1.HTTPRouteFilter) backendRefOption {
-	return func(ref *gatewayv1.HTTPBackendRef) {
-		ref.Filters = append(ref.Filters, filter)
-	}
-}
-
-func serviceBackendRef(name string, opts ...backendRefOption) gatewayv1.HTTPBackendRef {
-	ret := gatewayv1.HTTPBackendRef{
-		BackendRef: gatewayv1.BackendRef{
-			BackendObjectReference: gatewayv1.BackendObjectReference{
-				Name: gatewayv1.ObjectName(name),
-				Port: ptr.To(gatewayv1.PortNumber(80)),
-			},
+func serviceBackendRef(name string) gatewayv1.BackendRef {
+	return gatewayv1.BackendRef{
+		BackendObjectReference: gatewayv1.BackendObjectReference{
+			Name: gatewayv1.ObjectName(name),
+			Port: ptr.To(gatewayv1.PortNumber(443)),
 		},
-	}
-	for _, opt := range opts {
-		opt(&ret)
-	}
-	return ret
-}
-
-func mirrorFilter(serviceName string) gatewayv1.HTTPRouteFilter {
-	return gatewayv1.HTTPRouteFilter{
-		Type: gatewayv1.HTTPRouteFilterRequestMirror,
-		RequestMirror: &gatewayv1.HTTPRequestMirrorFilter{
-			BackendRef: gatewayv1.BackendObjectReference{
-				Name: gatewayv1.ObjectName(serviceName),
-				Port: ptr.To(gatewayv1.PortNumber(80)),
-			},
-		},
+		Weight: ptr.To[int32](2),
 	}
 }
 
-func externalAuthFilter(serviceName string) gatewayv1.HTTPRouteFilter {
-	return gatewayv1.HTTPRouteFilter{
-		Type: gatewayv1.HTTPRouteFilterExternalAuth,
-		ExternalAuth: &gatewayv1.HTTPExternalAuthFilter{
-			ExternalAuthProtocol: gatewayv1.HTTPRouteExternalAuthHTTPProtocol,
-			BackendRef: gatewayv1.BackendObjectReference{
-				Name: gatewayv1.ObjectName(serviceName),
-				Port: ptr.To(gatewayv1.PortNumber(80)),
-			},
-		},
-	}
-}
-
-func virtualRouteStatus() gatewayv1.HTTPRouteStatus {
+func virtualRouteStatus() gatewayv1.TLSRouteStatus {
 	status := hostRouteStatus()
 	status.Parents[0].ParentRef.Name = gatewayv1.ObjectName(testGatewayName)
 	status.Parents[0].ParentRef.Namespace = nil
 	return status
 }
 
-func hostRouteStatus() gatewayv1.HTTPRouteStatus {
+func hostRouteStatus() gatewayv1.TLSRouteStatus {
 	return hostRouteStatusForNamespace(testRouteNamespace, true)
 }
 
-func hostRouteStatusForNamespace(parentNamespace string, includeNamespace bool) gatewayv1.HTTPRouteStatus {
+func hostRouteStatusForNamespace(parentNamespace string, includeNamespace bool) gatewayv1.TLSRouteStatus {
 	parentRef := gatewayv1.ParentReference{Name: gatewayv1.ObjectName(hostNameForNamespace(testGatewayName, parentNamespace))}
 	if includeNamespace {
 		parentRef.Namespace = ptr.To(gatewayv1.Namespace(hostNamespace(parentNamespace)))
 	}
 
-	return gatewayv1.HTTPRouteStatus{
+	return gatewayv1.TLSRouteStatus{
 		RouteStatus: gatewayv1.RouteStatus{
 			Parents: []gatewayv1.RouteParentStatus{
 				{
@@ -435,7 +369,7 @@ func hostRouteMeta() metav1.ObjectMeta {
 			translate.NameAnnotation:          testRouteName,
 			translate.NamespaceAnnotation:     testRouteNamespace,
 			translate.UIDAnnotation:           "",
-			translate.KindAnnotation:          mappings.HTTPRoutes().String(),
+			translate.KindAnnotation:          mappings.TLSRoutes().String(),
 			translate.HostNamespaceAnnotation: testRouteNamespace,
 			translate.HostNameAnnotation:      hostRouteName,
 		},
@@ -487,8 +421,6 @@ func hostRefObjects(namespaces ...string) []runtime.Object {
 func hostServiceObjects(namespace string) []runtime.Object {
 	return []runtime.Object{
 		hostService(testServiceName, namespace),
-		hostService(testMirrorService, namespace),
-		hostService(testAuthService, namespace),
 	}
 }
 

@@ -160,6 +160,14 @@ func HTTPRoutes() schema.GroupVersionKind {
 	}
 }
 
+func TLSRoutes() schema.GroupVersionKind {
+	return schema.GroupVersionKind{
+		Group:   gatewayv1.GroupVersion.Group,
+		Version: gatewayv1.GroupVersion.Version,
+		Kind:    "TLSRoute",
+	}
+}
+
 func PersistentVolumeClaims() schema.GroupVersionKind {
 	return corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim")
 }

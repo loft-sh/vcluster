@@ -22,6 +22,7 @@ func getMappers(ctx *synccontext.RegisterContext) []BuildMapper {
 		isEnabled(ctx.Config.Sync.ToHost.Ingresses.Enabled, CreateIngressesMapper),
 		isEnabled(ctx.Config.Sync.ToHost.Gateways.Enabled, CreateGatewayMapper),
 		isEnabled(ctx.Config.Sync.ToHost.Gateways.Enabled, CreateHTTPRouteMapper),
+		isEnabled(ctx.Config.Sync.ToHost.Gateways.Enabled, CreateTLSRouteMapper),
 		CreateNamespacesMapper,
 		isEnabled(ctx.Config.Sync.ToHost.NetworkPolicies.Enabled, CreateNetworkPoliciesMapper),
 		CreateNodesMapper,

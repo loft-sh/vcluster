@@ -28,6 +28,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/serviceaccounts"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/storageclasses"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/tlsroutes"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshotclasses"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshotcontents"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots"
@@ -59,6 +60,7 @@ func getSyncers(ctx *synccontext.RegisterContext) []BuildController {
 		isEnabled(ctx.Config.Sync.ToHost.Ingresses.Enabled, ingresses.New),
 		isEnabled(ctx.Config.Sync.ToHost.Gateways.Enabled, gateways.New),
 		isEnabled(ctx.Config.Sync.ToHost.Gateways.Enabled, httproutes.New),
+		isEnabled(ctx.Config.Sync.ToHost.Gateways.Enabled, tlsroutes.New),
 		isEnabled(ctx.Config.Sync.FromHost.IngressClasses.Enabled, ingressclasses.New),
 		isEnabled(ctx.Config.Sync.FromHost.GatewayClasses.Enabled, gatewayclasses.New),
 		isEnabled(ctx.Config.Sync.FromHost.RuntimeClasses.Enabled, runtimeclasses.New),

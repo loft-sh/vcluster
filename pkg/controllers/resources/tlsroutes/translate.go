@@ -1,4 +1,4 @@
-package httproutes
+package tlsroutes
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-func (s *httpRouteSyncer) translate(ctx *synccontext.SyncContext, vRoute *gatewayv1.HTTPRoute) (*gatewayv1.HTTPRoute, error) {
+func (s *tlsRouteSyncer) translate(ctx *synccontext.SyncContext, vRoute *gatewayv1.TLSRoute) (*gatewayv1.TLSRoute, error) {
 	pRoute := translate.HostMetadata(vRoute, s.VirtualToHost(ctx, types.NamespacedName{Name: vRoute.Name, Namespace: vRoute.Namespace}, vRoute))
 
 	spec, err := translateSpecToHost(ctx, vRoute, true)
@@ -22,7 +22,7 @@ func (s *httpRouteSyncer) translate(ctx *synccontext.SyncContext, vRoute *gatewa
 	return pRoute, nil
 }
 
-func translateSpecToHost(ctx *synccontext.SyncContext, vRoute *gatewayv1.HTTPRoute, validateRefs bool) (*gatewayv1.HTTPRouteSpec, error) {
+func translateSpecToHost(ctx *synccontext.SyncContext, vRoute *gatewayv1.TLSRoute, validateRefs bool) (*gatewayv1.TLSRouteSpec, error) {
 	retSpec := vRoute.Spec.DeepCopy()
 
 	for i := range retSpec.ParentRefs {
@@ -42,48 +42,25 @@ func translateSpecToHost(ctx *synccontext.SyncContext, vRoute *gatewayv1.HTTPRou
 	return retSpec, nil
 }
 
-func translateStatusToVirtual(ctx *synccontext.SyncContext, hostRoute *gatewayv1.HTTPRoute, virtualRouteNamespace string, status gatewayv1.HTTPRouteStatus) (gatewayv1.HTTPRouteStatus, error) {
+func translateStatusToVirtual(ctx *synccontext.SyncContext, hostRoute *gatewayv1.TLSRoute, virtualRouteNamespace string, status gatewayv1.TLSRouteStatus) (gatewayv1.TLSRouteStatus, error) {
 	retStatus := *status.DeepCopy()
 
 	for i := range retStatus.Parents {
 		hostRouteNamespace := gatewayroutes.ParentStatusHostNamespace(hostRoute.Namespace, hostRoute.Spec.ParentRefs, retStatus.Parents[i].ParentRef)
 		err := gatewayroutes.TranslateParentRefToVirtual(ctx, hostRouteNamespace, virtualRouteNamespace, &retStatus.Parents[i].ParentRef)
 		if err != nil {
-			return gatewayv1.HTTPRouteStatus{}, fmt.Errorf("translate parents[%d].parentRef: %w", i, err)
+			return gatewayv1.TLSRouteStatus{}, fmt.Errorf("translate parents[%d].parentRef: %w", i, err)
 		}
 	}
 
 	return retStatus, nil
 }
 
-func translateRuleToHost(ctx *synccontext.SyncContext, routeNamespace string, rule *gatewayv1.HTTPRouteRule, validateRefs bool) error {
+func translateRuleToHost(ctx *synccontext.SyncContext, routeNamespace string, rule *gatewayv1.TLSRouteRule, validateRefs bool) error {
 	for i := range rule.BackendRefs {
-		err := translateHTTPBackendRefToHost(ctx, routeNamespace, &rule.BackendRefs[i], validateRefs)
+		err := translateBackendObjectRefToHost(ctx, routeNamespace, &rule.BackendRefs[i].BackendObjectReference, validateRefs)
 		if err != nil {
 			return fmt.Errorf("translate backendRefs[%d]: %w", i, err)
-		}
-	}
-
-	for i := range rule.Filters {
-		err := translateFilterToHost(ctx, routeNamespace, &rule.Filters[i], validateRefs)
-		if err != nil {
-			return fmt.Errorf("translate filters[%d]: %w", i, err)
-		}
-	}
-
-	return nil
-}
-
-func translateHTTPBackendRefToHost(ctx *synccontext.SyncContext, routeNamespace string, ref *gatewayv1.HTTPBackendRef, validateRef bool) error {
-	err := translateBackendObjectRefToHost(ctx, routeNamespace, &ref.BackendObjectReference, validateRef)
-	if err != nil {
-		return err
-	}
-
-	for i := range ref.Filters {
-		err := translateFilterToHost(ctx, routeNamespace, &ref.Filters[i], validateRef)
-		if err != nil {
-			return fmt.Errorf("translate filters[%d]: %w", i, err)
 		}
 	}
 
@@ -104,22 +81,4 @@ func translateBackendObjectRefToHost(ctx *synccontext.SyncContext, routeNamespac
 	}
 
 	return gatewayroutes.TranslateBackendObjectRefToHostWithoutValidation(ctx, routeNamespace, ref)
-}
-
-func translateFilterToHost(ctx *synccontext.SyncContext, routeNamespace string, filter *gatewayv1.HTTPRouteFilter, validateRefs bool) error {
-	if filter.RequestMirror != nil {
-		err := translateBackendObjectRefToHost(ctx, routeNamespace, &filter.RequestMirror.BackendRef, validateRefs)
-		if err != nil {
-			return fmt.Errorf("translate requestMirror.backendRef: %w", err)
-		}
-	}
-
-	if filter.ExternalAuth != nil {
-		err := translateBackendObjectRefToHost(ctx, routeNamespace, &filter.ExternalAuth.BackendRef, validateRefs)
-		if err != nil {
-			return fmt.Errorf("translate externalAuth.backendRef: %w", err)
-		}
-	}
-
-	return nil
 }
