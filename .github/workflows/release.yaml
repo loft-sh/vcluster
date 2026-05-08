@@ -156,7 +156,7 @@ jobs:
           event-type: vcluster-released
           payload: '{"version":"${{ steps.get_version.outputs.release_version }}","source_repo":"loft-sh/vcluster","sha":"${{ github.sha }}"}'
         env:
-          GH_TOKEN: ${{ secrets.CROSS_REPO_DISPATCH_TOKEN }}
+          GH_TOKEN: ${{ secrets.VCLUSTERLABS_DISPATCH_TOKEN }}
 
       - name: Notify vcluster-docs of vcluster CLI release
         continue-on-error: true
@@ -166,7 +166,7 @@ jobs:
           event-type: vcluster-cli-released
           payload: '{"version":"${{ steps.get_version.outputs.release_version }}","source_repo":"loft-sh/vcluster","sha":"${{ github.sha }}"}'
         env:
-          GH_TOKEN: ${{ secrets.CROSS_REPO_DISPATCH_TOKEN }}
+          GH_TOKEN: ${{ secrets.VCLUSTERLABS_DISPATCH_TOKEN }}
 
   publish-chart:
     if: startsWith(github.ref, 'refs/tags/v') == true
