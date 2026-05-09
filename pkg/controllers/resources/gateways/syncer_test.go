@@ -1,10 +1,12 @@
 package gateways
 
 import (
+	"strings"
 	"testing"
 
 	rootconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
+	gatewayapitestutil "github.com/loft-sh/vcluster/pkg/controllers/resources/gatewayapi/testutil"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/mappings/generic"
 	"github.com/loft-sh/vcluster/pkg/scheme"
@@ -29,10 +31,6 @@ const (
 	testGatewayClassName = "test-gateway-class"
 	testCertRefName      = "certrefsecretname"
 )
-
-func init() {
-	_ = gatewayv1.Install(scheme.Scheme)
-}
 
 func TestSync(t *testing.T) {
 	vBaseSpec := gatewaySpec()
@@ -271,8 +269,70 @@ func TestSyncCertificateRefsRejectUnsupportedGroupAndKind(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			vGateway := gatewayWithCertificateRefs(tc.certRef)
 			syncCtx, syncer := startGatewaySyncer(t, nil, []runtime.Object{vGateway}, nil)
+			translator, recorder := gatewayapitestutil.WithFakeEventRecorder(syncer.GenericTranslator)
+			syncer.GenericTranslator = translator
+
 			_, err := syncer.SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vGateway.DeepCopy()))
 			assert.ErrorContains(t, err, tc.expectedErr)
+
+			event, ok := gatewayapitestutil.NextEvent(recorder)
+			assert.Assert(t, ok)
+			assert.Assert(t, strings.Contains(event, "Warning SyncError"))
+			assert.Assert(t, strings.Contains(event, "Error syncing: "))
+			assert.Assert(t, strings.Contains(event, tc.expectedErr))
+		})
+	}
+}
+
+func TestSyncNormalizesAllowedRoutesNamespacesForSingleNamespaceTarget(t *testing.T) {
+	tests := []struct {
+		name         string
+		from         gatewayv1.FromNamespaces
+		selector     *metav1.LabelSelector
+		expectedFrom gatewayv1.FromNamespaces
+	}{
+		{
+			name:         "All becomes Same",
+			from:         gatewayv1.NamespacesFromAll,
+			expectedFrom: gatewayv1.NamespacesFromSame,
+		},
+		{
+			name: "Selector becomes Same",
+			from: gatewayv1.NamespacesFromSelector,
+			selector: &metav1.LabelSelector{MatchLabels: map[string]string{
+				"team": "blue",
+			}},
+			expectedFrom: gatewayv1.NamespacesFromSame,
+		},
+		{
+			name:         "None stays None",
+			from:         gatewayv1.NamespacesFromNone,
+			expectedFrom: gatewayv1.NamespacesFromNone,
+		},
+		{
+			name:         "Same stays Same",
+			from:         gatewayv1.NamespacesFromSame,
+			expectedFrom: gatewayv1.NamespacesFromSame,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			vGateway := gatewayWithAllowedRouteNamespaces(tc.from, tc.selector)
+			syncCtx, syncer := startGatewaySyncer(t, nil, []runtime.Object{vGateway}, nil)
+
+			_, err := syncer.SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vGateway.DeepCopy()))
+			assert.NilError(t, err)
+
+			storedHost := &gatewayv1.Gateway{}
+			err = syncCtx.HostClient.Get(syncCtx, types.NamespacedName{Name: hostNameForNamespace(testGatewayName, testGatewayNamespace), Namespace: testGatewayNamespace}, storedHost)
+			assert.NilError(t, err)
+
+			namespaces := storedHost.Spec.Listeners[0].AllowedRoutes.Namespaces
+			assert.Assert(t, namespaces != nil)
+			assert.Assert(t, namespaces.From != nil)
+			assert.Equal(t, *namespaces.From, tc.expectedFrom)
+			assert.Assert(t, namespaces.Selector == nil)
 		})
 	}
 }
@@ -303,7 +363,10 @@ func TestSyncCrossNamespaceCertificateRef(t *testing.T) {
 	vGateway := gatewayWithCertificateRefs(ref)
 	syncCtx, syncer := startGatewaySyncer(t, []runtime.Object{
 		managedHostSecret(testCertRefName, certNamespace),
-	}, []runtime.Object{vGateway}, nil)
+	}, []runtime.Object{
+		vGateway,
+		referenceGrant(certNamespace, "Gateway", testGatewayNamespace, "Secret", testCertRefName),
+	}, nil)
 
 	_, err := syncer.SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vGateway.DeepCopy()))
 	assert.NilError(t, err)
@@ -314,6 +377,23 @@ func TestSyncCrossNamespaceCertificateRef(t *testing.T) {
 	assert.Equal(t, string(storedHost.Spec.Listeners[0].TLS.CertificateRefs[0].Name), hostNameForNamespace(testCertRefName, certNamespace))
 	assert.Assert(t, storedHost.Spec.Listeners[0].TLS.CertificateRefs[0].Namespace != nil)
 	assert.Equal(t, string(*storedHost.Spec.Listeners[0].TLS.CertificateRefs[0].Namespace), testGatewayNamespace)
+}
+
+func TestSyncRejectsCrossNamespaceCertificateRefWithoutReferenceGrant(t *testing.T) {
+	certNamespace := "cert-ns"
+	ref := secretCertificateRef(testCertRefName)
+	ref.Namespace = ptr.To(gatewayv1.Namespace(certNamespace))
+	vGateway := gatewayWithCertificateRefs(ref)
+	syncCtx, syncer := startGatewaySyncer(t, []runtime.Object{
+		managedHostSecret(testCertRefName, certNamespace),
+	}, []runtime.Object{vGateway}, nil)
+
+	_, err := syncer.SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vGateway.DeepCopy()))
+	assert.NilError(t, err)
+
+	storedHost := &gatewayv1.Gateway{}
+	err = syncCtx.HostClient.Get(syncCtx, types.NamespacedName{Name: hostNameForNamespace(testGatewayName, testGatewayNamespace), Namespace: testGatewayNamespace}, storedHost)
+	assert.Assert(t, kerrors.IsNotFound(err))
 }
 
 func TestSyncCertificateRefsRejectUnsupportedGroupAndKindWithoutPatching(t *testing.T) {
@@ -334,8 +414,15 @@ func TestSyncCertificateRefsRejectUnsupportedGroupAndKindWithoutPatching(t *test
 	}
 
 	syncCtx, syncer := startGatewaySyncer(t, []runtime.Object{pGateway.DeepCopy()}, []runtime.Object{vGateway.DeepCopy()}, nil)
+	translator, recorder := gatewayapitestutil.WithFakeEventRecorder(syncer.GenericTranslator)
+	syncer.GenericTranslator = translator
 	_, err := syncer.Sync(syncCtx, synccontext.NewSyncEventWithOld(pGateway.DeepCopy(), pGatewayUpdated, vGateway.DeepCopy(), vGateway.DeepCopy()))
 	assert.ErrorContains(t, err, `secretRef group "gateway.networking.k8s.io" kind "Secret" is not supported`)
+
+	event, ok := gatewayapitestutil.NextEvent(recorder)
+	assert.Assert(t, ok)
+	assert.Assert(t, strings.Contains(event, "Warning SyncError"))
+	assert.Assert(t, strings.Contains(event, `Error syncing: translate listeners[0].tls.certificateRefs[0]: secretRef group "gateway.networking.k8s.io" kind "Secret" is not supported`))
 
 	storedVirtual := &gatewayv1.Gateway{}
 	err = syncCtx.VirtualClient.Get(syncCtx, types.NamespacedName{Name: vGateway.Name, Namespace: vGateway.Namespace}, storedVirtual)
@@ -555,6 +642,26 @@ func gatewayWithCertificateRefs(refs ...gatewayv1.SecretObjectReference) *gatewa
 	})
 }
 
+func gatewayWithAllowedRouteNamespaces(from gatewayv1.FromNamespaces, selector *metav1.LabelSelector) *gatewayv1.Gateway {
+	return gateway(virtualGatewayMeta(), gatewayv1.GatewaySpec{
+		GatewayClassName: testGatewayClassName,
+		Listeners: []gatewayv1.Listener{
+			{
+				Name:     "http",
+				Hostname: gatewayHostname("example.com"),
+				Port:     gatewayv1.PortNumber(80),
+				Protocol: gatewayv1.HTTPProtocolType,
+				AllowedRoutes: &gatewayv1.AllowedRoutes{
+					Namespaces: &gatewayv1.RouteNamespaces{
+						From:     ptr.To(from),
+						Selector: selector,
+					},
+				},
+			},
+		},
+	})
+}
+
 func gatewayHTTPSListener(refs ...gatewayv1.SecretObjectReference) gatewayv1.Listener {
 	return gatewayv1.Listener{
 		Name:     "https",
@@ -585,6 +692,31 @@ func managedHostSecret(name, namespace string) *corev1.Secret {
 		Name:      hostNameForNamespace(name, namespace),
 		Namespace: testGatewayNamespace,
 	})
+}
+
+func referenceGrant(namespace, fromKind, fromNamespace, toKind, toName string) *gatewayv1.ReferenceGrant {
+	return &gatewayv1.ReferenceGrant{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "allow-" + toName,
+			Namespace: namespace,
+		},
+		Spec: gatewayv1.ReferenceGrantSpec{
+			From: []gatewayv1.ReferenceGrantFrom{
+				{
+					Group:     gatewayv1.Group(gatewayv1.GroupVersion.Group),
+					Kind:      gatewayv1.Kind(fromKind),
+					Namespace: gatewayv1.Namespace(fromNamespace),
+				},
+			},
+			To: []gatewayv1.ReferenceGrantTo{
+				{
+					Group: corev1.GroupName,
+					Kind:  gatewayv1.Kind(toKind),
+					Name:  ptr.To(gatewayv1.ObjectName(toName)),
+				},
+			},
+		},
+	}
 }
 
 func hostNameForNamespace(name, namespace string) string {

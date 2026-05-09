@@ -252,6 +252,7 @@ func ValidateAllSyncPatches(sync config.Sync) error {
 			{"sync.toHost.gatewayApi.httpRoutePatches", sync.ToHost.GatewayAPI.HTTPRoutePatches},
 			{"sync.toHost.gatewayApi.tlsRoutePatches", sync.ToHost.GatewayAPI.TLSRoutePatches},
 			{"sync.toHost.gatewayApi.backendTLSPolicyPatches", sync.ToHost.GatewayAPI.BackendTLSPolicyPatches},
+			{"sync.toHost.gatewayApi.referenceGrantPatches", sync.ToHost.GatewayAPI.ReferenceGrantPatches},
 			{"sync.toHost.namespaces.patches", sync.ToHost.Namespaces.Patches},
 			{"sync.toHost.networkPolicies.patches", sync.ToHost.NetworkPolicies.Patches},
 			{"sync.toHost.persistentVolumeClaims.patches", sync.ToHost.PersistentVolumeClaims.Patches},

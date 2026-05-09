@@ -68,24 +68,6 @@ func WithMapping(ctx context.Context, nameMapping NameMapping) context.Context {
 	return context.WithValue(ctx, mappingKey, nameMapping)
 }
 
-// WithoutMapping returns a copy of ctx that preserves cancellation and deadlines but hides the current mapping.
-// Use this when code needs to translate a referenced object as a probe before deciding whether to record that dependency.
-// For example, route syncers first resolve a referenced Gateway or Service without recorder side effects, validate the host object,
-// and then record the dependency intentionally.
-func WithoutMapping(ctx *SyncContext) *SyncContext {
-	if ctx == nil {
-		return nil
-	}
-
-	noMappingCtx := *ctx
-	baseCtx := ctx.Context
-	if baseCtx == nil {
-		baseCtx = context.Background()
-	}
-	noMappingCtx.Context = context.WithValue(baseCtx, mappingKey, nil)
-	return &noMappingCtx
-}
-
 // MappingFrom returns the value of the original request path key on the ctx
 func MappingFrom(ctx context.Context) (NameMapping, bool) {
 	info, ok := ctx.Value(mappingKey).(NameMapping)

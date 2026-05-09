@@ -1,11 +1,10 @@
-# generated from sigs.k8s.io/gateway-api@v1.5.1, do not edit manually
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/4530
     gateway.networking.k8s.io/bundle-version: v1.5.1
-    gateway.networking.k8s.io/channel: standard
+    gateway.networking.k8s.io/channel: experimental
   name: tlsroutes.gateway.networking.k8s.io
 spec:
   group: gateway.networking.k8s.io
@@ -149,6 +148,17 @@ spec:
                   allowed by something in the namespace they are referring to. For example,
                   Gateway has the AllowedRoutes field, and ReferenceGrant provides a
                   generic way to enable other kinds of cross-namespace reference.
+
+
+                  ParentRefs from a Route to a Service in the same namespace are "producer"
+                  routes, which apply default routing rules to inbound connections from
+                  any namespace to the Service.
+
+                  ParentRefs from a Route to a Service in a different namespace are
+                  "consumer" routes, and these routing rules are only applied to outbound
+                  connections originating from the same namespace as the Route, for which
+                  the intended destination of the connections are a Service targeted as a
+                  ParentRef of the Route.
                 items:
                   description: |-
                     ParentReference identifies an API object (usually a Gateway) that can be considered
@@ -210,6 +220,18 @@ spec:
                         Gateway has the AllowedRoutes field, and ReferenceGrant provides a
                         generic way to enable any other kind of cross-namespace reference.
 
+
+                        ParentRefs from a Route to a Service in the same namespace are "producer"
+                        routes, which apply default routing rules to inbound connections from
+                        any namespace to the Service.
+
+                        ParentRefs from a Route to a Service in a different namespace are
+                        "consumer" routes, and these routing rules are only applied to outbound
+                        connections originating from the same namespace as the Route, for which
+                        the intended destination of the connections are a Service targeted as a
+                        ParentRef of the Route.
+
+
                         Support: Core
                       maxLength: 63
                       minLength: 1
@@ -227,6 +249,12 @@ spec:
                         as opposed to a listener(s) whose port(s) may be changed. When both Port
                         and SectionName are specified, the name and port of the selected listener
                         must match both specified values.
+
+
+                        When the parent resource is a Service, this targets a specific port in the
+                        Service spec. When both Port (experimental) and SectionName are specified,
+                        the name and port of the selected port must match both specified values.
+
 
                         Implementations MAY choose to support other parent resources.
                         Implementations supporting other types of parent resources MUST clearly
@@ -282,25 +310,28 @@ spec:
                 type: array
                 x-kubernetes-list-type: atomic
                 x-kubernetes-validations:
-                - message: sectionName must be specified when parentRefs includes
+                - message: sectionName or port must be specified when parentRefs includes
                     2 or more references to the same parent
                   rule: 'self.all(p1, self.all(p2, p1.group == p2.group && p1.kind
                     == p2.kind && p1.name == p2.name && (((!has(p1.__namespace__)
                     || p1.__namespace__ == '''') && (!has(p2.__namespace__) || p2.__namespace__
                     == '''')) || (has(p1.__namespace__) && has(p2.__namespace__) &&
-                    p1.__namespace__ == p2.__namespace__ )) ? ((!has(p1.sectionName)
+                    p1.__namespace__ == p2.__namespace__)) ? ((!has(p1.sectionName)
                     || p1.sectionName == '''') == (!has(p2.sectionName) || p2.sectionName
-                    == '''')) : true))'
-                - message: sectionName must be unique when parentRefs includes 2 or
-                    more references to the same parent
+                    == '''') && (!has(p1.port) || p1.port == 0) == (!has(p2.port)
+                    || p2.port == 0)): true))'
+                - message: sectionName or port must be unique when parentRefs includes
+                    2 or more references to the same parent
                   rule: self.all(p1, self.exists_one(p2, p1.group == p2.group && p1.kind
                     == p2.kind && p1.name == p2.name && (((!has(p1.__namespace__)
                     || p1.__namespace__ == '') && (!has(p2.__namespace__) || p2.__namespace__
                     == '')) || (has(p1.__namespace__) && has(p2.__namespace__) &&
                     p1.__namespace__ == p2.__namespace__ )) && (((!has(p1.sectionName)
                     || p1.sectionName == '') && (!has(p2.sectionName) || p2.sectionName
-                    == '')) || (has(p1.sectionName) && has(p2.sectionName) && p1.sectionName
-                    == p2.sectionName))))
+                    == '')) || ( has(p1.sectionName) && has(p2.sectionName) && p1.sectionName
+                    == p2.sectionName)) && (((!has(p1.port) || p1.port == 0) && (!has(p2.port)
+                    || p2.port == 0)) || (has(p1.port) && has(p2.port) && p1.port
+                    == p2.port))))
               rules:
                 description: Rules are a list of actions.
                 items:
@@ -333,6 +364,22 @@ spec:
                           ReferenceGrant object is required in the referent namespace to allow that
                           namespace's owner to accept the reference. See the ReferenceGrant
                           documentation for details.
+
+
+                          When the BackendRef points to a Kubernetes Service, implementations SHOULD
+                          honor the appProtocol field if it is set for the target Service Port.
+
+                          Implementations supporting appProtocol SHOULD recognize the Kubernetes
+                          Standard Application Protocols defined in KEP-3726.
+
+                          If a Service appProtocol isn't specified, an implementation MAY infer the
+                          backend protocol through its own means. Implementations MAY infer the
+                          protocol from the Route type referring to the backend Service.
+
+                          If a Route is not able to send traffic to the backend using the specified
+                          protocol then the backend is considered invalid. Implementations MUST set the
+                          "ResolvedRefs" condition to "False" with the "UnsupportedProtocol" reason.
+
 
                           Note that when the BackendTLSPolicy object is enabled by the implementation,
                           there are some extra rules about validity to consider here. See the fields
@@ -443,6 +490,24 @@ spec:
                 minItems: 1
                 type: array
                 x-kubernetes-list-type: atomic
+              useDefaultGateways:
+                description: |-
+                  UseDefaultGateways indicates the default Gateway scope to use for this
+                  Route. If unset (the default) or set to None, the Route will not be
+                  attached to any default Gateway; if set, it will be attached to any
+                  default Gateway supporting the named scope, subject to the usual rules
+                  about which Routes a Gateway is allowed to claim.
+
+                  Think carefully before using this functionality! The set of default
+                  Gateways supporting the requested scope can change over time without
+                  any notice to the Route author, and in many situations it will not be
+                  appropriate to request a default Gateway for a given Route -- for
+                  example, a Route with specific security requirements should almost
+                  certainly not use a default Gateway.
+                enum:
+                - All
+                - None
+                type: string
             required:
             - hostnames
             - rules
@@ -623,6 +688,18 @@ spec:
                             Gateway has the AllowedRoutes field, and ReferenceGrant provides a
                             generic way to enable any other kind of cross-namespace reference.
 
+
+                            ParentRefs from a Route to a Service in the same namespace are "producer"
+                            routes, which apply default routing rules to inbound connections from
+                            any namespace to the Service.
+
+                            ParentRefs from a Route to a Service in a different namespace are
+                            "consumer" routes, and these routing rules are only applied to outbound
+                            connections originating from the same namespace as the Route, for which
+                            the intended destination of the connections are a Service targeted as a
+                            ParentRef of the Route.
+
+
                             Support: Core
                           maxLength: 63
                           minLength: 1
@@ -640,6 +717,12 @@ spec:
                             as opposed to a listener(s) whose port(s) may be changed. When both Port
                             and SectionName are specified, the name and port of the selected listener
                             must match both specified values.
+
+
+                            When the parent resource is a Service, this targets a specific port in the
+                            Service spec. When both Port (experimental) and SectionName are specified,
+                            the name and port of the selected port must match both specified values.
+
 
                             Implementations MAY choose to support other parent resources.
                             Implementations supporting other types of parent resources MUST clearly
@@ -854,6 +937,17 @@ spec:
                   allowed by something in the namespace they are referring to. For example,
                   Gateway has the AllowedRoutes field, and ReferenceGrant provides a
                   generic way to enable other kinds of cross-namespace reference.
+
+
+                  ParentRefs from a Route to a Service in the same namespace are "producer"
+                  routes, which apply default routing rules to inbound connections from
+                  any namespace to the Service.
+
+                  ParentRefs from a Route to a Service in a different namespace are
+                  "consumer" routes, and these routing rules are only applied to outbound
+                  connections originating from the same namespace as the Route, for which
+                  the intended destination of the connections are a Service targeted as a
+                  ParentRef of the Route.
                 items:
                   description: |-
                     ParentReference identifies an API object (usually a Gateway) that can be considered
@@ -915,6 +1009,18 @@ spec:
                         Gateway has the AllowedRoutes field, and ReferenceGrant provides a
                         generic way to enable any other kind of cross-namespace reference.
 
+
+                        ParentRefs from a Route to a Service in the same namespace are "producer"
+                        routes, which apply default routing rules to inbound connections from
+                        any namespace to the Service.
+
+                        ParentRefs from a Route to a Service in a different namespace are
+                        "consumer" routes, and these routing rules are only applied to outbound
+                        connections originating from the same namespace as the Route, for which
+                        the intended destination of the connections are a Service targeted as a
+                        ParentRef of the Route.
+
+
                         Support: Core
                       maxLength: 63
                       minLength: 1
@@ -932,6 +1038,12 @@ spec:
                         as opposed to a listener(s) whose port(s) may be changed. When both Port
                         and SectionName are specified, the name and port of the selected listener
                         must match both specified values.
+
+
+                        When the parent resource is a Service, this targets a specific port in the
+                        Service spec. When both Port (experimental) and SectionName are specified,
+                        the name and port of the selected port must match both specified values.
+
 
                         Implementations MAY choose to support other parent resources.
                         Implementations supporting other types of parent resources MUST clearly
@@ -987,25 +1099,28 @@ spec:
                 type: array
                 x-kubernetes-list-type: atomic
                 x-kubernetes-validations:
-                - message: sectionName must be specified when parentRefs includes
+                - message: sectionName or port must be specified when parentRefs includes
                     2 or more references to the same parent
                   rule: 'self.all(p1, self.all(p2, p1.group == p2.group && p1.kind
                     == p2.kind && p1.name == p2.name && (((!has(p1.__namespace__)
                     || p1.__namespace__ == '''') && (!has(p2.__namespace__) || p2.__namespace__
                     == '''')) || (has(p1.__namespace__) && has(p2.__namespace__) &&
-                    p1.__namespace__ == p2.__namespace__ )) ? ((!has(p1.sectionName)
+                    p1.__namespace__ == p2.__namespace__)) ? ((!has(p1.sectionName)
                     || p1.sectionName == '''') == (!has(p2.sectionName) || p2.sectionName
-                    == '''')) : true))'
-                - message: sectionName must be unique when parentRefs includes 2 or
-                    more references to the same parent
+                    == '''') && (!has(p1.port) || p1.port == 0) == (!has(p2.port)
+                    || p2.port == 0)): true))'
+                - message: sectionName or port must be unique when parentRefs includes
+                    2 or more references to the same parent
                   rule: self.all(p1, self.exists_one(p2, p1.group == p2.group && p1.kind
                     == p2.kind && p1.name == p2.name && (((!has(p1.__namespace__)
                     || p1.__namespace__ == '') && (!has(p2.__namespace__) || p2.__namespace__
                     == '')) || (has(p1.__namespace__) && has(p2.__namespace__) &&
                     p1.__namespace__ == p2.__namespace__ )) && (((!has(p1.sectionName)
                     || p1.sectionName == '') && (!has(p2.sectionName) || p2.sectionName
-                    == '')) || (has(p1.sectionName) && has(p2.sectionName) && p1.sectionName
-                    == p2.sectionName))))
+                    == '')) || ( has(p1.sectionName) && has(p2.sectionName) && p1.sectionName
+                    == p2.sectionName)) && (((!has(p1.port) || p1.port == 0) && (!has(p2.port)
+                    || p2.port == 0)) || (has(p1.port) && has(p2.port) && p1.port
+                    == p2.port))))
               rules:
                 description: Rules are a list of TLS matchers and actions.
                 items:
@@ -1038,6 +1153,22 @@ spec:
                           ReferenceGrant object is required in the referent namespace to allow that
                           namespace's owner to accept the reference. See the ReferenceGrant
                           documentation for details.
+
+
+                          When the BackendRef points to a Kubernetes Service, implementations SHOULD
+                          honor the appProtocol field if it is set for the target Service Port.
+
+                          Implementations supporting appProtocol SHOULD recognize the Kubernetes
+                          Standard Application Protocols defined in KEP-3726.
+
+                          If a Service appProtocol isn't specified, an implementation MAY infer the
+                          backend protocol through its own means. Implementations MAY infer the
+                          protocol from the Route type referring to the backend Service.
+
+                          If a Route is not able to send traffic to the backend using the specified
+                          protocol then the backend is considered invalid. Implementations MUST set the
+                          "ResolvedRefs" condition to "False" with the "UnsupportedProtocol" reason.
+
 
                           Note that when the BackendTLSPolicy object is enabled by the implementation,
                           there are some extra rules about validity to consider here. See the fields
@@ -1148,6 +1279,28 @@ spec:
                 minItems: 1
                 type: array
                 x-kubernetes-list-type: atomic
+                x-kubernetes-validations:
+                - message: Rule name must be unique within the route
+                  rule: self.all(l1, !has(l1.name) || self.exists_one(l2, has(l2.name)
+                    && l1.name == l2.name))
+              useDefaultGateways:
+                description: |-
+                  UseDefaultGateways indicates the default Gateway scope to use for this
+                  Route. If unset (the default) or set to None, the Route will not be
+                  attached to any default Gateway; if set, it will be attached to any
+                  default Gateway supporting the named scope, subject to the usual rules
+                  about which Routes a Gateway is allowed to claim.
+
+                  Think carefully before using this functionality! The set of default
+                  Gateways supporting the requested scope can change over time without
+                  any notice to the Route author, and in many situations it will not be
+                  appropriate to request a default Gateway for a given Route -- for
+                  example, a Route with specific security requirements should almost
+                  certainly not use a default Gateway.
+                enum:
+                - All
+                - None
+                type: string
             required:
             - rules
             type: object
@@ -1327,6 +1480,18 @@ spec:
                             Gateway has the AllowedRoutes field, and ReferenceGrant provides a
                             generic way to enable any other kind of cross-namespace reference.
 
+
+                            ParentRefs from a Route to a Service in the same namespace are "producer"
+                            routes, which apply default routing rules to inbound connections from
+                            any namespace to the Service.
+
+                            ParentRefs from a Route to a Service in a different namespace are
+                            "consumer" routes, and these routing rules are only applied to outbound
+                            connections originating from the same namespace as the Route, for which
+                            the intended destination of the connections are a Service targeted as a
+                            ParentRef of the Route.
+
+
                             Support: Core
                           maxLength: 63
                           minLength: 1
@@ -1344,6 +1509,12 @@ spec:
                             as opposed to a listener(s) whose port(s) may be changed. When both Port
                             and SectionName are specified, the name and port of the selected listener
                             must match both specified values.
+
+
+                            When the parent resource is a Service, this targets a specific port in the
+                            Service spec. When both Port (experimental) and SectionName are specified,
+                            the name and port of the selected port must match both specified values.
+
 
                             Implementations MAY choose to support other parent resources.
                             Implementations supporting other types of parent resources MUST clearly
@@ -1409,7 +1580,7 @@ spec:
         required:
         - spec
         type: object
-    served: false
+    served: true
     storage: false
     subresources:
       status: {}
@@ -1547,6 +1718,17 @@ spec:
                   allowed by something in the namespace they are referring to. For example,
                   Gateway has the AllowedRoutes field, and ReferenceGrant provides a
                   generic way to enable other kinds of cross-namespace reference.
+
+
+                  ParentRefs from a Route to a Service in the same namespace are "producer"
+                  routes, which apply default routing rules to inbound connections from
+                  any namespace to the Service.
+
+                  ParentRefs from a Route to a Service in a different namespace are
+                  "consumer" routes, and these routing rules are only applied to outbound
+                  connections originating from the same namespace as the Route, for which
+                  the intended destination of the connections are a Service targeted as a
+                  ParentRef of the Route.
                 items:
                   description: |-
                     ParentReference identifies an API object (usually a Gateway) that can be considered
@@ -1608,6 +1790,18 @@ spec:
                         Gateway has the AllowedRoutes field, and ReferenceGrant provides a
                         generic way to enable any other kind of cross-namespace reference.
 
+
+                        ParentRefs from a Route to a Service in the same namespace are "producer"
+                        routes, which apply default routing rules to inbound connections from
+                        any namespace to the Service.
+
+                        ParentRefs from a Route to a Service in a different namespace are
+                        "consumer" routes, and these routing rules are only applied to outbound
+                        connections originating from the same namespace as the Route, for which
+                        the intended destination of the connections are a Service targeted as a
+                        ParentRef of the Route.
+
+
                         Support: Core
                       maxLength: 63
                       minLength: 1
@@ -1625,6 +1819,12 @@ spec:
                         as opposed to a listener(s) whose port(s) may be changed. When both Port
                         and SectionName are specified, the name and port of the selected listener
                         must match both specified values.
+
+
+                        When the parent resource is a Service, this targets a specific port in the
+                        Service spec. When both Port (experimental) and SectionName are specified,
+                        the name and port of the selected port must match both specified values.
+
 
                         Implementations MAY choose to support other parent resources.
                         Implementations supporting other types of parent resources MUST clearly
@@ -1680,25 +1880,28 @@ spec:
                 type: array
                 x-kubernetes-list-type: atomic
                 x-kubernetes-validations:
-                - message: sectionName must be specified when parentRefs includes
+                - message: sectionName or port must be specified when parentRefs includes
                     2 or more references to the same parent
                   rule: 'self.all(p1, self.all(p2, p1.group == p2.group && p1.kind
                     == p2.kind && p1.name == p2.name && (((!has(p1.__namespace__)
                     || p1.__namespace__ == '''') && (!has(p2.__namespace__) || p2.__namespace__
                     == '''')) || (has(p1.__namespace__) && has(p2.__namespace__) &&
-                    p1.__namespace__ == p2.__namespace__ )) ? ((!has(p1.sectionName)
+                    p1.__namespace__ == p2.__namespace__)) ? ((!has(p1.sectionName)
                     || p1.sectionName == '''') == (!has(p2.sectionName) || p2.sectionName
-                    == '''')) : true))'
-                - message: sectionName must be unique when parentRefs includes 2 or
-                    more references to the same parent
+                    == '''') && (!has(p1.port) || p1.port == 0) == (!has(p2.port)
+                    || p2.port == 0)): true))'
+                - message: sectionName or port must be unique when parentRefs includes
+                    2 or more references to the same parent
                   rule: self.all(p1, self.exists_one(p2, p1.group == p2.group && p1.kind
                     == p2.kind && p1.name == p2.name && (((!has(p1.__namespace__)
                     || p1.__namespace__ == '') && (!has(p2.__namespace__) || p2.__namespace__
                     == '')) || (has(p1.__namespace__) && has(p2.__namespace__) &&
                     p1.__namespace__ == p2.__namespace__ )) && (((!has(p1.sectionName)
                     || p1.sectionName == '') && (!has(p2.sectionName) || p2.sectionName
-                    == '')) || (has(p1.sectionName) && has(p2.sectionName) && p1.sectionName
-                    == p2.sectionName))))
+                    == '')) || ( has(p1.sectionName) && has(p2.sectionName) && p1.sectionName
+                    == p2.sectionName)) && (((!has(p1.port) || p1.port == 0) && (!has(p2.port)
+                    || p2.port == 0)) || (has(p1.port) && has(p2.port) && p1.port
+                    == p2.port))))
               rules:
                 description: Rules are a list of actions.
                 items:
@@ -1731,6 +1934,22 @@ spec:
                           ReferenceGrant object is required in the referent namespace to allow that
                           namespace's owner to accept the reference. See the ReferenceGrant
                           documentation for details.
+
+
+                          When the BackendRef points to a Kubernetes Service, implementations SHOULD
+                          honor the appProtocol field if it is set for the target Service Port.
+
+                          Implementations supporting appProtocol SHOULD recognize the Kubernetes
+                          Standard Application Protocols defined in KEP-3726.
+
+                          If a Service appProtocol isn't specified, an implementation MAY infer the
+                          backend protocol through its own means. Implementations MAY infer the
+                          protocol from the Route type referring to the backend Service.
+
+                          If a Route is not able to send traffic to the backend using the specified
+                          protocol then the backend is considered invalid. Implementations MUST set the
+                          "ResolvedRefs" condition to "False" with the "UnsupportedProtocol" reason.
+
 
                           Note that when the BackendTLSPolicy object is enabled by the implementation,
                           there are some extra rules about validity to consider here. See the fields
@@ -1841,6 +2060,24 @@ spec:
                 minItems: 1
                 type: array
                 x-kubernetes-list-type: atomic
+              useDefaultGateways:
+                description: |-
+                  UseDefaultGateways indicates the default Gateway scope to use for this
+                  Route. If unset (the default) or set to None, the Route will not be
+                  attached to any default Gateway; if set, it will be attached to any
+                  default Gateway supporting the named scope, subject to the usual rules
+                  about which Routes a Gateway is allowed to claim.
+
+                  Think carefully before using this functionality! The set of default
+                  Gateways supporting the requested scope can change over time without
+                  any notice to the Route author, and in many situations it will not be
+                  appropriate to request a default Gateway for a given Route -- for
+                  example, a Route with specific security requirements should almost
+                  certainly not use a default Gateway.
+                enum:
+                - All
+                - None
+                type: string
             required:
             - hostnames
             - rules
@@ -2021,6 +2258,18 @@ spec:
                             Gateway has the AllowedRoutes field, and ReferenceGrant provides a
                             generic way to enable any other kind of cross-namespace reference.
 
+
+                            ParentRefs from a Route to a Service in the same namespace are "producer"
+                            routes, which apply default routing rules to inbound connections from
+                            any namespace to the Service.
+
+                            ParentRefs from a Route to a Service in a different namespace are
+                            "consumer" routes, and these routing rules are only applied to outbound
+                            connections originating from the same namespace as the Route, for which
+                            the intended destination of the connections are a Service targeted as a
+                            ParentRef of the Route.
+
+
                             Support: Core
                           maxLength: 63
                           minLength: 1
@@ -2038,6 +2287,12 @@ spec:
                             as opposed to a listener(s) whose port(s) may be changed. When both Port
                             and SectionName are specified, the name and port of the selected listener
                             must match both specified values.
+
+
+                            When the parent resource is a Service, this targets a specific port in the
+                            Service spec. When both Port (experimental) and SectionName are specified,
+                            the name and port of the selected port must match both specified values.
+
 
                             Implementations MAY choose to support other parent resources.
                             Implementations supporting other types of parent resources MUST clearly
@@ -2103,7 +2358,7 @@ spec:
         required:
         - spec
         type: object
-    served: false
+    served: true
     storage: false
     subresources:
       status: {}

@@ -57,17 +57,7 @@ func parentRefToHost(ctx *synccontext.SyncContext, routeNamespace string, ref *g
 		return err
 	}
 
-	hostName, err := refToHost(ctx, routeNamespace, ref.Name, ref.Namespace, gvk, validateHostObject)
-	if err != nil {
-		return err
-	}
-
-	ref.Name = gatewayv1.ObjectName(hostName.Name)
-	if ref.Namespace != nil {
-		ref.Namespace = ptr.To(gatewayv1.Namespace(hostName.Namespace))
-	}
-
-	return nil
+	return objectRefToHost(ctx, routeNamespace, &ref.Name, &ref.Namespace, gvk, validateHostObject)
 }
 
 // ParentRefToVirtual rewrites a host-side ParentReference into the equivalent
@@ -81,7 +71,7 @@ func ParentRefToVirtual(ctx *synccontext.SyncContext, hostRouteNamespace, virtua
 		return err
 	}
 
-	preserveNamespace := parentRefHasExplicitNamespace(ref, specParentRefs)
+	preserveNamespace := parentRefHasExplicitNamespace(hostRouteNamespace, ref, specParentRefs)
 	virtualName, err := refToVirtual(ctx, hostRouteNamespace, ref.Name, ref.Namespace, gvk)
 	if err != nil {
 		return err
@@ -97,9 +87,9 @@ func ParentRefToVirtual(ctx *synccontext.SyncContext, hostRouteNamespace, virtua
 	return nil
 }
 
-func parentRefHasExplicitNamespace(ref *gatewayv1.ParentReference, specParentRefs []gatewayv1.ParentReference) bool {
+func parentRefHasExplicitNamespace(hostRouteNamespace string, ref *gatewayv1.ParentReference, specParentRefs []gatewayv1.ParentReference) bool {
 	for _, specParentRef := range specParentRefs {
-		if parentRefMatches(specParentRef, *ref) && specParentRef.Namespace != nil && *specParentRef.Namespace != "" {
+		if parentRefMatchesWithNamespace(specParentRef, *ref, hostRouteNamespace) && specParentRef.Namespace != nil && *specParentRef.Namespace != "" {
 			return true
 		}
 	}
@@ -127,23 +117,38 @@ func PolicyTargetRefToHost(ctx *synccontext.SyncContext, policyNamespace string,
 	return policyTargetRefToHost(ctx, policyNamespace, ref, options.validateHostObject)
 }
 
+// ReferenceGrantToToHost translates a ReferenceGrant.spec.to[i] entry's name
+// (when set) through the appropriate kind-specific mapper. The lookup namespace
+// is the ReferenceGrant's own namespace, since `to` always points at objects in
+// the same namespace as the grant.
+func ReferenceGrantToToHost(ctx *synccontext.SyncContext, grantNamespace string, ref *gatewayv1.ReferenceGrantTo, opts ...ToHostOption) error {
+	if ref.Name == nil || *ref.Name == "" {
+		return nil
+	}
+	options := newToHostOptions(opts...)
+
+	gvk, err := referenceGrantToGVK(ref)
+	if err != nil {
+		return err
+	}
+
+	hostName, err := refToHost(ctx, grantNamespace, *ref.Name, nil, gvk, options.validateHostObject)
+	if err != nil {
+		return err
+	}
+
+	hostObjectName := gatewayv1.ObjectName(hostName.Name)
+	ref.Name = &hostObjectName
+	return nil
+}
+
 func backendObjectRefToHost(ctx *synccontext.SyncContext, routeNamespace string, ref *gatewayv1.BackendObjectReference, validateHostObject bool) error {
 	gvk, err := backendReferenceGVK(ref)
 	if err != nil {
 		return err
 	}
 
-	hostName, err := refToHost(ctx, routeNamespace, ref.Name, ref.Namespace, gvk, validateHostObject)
-	if err != nil {
-		return err
-	}
-
-	ref.Name = gatewayv1.ObjectName(hostName.Name)
-	if ref.Namespace != nil {
-		ref.Namespace = ptr.To(gatewayv1.Namespace(hostName.Namespace))
-	}
-
-	return nil
+	return objectRefToHost(ctx, routeNamespace, &ref.Name, &ref.Namespace, gvk, validateHostObject)
 }
 
 func secretObjectRefToHost(ctx *synccontext.SyncContext, localNamespace string, ref *gatewayv1.SecretObjectReference, validateHostObject bool) error {
@@ -152,17 +157,7 @@ func secretObjectRefToHost(ctx *synccontext.SyncContext, localNamespace string, 
 		return err
 	}
 
-	hostName, err := refToHost(ctx, localNamespace, ref.Name, ref.Namespace, gvk, validateHostObject)
-	if err != nil {
-		return err
-	}
-
-	ref.Name = gatewayv1.ObjectName(hostName.Name)
-	if ref.Namespace != nil {
-		ref.Namespace = ptr.To(gatewayv1.Namespace(hostName.Namespace))
-	}
-
-	return nil
+	return objectRefToHost(ctx, localNamespace, &ref.Name, &ref.Namespace, gvk, validateHostObject)
 }
 
 func localObjectRefToHost(ctx *synccontext.SyncContext, localNamespace string, ref *gatewayv1.LocalObjectReference, validateHostObject bool) error {
@@ -171,13 +166,7 @@ func localObjectRefToHost(ctx *synccontext.SyncContext, localNamespace string, r
 		return err
 	}
 
-	hostName, err := refToHost(ctx, localNamespace, ref.Name, nil, gvk, validateHostObject)
-	if err != nil {
-		return err
-	}
-
-	ref.Name = gatewayv1.ObjectName(hostName.Name)
-	return nil
+	return objectRefToHost(ctx, localNamespace, &ref.Name, nil, gvk, validateHostObject)
 }
 
 func policyTargetRefToHost(ctx *synccontext.SyncContext, policyNamespace string, ref *gatewayv1.LocalPolicyTargetReferenceWithSectionName, validateHostObject bool) error {
@@ -186,12 +175,25 @@ func policyTargetRefToHost(ctx *synccontext.SyncContext, policyNamespace string,
 		return err
 	}
 
-	hostName, err := refToHost(ctx, policyNamespace, ref.Name, nil, gvk, validateHostObject)
+	return objectRefToHost(ctx, policyNamespace, &ref.Name, nil, gvk, validateHostObject)
+}
+
+func objectRefToHost(ctx *synccontext.SyncContext, localNamespace string, refName *gatewayv1.ObjectName, refNamespace **gatewayv1.Namespace, gvk schema.GroupVersionKind, validateHostObject bool) error {
+	var namespace *gatewayv1.Namespace
+	if refNamespace != nil {
+		namespace = *refNamespace
+	}
+
+	hostName, err := refToHost(ctx, localNamespace, *refName, namespace, gvk, validateHostObject)
 	if err != nil {
 		return err
 	}
 
-	ref.Name = gatewayv1.ObjectName(hostName.Name)
+	*refName = gatewayv1.ObjectName(hostName.Name)
+	if refNamespace != nil && *refNamespace != nil {
+		*refNamespace = ptr.To(gatewayv1.Namespace(hostName.Namespace))
+	}
+
 	return nil
 }
 
@@ -215,7 +217,7 @@ func ParentStatusHostNamespace(hostRouteNamespace string, specParentRefs []gatew
 	}
 
 	for _, specParentRef := range specParentRefs {
-		if parentRefMatches(specParentRef, parentRef) && specParentRef.Namespace != nil && *specParentRef.Namespace != "" {
+		if parentRefMatchesWithNamespace(specParentRef, parentRef, hostRouteNamespace) && specParentRef.Namespace != nil && *specParentRef.Namespace != "" {
 			return string(*specParentRef.Namespace)
 		}
 	}
@@ -259,8 +261,7 @@ func refToHost(ctx *synccontext.SyncContext, routeNamespace string, refName gate
 		Namespace: refNamespaceOrRouteNamespace(routeNamespace, refNamespace),
 	}
 
-	probeCtx := synccontext.WithoutMapping(ctx)
-	hostName := mapper.VirtualToHost(probeCtx, virtualName, nil)
+	hostName := generic.LookupVirtualToHost(ctx, mapper, virtualName, nil)
 	if hostName.Name == "" {
 		return types.NamespacedName{}, fmt.Errorf("could not translate virtual %s %q to host", gvk.Kind, refName)
 	}
@@ -336,6 +337,11 @@ func parentRefMatches(a, b gatewayv1.ParentReference) bool {
 		parentRefPort(a) == parentRefPort(b)
 }
 
+func parentRefMatchesWithNamespace(a, b gatewayv1.ParentReference, defaultNamespace string) bool {
+	return parentRefMatches(a, b) &&
+		refNamespaceOrRouteNamespace(defaultNamespace, a.Namespace) == refNamespaceOrRouteNamespace(defaultNamespace, b.Namespace)
+}
+
 func parentRefGroup(ref gatewayv1.ParentReference) string {
 	if ref.Group == nil {
 		return gatewayv1.GroupVersion.Group
@@ -385,7 +391,7 @@ func parentReferenceGVK(ref *gatewayv1.ParentReference) (schema.GroupVersionKind
 	case group == corev1.GroupName && kind == "Service":
 		return mappings.Services(), nil
 	default:
-		return schema.GroupVersionKind{}, fmt.Errorf("parentRef group %q kind %q is not supported", group, kind)
+		return schema.GroupVersionKind{}, unsupportedReferencef("parentRef group %q kind %q is not supported", group, kind)
 	}
 }
 
@@ -404,7 +410,7 @@ func backendReferenceGVK(ref *gatewayv1.BackendObjectReference) (schema.GroupVer
 		return mappings.Services(), nil
 	}
 
-	return schema.GroupVersionKind{}, fmt.Errorf("backendRef group %q kind %q is not supported", group, kind)
+	return schema.GroupVersionKind{}, unsupportedReferencef("backendRef group %q kind %q is not supported", group, kind)
 }
 
 func secretObjectReferenceGVK(ref *gatewayv1.SecretObjectReference) (schema.GroupVersionKind, error) {
@@ -422,7 +428,7 @@ func secretObjectReferenceGVK(ref *gatewayv1.SecretObjectReference) (schema.Grou
 		return mappings.Secrets(), nil
 	}
 
-	return schema.GroupVersionKind{}, fmt.Errorf("secretRef group %q kind %q is not supported", group, kind)
+	return schema.GroupVersionKind{}, unsupportedReferencef("secretRef group %q kind %q is not supported", group, kind)
 }
 
 func localObjectReferenceGVK(ref *gatewayv1.LocalObjectReference) (schema.GroupVersionKind, error) {
@@ -436,7 +442,7 @@ func localObjectReferenceGVK(ref *gatewayv1.LocalObjectReference) (schema.GroupV
 		return mappings.Secrets(), nil
 	}
 
-	return schema.GroupVersionKind{}, fmt.Errorf("localObjectRef group %q kind %q is not supported", group, kind)
+	return schema.GroupVersionKind{}, unsupportedReferencef("localObjectRef group %q kind %q is not supported", group, kind)
 }
 
 func policyTargetReferenceGVK(ref *gatewayv1.LocalPolicyTargetReferenceWithSectionName) (schema.GroupVersionKind, error) {
@@ -447,5 +453,23 @@ func policyTargetReferenceGVK(ref *gatewayv1.LocalPolicyTargetReferenceWithSecti
 		return mappings.Services(), nil
 	}
 
-	return schema.GroupVersionKind{}, fmt.Errorf("targetRef group %q kind %q is not supported", group, kind)
+	return schema.GroupVersionKind{}, unsupportedReferencef("targetRef group %q kind %q is not supported", group, kind)
+}
+
+func referenceGrantToGVK(ref *gatewayv1.ReferenceGrantTo) (schema.GroupVersionKind, error) {
+	group := string(ref.Group)
+	kind := string(ref.Kind)
+
+	if group == corev1.GroupName {
+		switch kind {
+		case "Service":
+			return mappings.Services(), nil
+		case "Secret":
+			return mappings.Secrets(), nil
+		case "ConfigMap":
+			return mappings.ConfigMaps(), nil
+		}
+	}
+
+	return schema.GroupVersionKind{}, unsupportedReferencef("referenceGrant to group %q kind %q is not supported", group, kind)
 }

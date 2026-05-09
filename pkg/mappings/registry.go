@@ -144,36 +144,39 @@ func Ingresses() schema.GroupVersionKind {
 	return networkingv1.SchemeGroupVersion.WithKind("Ingress")
 }
 
-func Gateways() schema.GroupVersionKind {
+// gatewayGVK builds a Gateway API GroupVersionKind. It does not use
+// gatewayv1.SchemeGroupVersion.WithKind because that symbol is deprecated; the
+// non-deprecated gatewayv1.GroupVersion is a metav1.GroupVersion without WithKind.
+func gatewayGVK(kind string) schema.GroupVersionKind {
 	return schema.GroupVersionKind{
-		Group:   gatewayv1.GroupVersion.Group,
+		Group:   gatewayv1.GroupName,
 		Version: gatewayv1.GroupVersion.Version,
-		Kind:    "Gateway",
+		Kind:    kind,
 	}
+}
+
+func Gateways() schema.GroupVersionKind {
+	return gatewayGVK("Gateway")
 }
 
 func HTTPRoutes() schema.GroupVersionKind {
-	return schema.GroupVersionKind{
-		Group:   gatewayv1.GroupVersion.Group,
-		Version: gatewayv1.GroupVersion.Version,
-		Kind:    "HTTPRoute",
-	}
+	return gatewayGVK("HTTPRoute")
 }
 
 func TLSRoutes() schema.GroupVersionKind {
-	return schema.GroupVersionKind{
-		Group:   gatewayv1.GroupVersion.Group,
-		Version: gatewayv1.GroupVersion.Version,
-		Kind:    "TLSRoute",
-	}
+	return gatewayGVK("TLSRoute")
 }
 
 func BackendTLSPolicies() schema.GroupVersionKind {
-	return schema.GroupVersionKind{
-		Group:   gatewayv1.GroupVersion.Group,
-		Version: gatewayv1.GroupVersion.Version,
-		Kind:    "BackendTLSPolicy",
-	}
+	return gatewayGVK("BackendTLSPolicy")
+}
+
+func ReferenceGrants() schema.GroupVersionKind {
+	return gatewayGVK("ReferenceGrant")
+}
+
+func GatewayClasses() schema.GroupVersionKind {
+	return gatewayGVK("GatewayClass")
 }
 
 func PersistentVolumeClaims() schema.GroupVersionKind {

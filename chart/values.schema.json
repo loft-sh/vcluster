@@ -2559,6 +2559,13 @@
           },
           "type": "array",
           "description": "BackendTLSPolicyPatches patch BackendTLSPolicy resources according to the provided specification."
+        },
+        "referenceGrantPatches": {
+          "items": {
+            "$ref": "#/$defs/TranslatePatch"
+          },
+          "type": "array",
+          "description": "ReferenceGrantPatches patch ReferenceGrant resources according to the provided specification."
         }
       },
       "additionalProperties": false,
@@ -5184,7 +5191,7 @@
         },
         "gatewayApi": {
           "$ref": "#/$defs/GatewayAPIEnableSwitchWithPatches",
-          "description": "GatewayAPI defines if Gateway API resources created within the virtual cluster should get synced to the host cluster. When enabled, vCluster syncs Gateways, HTTPRoutes, TLSRoutes, and BackendTLSPolicies. GRPCRoutes, TCPRoutes, UDPRoutes, and ReferenceGrants are not synced. The host cluster must provide Gateway API CRDs compatible with the embedded v1.5.1 CRDs. Gateway status addresses mirror host network addresses."
+          "description": "GatewayAPI defines if Gateway API resources created within the virtual cluster should get synced to the host cluster. When enabled, vCluster syncs Gateways, HTTPRoutes, TLSRoutes, BackendTLSPolicies, and ReferenceGrants. GRPCRoutes, TCPRoutes, and UDPRoutes are not synced. ReferenceGrant `to[].name` translation supports the core Gateway API target kinds Service, Secret, and ConfigMap; in single-namespace mode the grant becomes a same-namespace assertion on host because all virtual namespaces collapse to the configured target namespace. The host cluster must provide standard-channel v1 Gateway API CRDs compatible with the embedded v1.5.1 CRDs; experimental v1alpha* CRDs alone are not supported. Gateway status addresses mirror host network addresses."
         },
         "services": {
           "$ref": "#/$defs/EnableSwitchWithPatches",

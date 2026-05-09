@@ -24,6 +24,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/poddisruptionbudgets"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/priorityclasses"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/referencegrants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/runtimeclasses"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/secrets"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/serviceaccounts"
@@ -63,6 +64,7 @@ func getSyncers(ctx *synccontext.RegisterContext) []BuildController {
 		isEnabled(ctx.Config.Sync.ToHost.GatewayAPI.Enabled, httproutes.New),
 		isEnabled(ctx.Config.Sync.ToHost.GatewayAPI.Enabled, tlsroutes.New),
 		isEnabled(ctx.Config.Sync.ToHost.GatewayAPI.Enabled, backendtlspolicies.New),
+		isEnabled(ctx.Config.Sync.ToHost.GatewayAPI.Enabled && ctx.Config.Sync.ToHost.Namespaces.Enabled, referencegrants.New),
 		isEnabled(ctx.Config.Sync.FromHost.IngressClasses.Enabled, ingressclasses.New),
 		isEnabled(ctx.Config.Sync.FromHost.GatewayClasses.Enabled, gatewayclasses.New),
 		isEnabled(ctx.Config.Sync.FromHost.RuntimeClasses.Enabled, runtimeclasses.New),

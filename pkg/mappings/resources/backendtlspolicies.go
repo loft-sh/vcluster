@@ -11,6 +11,9 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
+// Source: https://github.com/kubernetes-sigs/gateway-api/raw/v1.5.1/config/crd/experimental/gateway.networking.k8s.io_backendtlspolicies.yaml
+// Experimental channel serves v1alpha3 alongside v1.
+//
 //go:embed backendtlspolicies.crd.yaml
 var backendTLSPoliciesCRD string
 

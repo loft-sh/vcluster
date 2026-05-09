@@ -78,6 +78,8 @@ func TestSync(t *testing.T) {
 			Namespace: &parametersNamespace,
 		},
 	}
+	updatedVirtualSpec := *updatedSpec.DeepCopy()
+	updatedVirtualSpec.ParametersRef.Namespace = nil
 	updatedStatus := gatewayv1.GatewayClassStatus{
 		Conditions: []metav1.Condition{
 			{
@@ -99,7 +101,7 @@ func TestSync(t *testing.T) {
 
 	vObjUpdated := &gatewayv1.GatewayClass{
 		ObjectMeta: vObjectMetaUpdated,
-		Spec:       updatedSpec,
+		Spec:       updatedVirtualSpec,
 		Status:     updatedStatus,
 	}
 
@@ -257,4 +259,35 @@ func TestSyncMirrorsGatewayClassFromPlainHostObject(t *testing.T) {
 	assert.DeepEqual(t, storedVirtual.Labels, hostClass.Labels)
 	assert.DeepEqual(t, storedVirtual.Annotations, hostClass.Annotations)
 	assert.DeepEqual(t, storedVirtual.Spec, hostClass.Spec)
+}
+
+func TestSyncStripsGatewayClassParametersNamespace(t *testing.T) {
+	parametersNamespace := gatewayv1.Namespace("gateway-system")
+	hostClass := &gatewayv1.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "parameterized-gwc"},
+		Spec: gatewayv1.GatewayClassSpec{
+			ControllerName: gatewayv1.GatewayController("example.com/gateway-controller"),
+			ParametersRef: &gatewayv1.ParametersReference{
+				Group:     gatewayv1.Group("example.com"),
+				Kind:      gatewayv1.Kind("GatewayClassConfig"),
+				Name:      "test-gwc-param",
+				Namespace: &parametersNamespace,
+			},
+		},
+	}
+
+	pClient := testingutil.NewFakeClient(scheme.Scheme, hostClass.DeepCopy())
+	vClient := testingutil.NewFakeClient(scheme.Scheme)
+	vConfig := testingutil.NewFakeConfig()
+	registerCtx := syncertesting.NewFakeRegisterContext(vConfig, pClient, vClient)
+	syncCtx, syncer := syncertesting.FakeStartSyncer(t, registerCtx, New)
+
+	_, err := syncer.(*gatewayClassSyncer).SyncToVirtual(syncCtx, synccontext.NewSyncToVirtualEvent(hostClass.DeepCopy()))
+	assert.NilError(t, err)
+
+	storedVirtual := &gatewayv1.GatewayClass{}
+	err = syncCtx.VirtualClient.Get(syncCtx, types.NamespacedName{Name: "parameterized-gwc"}, storedVirtual)
+	assert.NilError(t, err)
+	assert.Assert(t, storedVirtual.Spec.ParametersRef != nil)
+	assert.Assert(t, storedVirtual.Spec.ParametersRef.Namespace == nil)
 }

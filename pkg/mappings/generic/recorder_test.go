@@ -12,10 +12,15 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 func TestRecorderMigrate(t *testing.T) {
@@ -169,6 +174,39 @@ func TestRecorderMigrate(t *testing.T) {
 	}
 }
 
+func TestListObjectsUsesItemGVKForNamespacedClient(t *testing.T) {
+	gvk := mappings.ReferenceGrants()
+	restMapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{gvk.GroupVersion()})
+	restMapper.Add(gvk, meta.RESTScopeNamespace)
+
+	baseClient := fake.NewClientBuilder().
+		WithScheme(scheme.Scheme).
+		WithRESTMapper(restMapper).
+		Build()
+	interceptedClient := interceptor.NewClient(baseClient, interceptor.Funcs{
+		List: func(_ context.Context, _ client.WithWatch, list client.ObjectList, _ ...client.ListOption) error {
+			assert.Equal(t, list.GetObjectKind().GroupVersionKind(), gvk)
+			uList, ok := list.(*unstructured.UnstructuredList)
+			assert.Assert(t, ok)
+			item := unstructured.Unstructured{}
+			item.SetGroupVersionKind(gvk)
+			item.SetName("grant")
+			item.SetNamespace(testingutil.DefaultTestTargetNamespace)
+			uList.Items = []unstructured.Unstructured{item}
+			return nil
+		},
+	})
+	namespacedClient := client.NewNamespacedClient(interceptedClient, testingutil.DefaultTestTargetNamespace)
+
+	items, err := listObjects(&synccontext.RegisterContext{Context: context.Background()}, namespacedClient, gvk)
+	assert.NilError(t, err)
+	assert.Equal(t, len(items), 1)
+
+	item, ok := items[0].(client.Object)
+	assert.Assert(t, ok)
+	assert.Equal(t, item.GetObjectKind().GroupVersionKind(), gvk)
+}
+
 func TestRecorder(t *testing.T) {
 	gvk := corev1.SchemeGroupVersion.WithKind("Secret")
 	storeBackend := store.NewMemoryBackend()
@@ -262,4 +300,34 @@ func TestRecorder(t *testing.T) {
 	})
 	assert.NilError(t, err)
 	assert.Equal(t, isManaged, false)
+}
+
+func TestLookupVirtualToHostDoesNotRecordReference(t *testing.T) {
+	gvk := corev1.SchemeGroupVersion.WithKind("Secret")
+	storeBackend := store.NewMemoryBackend()
+	mappingsStore, err := store.NewStore(context.TODO(), nil, nil, storeBackend)
+	assert.NilError(t, err)
+
+	syncContext := &synccontext.SyncContext{
+		Context: synccontext.WithMapping(context.TODO(), synccontext.NameMapping{
+			GroupVersionKind: gvk,
+			VirtualName:      types.NamespacedName{Name: "owner", Namespace: "default"},
+			HostName:         types.NamespacedName{Name: "owner-x-vcluster", Namespace: "host"},
+		}),
+		Mappings: mappings.NewMappingsRegistry(mappingsStore),
+	}
+	recorderMapper := WithRecorder(testingutil.NewFakeMapper(gvk))
+	virtualName := types.NamespacedName{Name: "secret", Namespace: "default"}
+
+	hostName := LookupVirtualToHost(syncContext, recorderMapper, virtualName, nil)
+	assert.Equal(t, hostName, virtualName)
+	persisted, err := storeBackend.List(syncContext)
+	assert.NilError(t, err)
+	assert.Equal(t, len(persisted), 0)
+
+	hostName = recorderMapper.VirtualToHost(syncContext, virtualName, nil)
+	assert.Equal(t, hostName, virtualName)
+	persisted, err = storeBackend.List(syncContext)
+	assert.NilError(t, err)
+	assert.Equal(t, len(persisted), 1)
 }

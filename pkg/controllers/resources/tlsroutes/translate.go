@@ -3,6 +3,7 @@ package tlsroutes
 import (
 	"fmt"
 
+	gatewayauthz "github.com/loft-sh/vcluster/pkg/controllers/resources/gatewayapi/authz"
 	routetranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/gatewayroutes/translate"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -25,7 +26,12 @@ func (s *tlsRouteSyncer) translate(ctx *synccontext.SyncContext, vRoute *gateway
 func specToHost(ctx *synccontext.SyncContext, vRoute *gatewayv1.TLSRoute, validateRefs bool) (*gatewayv1.TLSRouteSpec, error) {
 	retSpec := vRoute.Spec.DeepCopy()
 	for i := range retSpec.ParentRefs {
-		err := routetranslate.ParentRefToHost(ctx, vRoute.Namespace, &retSpec.ParentRefs[i], routetranslate.WithValidateHostObject(validateRefs))
+		err := gatewayauthz.TLSRouteAttachment(ctx, vRoute.Namespace, &retSpec.ParentRefs[i])
+		if err != nil {
+			return nil, fmt.Errorf("authorize parentRefs[%d]: %w", i, err)
+		}
+
+		err = routetranslate.ParentRefToHost(ctx, vRoute.Namespace, &retSpec.ParentRefs[i], routetranslate.WithValidateHostObject(validateRefs))
 		if err != nil {
 			return nil, fmt.Errorf("translate parentRefs[%d]: %w", i, err)
 		}
@@ -57,7 +63,12 @@ func statusToVirtual(ctx *synccontext.SyncContext, hostRoute *gatewayv1.TLSRoute
 
 func ruleToHost(ctx *synccontext.SyncContext, routeNamespace string, rule *gatewayv1.TLSRouteRule, translateOpts ...routetranslate.ToHostOption) error {
 	for i := range rule.BackendRefs {
-		err := routetranslate.BackendObjectRefToHost(ctx, routeNamespace, &rule.BackendRefs[i].BackendObjectReference, translateOpts...)
+		err := gatewayauthz.TLSRouteBackend(ctx, routeNamespace, &rule.BackendRefs[i].BackendObjectReference)
+		if err != nil {
+			return fmt.Errorf("authorize backendRefs[%d]: %w", i, err)
+		}
+
+		err = routetranslate.BackendObjectRefToHost(ctx, routeNamespace, &rule.BackendRefs[i].BackendObjectReference, translateOpts...)
 		if err != nil {
 			return fmt.Errorf("translate backendRefs[%d]: %w", i, err)
 		}

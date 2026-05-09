@@ -1,6 +1,7 @@
 package generic
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/loft-sh/vcluster/pkg/scheme"
@@ -26,14 +27,9 @@ type recorder struct {
 
 func (n *recorder) Migrate(ctx *synccontext.RegisterContext, mapper synccontext.Mapper) error {
 	gvk := n.GroupVersionKind()
-	listGvk := schema.GroupVersionKind{
-		Group:   gvk.Group,
-		Version: gvk.Version,
-		Kind:    gvk.Kind + "List",
-	}
 
 	// migrate host objects first
-	hostObjects, err := listObjects(ctx, ctx.HostManager.GetClient(), listGvk)
+	hostObjects, err := listObjects(ctx, ctx.HostManager.GetClient(), gvk)
 	if err != nil {
 		return err
 	}
@@ -44,7 +40,7 @@ func (n *recorder) Migrate(ctx *synccontext.RegisterContext, mapper synccontext.
 			continue
 		}
 
-		syncContext := ctx.ToSyncContext("migrate-" + listGvk.Kind)
+		syncContext := ctx.ToSyncContext("migrate-" + gvk.Kind + "List")
 		syncContext.Mappings = nil // this is necessary to avoid the NameAnnotation check
 		isManaged, err := n.Mapper.IsManaged(syncContext, clientObject)
 		if err != nil {
@@ -78,7 +74,7 @@ func (n *recorder) Migrate(ctx *synccontext.RegisterContext, mapper synccontext.
 	}
 
 	// migrate virtual objects
-	virtualObjects, err := listObjects(ctx, ctx.VirtualManager.GetClient(), listGvk)
+	virtualObjects, err := listObjects(ctx, ctx.VirtualManager.GetClient(), gvk)
 	if err != nil {
 		return err
 	}
@@ -97,7 +93,7 @@ func (n *recorder) Migrate(ctx *synccontext.RegisterContext, mapper synccontext.
 			continue
 		}
 
-		pName := n.Mapper.VirtualToHost(ctx.ToSyncContext("migrate-"+listGvk.Kind), vName, clientObject)
+		pName := n.Mapper.VirtualToHost(ctx.ToSyncContext("migrate-"+gvk.Kind+"List"), vName, clientObject)
 		if pName.Name != "" {
 			nameMapping := synccontext.NameMapping{
 				GroupVersionKind: gvk,
@@ -115,11 +111,32 @@ func (n *recorder) Migrate(ctx *synccontext.RegisterContext, mapper synccontext.
 	return n.Mapper.Migrate(ctx, mapper)
 }
 
-func listObjects(ctx *synccontext.RegisterContext, kubeClient client.Client, listGvk schema.GroupVersionKind) ([]runtime.Object, error) {
-	list, err := scheme.Scheme.New(listGvk)
+func listObjects(ctx *synccontext.RegisterContext, kubeClient client.Client, gvk schema.GroupVersionKind) ([]runtime.Object, error) {
+	items, err := listObjectsWithListGVK(ctx, kubeClient, gvk)
+	if isListKindRESTMappingError(err, gvk) {
+		return listObjectsWithItemGVK(ctx, kubeClient, gvk)
+	}
+
+	return items, err
+}
+
+func listObjectsWithItemGVK(ctx *synccontext.RegisterContext, kubeClient client.Client, gvk schema.GroupVersionKind) ([]runtime.Object, error) {
+	list := &unstructured.UnstructuredList{}
+	list.SetGroupVersionKind(gvk)
+
+	return listAndExtract(ctx, kubeClient, list, gvk)
+}
+
+func listObjectsWithListGVK(ctx *synccontext.RegisterContext, kubeClient client.Client, gvk schema.GroupVersionKind) ([]runtime.Object, error) {
+	listGVK := schema.GroupVersionKind{
+		Group:   gvk.Group,
+		Version: gvk.Version,
+		Kind:    gvk.Kind + "List",
+	}
+	list, err := scheme.Scheme.New(listGVK)
 	if err != nil {
 		if !runtime.IsNotRegisteredError(err) {
-			return nil, fmt.Errorf("migrate create object list %s: %w", listGvk.String(), err)
+			return nil, fmt.Errorf("migrate create object list %s: %w", listGVK.String(), err)
 		}
 
 		list = &unstructured.UnstructuredList{}
@@ -127,22 +144,69 @@ func listObjects(ctx *synccontext.RegisterContext, kubeClient client.Client, lis
 
 	uList, ok := list.(*unstructured.UnstructuredList)
 	if ok {
-		uList.SetKind(listGvk.Kind)
-		uList.SetAPIVersion(listGvk.GroupVersion().String())
+		uList.SetKind(listGVK.Kind)
+		uList.SetAPIVersion(listGVK.GroupVersion().String())
 	}
 
+	return listAndExtract(ctx, kubeClient, list.(client.ObjectList), gvk)
+}
+
+func listAndExtract(ctx *synccontext.RegisterContext, kubeClient client.Client, list client.ObjectList, gvk schema.GroupVersionKind) ([]runtime.Object, error) {
 	// it's safe to list here without namespace as this will just list all items in the cache
-	err = kubeClient.List(ctx, list.(client.ObjectList))
+	err := kubeClient.List(ctx, list)
 	if err != nil {
-		return nil, fmt.Errorf("error listing %s: %w", listGvk.String(), err)
+		return nil, fmt.Errorf("error listing %s: %w", gvk.String(), err)
 	}
 
 	items, err := meta.ExtractList(list)
 	if err != nil {
-		return nil, fmt.Errorf("extract list %s: %w", listGvk.String(), err)
+		return nil, fmt.Errorf("extract list %s: %w", gvk.String(), err)
+	}
+
+	for _, item := range items {
+		if uObj, ok := item.(*unstructured.Unstructured); ok {
+			uObj.SetGroupVersionKind(gvk)
+		}
 	}
 
 	return items, nil
+}
+
+func isListKindRESTMappingError(err error, gvk schema.GroupVersionKind) bool {
+	if err == nil {
+		return false
+	}
+
+	noKindMatch := &meta.NoKindMatchError{}
+	if !errors.As(err, &noKindMatch) {
+		return false
+	}
+	if noKindMatch.GroupKind != (schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind + "List"}) {
+		return false
+	}
+	if len(noKindMatch.SearchedVersions) == 0 {
+		return true
+	}
+
+	for _, version := range noKindMatch.SearchedVersions {
+		if version == gvk.Version {
+			return true
+		}
+	}
+
+	return false
+}
+
+type virtualToHostLookup interface {
+	LookupVirtualToHost(ctx *synccontext.SyncContext, req types.NamespacedName, vObj client.Object) types.NamespacedName
+}
+
+func LookupVirtualToHost(ctx *synccontext.SyncContext, mapper synccontext.Mapper, req types.NamespacedName, vObj client.Object) types.NamespacedName {
+	if lookup, ok := mapper.(virtualToHostLookup); ok {
+		return lookup.LookupVirtualToHost(ctx, req, vObj)
+	}
+
+	return mapper.VirtualToHost(ctx, req, vObj)
 }
 
 func (n *recorder) VirtualToHost(ctx *synccontext.SyncContext, req types.NamespacedName, vObj client.Object) (retName types.NamespacedName) {
@@ -155,6 +219,15 @@ func (n *recorder) VirtualToHost(ctx *synccontext.SyncContext, req types.Namespa
 	}()
 
 	// check store first
+	pName, ok := VirtualToHostFromStore(ctx, req, n.GroupVersionKind())
+	if ok {
+		return pName
+	}
+
+	return n.Mapper.VirtualToHost(ctx, req, vObj)
+}
+
+func (n *recorder) LookupVirtualToHost(ctx *synccontext.SyncContext, req types.NamespacedName, vObj client.Object) types.NamespacedName {
 	pName, ok := VirtualToHostFromStore(ctx, req, n.GroupVersionKind())
 	if ok {
 		return pName

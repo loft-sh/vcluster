@@ -61,6 +61,7 @@ func (g *gatewayClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *
 	}
 
 	vObj := translate.CopyObjectWithName(event.Host, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, false)
+	vObj.Spec = gatewayClassSpecToVirtual(event.Host.Spec)
 
 	err = pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.GatewayClasses.Patches, true)
 	if err != nil {
@@ -95,7 +96,7 @@ func (g *gatewayClassSyncer) Sync(ctx *synccontext.SyncContext, event *syncconte
 	// GatewayClasses are mirrored from the host cluster, so host metadata wins.
 	event.Virtual.Annotations = event.Host.Annotations
 	event.Virtual.Labels = event.Host.Labels
-	event.Virtual.Spec = event.Host.Spec
+	event.Virtual.Spec = gatewayClassSpecToVirtual(event.Host.Spec)
 	event.Virtual.Status = event.Host.Status
 	return ctrl.Result{}, nil
 }
@@ -117,4 +118,16 @@ func (g *gatewayClassSyncer) recordDeleteWarning(gwClass *gatewayv1.GatewayClass
 		"Deleting virtual GatewayClass: %s",
 		reason,
 	)
+}
+
+func gatewayClassSpecToVirtual(hostSpec gatewayv1.GatewayClassSpec) gatewayv1.GatewayClassSpec {
+	virtualSpec := *hostSpec.DeepCopy()
+	if virtualSpec.ParametersRef != nil {
+		virtualSpec.ParametersRef = virtualSpec.ParametersRef.DeepCopy()
+		// GatewayClasses are cluster-scoped mirrors. Keep host topology details out
+		// of the tenant view when the parameters object lives in a host namespace.
+		virtualSpec.ParametersRef.Namespace = nil
+	}
+
+	return virtualSpec
 }

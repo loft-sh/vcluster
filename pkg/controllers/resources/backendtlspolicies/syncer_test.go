@@ -1,9 +1,11 @@
 package backendtlspolicies
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/loft-sh/vcluster/pkg/config"
+	gatewayapitestutil "github.com/loft-sh/vcluster/pkg/controllers/resources/gatewayapi/testutil"
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
@@ -63,7 +65,7 @@ func TestSync(t *testing.T) {
 	assert.DeepEqual(t, storedHost.Spec, hostBackendTLSPolicySpec())
 }
 
-func TestSyncContinuesWhenStatusTranslationFails(t *testing.T) {
+func TestSyncAppliesSpecAndRequeuesWhenStatusTranslationFails(t *testing.T) {
 	vPolicy := backendTLSPolicy(virtualPolicyMeta(), backendTLSPolicySpec())
 	pPolicy := backendTLSPolicy(hostPolicyMeta(), gatewayv1.BackendTLSPolicySpec{}, withStatus(gatewayv1.PolicyStatus{
 		Ancestors: []gatewayv1.PolicyAncestorStatus{
@@ -82,7 +84,9 @@ func TestSyncContinuesWhenStatusTranslationFails(t *testing.T) {
 	pPolicy.ResourceVersion = "999"
 	vPolicy.ResourceVersion = "999"
 	_, err := syncer.Sync(syncCtx, synccontext.NewSyncEventWithOld(pPolicy.DeepCopy(), pPolicy.DeepCopy(), vPolicy.DeepCopy(), vPolicy.DeepCopy()))
-	assert.NilError(t, err)
+	// Status translation failure is surfaced so the policy is requeued and retried;
+	// the spec is still applied to the host independently of status.
+	assert.ErrorContains(t, err, "translate status:")
 
 	storedHost := &gatewayv1.BackendTLSPolicy{}
 	err = syncCtx.HostClient.Get(syncCtx, types.NamespacedName{Name: pPolicy.Name, Namespace: pPolicy.Namespace}, storedHost)
@@ -109,9 +113,16 @@ func TestSyncRejectsUnsyncedCACertificateRef(t *testing.T) {
 	syncCtx, syncer := startBackendTLSPolicySyncer(t, []runtime.Object{
 		managedHostService(testServiceName, testPolicyNamespace),
 	}, []runtime.Object{vPolicy.DeepCopy()})
+	translator, recorder := gatewayapitestutil.WithFakeEventRecorder(syncer.GenericTranslator)
+	syncer.GenericTranslator = translator
 
 	_, err := syncer.SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vPolicy.DeepCopy()))
 	assert.ErrorContains(t, err, `referenced ConfigMap "ca-bundle" in namespace "test" has no synced host object`)
+
+	event, ok := gatewayapitestutil.NextEvent(recorder)
+	assert.Assert(t, ok)
+	assert.Assert(t, strings.Contains(event, "Warning SyncError"))
+	assert.Assert(t, strings.Contains(event, `Error syncing: translate validation.caCertificateRefs[0]: referenced ConfigMap "ca-bundle" in namespace "test" has no synced host object`))
 }
 
 func TestSyncSupportsSecretCACertificateRef(t *testing.T) {
@@ -146,6 +157,33 @@ func TestSyncSkipsReferenceValidationOnUpdate(t *testing.T) {
 	err = syncCtx.HostClient.Get(syncCtx, types.NamespacedName{Name: pPolicy.Name, Namespace: pPolicy.Namespace}, storedHost)
 	assert.NilError(t, err)
 	assert.DeepEqual(t, storedHost.Spec, hostBackendTLSPolicySpec())
+}
+
+func TestSyncDeletesHostForUnsupportedRefsOnUpdate(t *testing.T) {
+	spec := backendTLSPolicySpec()
+	spec.TargetRefs[0].Group = gatewayv1.Group("example.com")
+	spec.TargetRefs[0].Kind = gatewayv1.Kind("ExampleService")
+	vPolicy := backendTLSPolicy(virtualPolicyMeta(), spec)
+	pPolicy := backendTLSPolicy(hostPolicyMeta(), gatewayv1.BackendTLSPolicySpec{})
+	syncCtx, syncer := startBackendTLSPolicySyncer(t, []runtime.Object{pPolicy.DeepCopy()}, []runtime.Object{vPolicy.DeepCopy()})
+	translator, recorder := gatewayapitestutil.WithFakeEventRecorder(syncer.GenericTranslator)
+	syncer.GenericTranslator = translator
+
+	pPolicy.ResourceVersion = "999"
+	vPolicy.ResourceVersion = "999"
+	_, err := syncer.Sync(syncCtx, synccontext.NewSyncEventWithOld(pPolicy.DeepCopy(), pPolicy.DeepCopy(), vPolicy.DeepCopy(), vPolicy.DeepCopy()))
+	// Introducing an unsupported reference on update is terminal: the previously synced
+	// host policy is removed and the policy is not requeued.
+	assert.NilError(t, err)
+
+	storedHost := &gatewayv1.BackendTLSPolicy{}
+	err = syncCtx.HostClient.Get(syncCtx, types.NamespacedName{Name: pPolicy.Name, Namespace: pPolicy.Namespace}, storedHost)
+	assert.Assert(t, kerrors.IsNotFound(err))
+
+	event, ok := gatewayapitestutil.NextEvent(recorder)
+	assert.Assert(t, ok)
+	assert.Assert(t, strings.Contains(event, "Warning UnsupportedReference"))
+	assert.Assert(t, strings.Contains(event, `targetRef group "example.com" kind "ExampleService" is not supported`))
 }
 
 func startBackendTLSPolicySyncer(

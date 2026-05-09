@@ -1,9 +1,11 @@
 package tlsroutes
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/loft-sh/vcluster/pkg/config"
+	gatewayapitestutil "github.com/loft-sh/vcluster/pkg/controllers/resources/gatewayapi/testutil"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
@@ -47,7 +49,7 @@ func TestSync(t *testing.T) {
 	syncertesting.RunTestsWithContext(t, newTLSRouteRegisterContext, []*syncertesting.SyncTest{
 		{
 			Name:                 "Create forward",
-			InitialVirtualState:  []runtime.Object{baseRoute.DeepCopy()},
+			InitialVirtualState:  []runtime.Object{baseRoute.DeepCopy(), virtualGateway()},
 			InitialPhysicalState: hostRefObjects(testRouteNamespace),
 			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
 				mappings.TLSRoutes(): {baseRoute.DeepCopy()},
@@ -87,7 +89,7 @@ func TestSync(t *testing.T) {
 
 func TestSyncRejectsUnsyncedParentGateway(t *testing.T) {
 	vRoute := tlsRoute(virtualRouteMeta(), routeSpec())
-	syncCtx, syncer := startTLSRouteSyncer(t, hostServiceObjects(testRouteNamespace), []runtime.Object{vRoute}, nil)
+	syncCtx, syncer := startTLSRouteSyncer(t, hostServiceObjects(testRouteNamespace), []runtime.Object{vRoute, virtualGateway()}, nil)
 
 	_, err := syncer.SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vRoute.DeepCopy()))
 	assert.ErrorContains(t, err, `referenced Gateway "testgateway" in namespace "test" has no synced host object`)
@@ -97,7 +99,7 @@ func TestSyncRejectsUnsyncedParentGateway(t *testing.T) {
 	assert.Assert(t, kerrors.IsNotFound(err))
 }
 
-func TestSyncContinuesWhenStatusTranslationFails(t *testing.T) {
+func TestSyncAppliesSpecAndRequeuesWhenStatusTranslationFails(t *testing.T) {
 	vRoute := tlsRoute(virtualRouteMeta(), routeSpec())
 	pRoute := tlsRoute(hostRouteMeta(), gatewayv1.TLSRouteSpec{}, withStatus(gatewayv1.TLSRouteStatus{
 		RouteStatus: gatewayv1.RouteStatus{
@@ -112,14 +114,16 @@ func TestSyncContinuesWhenStatusTranslationFails(t *testing.T) {
 	syncCtx, syncer := startTLSRouteSyncer(
 		t,
 		append([]runtime.Object{pRoute.DeepCopy()}, hostRefObjects(testRouteNamespace)...),
-		[]runtime.Object{vRoute.DeepCopy()},
+		[]runtime.Object{vRoute.DeepCopy(), virtualGateway()},
 		nil,
 	)
 
 	pRoute.ResourceVersion = "999"
 	vRoute.ResourceVersion = "999"
 	_, err := syncer.Sync(syncCtx, synccontext.NewSyncEventWithOld(pRoute.DeepCopy(), pRoute.DeepCopy(), vRoute.DeepCopy(), vRoute.DeepCopy()))
-	assert.NilError(t, err)
+	// Status translation failure is surfaced so the route is requeued and retried;
+	// the spec is still applied to the host independently of status.
+	assert.ErrorContains(t, err, "translate status:")
 
 	storedHostRoute := &gatewayv1.TLSRoute{}
 	err = syncCtx.HostClient.Get(syncCtx, types.NamespacedName{Name: pRoute.Name, Namespace: pRoute.Namespace}, storedHostRoute)
@@ -133,7 +137,7 @@ func TestSyncCrossNamespaceParentRef(t *testing.T) {
 	syncCtx, syncer := startTLSRouteSyncer(
 		t,
 		append([]runtime.Object{pRoute.DeepCopy()}, hostRefObjects(testRouteNamespace, testParentNamespace)...),
-		[]runtime.Object{vRoute.DeepCopy(), virtualGatewayWithNamespace(testParentNamespace)},
+		[]runtime.Object{vRoute.DeepCopy(), virtualGatewayWithNamespace(testParentNamespace, withAllowedRoutesAll())},
 		nil,
 	)
 
@@ -158,6 +162,23 @@ func TestSyncCrossNamespaceParentRef(t *testing.T) {
 	assert.Equal(t, string(storedVirtualRoute.Status.Parents[0].ParentRef.Name), testGatewayName)
 	assert.Assert(t, storedVirtualRoute.Status.Parents[0].ParentRef.Namespace != nil)
 	assert.Equal(t, string(*storedVirtualRoute.Status.Parents[0].ParentRef.Namespace), testParentNamespace)
+}
+
+func TestSyncRejectsCrossNamespaceParentRefWithoutAllowedRoutes(t *testing.T) {
+	vRoute := tlsRoute(virtualRouteMeta(), routeSpecWithParentNamespace(testParentNamespace))
+	syncCtx, syncer := startTLSRouteSyncer(
+		t,
+		hostRefObjects(testRouteNamespace, testParentNamespace),
+		[]runtime.Object{vRoute.DeepCopy(), virtualGatewayWithNamespace(testParentNamespace)},
+		nil,
+	)
+
+	_, err := syncer.SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vRoute.DeepCopy()))
+	assert.NilError(t, err)
+
+	storedHostRoute := &gatewayv1.TLSRoute{}
+	err = syncCtx.HostClient.Get(syncCtx, types.NamespacedName{Name: hostName(testRouteName), Namespace: hostNamespace(testRouteNamespace)}, storedHostRoute)
+	assert.Assert(t, kerrors.IsNotFound(err))
 }
 
 func TestSyncRejectsUnsupportedRefs(t *testing.T) {
@@ -207,11 +228,66 @@ func TestSyncRejectsUnsupportedRefs(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			syncCtx, syncer := startTLSRouteSyncer(t, hostRefObjects(testRouteNamespace), []runtime.Object{tc.route}, nil)
+			syncCtx, syncer := startTLSRouteSyncer(t, hostRefObjects(testRouteNamespace), []runtime.Object{tc.route, virtualGateway()}, nil)
+			translator, recorder := gatewayapitestutil.WithFakeEventRecorder(syncer.GenericTranslator)
+			syncer.GenericTranslator = translator
+
 			_, err := syncer.SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(tc.route.DeepCopy()))
-			assert.ErrorContains(t, err, tc.expectedErr)
+			// Unsupported reference kinds are terminal: the route is not synced to the
+			// host and is not requeued.
+			assert.NilError(t, err)
+
+			storedHostRoute := &gatewayv1.TLSRoute{}
+			err = syncCtx.HostClient.Get(syncCtx, types.NamespacedName{Name: hostName(testRouteName), Namespace: hostNamespace(testRouteNamespace)}, storedHostRoute)
+			assert.Assert(t, kerrors.IsNotFound(err))
+
+			event, ok := gatewayapitestutil.NextEvent(recorder)
+			assert.Assert(t, ok)
+			assert.Assert(t, strings.Contains(event, "Warning UnsupportedReference"))
+			assert.Assert(t, strings.Contains(event, tc.expectedErr))
 		})
 	}
+}
+
+func TestSyncDeletesHostForUnsupportedRefsOnUpdate(t *testing.T) {
+	vRoute := tlsRoute(virtualRouteMeta(), gatewayv1.TLSRouteSpec{
+		CommonRouteSpec: gatewayv1.CommonRouteSpec{
+			ParentRefs: []gatewayv1.ParentReference{{Name: gatewayv1.ObjectName(testGatewayName)}},
+		},
+		Rules: []gatewayv1.TLSRouteRule{
+			{
+				BackendRefs: []gatewayv1.BackendRef{
+					{
+						BackendObjectReference: gatewayv1.BackendObjectReference{
+							Group: ptr.To(testUnsupportedGroup),
+							Kind:  ptr.To(gatewayv1.Kind("ExampleBackend")),
+							Name:  gatewayv1.ObjectName(testServiceName),
+						},
+					},
+				},
+			},
+		},
+	})
+	pRoute := tlsRoute(hostRouteMeta(), gatewayv1.TLSRouteSpec{})
+	syncCtx, syncer := startTLSRouteSyncer(t, []runtime.Object{pRoute.DeepCopy()}, []runtime.Object{vRoute.DeepCopy(), virtualGateway()}, nil)
+	translator, recorder := gatewayapitestutil.WithFakeEventRecorder(syncer.GenericTranslator)
+	syncer.GenericTranslator = translator
+
+	pRoute.ResourceVersion = "999"
+	vRoute.ResourceVersion = "999"
+	_, err := syncer.Sync(syncCtx, synccontext.NewSyncEventWithOld(pRoute.DeepCopy(), pRoute.DeepCopy(), vRoute.DeepCopy(), vRoute.DeepCopy()))
+	// Introducing an unsupported reference on update is terminal: the previously synced
+	// host route is removed and the route is not requeued.
+	assert.NilError(t, err)
+
+	storedHostRoute := &gatewayv1.TLSRoute{}
+	err = syncCtx.HostClient.Get(syncCtx, types.NamespacedName{Name: pRoute.Name, Namespace: pRoute.Namespace}, storedHostRoute)
+	assert.Assert(t, kerrors.IsNotFound(err))
+
+	event, ok := gatewayapitestutil.NextEvent(recorder)
+	assert.Assert(t, ok)
+	assert.Assert(t, strings.Contains(event, "Warning UnsupportedReference"))
+	assert.Assert(t, strings.Contains(event, `backendRef group "example.com" kind "ExampleBackend" is not supported`))
 }
 
 func newTLSRouteRegisterContext(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
@@ -401,13 +477,37 @@ func virtualGateway() *gatewayv1.Gateway {
 	return virtualGatewayWithNamespace(testRouteNamespace)
 }
 
-func virtualGatewayWithNamespace(namespace string) *gatewayv1.Gateway {
-	return &gatewayv1.Gateway{
+type gatewayOption func(*gatewayv1.Gateway)
+
+func withAllowedRoutesAll() gatewayOption {
+	return func(gateway *gatewayv1.Gateway) {
+		from := gatewayv1.NamespacesFromAll
+		gateway.Spec.Listeners[0].AllowedRoutes = &gatewayv1.AllowedRoutes{
+			Namespaces: &gatewayv1.RouteNamespaces{From: &from},
+		}
+	}
+}
+
+func virtualGatewayWithNamespace(namespace string, opts ...gatewayOption) *gatewayv1.Gateway {
+	ret := &gatewayv1.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      testGatewayName,
 			Namespace: namespace,
 		},
+		Spec: gatewayv1.GatewaySpec{
+			Listeners: []gatewayv1.Listener{
+				{
+					Name:     "tls",
+					Port:     443,
+					Protocol: gatewayv1.TLSProtocolType,
+				},
+			},
+		},
 	}
+	for _, opt := range opts {
+		opt(ret)
+	}
+	return ret
 }
 
 func hostRefObjects(namespaces ...string) []runtime.Object {

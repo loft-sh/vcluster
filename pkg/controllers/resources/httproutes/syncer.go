@@ -3,9 +3,10 @@ package httproutes
 import (
 	"fmt"
 
+	gatewayauthz "github.com/loft-sh/vcluster/pkg/controllers/resources/gatewayapi/authz"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/gatewayapi/gatewaysync"
 	routetranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/gatewayroutes/translate"
 	"github.com/loft-sh/vcluster/pkg/mappings"
-	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/syncer"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
@@ -13,7 +14,6 @@ import (
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/types"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -59,95 +59,49 @@ func (s *httpRouteSyncer) Options() *syncertypes.Options {
 }
 
 func (s *httpRouteSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
+	builder = gatewayauthz.RegisterHTTPRouteWatches(ctx, builder)
 	return routetranslate.RegisterReferencedWatches(ctx, builder, s.GroupVersionKind(), mappings.Gateways(), mappings.Services())
 }
 
 func (s *httpRouteSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*gatewayv1.HTTPRoute]) (ctrl.Result, error) {
-	if event.HostOld != nil || event.Virtual.DeletionTimestamp != nil {
-		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.HostOld, httpRouteDeleteReason(event.Virtual))
-	}
-
-	pObj, err := s.translate(ctx, event.Virtual)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	err = pro.ApplyPatchesHostObject(ctx, nil, pObj, event.Virtual, ctx.Config.Sync.ToHost.GatewayAPI.HTTPRoutePatches, false)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return patcher.CreateHostObject(ctx, event.Virtual, pObj, s.EventRecorder(), true)
+	return gatewaysync.CreateToHost(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.HTTPRoutePatches, func() (*gatewayv1.HTTPRoute, error) {
+		return s.translate(ctx, event.Virtual)
+	})
 }
 
-func (s *httpRouteSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*gatewayv1.HTTPRoute]) (_ ctrl.Result, retErr error) {
-	hSpec, err := specToHost(ctx, event.Virtual, false)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to translate spec: %w", err)
-	}
+func (s *httpRouteSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*gatewayv1.HTTPRoute]) (ctrl.Result, error) {
+	var hSpec *gatewayv1.HTTPRouteSpec
+	return gatewaysync.Sync(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.HTTPRoutePatches,
+		func() (err error) {
+			hSpec, err = specToHost(ctx, event.Virtual, false)
+			return err
+		},
+		func() error {
+			// Status translation is independent of spec sync; on failure keep applying
+			// the spec but surface the error so the route is requeued and status retried.
+			vStatus, statusErr := statusToVirtual(ctx, event.Host, event.Virtual.Namespace, event.Host.Status)
+			if statusErr == nil {
+				event.Virtual.Status = vStatus
+			}
 
-	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.GatewayAPI.HTTPRoutePatches, false))
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
-	}
+			// Preserve any host-only managed rule first so it lands at hSpec.Rules[0]
+			// before preserveRequestMirrorFilters runs; that way name-based correlation
+			// keeps any mirror filter on the managed rule without depending on positional
+			// fallback.
+			preserveHostRule(event.Host.Spec, hSpec, event.Host.Annotations)
+			preserveRequestMirrorFilters(event.Host.Spec, hSpec, event.Host.Annotations)
+			event.Host.Spec = *hSpec
 
-	// Mutations until return are included in this deferred patch payload.
-	defer func() {
-		if err := patch.Patch(ctx, event.Host, event.Virtual); err != nil {
-			retErr = utilerrors.NewAggregate([]error{retErr, err})
-		}
-		if retErr != nil {
-			s.EventRecorder().Eventf(
-				event.Virtual,
-				nil,
-				"Warning",
-				"SyncError",
-				fmt.Sprintf("Sync%s", event.Virtual.GetObjectKind().GroupVersionKind().Kind),
-				"Error syncing: %v",
-				retErr,
-			)
-		}
-	}()
-
-	vStatus, err := statusToVirtual(ctx, event.Host, event.Virtual.Namespace, event.Host.Status)
-	if err != nil {
-		s.EventRecorder().Eventf(
-			event.Virtual,
-			nil,
-			"Warning",
-			"SyncWarning",
-			fmt.Sprintf("Sync%s", event.Virtual.GetObjectKind().GroupVersionKind().Kind),
-			"Error translating status: %v",
-			err,
-		)
-	} else {
-		event.Virtual.Status = vStatus
-	}
-	event.Virtual.Labels, event.Host.Labels = translate.LabelsBidirectionalUpdate(event)
-	event.Virtual.Annotations, event.Host.Annotations = translate.AnnotationsBidirectionalUpdate(event)
-	event.Host.Spec = *hSpec
-
-	return ctrl.Result{}, retErr
+			if statusErr != nil {
+				return fmt.Errorf("translate status: %w", statusErr)
+			}
+			return nil
+		},
+	)
 }
 
 func (s *httpRouteSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*gatewayv1.HTTPRoute]) (ctrl.Result, error) {
-	if event.VirtualOld != nil || translate.ShouldDeleteHostObject(event.Host) {
-		return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, "virtual object was deleted")
-	}
-
-	vRoute := translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, event.Host))
-	err := pro.ApplyPatchesVirtualObject(ctx, nil, vRoute, event.Host, ctx.Config.Sync.ToHost.GatewayAPI.HTTPRoutePatches, false)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return patcher.CreateVirtualObject(ctx, event.Host, vRoute, s.EventRecorder(), true)
-}
-
-func httpRouteDeleteReason(route *gatewayv1.HTTPRoute) string {
-	if route != nil && route.DeletionTimestamp != nil {
-		return "virtual object was deleted by user"
-	}
-
-	return "host object was deleted"
+	return gatewaysync.CreateToVirtual(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.HTTPRoutePatches, func() *gatewayv1.HTTPRoute {
+		return translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, event.Host))
+	})
 }

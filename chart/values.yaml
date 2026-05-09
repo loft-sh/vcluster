@@ -81,7 +81,7 @@ sync:
     ingresses:
       # Enabled defines if this option should be enabled.
       enabled: false
-    # GatewayAPI defines if Gateway API resources created within the virtual cluster should get synced to the host cluster. When enabled, vCluster syncs Gateways, HTTPRoutes, TLSRoutes, and BackendTLSPolicies. GRPCRoutes, TCPRoutes, UDPRoutes, and ReferenceGrants are not synced. The host cluster must provide Gateway API CRDs compatible with the embedded v1.5.1 CRDs. Gateway status addresses mirror host network addresses.
+    # GatewayAPI defines if Gateway API resources created within the virtual cluster should get synced to the host cluster. When enabled, vCluster syncs Gateways, HTTPRoutes, TLSRoutes, BackendTLSPolicies, and ReferenceGrants. GRPCRoutes, TCPRoutes, and UDPRoutes are not synced. ReferenceGrant `to[].name` translation supports the core Gateway API target kinds Service, Secret, and ConfigMap; in single-namespace mode the grant becomes a same-namespace assertion on host because all virtual namespaces collapse to the configured target namespace. The host cluster must provide standard-channel v1 Gateway API CRDs compatible with the embedded v1.5.1 CRDs; experimental v1alpha* CRDs alone are not supported. Gateway status addresses mirror host network addresses.
     gatewayApi:
       # Enabled defines if this option should be enabled.
       enabled: false

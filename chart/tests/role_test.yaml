@@ -397,7 +397,7 @@ tests:
             verbs:
               ["create", "delete", "patch", "update", "get", "list", "watch"]
 
-  - it: gateway sync includes gateway routes
+  - it: gateway sync includes gateway routes and referencegrant watches
     set:
       sync:
         toHost:
@@ -440,6 +440,43 @@ tests:
             resources: ["backendtlspolicies"]
             verbs:
               ["create", "delete", "patch", "update", "get", "list", "watch"]
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["gateway.networking.k8s.io"]
+            resources: ["referencegrants"]
+            verbs: ["get", "list", "watch"]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: ["gateway.networking.k8s.io"]
+            resources: ["referencegrants"]
+            verbs: ["create", "delete", "patch", "update"]
+
+  - it: gateway sync includes referencegrants in multi-namespace mode
+    set:
+      sync:
+        toHost:
+          gatewayApi:
+            enabled: true
+          namespaces:
+            enabled: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: ClusterRole
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["gateway.networking.k8s.io"]
+            resources: ["referencegrants"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]
 
   - it: gateway sync excludes gateway routes when disabled
     set:
@@ -475,6 +512,13 @@ tests:
           content:
             apiGroups: ["gateway.networking.k8s.io"]
             resources: ["backendtlspolicies"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: ["gateway.networking.k8s.io"]
+            resources: ["referencegrants"]
             verbs:
               ["create", "delete", "patch", "update", "get", "list", "watch"]
 

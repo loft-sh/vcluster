@@ -71,6 +71,28 @@ func TestParentRefToVirtualPreservesExplicitSpecNamespace(t *testing.T) {
 	assert.Equal(t, string(*ref.Namespace), testRouteNamespace)
 }
 
+func TestParentRefToVirtualIgnoresExplicitSpecNamespaceOnDifferentParent(t *testing.T) {
+	syncCtx, _ := newGatewayRouteTestContext(t, nil, nil)
+	addMapping(t, syncCtx, gatewayMapping("gateway", testRouteNamespace))
+	ref := gatewayv1.ParentReference{
+		Name: gatewayv1.ObjectName(hostName("gateway", testRouteNamespace)),
+	}
+	specParentRefs := []gatewayv1.ParentReference{
+		{
+			Name:      gatewayv1.ObjectName(hostName("gateway", testRouteNamespace)),
+			Namespace: ptr.To(gatewayv1.Namespace("other-host-ns")),
+		},
+		{
+			Name: gatewayv1.ObjectName(hostName("gateway", testRouteNamespace)),
+		},
+	}
+
+	err := ParentRefToVirtual(syncCtx, hostNamespace(testRouteNamespace), testRouteNamespace, &ref, specParentRefs)
+	assert.NilError(t, err)
+	assert.Equal(t, string(ref.Name), "gateway")
+	assert.Assert(t, ref.Namespace == nil)
+}
+
 func TestSecretObjectRefToHost(t *testing.T) {
 	syncCtx, _ := newGatewayRouteTestContext(t, []runtime.Object{
 		managedHostSecret("tls-cert", testRouteNamespace),
@@ -128,6 +150,80 @@ func TestPolicyTargetRefToHost(t *testing.T) {
 	err := PolicyTargetRefToHost(syncCtx, testRouteNamespace, &ref)
 	assert.NilError(t, err)
 	assert.Equal(t, string(ref.Name), hostName(testServiceName, testRouteNamespace))
+}
+
+func TestReferenceGrantToToHostSupportsService(t *testing.T) {
+	syncCtx, _ := newGatewayRouteTestContext(t, []runtime.Object{
+		managedHostService(testServiceName, testRouteNamespace),
+	}, nil)
+	name := gatewayv1.ObjectName(testServiceName)
+	ref := gatewayv1.ReferenceGrantTo{
+		Group: corev1.GroupName,
+		Kind:  "Service",
+		Name:  &name,
+	}
+
+	err := ReferenceGrantToToHost(syncCtx, testRouteNamespace, &ref)
+	assert.NilError(t, err)
+	assert.Assert(t, ref.Name != nil)
+	assert.Equal(t, string(*ref.Name), hostName(testServiceName, testRouteNamespace))
+}
+
+func TestReferenceGrantToToHostSupportsSecret(t *testing.T) {
+	syncCtx, _ := newGatewayRouteTestContext(t, []runtime.Object{
+		managedHostSecret("tls-cert", testRouteNamespace),
+	}, nil)
+	name := gatewayv1.ObjectName("tls-cert")
+	ref := gatewayv1.ReferenceGrantTo{
+		Group: corev1.GroupName,
+		Kind:  "Secret",
+		Name:  &name,
+	}
+
+	err := ReferenceGrantToToHost(syncCtx, testRouteNamespace, &ref)
+	assert.NilError(t, err)
+	assert.Equal(t, string(*ref.Name), hostName("tls-cert", testRouteNamespace))
+}
+
+func TestReferenceGrantToToHostSupportsConfigMap(t *testing.T) {
+	syncCtx, _ := newGatewayRouteTestContext(t, []runtime.Object{
+		managedHostConfigMap("ca-bundle", testRouteNamespace),
+	}, nil)
+	name := gatewayv1.ObjectName("ca-bundle")
+	ref := gatewayv1.ReferenceGrantTo{
+		Group: corev1.GroupName,
+		Kind:  "ConfigMap",
+		Name:  &name,
+	}
+
+	err := ReferenceGrantToToHost(syncCtx, testRouteNamespace, &ref)
+	assert.NilError(t, err)
+	assert.Equal(t, string(*ref.Name), hostName("ca-bundle", testRouteNamespace))
+}
+
+func TestReferenceGrantToToHostNilNameIsNoOp(t *testing.T) {
+	syncCtx, _ := newGatewayRouteTestContext(t, nil, nil)
+	ref := gatewayv1.ReferenceGrantTo{
+		Group: corev1.GroupName,
+		Kind:  "Service",
+	}
+
+	err := ReferenceGrantToToHost(syncCtx, testRouteNamespace, &ref)
+	assert.NilError(t, err)
+	assert.Assert(t, ref.Name == nil)
+}
+
+func TestReferenceGrantToToHostRejectsUnsupportedKind(t *testing.T) {
+	syncCtx, _ := newGatewayRouteTestContext(t, nil, nil)
+	name := gatewayv1.ObjectName("anything")
+	ref := gatewayv1.ReferenceGrantTo{
+		Group: "example.com",
+		Kind:  "CustomThing",
+		Name:  &name,
+	}
+
+	err := ReferenceGrantToToHost(syncCtx, testRouteNamespace, &ref)
+	assert.ErrorContains(t, err, `referenceGrant to group "example.com" kind "CustomThing" is not supported`)
 }
 
 func TestParentRefToHostRejectsObjectWhenManagedChecksDisagree(t *testing.T) {
@@ -208,13 +304,32 @@ func TestParentStatusHostNamespace(t *testing.T) {
 		Name:        gatewayv1.ObjectName("gateway"),
 		SectionName: &sectionName,
 		Port:        &port,
-	}), "gateway-ns")
+	}), "route-ns")
 	assert.Equal(t, ParentStatusHostNamespace("route-ns", specParentRefs, gatewayv1.ParentReference{
 		Name:      gatewayv1.ObjectName("gateway"),
 		Namespace: ptr.To(gatewayv1.Namespace("status-ns")),
 	}), "status-ns")
 	assert.Equal(t, ParentStatusHostNamespace("route-ns", specParentRefs, gatewayv1.ParentReference{
 		Name: gatewayv1.ObjectName("other-gateway"),
+	}), "route-ns")
+
+	ambiguousSpecParentRefs := []gatewayv1.ParentReference{
+		{
+			Name:        gatewayv1.ObjectName("shared-gateway"),
+			Namespace:   ptr.To(gatewayv1.Namespace("other-ns")),
+			SectionName: &sectionName,
+			Port:        &port,
+		},
+		{
+			Name:        gatewayv1.ObjectName("shared-gateway"),
+			SectionName: &sectionName,
+			Port:        &port,
+		},
+	}
+	assert.Equal(t, ParentStatusHostNamespace("route-ns", ambiguousSpecParentRefs, gatewayv1.ParentReference{
+		Name:        gatewayv1.ObjectName("shared-gateway"),
+		SectionName: &sectionName,
+		Port:        &port,
 	}), "route-ns")
 }
 

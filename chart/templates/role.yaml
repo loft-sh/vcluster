@@ -98,6 +98,17 @@ rules:
     resources: ["backendtlspolicies"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- end }}
+  {{- if or (and .Values.sync.toHost.gatewayApi.enabled .Values.sync.toHost.namespaces.enabled) .Values.integrations.istio.enabled }}
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["referencegrants"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- else if .Values.sync.toHost.gatewayApi.enabled }}
+  # Single-namespace Gateway API sync validates virtual ReferenceGrants but does
+  # not sync them to the host because all tenant namespaces collapse together.
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["referencegrants"]
+    verbs: ["get", "list", "watch"]
+  {{- end }}
   {{- if .Values.sync.toHost.networkPolicies.enabled }}
   - apiGroups: ["networking.k8s.io"]
     resources: ["networkpolicies"]
@@ -178,9 +189,6 @@ rules:
   {{- if .Values.integrations.istio.enabled }}
   - apiGroups: [ "networking.istio.io" ]
     resources: [ "destinationrules", "gateways", "serviceentries", "virtualservices" ]
-    verbs: [ "create", "delete", "patch", "update", "get", "list", "watch" ]
-  - apiGroups: [ "gateway.networking.k8s.io" ]
-    resources: [ "referencegrants" ]
     verbs: [ "create", "delete", "patch", "update", "get", "list", "watch" ]
   {{- end }}
   {{- if .Values.experimental.nodeMonitors }}

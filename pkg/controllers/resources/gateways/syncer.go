@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
+	gatewayauthz "github.com/loft-sh/vcluster/pkg/controllers/resources/gatewayapi/authz"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/gatewayapi/gatewaysync"
 	routetranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/gatewayroutes/translate"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/patcher"
@@ -66,6 +68,10 @@ func (s *gatewaySyncer) Options() *syncertypes.Options {
 }
 
 func (s *gatewaySyncer) RegisterIndices(ctx *synccontext.RegisterContext) error {
+	if !ctx.Config.Sync.FromHost.GatewayClasses.Enabled {
+		return nil
+	}
+
 	return ctx.VirtualManager.GetFieldIndexer().IndexField(ctx, &gatewayv1.Gateway{}, constants.IndexByGatewayClass, func(rawObj client.Object) []string {
 		gateway, ok := rawObj.(*gatewayv1.Gateway)
 		if !ok || gateway.Spec.GatewayClassName == "" {
@@ -77,7 +83,10 @@ func (s *gatewaySyncer) RegisterIndices(ctx *synccontext.RegisterContext) error 
 }
 
 func (s *gatewaySyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
-	builder, err := routetranslate.RegisterReferencedWatches(ctx, builder, s.GroupVersionKind(), mappings.Secrets())
+	var err error
+	builder = gatewayauthz.RegisterGatewayWatches(ctx, builder)
+
+	builder, err = routetranslate.RegisterReferencedWatches(ctx, builder, s.GroupVersionKind(), mappings.Secrets())
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +127,7 @@ func (s *gatewaySyncer) ModifyController(ctx *synccontext.RegisterContext, build
 
 func (s *gatewaySyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*gatewayv1.Gateway]) (ctrl.Result, error) {
 	if event.HostOld != nil || event.Virtual.DeletionTimestamp != nil {
-		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.HostOld, gatewayDeleteReason(event.Virtual))
+		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.HostOld, gatewaysync.DeleteReason(event.Virtual))
 	}
 
 	if s.skipSync(ctx, event.Virtual) {
@@ -127,6 +136,12 @@ func (s *gatewaySyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccont
 
 	pObj, err := s.translate(ctx, event.Virtual)
 	if err != nil {
+		if gatewayauthz.IsNotPermitted(err) {
+			gatewaysync.RecordRefNotPermitted(s.EventRecorder(), event.Virtual, err)
+			return ctrl.Result{}, nil
+		}
+
+		gatewaysync.RecordSyncError(s.EventRecorder(), event.Virtual, err)
 		return ctrl.Result{}, err
 	}
 
@@ -155,6 +170,12 @@ func (s *gatewaySyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 
 	hSpec, err := listenersToHost(ctx, event.Virtual, false)
 	if err != nil {
+		if gatewayauthz.IsNotPermitted(err) {
+			gatewaysync.RecordRefNotPermitted(s.EventRecorder(), event.Virtual, err)
+			return patcher.DeleteHostObject(ctx, event.Host, event.Virtual, "virtual reference is not permitted")
+		}
+
+		gatewaysync.RecordSyncError(s.EventRecorder(), event.Virtual, err)
 		return ctrl.Result{}, fmt.Errorf("failed to translate listeners: %w", err)
 	}
 
@@ -169,40 +190,27 @@ func (s *gatewaySyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
 		if retErr != nil {
-			s.EventRecorder().Eventf(
-				event.Virtual,
-				nil,
-				"Warning",
-				"SyncError",
-				fmt.Sprintf("Sync%s", event.Virtual.GetObjectKind().GroupVersionKind().Kind),
-				"Error syncing: %v",
-				retErr,
-			)
+			gatewaysync.RecordSyncError(s.EventRecorder(), event.Virtual, retErr)
 		}
 	}()
 
-	// Resolve GatewayClassName bidirectionally:
-	//   - if virtual changed, propagate virtual onto host;
-	//   - if only host changed, propagate host onto virtual;
-	//   - if both changed, virtual wins (CopyBidirectional ordering);
-	//   - if neither changed but the values disagree (stable drift), force virtual onto host.
-	// CopyBidirectional only handles the first three cases; the explicit else assignment
-	// covers the stable-drift case so vCluster keeps host in sync with virtual.
+	// Resolve GatewayClassName bidirectionally. For stable drift, keep the host
+	// aligned with the virtual Gateway because the tenant spec is the desired state.
 	virtualGatewayClassChanged := event.VirtualOld.Spec.GatewayClassName != event.Virtual.Spec.GatewayClassName
 	hostGatewayClassChanged := event.HostOld.Spec.GatewayClassName != event.Host.Spec.GatewayClassName
-	var resolvedHostClass gatewayv1.ObjectName
-	event.Virtual.Spec.GatewayClassName, resolvedHostClass = patcher.CopyBidirectional(
+	event.Virtual.Spec.GatewayClassName, hSpec.GatewayClassName = patcher.CopyBidirectional(
 		event.VirtualOld.Spec.GatewayClassName,
 		event.Virtual.Spec.GatewayClassName,
 		event.HostOld.Spec.GatewayClassName,
 		event.Host.Spec.GatewayClassName,
 	)
-	if virtualGatewayClassChanged || hostGatewayClassChanged {
-		hSpec.GatewayClassName = resolvedHostClass
-	} else {
+	if !virtualGatewayClassChanged && !hostGatewayClassChanged {
 		hSpec.GatewayClassName = event.Virtual.Spec.GatewayClassName
 	}
 
+	// Host status is mirrored as reported by the Gateway controller. In
+	// single-namespace mode the host spec may be constrained more narrowly than
+	// the virtual spec, so route attachment counts reflect host-controller state.
 	event.Virtual.Status = event.Host.Status
 	event.Virtual.Labels, event.Host.Labels = translate.LabelsBidirectionalUpdate(event)
 	event.Virtual.Annotations, event.Host.Annotations = translate.AnnotationsBidirectionalUpdate(event)
@@ -277,12 +285,4 @@ func (s *gatewaySyncer) skipSync(ctx *synccontext.SyncContext, gw *gatewayv1.Gat
 	}
 
 	return false
-}
-
-func gatewayDeleteReason(gw *gatewayv1.Gateway) string {
-	if gw != nil && gw.DeletionTimestamp != nil {
-		return "virtual object was deleted by user"
-	}
-
-	return "host object was deleted"
 }
