@@ -36,6 +36,7 @@ var resourceOrder = []string{
 	"virtualclusters",
 	"devpodworkspaceinstances",
 	"spaceinstances",
+	"argocdapplications",
 
 	// templates
 	"virtualclustertemplates",
@@ -46,6 +47,7 @@ var resourceOrder = []string{
 	"spacetemplates",
 	"apps",
 	"spaceconstraints",
+	"argocdapplicationtemplates",
 
 	// infra
 	"tasks",
