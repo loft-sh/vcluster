@@ -2,6 +2,7 @@ package constants
 
 const (
 	VClusterStandaloneEndpointsAnnotation = "vcluster.loft.sh/standalone-endpoints"
+	VClusterStandaloneHostsAnnotation     = "vcluster.loft.sh/standalone-hosts"
 	VClusterStandalonePortAnnotation      = "vcluster.loft.sh/standalone-port"
 	VClusterStandaloneEnvVar              = "VCLUSTER_STANDALONE"
 	VClusterStandaloneIPAddressEnvVar     = "VCLUSTER_STANDALONE_IP_ADDRESS"
