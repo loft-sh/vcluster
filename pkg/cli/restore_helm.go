@@ -48,6 +48,10 @@ func restoreVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, rest
 		cmdArgs = append(cmdArgs, "--restore-volumes")
 	}
 
+	if snapshotOpts.Type == "file" {
+		return restoreFromLocalFile(ctx, vCluster, kubeClient, restConfig, snapshotOpts, podOptions, restoreVolumes, log)
+	}
+
 	if vCluster.IsStandalone {
 		return restoreStandaloneVCluster(ctx, vCluster, snapshotOpts, cmdArgs, log)
 	}

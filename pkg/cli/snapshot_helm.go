@@ -62,7 +62,7 @@ func CreateSnapshot(ctx context.Context, args []string, globalFlags *flags.Globa
 	}
 
 	// create the snapshot request which will be reconciled by the vCluster controller
-	err = createSnapshotRequest(ctx, vCluster, kubeClient, snapshotOpts, log)
+	err = createSnapshotRequest(ctx, vCluster, kubeClient, snapshotOpts, log, restConfig)
 	if err != nil {
 		return err
 	}
@@ -163,7 +163,7 @@ func initSnapshotCommand(
 	return vCluster, kubeClient, restClient, nil
 }
 
-func createSnapshotRequest(ctx context.Context, vCluster *find.VCluster, kubeClient *kubernetes.Clientset, snapshotOpts *snapshotapi.Options, log log.Logger) error {
+func createSnapshotRequest(ctx context.Context, vCluster *find.VCluster, kubeClient *kubernetes.Clientset, snapshotOpts *snapshotapi.Options, log log.Logger, restConfig *rest.Config) error {
 	err := checkIfVClusterSupportsSnapshotRequests(vCluster, log)
 	if err != nil {
 		return fmt.Errorf("vCluster version check failed: %w", err)
@@ -172,6 +172,11 @@ func createSnapshotRequest(ctx context.Context, vCluster *find.VCluster, kubeCli
 	if err != nil {
 		return fmt.Errorf("failed to get vcluster config: %w", err)
 	}
+
+	if snapshotOpts.Type == "file" {
+		return snapshotToLocalFile(ctx, vCluster, kubeClient, restConfig, snapshotOpts, log, vClusterConfig)
+	}
+
 	// Create snapshot request resources
 	_, err = snapshot.CreateSnapshotRequestResources(ctx, vCluster.Namespace, vClusterConfig.Name, vClusterConfig, snapshotOpts, kubeClient)
 	if err != nil {
