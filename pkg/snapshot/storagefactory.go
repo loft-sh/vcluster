@@ -7,6 +7,7 @@ import (
 	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/snapshot/azure"
 	"github.com/loft-sh/vcluster/pkg/snapshot/container"
+	"github.com/loft-sh/vcluster/pkg/snapshot/file"
 	"github.com/loft-sh/vcluster/pkg/snapshot/oci"
 	"github.com/loft-sh/vcluster/pkg/snapshot/s3"
 	"github.com/loft-sh/vcluster/pkg/snapshot/types"
@@ -24,6 +25,8 @@ func CreateStore(ctx context.Context, options *snapshotapi.Options) (types.Stora
 		return objectStore, nil
 	} else if options.Type == "container" {
 		return container.NewStore(&options.Container), nil
+	} else if options.Type == "file" {
+		return file.NewStore(&options.File), nil
 	} else if options.Type == "oci" {
 		return oci.NewStore(&options.OCI), nil
 	} else if options.Type == "azure" {

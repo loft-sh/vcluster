@@ -8,9 +8,7 @@ import (
 
 	"github.com/loft-sh/log"
 	vclusterconfig "github.com/loft-sh/vcluster/pkg/config"
-	"github.com/loft-sh/vcluster/pkg/lifecycle"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
-	"github.com/loft-sh/vcluster/pkg/snapshot/container"
 	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
 	"github.com/loft-sh/vcluster/pkg/util/podhelper"
 	corev1 "k8s.io/api/core/v1"
@@ -28,18 +26,16 @@ const dataMountPath = "/data"
 func snapshotToLocalFile(ctx context.Context, vCluster *find.VCluster,
 	kubeClient *kubernetes.Clientset, restConfig *rest.Config,
 	snapshotOpts *snapshot.Options, log log.Logger, vClusterConfig *vclusterconfig.VirtualClusterConfig) error {
-
-	localPath := snapshotOpts.LocalPath
 	tempPath := fmt.Sprintf("%s/vcluster-snapshot-%d.tar.gz", dataMountPath, time.Now().Unix())
-
-	// Translate to container:// for the in-cluster controller.
-	containerOpts := *snapshotOpts
-	containerOpts.Type = "container"
-	containerOpts.Container = container.Options{Path: tempPath}
+	localPath := snapshotOpts.File.Path
+	if !vCluster.IsStandalone {
+		// For non-standalone, we need to write the snapshot to the syncer PVC first, then download it via exec.
+		snapshotOpts.File.Path = tempPath
+	}
 
 	log.Infof("Creating snapshot request...")
 	snapshotRequest, err := snapshot.CreateSnapshotRequestResources(
-		ctx, vCluster.Namespace, vClusterConfig.Name, vClusterConfig, &containerOpts, kubeClient)
+		ctx, vCluster.Namespace, vClusterConfig.Name, vClusterConfig, snapshotOpts, kubeClient)
 	if err != nil {
 		return fmt.Errorf("create snapshot request: %w", err)
 	}
@@ -92,29 +88,20 @@ func snapshotToLocalFile(ctx context.Context, vCluster *find.VCluster,
 func restoreFromLocalFile(ctx context.Context, vCluster *find.VCluster,
 	kubeClient *kubernetes.Clientset, restConfig *rest.Config,
 	snapshotOpts *snapshot.Options, podOpts *pod.Options,
-	restoreVolumes bool, log log.Logger) error {
-
-	localPath := snapshotOpts.LocalPath
+	log log.Logger, cmdArgs []string) error {
+	tempPath := fmt.Sprintf("%s/vcluster-restore-%d.tar.gz", dataMountPath, time.Now().Unix())
+	localPath := snapshotOpts.File.Path
 	if _, err := os.Stat(localPath); os.IsNotExist(err) {
 		return fmt.Errorf("snapshot file not found: %s", localPath)
 	}
 
-	containerOpts := *snapshotOpts
-	containerOpts.Type = "container"
-
-	cmdArgs := []string{"restore"}
-	if restoreVolumes {
-		cmdArgs = append(cmdArgs, "--restore-volumes")
-	}
-
 	if vCluster.IsStandalone {
-		containerOpts.Container = container.Options{Path: localPath}
-		return restoreStandaloneVCluster(ctx, vCluster, &containerOpts, cmdArgs, log)
+		// For standalone, we can read directly from the local file instead of going through the syncer PVC.
+		return restoreStandaloneVCluster(snapshotOpts, cmdArgs, log)
 	}
 
 	// For non-standalone, we need to upload the local file into the syncer container first, then point the restore command at it.
-	tempPath := fmt.Sprintf("%s/vcluster-restore-%d.tar.gz", dataMountPath, time.Now().Unix())
-	containerOpts.Container = container.Options{Path: tempPath}
+	snapshotOpts.File.Path = tempPath
 
 	// Stream the local file into the syncer PVC via exec before pausing.
 	// The PVC (and the staged file) persist through scale-to-zero.
@@ -142,24 +129,11 @@ func restoreFromLocalFile(ctx context.Context, vCluster *find.VCluster,
 		return fmt.Errorf("upload snapshot to pod: %w", err)
 	}
 
-	log.Infof("Pausing vCluster %s", vCluster.Name)
-	if err := pauseVCluster(ctx, kubeClient, vCluster, log); err != nil {
-		return fmt.Errorf("pause vCluster %s: %w", vCluster.Name, err)
-	}
-	defer func() {
-		log.Infof("Resuming vCluster %s", vCluster.Name)
-		if err := lifecycle.ResumeVCluster(ctx, kubeClient, vCluster.Name, vCluster.Namespace, true, log); err != nil {
-			log.Warnf("Error resuming vCluster %s: %v", vCluster.Name, err)
-		}
-	}()
-
-	command := append([]string{"/vcluster"}, cmdArgs...)
-	return pod.RunSnapshotPod(ctx, restConfig, kubeClient, command, vCluster, podOpts, &containerOpts, log)
+	return runRestorePod(ctx, kubeClient, restConfig, vCluster, snapshotOpts, podOpts, log, cmdArgs)
 }
 
 func waitForSnapshotRequest(ctx context.Context, kubeClient *kubernetes.Clientset,
 	namespace, name string) error {
-
 	return wait.PollUntilContextTimeout(ctx, 5*time.Second, 30*time.Minute, true,
 		func(ctx context.Context) (bool, error) {
 			cm, err := kubeClient.CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})

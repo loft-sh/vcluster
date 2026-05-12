@@ -200,6 +200,7 @@ func SnapshotAllSpec() {
 			describeSnapshotRestore(&s)
 			describeSnapshotCanceling(&s)
 			describeSnapshotDeletion(&s)
+			describeFileProtocol(&s)
 		},
 	)
 }
@@ -757,6 +758,70 @@ func describeSnapshotDeletion(s *snapshotCtx) {
 		})
 	},
 	)
+}
+
+func describeFileProtocol(s *snapshotCtx) {
+	// Ordered: create snapshot via file:// -> verify file exists locally -> restore -> verify resources.
+	// Each spec depends on the snapshot created in spec 1.
+	Describe("file protocol snapshot and restore", Ordered, func() {
+		var (
+			testNS             string
+			snapshotPath       string
+			configMapToRestore *corev1.ConfigMap
+		)
+
+		BeforeAll(func(ctx context.Context) {
+			testNS = "file-snapshot-" + random.String(6)
+			snapshotPath = "file:///tmp/vcluster-file-snapshot-" + testNS + ".tar.gz"
+			cleanupAllSnapshotArtifacts(ctx, s.hostClient, s.vClusterNS)
+			cmr, _, _, _, _, _ := s.deployTestResources(ctx, testNS)
+			configMapToRestore = cmr
+		})
+
+		It("Creates the snapshot and writes to local filesystem", func(ctx context.Context) {
+			By("Creating the snapshot via file protocol", func() {
+				createSnapshot(s.vClusterName, s.vClusterNS, s.kubeconfig, true, snapshotPath, false)
+				// The CLI blocks until the snapshot completes and the file is downloaded locally.
+				waitForSnapshotToBeCreated(ctx, s.hostClient, s.vClusterNS)
+			})
+
+			By("Verifying the snapshot file exists on local filesystem", func() {
+				localPath := strings.TrimPrefix(snapshotPath, "file://")
+				_, err := os.Stat(localPath)
+				Expect(err).To(Succeed(), "snapshot file should exist at %s", localPath)
+			})
+		})
+
+		It("Restores from local file and verifies resources", func(ctx context.Context) {
+			By("Deleting pre-snapshot resources that should be recreated by restore", func() {
+				err := s.vClusterClient.CoreV1().ConfigMaps(testNS).Delete(ctx, configMapToRestore.Name, metav1.DeleteOptions{})
+				Expect(err).To(Succeed())
+			})
+
+			By("Restoring the tenant cluster from local snapshot file", func() {
+				restoreVCluster(ctx, s.hostClient, s.vClusterName, s.vClusterNS, snapshotPath, s.kubeconfig, true, false)
+				s.refreshClient(ctx)
+			})
+
+			By("Verifying pre-snapshot resources are restored", func() {
+				Eventually(func(g Gomega) {
+					cms, err := s.vClusterClient.CoreV1().ConfigMaps(testNS).List(ctx, metav1.ListOptions{
+						LabelSelector: "snapshot=restore",
+					})
+					g.Expect(err).To(Succeed())
+					g.Expect(cms.Items).To(HaveLen(1),
+						"expected configmap %s to be recreated by restore", configMapToRestore.Name)
+					g.Expect(cms.Items[0].Data).To(Equal(configMapToRestore.Data))
+				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+			})
+		})
+
+		AfterAll(func(ctx context.Context) {
+			localPath := strings.TrimPrefix(snapshotPath, "file://")
+			_ = os.Remove(localPath)
+			deleteSnapshotRequestConfigMaps(ctx, s.hostClient, s.vClusterNS)
+		})
+	})
 }
 
 // --- Volume helpers ---
