@@ -16,6 +16,8 @@
 
 /test/ @loft-sh/eng-qa @loft-sh/eng-dev-vcluster-platform
 /e2e-next/ @loft-sh/eng-qa
+/e2e-next/test_core/lifecycle/   @loft-sh/eng-control-plane
+/e2e-next/test_storage/snapshot/ @loft-sh/eng-control-plane
 
 /hack/email/ @zerbitx
 
