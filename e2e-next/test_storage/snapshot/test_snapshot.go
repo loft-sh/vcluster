@@ -43,6 +43,7 @@ type snapshotCtx struct {
 	vClusterClient kubernetes.Interface
 	vClusterName   string
 	vClusterNS     string
+	kubeconfig     string
 }
 
 func newSnapshotCtx(ctx context.Context) *snapshotCtx {
@@ -64,6 +65,7 @@ func newSnapshotCtx(ctx context.Context) *snapshotCtx {
 	Expect(s.vClusterClient).NotTo(BeNil())
 	s.vClusterName = cluster.CurrentClusterNameFrom(ctx)
 	s.vClusterNS = "vcluster-" + s.vClusterName
+	s.kubeconfig = cluster.From(ctx, hostName).GetKubeconfig()
 	return s
 }
 
@@ -89,6 +91,19 @@ func (s *snapshotCtx) refreshClient(ctx context.Context) {
 				BackgroundProxyImage: constants.GetVClusterImage(),
 			},
 		}
+		// connectCmd internally builds a client from the ambient KUBECONFIG to
+		// locate the host cluster. Parallel ginkgo workers share ~/.kube/config
+		// and kind create cluster rewrites it, so override the env with the
+		// per-cluster temp kubeconfig for this call only.
+		prevKubeconfig, hadKubeconfig := os.LookupEnv("KUBECONFIG")
+		Expect(os.Setenv("KUBECONFIG", s.kubeconfig)).To(Succeed())
+		defer func() {
+			if hadKubeconfig {
+				_ = os.Setenv("KUBECONFIG", prevKubeconfig)
+			} else {
+				_ = os.Unsetenv("KUBECONFIG")
+			}
+		}()
 		err = connectCmd.Run(ctx, []string{s.vClusterName})
 		Expect(err).To(Succeed(), "vcluster connect failed after restore")
 
@@ -220,7 +235,7 @@ func describeSnapshotRestore(s *snapshotCtx) {
 		})
 
 		It("Creates the snapshot", func(ctx context.Context) {
-			createSnapshot(s.vClusterName, s.vClusterNS, true, snapshotPath, false)
+			createSnapshot(s.vClusterName, s.vClusterNS, s.kubeconfig, true, snapshotPath, false)
 			waitForSnapshotToBeCreated(ctx, s.hostClient, s.vClusterNS)
 		})
 
@@ -248,7 +263,7 @@ func describeSnapshotRestore(s *snapshotCtx) {
 			})
 
 			By("Restoring the vCluster from snapshot", func() {
-				restoreVCluster(ctx, s.hostClient, s.vClusterName, s.vClusterNS, snapshotPath, true, false)
+				restoreVCluster(ctx, s.hostClient, s.vClusterName, s.vClusterNS, snapshotPath, s.kubeconfig, true, false)
 				s.refreshClient(ctx)
 			})
 
@@ -336,7 +351,7 @@ func describeSnapshotRestore(s *snapshotCtx) {
 
 		It("Creates the snapshot and verifies VolumeSnapshots are cleaned up", func(ctx context.Context) {
 			By("Creating the snapshot with volumes", func() {
-				createSnapshot(s.vClusterName, s.vClusterNS, true, snapshotPath, true)
+				createSnapshot(s.vClusterName, s.vClusterNS, s.kubeconfig, true, snapshotPath, true)
 				waitForSnapshotToBeCreated(ctx, s.hostClient, s.vClusterNS)
 			})
 
@@ -381,7 +396,7 @@ func describeSnapshotRestore(s *snapshotCtx) {
 			deletePVC(ctx, s.vClusterClient, s.hostClient, s.vClusterName, s.vClusterNS, testNS, pvcToRestoreName)
 			// PVC restored without data in previous specs; delete again for proper restore
 			deletePVC(ctx, s.vClusterClient, s.hostClient, s.vClusterName, s.vClusterNS, testNS, pvcToRestoreName)
-			restoreVCluster(ctx, s.hostClient, s.vClusterName, s.vClusterNS, snapshotPath, true, true)
+			restoreVCluster(ctx, s.hostClient, s.vClusterName, s.vClusterNS, snapshotPath, s.kubeconfig, true, true)
 			s.refreshClient(ctx)
 
 			Eventually(func(g Gomega) {
@@ -436,7 +451,7 @@ func describeSnapshotRestore(s *snapshotCtx) {
 			})
 
 			By("Creating the snapshot", func() {
-				createSnapshot(s.vClusterName, s.vClusterNS, true, snapshotPath, false)
+				createSnapshot(s.vClusterName, s.vClusterNS, s.kubeconfig, true, snapshotPath, false)
 				waitForSnapshotToBeCreated(ctx, s.hostClient, s.vClusterNS)
 			})
 		})
@@ -447,7 +462,7 @@ func describeSnapshotRestore(s *snapshotCtx) {
 			})
 
 			By("Restoring the tenant cluster from snapshot", func() {
-				restoreVCluster(ctx, s.hostClient, s.vClusterName, s.vClusterNS, snapshotPath, true, false)
+				restoreVCluster(ctx, s.hostClient, s.vClusterName, s.vClusterNS, snapshotPath, s.kubeconfig, true, false)
 				s.refreshClient(ctx)
 			})
 		})
@@ -502,12 +517,12 @@ func describeSnapshotCanceling(s *snapshotCtx) {
 				}
 			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 
-			createSnapshot(s.vClusterName, s.vClusterNS, true, snapshotPath, true)
+			createSnapshot(s.vClusterName, s.vClusterNS, s.kubeconfig, true, snapshotPath, true)
 			// Brief pause to ensure the first snapshot request is registered before
 			// the second one arrives - tests the cancellation path where a new
 			// snapshot supersedes an in-progress one.
 			time.Sleep(2 * time.Second)
-			createSnapshot(s.vClusterName, s.vClusterNS, true, snapshotPath, true)
+			createSnapshot(s.vClusterName, s.vClusterNS, s.kubeconfig, true, snapshotPath, true)
 		})
 
 		It("Has 2 snapshot requests", func(ctx context.Context) {
@@ -613,7 +628,7 @@ func describeSnapshotDeletion(s *snapshotCtx) {
 				}
 			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 
-			createSnapshot(s.vClusterName, s.vClusterNS, true, snapshotPath, true)
+			createSnapshot(s.vClusterName, s.vClusterNS, s.kubeconfig, true, snapshotPath, true)
 		})
 
 		It("Creates snapshot deletion request", func(ctx context.Context) {

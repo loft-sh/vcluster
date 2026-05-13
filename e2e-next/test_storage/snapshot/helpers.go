@@ -4,6 +4,7 @@ package snapshot
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"os/exec"
 	"time"
 
@@ -18,16 +19,17 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-func runVClusterCmd(args ...string) {
+func runVClusterCmd(kubeconfig string, args ...string) {
 	GinkgoHelper()
 	cmd := exec.Command("vcluster", args...)
+	cmd.Env = append(os.Environ(), "KUBECONFIG="+kubeconfig)
 	cmd.Stdout = GinkgoWriter
 	cmd.Stderr = GinkgoWriter
 	err := cmd.Run()
 	Expect(err).NotTo(HaveOccurred(), "vcluster command failed: vcluster %v", args)
 }
 
-func createSnapshot(vClusterName, vClusterNamespace string, useNewCommand bool, snapshotPath string, includeVolumes bool) {
+func createSnapshot(vClusterName, vClusterNamespace, kubeconfig string, useNewCommand bool, snapshotPath string, includeVolumes bool) {
 	GinkgoHelper()
 	By("Creating a snapshot", func() {
 		if useNewCommand {
@@ -35,15 +37,15 @@ func createSnapshot(vClusterName, vClusterNamespace string, useNewCommand bool, 
 			if includeVolumes {
 				args = append(args, "--include-volumes")
 			}
-			runVClusterCmd(args...)
+			runVClusterCmd(kubeconfig, args...)
 		} else {
-			runVClusterCmd("snapshot", vClusterName, snapshotPath, "-n", vClusterNamespace,
+			runVClusterCmd(kubeconfig, "snapshot", vClusterName, snapshotPath, "-n", vClusterNamespace,
 				"--pod-mount", "pvc:snapshot-pvc:/snapshot-pvc")
 		}
 	})
 }
 
-func restoreVCluster(ctx context.Context, hostClient kubernetes.Interface, vClusterName, vClusterNamespace, snapshotPath string, controllerBased, restoreVolumes bool) {
+func restoreVCluster(ctx context.Context, hostClient kubernetes.Interface, vClusterName, vClusterNamespace, snapshotPath, kubeconfig string, controllerBased, restoreVolumes bool) {
 	GinkgoHelper()
 	By("Restoring the vCluster", func() {
 		args := []string{"restore", vClusterName, snapshotPath, "-n", vClusterNamespace}
@@ -53,7 +55,7 @@ func restoreVCluster(ctx context.Context, hostClient kubernetes.Interface, vClus
 		if restoreVolumes {
 			args = append(args, "--restore-volumes")
 		}
-		runVClusterCmd(args...)
+		runVClusterCmd(kubeconfig, args...)
 	})
 
 	By("Waiting for vCluster pods to be running and ready after restore", func() {

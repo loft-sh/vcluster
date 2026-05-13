@@ -60,12 +60,14 @@ func ConnectSpec() {
 			defer cancel()
 
 			By("running vcluster connect --print and capturing kubeconfig", func() {
+				hostKubeconfig := cluster.From(ctx, constants.GetHostClusterName()).GetKubeconfig()
 				cmd := exec.CommandContext(cmdCtx, vclusterBin(), "connect",
 					"-n", vClusterNamespace,
 					"--print",
 					"--background-proxy=false",
 					"--server", proxyServer,
 					vClusterName)
+				cmd.Env = append(os.Environ(), "KUBECONFIG="+hostKubeconfig)
 				kubeConfigBytes, err := cmd.Output()
 				Expect(err).To(Succeed(),
 					"vcluster connect --print failed for %s", vClusterName)
@@ -87,6 +89,7 @@ func ConnectSpec() {
 
 		It("should fail to connect to a vCluster with an invalid name", func(ctx context.Context) {
 			By("running vcluster connect --print with a non-existent vcluster name", func() {
+				hostKubeconfig := cluster.From(ctx, constants.GetHostClusterName()).GetKubeconfig()
 				cmdCtx, cancel := context.WithTimeout(ctx, constants.PollingTimeoutShort)
 				defer cancel()
 				cmd := exec.CommandContext(cmdCtx, vclusterBin(), "connect",
@@ -94,6 +97,7 @@ func ConnectSpec() {
 					"--print",
 					"--background-proxy=false",
 					"INVALID")
+				cmd.Env = append(os.Environ(), "KUBECONFIG="+hostKubeconfig)
 				out, err := cmd.CombinedOutput()
 				Expect(err).To(HaveOccurred(),
 					"expected vcluster connect to fail for non-existent vcluster INVALID, output: %s", string(out))
@@ -104,6 +108,7 @@ func ConnectSpec() {
 
 		It("should connect to a vCluster and execute a command inline", func(ctx context.Context) {
 			By("running vcluster connect with an inline kubectl command", func() {
+				hostKubeconfig := cluster.From(ctx, constants.GetHostClusterName()).GetKubeconfig()
 				// Retry the whole command because port-forwarding can fail
 				// transiently in CI (e.g. containerd closing the pod network
 				// namespace mid-forward).
@@ -115,6 +120,7 @@ func ConnectSpec() {
 						"--background-proxy=false",
 						vClusterName,
 						"--", "kubectl", "get", "ns")
+					cmd.Env = append(os.Environ(), "KUBECONFIG="+hostKubeconfig)
 					out, err := cmd.CombinedOutput()
 					g.Expect(err).To(Succeed(),
 						"vcluster connect -- kubectl get ns failed for %s, output: %s", vClusterName, string(out))
