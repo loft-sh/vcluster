@@ -82,7 +82,7 @@ func Register(ctx *synccontext.ControllerContext) error {
 
 func RegisterOrDeregisterAPIService(ctx *synccontext.ControllerContext) error {
 	if ctx.Config.Integrations.MetricsServer.Enabled {
-		return apiservice.RegisterAPIService(ctx, "metrics-server", hostPort, GroupVersion)
+		return apiservice.RegisterAPIService(ctx, "metrics-server", hostPort, GroupVersion, "metrics-server")
 	}
 
 	return apiservice.DeregisterAPIService(ctx, GroupVersion)

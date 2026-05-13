@@ -63,6 +63,11 @@ func applyOperation(ctx context.Context, operationFunc wait.ConditionWithContext
 
 func deleteOperation(ctrlCtx *synccontext.ControllerContext, groupVersion schema.GroupVersion) wait.ConditionWithContextFunc {
 	return func(ctx context.Context) (bool, error) {
+		if err := disableDeletionProtection(ctx, ctrlCtx.VirtualManager.GetClient(), groupVersion); err != nil {
+			klog.Errorf("error disabling deletion protection for api service %v", err)
+			return false, nil
+		}
+
 		err := ctrlCtx.VirtualManager.GetClient().Delete(ctx, &apiregistrationv1.APIService{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: groupVersion.Version + "." + groupVersion.Group,
@@ -81,7 +86,7 @@ func deleteOperation(ctrlCtx *synccontext.ControllerContext, groupVersion schema
 	}
 }
 
-func createOperation(ctrlCtx *synccontext.ControllerContext, serviceName string, hostPort int, groupVersion schema.GroupVersion) wait.ConditionWithContextFunc {
+func createOperation(ctrlCtx *synccontext.ControllerContext, serviceName string, hostPort int, groupVersion schema.GroupVersion, additionalLabels map[string]string) wait.ConditionWithContextFunc {
 	return func(ctx context.Context) (bool, error) {
 		service := &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -90,6 +95,9 @@ func createOperation(ctrlCtx *synccontext.ControllerContext, serviceName string,
 			},
 		}
 		_, err := controllerutil.CreateOrUpdate(ctx, ctrlCtx.VirtualManager.GetClient(), service, func() error {
+			for k, v := range additionalLabels {
+				metav1.SetMetaDataLabel(&service.ObjectMeta, k, v)
+			}
 			service.Spec.Type = corev1.ServiceTypeExternalName
 			service.Spec.ExternalName = "localhost"
 			service.Spec.Ports = []corev1.ServicePort{
@@ -126,6 +134,9 @@ func createOperation(ctrlCtx *synccontext.ControllerContext, serviceName string,
 			},
 		}
 		_, err = controllerutil.CreateOrUpdate(ctx, ctrlCtx.VirtualManager.GetClient(), apiService, func() error {
+			for k, v := range additionalLabels {
+				metav1.SetMetaDataLabel(&apiService.ObjectMeta, k, v)
+			}
 			apiService.Spec = apiServiceSpec
 			return nil
 		})
@@ -261,8 +272,16 @@ func isAPIServiceProxyPathAllowed(method, path string) bool {
 	return false
 }
 
-func RegisterAPIService(ctx *synccontext.ControllerContext, serviceName string, hostPort int, groupVersion schema.GroupVersion) error {
-	return applyOperation(ctx, createOperation(ctx, serviceName, hostPort, groupVersion))
+func RegisterAPIService(ctx *synccontext.ControllerContext, serviceName string, hostPort int, groupVersion schema.GroupVersion, protectionTag string) error {
+	var additionalLabels map[string]string
+	if protectionTag != "" {
+		labels, err := enableDeletionProtection(ctx, ctx.VirtualManager.GetClient(), protectionTag)
+		if err != nil {
+			return err
+		}
+		additionalLabels = labels
+	}
+	return applyOperation(ctx, createOperation(ctx, serviceName, hostPort, groupVersion, additionalLabels))
 }
 
 func DeregisterAPIService(ctx *synccontext.ControllerContext, groupVersion schema.GroupVersion) error {
