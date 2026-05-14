@@ -16,6 +16,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/plugin"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/scheme"
+	snapshotapi "github.com/loft-sh/vcluster/pkg/snapshot/api"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/util/blockingcacheclient"
@@ -101,6 +102,9 @@ func NewControllerContext(ctx context.Context, options *config.VirtualClusterCon
 	if err != nil {
 		return nil, fmt.Errorf("init controller context: %w", err)
 	}
+
+	// register snapshot handler
+	snapshotapi.Register(controllerContext)
 
 	// init pro controller context
 	err = pro.InitProControllerContext(controllerContext)

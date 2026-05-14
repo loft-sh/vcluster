@@ -258,6 +258,10 @@ func (s *Server) ServeOnListenerTLS(ctx *synccontext.ControllerContext) error {
 			Path: "/vcluster/features",
 			Verb: "*",
 		},
+		delegatingauthorizer.PathVerb{
+			Path: "/vcluster/snapshots*",
+			Verb: "*",
+		},
 	)
 	redirectAuthNonResources = append(
 		redirectAuthNonResources,
