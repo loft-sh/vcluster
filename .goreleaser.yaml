@@ -124,6 +124,11 @@ changelog:
 release:
   prerelease: auto
   make_latest: false
+  # Re-runs of this workflow against the same tag re-upload assets to an
+  # already-populated GitHub Release and 422 with `already_exists`. This
+  # tells goreleaser to fetch+delete the conflicting asset and retry the
+  # upload only when it sees that 422, so first-run cost is unchanged.
+  replace_existing_artifacts: true
 
   extra_files:
     - glob: ./chart/values.schema.json
