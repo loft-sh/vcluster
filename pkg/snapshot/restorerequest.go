@@ -4,32 +4,32 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/constants"
-	snapshotTypes "github.com/loft-sh/vcluster/pkg/snapshot/types"
 	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
-	RestoreRequestKey                         = "restoreRequest"
-	RequestPhaseRestoringVolumes RequestPhase = "RestoringVolumes"
+	RestoreRequestKey                                  = "restoreRequest"
+	RequestPhaseRestoringVolumes snapshot.RequestPhase = "RestoringVolumes"
 )
 
 // RestoreRequest specifies vCluster restore request.
 type RestoreRequest struct {
-	RequestMetadata `json:"metadata,omitempty"`
-	Spec            RestoreRequestSpec   `json:"spec,omitempty"`
-	Status          RestoreRequestStatus `json:"status,omitempty"`
+	snapshot.RequestMetadata `json:"metadata,omitempty"`
+	Spec                     RestoreRequestSpec   `json:"spec,omitempty"`
+	Status                   RestoreRequestStatus `json:"status,omitempty"`
 }
 
 func (r *RestoreRequest) Done() bool {
-	return r.Status.Phase == RequestPhaseCompleted ||
-		r.Status.Phase == RequestPhaseFailed ||
-		r.Status.Phase == RequestPhasePartiallyFailed
+	return r.Status.Phase == snapshot.RequestPhaseCompleted ||
+		r.Status.Phase == snapshot.RequestPhaseFailed ||
+		r.Status.Phase == snapshot.RequestPhasePartiallyFailed
 }
 
-func (r *RestoreRequest) GetPhase() RequestPhase {
+func (r *RestoreRequest) GetPhase() snapshot.RequestPhase {
 	return r.Status.Phase
 }
 
@@ -37,18 +37,18 @@ type RestoreRequestSpec struct {
 	URL            string                     `json:"url,omitempty"`
 	IncludeVolumes bool                       `json:"includeVolumes,omitempty"`
 	VolumesRestore volumes.RestoreRequestSpec `json:"volumesRestore,omitempty"`
-	Options        Options                    `json:"-"`
+	Options        snapshot.Options           `json:"-"`
 }
 
 type RestoreRequestStatus struct {
-	Phase          RequestPhase                 `json:"phase,omitempty"`
+	Phase          snapshot.RequestPhase        `json:"phase,omitempty"`
 	VolumesRestore volumes.RestoreRequestStatus `json:"volumesRestore,omitempty"`
-	Error          snapshotTypes.SnapshotError  `json:"error,omitempty"`
+	Error          snapshot.SnapshotError       `json:"error,omitempty"`
 }
 
-func NewRestoreRequest(snapshotRequest Request) (RestoreRequest, error) {
+func NewRestoreRequest(snapshotRequest snapshot.Request) (RestoreRequest, error) {
 	restoreRequest := RestoreRequest{
-		RequestMetadata: RequestMetadata{
+		RequestMetadata: snapshot.RequestMetadata{
 			CreationTimestamp: metav1.Now(),
 		},
 		Spec: RestoreRequestSpec{
@@ -59,9 +59,9 @@ func NewRestoreRequest(snapshotRequest Request) (RestoreRequest, error) {
 			},
 		},
 		Status: RestoreRequestStatus{
-			Phase: RequestPhaseNotStarted,
+			Phase: snapshot.RequestPhaseNotStarted,
 			VolumesRestore: volumes.RestoreRequestStatus{
-				Phase:                  volumes.RequestPhaseNotStarted,
+				Phase:                  snapshot.VolumeSnapshotPhaseNotStarted,
 				PersistentVolumeClaims: map[string]volumes.RestoreStatus{},
 			},
 		},
@@ -73,7 +73,7 @@ func NewRestoreRequest(snapshotRequest Request) (RestoreRequest, error) {
 		if !ok {
 			return RestoreRequest{}, fmt.Errorf("volume snapshot status for PVC %s is not set", pvcName)
 		}
-		if snapshotStatus.Phase != volumes.RequestPhaseCompleted {
+		if snapshotStatus.Phase != snapshot.VolumeSnapshotPhaseCompleted {
 			// Volume snapshot was not successfully created
 			continue
 		}
@@ -92,7 +92,7 @@ func NewRestoreRequest(snapshotRequest Request) (RestoreRequest, error) {
 
 		// set volume restore status
 		restoreRequest.Status.VolumesRestore.PersistentVolumeClaims[pvcName] = volumes.RestoreStatus{
-			Phase: volumes.RequestPhaseNotStarted,
+			Phase: snapshot.VolumeSnapshotPhaseNotStarted,
 		}
 	}
 

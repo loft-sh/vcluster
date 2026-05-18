@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
 	csiVolumes "github.com/loft-sh/vcluster/pkg/snapshot/volumes/csi"
@@ -154,7 +155,7 @@ func (c *RestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (re
 				configMap.Namespace,
 				configMap.Name,
 				retErr)
-			restoreRequest.Status.Phase = RequestPhaseFailed
+			restoreRequest.Status.Phase = snapshot.RequestPhaseFailed
 		}
 		updateErr := c.updateRequest(ctx, configMapBeforeChange, &configMap, *restoreRequest)
 		if updateErr != nil {
@@ -168,7 +169,7 @@ func (c *RestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (re
 	}()
 
 	switch restoreRequest.Status.Phase {
-	case RequestPhaseNotStarted:
+	case snapshot.RequestPhaseNotStarted:
 		err = c.reconcileNewRequest(ctx, &configMap, restoreRequest)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to reconcile new restore request %s/%s: %w", configMap.Namespace, configMap.Name, err)
@@ -182,8 +183,8 @@ func (c *RestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (re
 			return ctrl.Result{}, fmt.Errorf("failed to reconcile volume snapshots: %w", err)
 		}
 		switch volumesRestoreStatus.Phase {
-		case volumes.RequestPhaseInProgress:
-			if previousVolumesRestoreRequestPhase == volumes.RequestPhaseNotStarted {
+		case snapshot.VolumeSnapshotPhaseInProgress:
+			if previousVolumesRestoreRequestPhase == snapshot.VolumeSnapshotPhaseNotStarted {
 				// volume restore request just got initialized and moved to in-progress
 				return ctrl.Result{
 					RequeueAfter: 5 * time.Second,
@@ -194,27 +195,27 @@ func (c *RestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (re
 					RequeueAfter: time.Minute,
 				}, nil
 			}
-		case volumes.RequestPhaseSkipped:
+		case snapshot.VolumeSnapshotPhaseSkipped:
 			fallthrough
-		case volumes.RequestPhaseCompleted:
-			restoreRequest.Status.Phase = RequestPhaseCompleted
-		case volumes.RequestPhaseFailed:
-			restoreRequest.Status.Phase = RequestPhaseFailed
+		case snapshot.VolumeSnapshotPhaseCompleted:
+			restoreRequest.Status.Phase = snapshot.RequestPhaseCompleted
+		case snapshot.VolumeSnapshotPhaseFailed:
+			restoreRequest.Status.Phase = snapshot.RequestPhaseFailed
 			restoreRequest.Status.Error.Message = volumesRestoreStatus.Error.Message
-		case volumes.RequestPhasePartiallyFailed:
-			restoreRequest.Status.Phase = RequestPhasePartiallyFailed
+		case snapshot.VolumeSnapshotPhasePartiallyFailed:
+			restoreRequest.Status.Phase = snapshot.RequestPhasePartiallyFailed
 			restoreRequest.Status.Error.Message = volumesRestoreStatus.Error.Message
 		default:
 			return ctrl.Result{}, fmt.Errorf("unexpected volume snapshots request phase %s", volumesRestoreStatus.Phase)
 		}
-	case RequestPhasePartiallyFailed:
+	case snapshot.RequestPhasePartiallyFailed:
 		fallthrough
-	case RequestPhaseCompleted:
+	case snapshot.RequestPhaseCompleted:
 		err = c.reconcileCompletedRequest(ctx, &configMap, restoreRequest.RequestMetadata)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to reconcile completed restore request %s/%s: %w", configMap.Namespace, configMap.Name, err)
 		}
-	case RequestPhaseFailed:
+	case snapshot.RequestPhaseFailed:
 		err = c.reconcileFailedRequest(ctx, &configMap, restoreRequest.RequestMetadata)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to reconcile failed restore request %s/%s: %w", configMap.Namespace, configMap.Name, err)

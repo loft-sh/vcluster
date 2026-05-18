@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -383,8 +384,8 @@ func isRemoteSnapshotURL(path string) bool {
 
 // pushDockerSnapshot pushes a local snapshot file to a remote storage backend (OCI, S3, Azure).
 func pushDockerSnapshot(ctx context.Context, remoteURL, localPath string) error {
-	opts := &snapshot.Options{}
-	if err := opts.SetURLAndFillCredentials(ctx, remoteURL, false); err != nil {
+	opts := &snapshotapi.Options{}
+	if err := snapshot.SetURLAndFillCredentials(ctx, opts, remoteURL, false); err != nil {
 		return fmt.Errorf("parse remote URL: %w", err)
 	}
 
@@ -404,8 +405,8 @@ func pushDockerSnapshot(ctx context.Context, remoteURL, localPath string) error 
 
 // pullDockerSnapshot pulls a snapshot from a remote storage backend to a local file.
 func pullDockerSnapshot(ctx context.Context, remoteURL, localPath string) error {
-	opts := &snapshot.Options{}
-	if err := opts.SetURLAndFillCredentials(ctx, remoteURL, false); err != nil {
+	opts := &snapshotapi.Options{}
+	if err := snapshot.SetURLAndFillCredentials(ctx, opts, remoteURL, false); err != nil {
 		return fmt.Errorf("parse remote URL: %w", err)
 	}
 

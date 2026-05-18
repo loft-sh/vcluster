@@ -1,8 +1,11 @@
 package volumes
 
-import corev1 "k8s.io/api/core/v1"
+import (
+	"github.com/loft-sh/api/v4/pkg/snapshot"
+	corev1 "k8s.io/api/core/v1"
+)
 
-// RestoreRequestSpec specifies how to restore volumes from snapshots.
+// RestoreRequestSpec specifies how to restore volumes from snapshot.
 type RestoreRequestSpec struct {
 	Requests []RestoreRequest `json:"requests,omitempty"`
 }
@@ -27,19 +30,19 @@ type RestoreRequest struct {
 
 // RestoreRequestStatus shows the current status of the restore request.
 type RestoreRequestStatus struct {
-	Phase                  SnapshotRequestPhase     `json:"phase,omitempty"`
-	PersistentVolumeClaims map[string]RestoreStatus `json:"persistentVolumeClaims,omitempty"`
-	Error                  RestoreError             `json:"error,omitempty"`
+	Phase                  snapshot.VolumeSnapshotRequestPhase `json:"phase,omitempty"`
+	PersistentVolumeClaims map[string]RestoreStatus            `json:"persistentVolumeClaims,omitempty"`
+	Error                  RestoreError                        `json:"error,omitempty"`
 }
 
 // Done returns true if the process of restoring all volumes has finished, otherwise it returns
 // false.
 func (s RestoreRequestStatus) Done() bool {
 	// check overall restores status
-	done := s.Phase == RequestPhaseCompleted ||
-		s.Phase == RequestPhasePartiallyFailed ||
-		s.Phase == RequestPhaseFailed ||
-		s.Phase == RequestPhaseSkipped
+	done := s.Phase == snapshot.VolumeSnapshotPhaseCompleted ||
+		s.Phase == snapshot.VolumeSnapshotPhasePartiallyFailed ||
+		s.Phase == snapshot.VolumeSnapshotPhaseFailed ||
+		s.Phase == snapshot.VolumeSnapshotPhaseSkipped
 	if !done {
 		return false
 	}
@@ -57,8 +60,8 @@ func (s RestoreRequestStatus) Done() bool {
 
 // RestoreStatus shows the current status of a single PVC restore.
 type RestoreStatus struct {
-	Phase SnapshotRequestPhase `json:"phase,omitempty"`
-	Error RestoreError         `json:"error,omitempty"`
+	Phase snapshot.VolumeSnapshotRequestPhase `json:"phase,omitempty"`
+	Error RestoreError                        `json:"error,omitempty"`
 }
 
 // Equals checks if the restore status is identical to another restore status.
@@ -70,11 +73,11 @@ func (s RestoreStatus) Equals(other RestoreStatus) bool {
 // Done returns true if the process of restoring a volume has finished, otherwise it returns
 // false.
 func (s RestoreStatus) Done() bool {
-	return s.Phase == RequestPhaseCompleted || s.Phase == RequestPhaseSkipped || s.Phase == RequestPhaseFailed
+	return s.Phase == snapshot.VolumeSnapshotPhaseCompleted || s.Phase == snapshot.VolumeSnapshotPhaseSkipped || s.Phase == snapshot.VolumeSnapshotPhaseFailed
 }
 
 func (s RestoreStatus) CleaningUp() bool {
-	return s.Phase == RequestPhaseCompletedCleaningUp || s.Phase == RequestPhaseFailedCleaningUp
+	return s.Phase == snapshot.VolumeSnapshotPhaseCompletedCleaningUp || s.Phase == snapshot.VolumeSnapshotPhaseFailedCleaningUp
 }
 
 // RestoreError describes the error that occurred while restoring the volume.

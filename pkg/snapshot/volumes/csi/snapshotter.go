@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/loft-sh/api/v4/pkg/snapshot"
+
 	snapshotsv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/clientset/versioned"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
@@ -28,7 +30,7 @@ var (
 	ErrVolumeSnapshotClassNotFound  = errors.New("VolumeSnapshotClass error")
 )
 
-// VolumeSnapshotter is a volume.Snapshotter interface implementation that creates CSI volume snapshots.
+// VolumeSnapshotter is a volume.Snapshotter interface implementation that creates CSI volume snapshot.
 type VolumeSnapshotter struct {
 	snapshotHandler
 	vConfig *config.VirtualClusterConfig
@@ -83,40 +85,40 @@ func (s *VolumeSnapshotter) CheckIfPersistentVolumeIsSupported(pv *corev1.Persis
 	return nil
 }
 
-func (s *VolumeSnapshotter) Reconcile(ctx context.Context, requestObj runtime.Object, requestName string, request *volumes.SnapshotsRequest, status *volumes.SnapshotsStatus) error {
+func (s *VolumeSnapshotter) Reconcile(ctx context.Context, requestObj runtime.Object, requestName string, request *snapshot.VolumeSnapshotsRequest, status *snapshot.VolumeSnapshotsStatus) error {
 	s.logger.Debugf("Reconcile volume snapshots for snapshot request %s", requestName)
 	defer s.logger.Debugf("Reconciled volume snapshots for snapshot request %s", requestName)
 	var err error
 
 	switch status.Phase {
-	case volumes.RequestPhaseNotStarted:
+	case snapshot.VolumeSnapshotPhaseNotStarted:
 		err = s.reconcileNotStarted(ctx, requestName, request, status)
 		if err != nil {
 			return fmt.Errorf("failed to reconcile new volumes snapshot request %s: %w", requestName, err)
 		}
-	case volumes.RequestPhaseInProgress:
+	case snapshot.VolumeSnapshotPhaseInProgress:
 		err = s.reconcileInProgress(ctx, requestObj, requestName, request, status)
 		if err != nil {
 			return fmt.Errorf("failed to reconcile volumes snapshots request %s: %w", requestName, err)
 		}
-	case volumes.RequestPhaseCompleted:
+	case snapshot.VolumeSnapshotPhaseCompleted:
 		fallthrough
-	case volumes.RequestPhasePartiallyFailed:
+	case snapshot.VolumeSnapshotPhasePartiallyFailed:
 		fallthrough
-	case volumes.RequestPhaseFailed:
+	case snapshot.VolumeSnapshotPhaseFailed:
 		fallthrough
-	case volumes.RequestPhaseCanceled:
+	case snapshot.VolumeSnapshotPhaseCanceled:
 		fallthrough
-	case volumes.RequestPhaseDeleted:
+	case snapshot.VolumeSnapshotPhaseDeleted:
 		fallthrough
-	case volumes.RequestPhaseSkipped:
+	case snapshot.VolumeSnapshotPhaseSkipped:
 		err = s.reconcileDone(ctx, requestName, status)
 		if err != nil {
 			return fmt.Errorf("failed to reconcile failed volumes snapshot request %s: %w", requestName, err)
 		}
-	case volumes.RequestPhaseDeleting:
+	case snapshot.VolumeSnapshotPhaseDeleting:
 		fallthrough
-	case volumes.RequestPhaseCanceling:
+	case snapshot.VolumeSnapshotPhaseCanceling:
 		err = s.reconcileDeleting(ctx, requestObj, requestName, request, status)
 		if err != nil {
 			return fmt.Errorf("failed to reconcile canceling volumes snapshot request %s: %w", requestName, err)

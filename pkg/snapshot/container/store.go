@@ -9,14 +9,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/loft-sh/vcluster/pkg/snapshot/types"
+	"github.com/loft-sh/api/v4/pkg/snapshot"
 )
 
-type Options struct {
-	Path string `json:"path,omitempty"`
-}
-
-func NewStore(options *Options) *Store {
+func NewStore(options *snapshot.ContainerOptions) *Store {
 	return &Store{
 		path: options.Path,
 	}
@@ -50,7 +46,7 @@ func (s *Store) PutObject(_ context.Context, body io.Reader) error {
 	return err
 }
 
-func (s *Store) List(_ context.Context) ([]types.Snapshot, error) {
+func (s *Store) List(_ context.Context) ([]snapshot.Snapshot, error) {
 	path := s.path
 	fileInfo, err := os.Stat(path)
 	if err != nil {
@@ -61,7 +57,7 @@ func (s *Store) List(_ context.Context) ([]types.Snapshot, error) {
 		path = filepath.Dir(path)
 	}
 
-	var snapshots []types.Snapshot
+	var snapshotsList []snapshot.Snapshot
 	entries, err := os.ReadDir(path)
 	if err != nil {
 		return nil, err
@@ -84,13 +80,13 @@ func (s *Store) List(_ context.Context) ([]types.Snapshot, error) {
 			continue
 		}
 
-		snapshots = append(snapshots, types.Snapshot{
+		snapshotsList = append(snapshotsList, snapshot.Snapshot{
 			ID:        entry.Name(),
 			URL:       "container://" + path + "/" + entry.Name(),
 			Timestamp: eInfo.ModTime(),
 		})
 	}
-	return snapshots, nil
+	return snapshotsList, nil
 }
 
 func (s *Store) Delete(_ context.Context) error {

@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -24,7 +25,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	setupconfig "github.com/loft-sh/vcluster/pkg/setup/config"
-	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -54,8 +54,8 @@ const (
 )
 
 type RestoreClient struct {
-	snapshotRequest Request
-	Snapshot        Options
+	snapshotRequest snapshotapi.Request
+	Snapshot        snapshotapi.Options
 	RestoreVolumes  bool
 
 	etcdClient etcd.Client
@@ -71,7 +71,7 @@ var (
 	BumpRevision = int64(1000)
 )
 
-func NewRestoreClient(snapshotOptions Options, restoreVolumes bool, newVCluster bool) *RestoreClient {
+func NewRestoreClient(snapshotOptions snapshotapi.Options, restoreVolumes bool, newVCluster bool) *RestoreClient {
 	return &RestoreClient{
 		Snapshot:       snapshotOptions,
 		RestoreVolumes: restoreVolumes,
@@ -79,7 +79,7 @@ func NewRestoreClient(snapshotOptions Options, restoreVolumes bool, newVCluster 
 	}
 }
 
-func (o *RestoreClient) GetSnapshotRequest(ctx context.Context) (*Request, error) {
+func (o *RestoreClient) GetSnapshotRequest(ctx context.Context) (*snapshotapi.Request, error) {
 	// make sure to validate options
 	err := Validate(&o.Snapshot, false)
 	if err != nil {
@@ -128,7 +128,7 @@ func (o *RestoreClient) GetSnapshotRequest(ctx context.Context) (*Request, error
 			return nil, fmt.Errorf("failed to read snapshot request: %w", err)
 		}
 
-		var snapshotRequest Request
+		var snapshotRequest snapshotapi.Request
 		if err := json.Unmarshal(value, &snapshotRequest); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal snapshot request: %w", err)
 		}
@@ -573,7 +573,7 @@ func (o *RestoreClient) createRestoreRequest(ctx context.Context, vConfig *confi
 		}
 	}
 
-	var snapshotRequest Request
+	var snapshotRequest snapshotapi.Request
 	err = json.Unmarshal(value, &snapshotRequest)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal snapshot request: %w", err)
@@ -669,7 +669,7 @@ func (o *RestoreClient) skipKey(key string, vConfig *config.VirtualClusterConfig
 				return false
 			}
 			// skip restoring PVC if it has a snapshot, restore controller will restore it
-			return status.Phase == volumes.RequestPhaseCompleted
+			return status.Phase == snapshotapi.VolumeSnapshotPhaseCompleted
 		} else if strings.HasPrefix(key, pvPrefix) {
 			volumeName := strings.TrimPrefix(key, pvPrefix)
 			for _, snapshotSpec := range o.snapshotRequest.Spec.VolumeSnapshots.Requests {
@@ -694,7 +694,7 @@ func (o *RestoreClient) skipKey(key string, vConfig *config.VirtualClusterConfig
 				return false
 			}
 			// skip restoring PVC if it has a snapshot, restore controller will restore it
-			return status.Phase != volumes.RequestPhaseCompleted
+			return status.Phase != snapshotapi.VolumeSnapshotPhaseCompleted
 		}
 	}
 
@@ -727,7 +727,7 @@ func (o *RestoreClient) isPVCThatShouldBeRestoredInHost(key string, vConfig *con
 	}
 	// skip restoring PVC if it has a snapshot, restore controller will restore it
 	klog.Infof("Snapshot found for PVC %s with phase %s", strings.TrimPrefix(key, pvcPrefix), status.Phase)
-	return status.Phase == volumes.RequestPhaseCompleted
+	return status.Phase == snapshotapi.VolumeSnapshotPhaseCompleted
 }
 
 func transformPod(value []byte, decoder runtime.Decoder, encoder runtime.Encoder) ([]byte, error) {
@@ -1172,7 +1172,7 @@ func getSnapshotArchiveKind(fileName string) (SnapshotKind, error) {
 	}
 
 	// found release key, reading the next entry header
-	if header.Name == SnapshotReleaseKey {
+	if header.Name == snapshotapi.SnapshotReleaseKey {
 		header, err = tarReader.Next()
 		if err != nil {
 			if errors.Is(err, io.EOF) {

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/loft-sh/log"
 	rawconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
@@ -16,7 +17,6 @@ import (
 	vclusterconfig "github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/lifecycle"
-	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
 	standaloneutil "github.com/loft-sh/vcluster/pkg/util/standalone"
 	corev1 "k8s.io/api/core/v1"

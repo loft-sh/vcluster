@@ -12,7 +12,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	remotev1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/loft-sh/vcluster/pkg/snapshot/types"
+	"github.com/loft-sh/api/v4/pkg/snapshot"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	oras "oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/content/file"
@@ -29,16 +29,7 @@ const (
 	EtcdLayerMediaType = "application/vnd.loft.vcluster.etcd.v1.tar+gzip"
 )
 
-type Options struct {
-	Repository string `json:"repository,omitempty"`
-
-	Username string `json:"username,omitempty" url:"username"`
-	Password string `json:"password,omitempty" url:"password,base64"`
-
-	SkipClientCredentials bool `json:"skip-client-credentials,omitempty" url:"skip-client-credentials"`
-}
-
-func (o *Options) FillCredentials(isClient bool) {
+func FillCredentials(o *snapshot.OCIOptions, isClient bool) {
 	// try to get username and password if not set
 	if (isClient && o.SkipClientCredentials) || o.Repository == "" || o.Username != "" {
 		return
@@ -55,9 +46,9 @@ func (o *Options) FillCredentials(isClient bool) {
 	}
 }
 
-func NewStore(options *Options) *Store {
+func NewStore(options *snapshot.OCIOptions) *Store {
 	// fill credentials if not set
-	options.FillCredentials(false)
+	FillCredentials(options, false)
 
 	return &Store{
 		options: options,
@@ -65,7 +56,7 @@ func NewStore(options *Options) *Store {
 }
 
 type Store struct {
-	options *Options
+	options *snapshot.OCIOptions
 }
 
 func (s *Store) Target() string {
@@ -163,7 +154,7 @@ func (s *Store) GetObject(ctx context.Context) (io.ReadCloser, error) {
 	return etcdReader, nil
 }
 
-func (s *Store) List(ctx context.Context) ([]types.Snapshot, error) {
+func (s *Store) List(ctx context.Context) ([]snapshot.Snapshot, error) {
 	repository, err := name.NewRepository(s.options.Repository)
 	if err != nil {
 		if !errors.Is(err, &name.ErrBadName{}) {
@@ -190,7 +181,7 @@ func (s *Store) List(ctx context.Context) ([]types.Snapshot, error) {
 		return nil, err
 	}
 
-	var snapshots []types.Snapshot
+	var snapshotsList []snapshot.Snapshot
 	for _, tag := range tags {
 		repoTag := repository.Tag(tag)
 		img, err := remote.Image(repoTag, remote.WithContext(ctx), remote.WithAuth(&authn.Basic{
@@ -213,14 +204,14 @@ func (s *Store) List(ctx context.Context) ([]types.Snapshot, error) {
 				manifest.Annotations[v1.AnnotationCreated],
 			)
 
-			snapshots = append(snapshots, types.Snapshot{
+			snapshotsList = append(snapshotsList, snapshot.Snapshot{
 				ID:        tag,
 				URL:       repoTag.String(),
 				Timestamp: createdTime,
 			})
 		}
 	}
-	return snapshots, nil
+	return snapshotsList, nil
 }
 
 func (s *Store) Delete(_ context.Context) error {

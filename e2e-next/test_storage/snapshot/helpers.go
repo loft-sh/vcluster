@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"time"
 
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	pkgconstants "github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
@@ -85,9 +86,9 @@ func waitForSnapshotToBeCreated(ctx context.Context, hostClient kubernetes.Inter
 	waitForRequestToFinish(ctx, hostClient, vClusterNamespace, pkgconstants.SnapshotRequestLabel, snapshot.UnmarshalSnapshotRequest, constants.PollingTimeoutVeryLong)
 }
 
-type unmarshalRequestFunc[T snapshot.LongRunningRequest] func(request *corev1.ConfigMap) (T, error)
+type unmarshalRequestFunc[T snapshotapi.LongRunningRequest] func(request *corev1.ConfigMap) (T, error)
 
-func waitForRequestToFinish[T snapshot.LongRunningRequest](ctx context.Context, hostClient kubernetes.Interface, vClusterNamespace, requestLabel string, unmarshal unmarshalRequestFunc[T], timeout time.Duration) {
+func waitForRequestToFinish[T snapshotapi.LongRunningRequest](ctx context.Context, hostClient kubernetes.Interface, vClusterNamespace, requestLabel string, unmarshal unmarshalRequestFunc[T], timeout time.Duration) {
 	GinkgoHelper()
 	Eventually(func(g Gomega) {
 		requestConfigMaps, err := hostClient.CoreV1().ConfigMaps(vClusterNamespace).List(ctx, metav1.ListOptions{
@@ -111,7 +112,7 @@ func waitForRequestToFinish[T snapshot.LongRunningRequest](ctx context.Context, 
 		g.Expect(err).To(Succeed())
 		g.Expect(request).NotTo(BeNil())
 		g.Expect(request.GetPhase()).To(
-			Equal(snapshot.RequestPhaseCompleted),
+			Equal(snapshotapi.RequestPhaseCompleted),
 			"request not completed, phase: %s, details: %s", request.GetPhase(), toJSON(request))
 	}).WithPolling(constants.PollingInterval).WithTimeout(timeout).Should(Succeed())
 }

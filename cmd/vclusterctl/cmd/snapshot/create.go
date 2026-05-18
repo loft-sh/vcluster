@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
 	"github.com/loft-sh/vcluster/pkg/cli/completion"
@@ -17,7 +18,7 @@ import (
 
 type CreateCmd struct {
 	*flags.GlobalFlags
-	Snapshot       snapshot.Options
+	Snapshot       snapshotapi.Options
 	Driver         string
 	IncludeVolumes bool
 	Standalone     bool

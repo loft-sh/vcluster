@@ -4,16 +4,17 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
+	"github.com/loft-sh/api/v4/pkg/snapshot"
+
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (s *VolumeSnapshotter) reconcileNotStarted(ctx context.Context, requestName string, request *volumes.SnapshotsRequest, status *volumes.SnapshotsStatus) error {
+func (s *VolumeSnapshotter) reconcileNotStarted(ctx context.Context, requestName string, request *snapshot.VolumeSnapshotsRequest, status *snapshot.VolumeSnapshotsStatus) error {
 	s.logger.Infof("Reconciling new volume snapshots request %s", requestName)
-	if status.Phase != volumes.RequestPhaseNotStarted {
-		return fmt.Errorf("invalid phase for snapshot request %s, expected %s, got %s", requestName, volumes.RequestPhaseNotStarted, status.Phase)
+	if status.Phase != snapshot.VolumeSnapshotPhaseNotStarted {
+		return fmt.Errorf("invalid phase for snapshot request %s, expected %s, got %s", requestName, snapshot.VolumeSnapshotPhaseNotStarted, status.Phase)
 	}
 	defer s.logger.Infof("Reconciled new volume snapshots request %s", requestName)
 
@@ -34,7 +35,7 @@ func (s *VolumeSnapshotter) reconcileNotStarted(ctx context.Context, requestName
 		return fmt.Errorf("failed to list PersistentVolumeClaims: %w", err)
 	}
 
-	var volumeSnapshotRequests []volumes.SnapshotRequest
+	var volumeSnapshotRequests []snapshot.VolumeSnapshotRequest
 	for _, pvc := range pvcs.Items {
 		if pvc.Spec.VolumeName == "" {
 			// PVC is not bound to a PV, skip it
@@ -52,7 +53,7 @@ func (s *VolumeSnapshotter) reconcileNotStarted(ctx context.Context, requestName
 			s.logger.Infof("Skip creating a snapshot for PersistentVolume %s, since it is not supported: %v", pv.Name, err)
 			continue
 		}
-		volumeSnapshotRequest := volumes.SnapshotRequest{
+		volumeSnapshotRequest := snapshot.VolumeSnapshotRequest{
 			CSIDriver: pv.Spec.CSI.Driver,
 		}
 		pvcCopy := pvc.DeepCopy()
@@ -65,7 +66,7 @@ func (s *VolumeSnapshotter) reconcileNotStarted(ctx context.Context, requestName
 		pvcCopy.Status = corev1.PersistentVolumeClaimStatus{}
 		volumeSnapshotRequest.PersistentVolumeClaim = *pvcCopy
 
-		if volumeSnapshotClassName, ok := pvc.Labels[volumes.SnapshotClassNameLabel]; ok {
+		if volumeSnapshotClassName, ok := pvc.Labels[snapshot.SnapshotClassNameLabel]; ok {
 			volumeSnapshotRequest.VolumeSnapshotClassName = volumeSnapshotClassName
 		}
 
@@ -74,7 +75,7 @@ func (s *VolumeSnapshotter) reconcileNotStarted(ctx context.Context, requestName
 
 	// Snapshot request successfully initialized, update phase to InProgress
 	request.Requests = volumeSnapshotRequests
-	status.Snapshots = map[string]volumes.SnapshotStatus{}
-	status.Phase = volumes.RequestPhaseInProgress
+	status.Snapshots = map[string]snapshot.VolumeSnapshotStatus{}
+	status.Phase = snapshot.VolumeSnapshotPhaseInProgress
 	return nil
 }

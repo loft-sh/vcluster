@@ -19,6 +19,7 @@ import (
 	"syscall"
 	"time"
 
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
@@ -181,7 +182,7 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 				}
 
 				log.Infof("Restore vCluster %s...", vClusterName)
-				err = Restore(ctx, []string{vClusterName, cmd.Restore}, globalFlags, &snapshot.Options{}, &pod.Options{}, false, false, false, log)
+				err = Restore(ctx, []string{vClusterName, cmd.Restore}, globalFlags, &snapshotapi.Options{}, &pod.Options{}, false, false, false, log)
 				if err != nil {
 					return fmt.Errorf("restore vCluster %s: %w", vClusterName, err)
 				}
@@ -648,7 +649,7 @@ func (cmd *createHelm) deployChart(ctx context.Context, vClusterName, chartValue
 	// now restore if wanted
 	if cmd.Restore != "" {
 		cmd.log.Infof("Restore vCluster %s...", vClusterName)
-		err = Restore(ctx, []string{vClusterName, cmd.Restore}, cmd.GlobalFlags, &snapshot.Options{}, &pod.Options{}, true, false, false, cmd.log)
+		err = Restore(ctx, []string{vClusterName, cmd.Restore}, cmd.GlobalFlags, &snapshotapi.Options{}, &pod.Options{}, true, false, false, cmd.log)
 		if err != nil {
 			// delete the vcluster if the restore failed
 			deleteErr := helmClient.Delete(vClusterName, cmd.Namespace)
@@ -843,7 +844,7 @@ func getVClusterConfigFromSnapshot(ctx context.Context, cmd *CreateOptions) (str
 		return "", nil
 	}
 
-	snapshotOptions := &snapshot.Options{}
+	snapshotOptions := &snapshotapi.Options{}
 	err := snapshot.Parse(cmd.Restore, snapshotOptions)
 	if err != nil {
 		return "", fmt.Errorf("parse snapshot: %w", err)
@@ -882,12 +883,12 @@ func getVClusterConfigFromSnapshot(ctx context.Context, cmd *CreateOptions) (str
 	}
 
 	// no vCluster config in the snapshot
-	if header.Name != snapshot.SnapshotReleaseKey {
+	if header.Name != snapshotapi.SnapshotReleaseKey {
 		return "", nil
 	}
 
 	// unmarshal the release
-	release := &snapshot.HelmRelease{}
+	release := &snapshotapi.HelmRelease{}
 	err = json.Unmarshal(buf.Bytes(), release)
 	if err != nil {
 		return "", fmt.Errorf("unmarshal vCluster release: %w", err)
