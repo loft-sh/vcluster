@@ -15,6 +15,8 @@ type ManagementV1Interface interface {
 	AgentAuditEventsGetter
 	AnnouncementsGetter
 	AppsGetter
+	ArgoCDApplicationsGetter
+	ArgoCDApplicationTemplatesGetter
 	BackupsGetter
 	ClustersGetter
 	ClusterAccessesGetter
@@ -28,6 +30,7 @@ type ManagementV1Interface interface {
 	IngressAuthTokensGetter
 	LicensesGetter
 	LoftUpgradesGetter
+	NetworkPeersGetter
 	NodeClaimsGetter
 	NodeEnvironmentsGetter
 	NodeProvidersGetter
@@ -72,6 +75,14 @@ func (c *ManagementV1Client) Announcements() AnnouncementInterface {
 
 func (c *ManagementV1Client) Apps() AppInterface {
 	return newApps(c)
+}
+
+func (c *ManagementV1Client) ArgoCDApplications(namespace string) ArgoCDApplicationInterface {
+	return newArgoCDApplications(c, namespace)
+}
+
+func (c *ManagementV1Client) ArgoCDApplicationTemplates() ArgoCDApplicationTemplateInterface {
+	return newArgoCDApplicationTemplates(c)
 }
 
 func (c *ManagementV1Client) Backups() BackupInterface {
@@ -124,6 +135,10 @@ func (c *ManagementV1Client) Licenses() LicenseInterface {
 
 func (c *ManagementV1Client) LoftUpgrades() LoftUpgradeInterface {
 	return newLoftUpgrades(c)
+}
+
+func (c *ManagementV1Client) NetworkPeers() NetworkPeerInterface {
+	return newNetworkPeers(c)
 }
 
 func (c *ManagementV1Client) NodeClaims(namespace string) NodeClaimInterface {

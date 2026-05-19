@@ -118,6 +118,20 @@ type ClusterSpec struct {
 
 	// OpenCost holds the cluster's OpenCost backend configuration
 	OpenCost *OpenCost `json:"opencost,omitempty"`
+
+	// ArgoCD holds the cluster's argo cd configuration
+	// +optional
+	ArgoCD *ArgoCD `json:"argoCD,omitempty"`
+}
+
+type ArgoCD struct {
+	// Enabled defines if argo cd is enabled
+	// +optional
+	Enabled bool `json:"enabled,omitempty"`
+
+	// Connector specifies the argo cd connector name
+	// +optional
+	Connector string `json:"connector,omitempty"`
 }
 
 type AllowedClusterAccountTemplate struct {

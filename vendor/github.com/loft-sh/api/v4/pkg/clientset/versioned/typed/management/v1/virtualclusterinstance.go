@@ -36,6 +36,7 @@ type VirtualClusterInstanceInterface interface {
 	GetStandaloneETCDPeers(ctx context.Context, virtualClusterInstanceName string, virtualClusterStandalone *managementv1.VirtualClusterStandalone, opts metav1.CreateOptions) (*managementv1.VirtualClusterStandalone, error)
 	GetShellPod(ctx context.Context, virtualClusterInstanceName string, virtualClusterInstanceShell *managementv1.VirtualClusterInstanceShell, opts metav1.CreateOptions) (*managementv1.VirtualClusterInstanceShell, error)
 	GetDebugShell(ctx context.Context, virtualClusterInstanceName string, virtualClusterInstanceDebugShell *managementv1.VirtualClusterInstanceDebugShell, opts metav1.CreateOptions) (*managementv1.VirtualClusterInstanceDebugShell, error)
+	GetJoinScript(ctx context.Context, virtualClusterInstanceName string, virtualClusterInstanceJoinScript *managementv1.VirtualClusterInstanceJoinScript, opts metav1.CreateOptions) (*managementv1.VirtualClusterInstanceJoinScript, error)
 
 	VirtualClusterInstanceExpansion
 }
@@ -158,6 +159,21 @@ func (c *virtualClusterInstances) GetDebugShell(ctx context.Context, virtualClus
 		SubResource("debug-shell").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(virtualClusterInstanceDebugShell).
+		Do(ctx).
+		Into(result)
+	return
+}
+
+// GetJoinScript takes the representation of a virtualClusterInstanceJoinScript and creates it.  Returns the server's representation of the virtualClusterInstanceJoinScript, and an error, if there is any.
+func (c *virtualClusterInstances) GetJoinScript(ctx context.Context, virtualClusterInstanceName string, virtualClusterInstanceJoinScript *managementv1.VirtualClusterInstanceJoinScript, opts metav1.CreateOptions) (result *managementv1.VirtualClusterInstanceJoinScript, err error) {
+	result = &managementv1.VirtualClusterInstanceJoinScript{}
+	err = c.GetClient().Post().
+		Namespace(c.GetNamespace()).
+		Resource("virtualclusterinstances").
+		Name(virtualClusterInstanceName).
+		SubResource("joinscript").
+		VersionedParams(&opts, scheme.ParameterCodec).
+		Body(virtualClusterInstanceJoinScript).
 		Do(ctx).
 		Into(result)
 	return

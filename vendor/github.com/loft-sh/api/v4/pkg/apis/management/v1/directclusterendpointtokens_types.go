@@ -24,7 +24,7 @@ type DirectClusterEndpointToken struct {
 
 // DirectClusterEndpointTokenSpec holds the object specification
 type DirectClusterEndpointTokenSpec struct {
-	// The time to life for this access token in seconds
+	// The time to live for this access token in seconds
 	// +optional
 	TTL int64 `json:"ttl,omitempty"`
 

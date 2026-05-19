@@ -319,10 +319,6 @@ type OIDC struct {
 type Authentication struct {
 	Connector `json:",inline"`
 
-	// Rancher holds the rancher authentication options
-	// +optional
-	Rancher *AuthenticationRancher `json:"rancher,omitempty"`
-
 	// Password holds password authentication relevant information
 	// +optional
 	Password *AuthenticationPassword `json:"password,omitempty"`
@@ -362,20 +358,6 @@ type Authentication struct {
 
 	// GroupsFilters is a regex expression to only save matching sso groups into the user resource
 	GroupsFilters []string `json:"groupsFilters,omitempty"`
-}
-
-type AuthenticationRancher struct {
-	// Host holds the rancher host, e.g. my-domain.com
-	// +optional
-	Host string `json:"host,omitempty"`
-
-	// BearerToken holds the rancher API key in token username and password form. E.g. my-token:my-secret
-	// +optional
-	BearerToken string `json:"bearerToken,omitempty"`
-
-	// Insecure tells Loft if the Rancher endpoint is insecure.
-	// +optional
-	Insecure bool `json:"insecure,omitempty"`
 }
 
 type ConnectorWithName struct {

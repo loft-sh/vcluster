@@ -6,6 +6,10 @@ type AccessKeyExpansion interface{}
 
 type AppExpansion interface{}
 
+type ArgoCDApplicationExpansion interface{}
+
+type ArgoCDApplicationTemplateExpansion interface{}
+
 type ClusterExpansion interface{}
 
 type ClusterAccessExpansion interface{}

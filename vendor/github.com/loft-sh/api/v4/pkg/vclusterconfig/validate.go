@@ -19,6 +19,55 @@ func ValidatePlatformConfig(fldPath *field.Path, platformConfig PlatformConfig) 
 	errs = append(errs, ValidateSleep(fldPath, platformConfig.Sleep)...)
 	errs = append(errs, ValidateSnapshots(fldPath, platformConfig.Snapshots)...)
 	errs = append(errs, ValidateDeletion(fldPath, platformConfig.Deletion)...)
+	errs = append(errs, ValidateArgoCD(fldPath, platformConfig.ArgoCDIntegration, platformConfig.ArgoCDDeploy)...)
+
+	return errs
+}
+
+// ValidateArgoCD validates the Argo CD integration and deploy configuration.
+func ValidateArgoCD(fldPath *field.Path, integration *ArgoCDIntegration, deploy *ArgoCDDeploy) field.ErrorList {
+	if deploy == nil || len(deploy.Applications) == 0 {
+		return nil
+	}
+
+	var errs field.ErrorList
+	deployPath := fldPath.Child("deploy", "argoCD")
+	integrationPath := fldPath.Child("integrations", "argoCD")
+
+	if integration == nil || !integration.Enabled {
+		errs = append(errs, field.Invalid(deployPath.Child("applications"), deploy.Applications, "argoCD integration must be enabled when applications are configured"))
+	}
+	if integration == nil || integration.Connector == "" {
+		errs = append(errs, field.Required(integrationPath.Child("connector"), "connector is required when argoCD applications are configured"))
+	}
+
+	seenNames := map[string]int{}
+	for i, application := range deploy.Applications {
+		appPath := deployPath.Child("applications").Index(i)
+		if application.Name == "" {
+			errs = append(errs, field.Required(appPath.Child("name"), "name is required"))
+		} else if previousIndex, ok := seenNames[application.Name]; ok {
+			errs = append(errs, field.Duplicate(appPath.Child("name"), fmt.Sprintf("%s (already used at index %d)", application.Name, previousIndex)))
+		} else {
+			seenNames[application.Name] = i
+		}
+
+		switch application.Target {
+		case "", "vCluster", "host":
+		default:
+			errs = append(errs, field.NotSupported(appPath.Child("target"), application.Target, []string{"vCluster", "host"}))
+		}
+
+		if len(application.Inline) == 0 && application.Template == nil {
+			errs = append(errs, field.Required(appPath, "either inline or template must be set"))
+		}
+		if len(application.Inline) > 0 && application.Template != nil {
+			errs = append(errs, field.Invalid(appPath, application, "inline and template are mutually exclusive"))
+		}
+		if application.Template != nil && application.Template.Name == "" {
+			errs = append(errs, field.Required(appPath.Child("template", "name"), "template.name is required"))
+		}
+	}
 
 	return errs
 }

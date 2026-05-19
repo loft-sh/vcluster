@@ -16,6 +16,7 @@ import (
 // +genclient:method=GetStandaloneETCDPeers,verb=create,subresource=standalone,input=github.com/loft-sh/api/v4/pkg/apis/management/v1.VirtualClusterStandalone,result=github.com/loft-sh/api/v4/pkg/apis/management/v1.VirtualClusterStandalone
 // +genclient:method=GetShellPod,verb=create,subresource=shell,input=github.com/loft-sh/api/v4/pkg/apis/management/v1.VirtualClusterInstanceShell,result=github.com/loft-sh/api/v4/pkg/apis/management/v1.VirtualClusterInstanceShell
 // +genclient:method=GetDebugShell,verb=create,subresource=debug-shell,input=github.com/loft-sh/api/v4/pkg/apis/management/v1.VirtualClusterInstanceDebugShell,result=github.com/loft-sh/api/v4/pkg/apis/management/v1.VirtualClusterInstanceDebugShell
+// +genclient:method=GetJoinScript,verb=create,subresource=joinscript,input=github.com/loft-sh/api/v4/pkg/apis/management/v1.VirtualClusterInstanceJoinScript,result=github.com/loft-sh/api/v4/pkg/apis/management/v1.VirtualClusterInstanceJoinScript
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // VirtualClusterInstance holds the VirtualClusterInstance information
@@ -32,6 +33,7 @@ import (
 // +subresource:request=VirtualClusterInstanceDebugShell,path=debug-shell,kind=VirtualClusterInstanceDebugShell,rest=VirtualClusterInstanceDebugShellREST
 // +subresource:request=VirtualClusterInstanceDebugShellPods,path=debug-shell-pods,kind=VirtualClusterInstanceDebugShellPods,rest=VirtualClusterInstanceDebugShellPodsREST
 // +subresource:request=VirtualClusterResourceUsage,path=resourceusage,kind=VirtualClusterResourceUsage,rest=VirtualClusterResourceUsageREST
+// +subresource:request=VirtualClusterInstanceJoinScript,path=joinscript,kind=VirtualClusterInstanceJoinScript,rest=VirtualClusterInstanceJoinScriptREST
 type VirtualClusterInstance struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

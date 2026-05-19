@@ -161,3 +161,13 @@ type PodExecOptions struct {
 	// +listType=atomic
 	Command []string `json:"command" protobuf:"bytes,6,rep,name=command"`
 }
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type NetworkPeerDebugOptions struct {
+	metav1.TypeMeta `json:",inline"`
+
+	// Action is the action to perform on the network peer.
+	// +optional
+	Action string `json:"action,omitempty"`
+}

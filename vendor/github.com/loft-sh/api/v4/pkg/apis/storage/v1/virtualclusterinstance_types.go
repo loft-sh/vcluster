@@ -32,6 +32,8 @@ const (
 	InstanceEtcdMemberHealthy   agentstoragev1.ConditionType = "EtcdMemberHealthy"
 	InstanceEtcdNoAlarms        agentstoragev1.ConditionType = "EtcdNoAlarms"
 	InstanceEtcdDbSizeOk        agentstoragev1.ConditionType = "EtcdDbSizeOk"
+
+	ArgoCDIntegrationSynced agentstoragev1.ConditionType = "ArgoCDIntegrationSynced"
 )
 
 // +genclient
@@ -188,7 +190,7 @@ type VirtualClusterCommonSpec struct {
 	// +optional
 	Charts []TemplateHelmChart `json:"charts,omitempty"`
 
-	// Objects are Kubernetes style yamls that should get deployed into the virtual cluster
+	// Objects are Kubernetes style YAMLs that should get deployed into the virtual cluster
 	// +optional
 	Objects string `json:"objects,omitempty"`
 

@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 )
 
 func TestSnapshotRestoreBumpRevision(t *testing.T) {
@@ -86,7 +88,7 @@ func TestGetSnapshotArchiveKind(t *testing.T) {
 			name: "etcd snapshot - release then DBStoreKey",
 			setup: func(t *testing.T) string {
 				return newTestArchive(t,
-					archiveEntry{key: SnapshotReleaseKey, value: []byte("{}")},
+					archiveEntry{key: snapshotapi.SnapshotReleaseKey, value: []byte("{}")},
 					archiveEntry{key: DBStoreKey, value: []byte("db-bytes")},
 				)
 			},
@@ -105,7 +107,7 @@ func TestGetSnapshotArchiveKind(t *testing.T) {
 			name: "kv snapshot - release then registry key",
 			setup: func(t *testing.T) string {
 				return newTestArchive(t,
-					archiveEntry{key: SnapshotReleaseKey, value: []byte("{}")},
+					archiveEntry{key: snapshotapi.SnapshotReleaseKey, value: []byte("{}")},
 					archiveEntry{key: "/registry/configmaps/default/x", value: []byte("v")},
 				)
 			},
@@ -175,7 +177,7 @@ func TestGetSnapshotArchiveKind(t *testing.T) {
 			name: "only release key, no second entry",
 			setup: func(t *testing.T) string {
 				return newTestArchive(t,
-					archiveEntry{key: SnapshotReleaseKey, value: []byte("{}")},
+					archiveEntry{key: snapshotapi.SnapshotReleaseKey, value: []byte("{}")},
 				)
 			},
 			wantKind: KeyValueSnapshotKind,

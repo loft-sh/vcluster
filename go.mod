@@ -29,9 +29,9 @@ require (
 	github.com/invopop/jsonschema v0.12.0
 	github.com/kubernetes-csi/external-snapshotter/client/v8 v8.2.0
 	github.com/loft-sh/admin-apis v0.0.0-20260311181619-506013b79ba0
-	github.com/loft-sh/agentapi/v4 v4.8.2-rc.1
+	github.com/loft-sh/agentapi/v4 v4.10.0-alpha.1
 	github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e
-	github.com/loft-sh/api/v4 v4.8.2-rc.1
+	github.com/loft-sh/api/v4 v4.10.0-alpha.1
 	github.com/loft-sh/e2e-framework v0.0.0-20260423133544-5291e728f979
 	github.com/loft-sh/image v0.0.0-20250625154753-87447a6ad364
 	github.com/loft-sh/utils v0.0.29
@@ -142,11 +142,12 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.28.0 // indirect
 	github.com/hashicorp/yamux v0.1.1 // indirect
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213 // indirect
-	github.com/klauspost/compress v1.18.0 // indirect
+	github.com/klauspost/compress v1.18.2 // indirect
 	github.com/klauspost/pgzip v1.2.6 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/lithammer/dedent v1.1.0 // indirect
 	github.com/loft-sh/apiserver v0.0.0-20260424174643-365191901530 // indirect
+	github.com/loft-sh/external-types v0.1.0-alpha.2.0.20260409132559-a38365a8cbf2 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/miekg/pkcs11 v1.1.1 // indirect
 	github.com/mitchellh/go-testing-interface v1.0.0 // indirect
@@ -184,7 +185,7 @@ require (
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/sync v0.20.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260401024825-9d38bb4040a9 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260401024825-9d38bb4040a9 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260406210006-6f92a3bedf2d // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	k8s.io/cri-api v0.36.0 // indirect
 	k8s.io/cri-client v0.36.0 // indirect
@@ -261,10 +262,10 @@ require (
 	github.com/ulikunitz/xz v0.5.14 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
 	go.etcd.io/etcd/api/v3 v3.6.8
-	go.etcd.io/etcd/client/pkg/v3 v3.6.8
+	go.etcd.io/etcd/client/pkg/v3 v3.6.8 // indirect
 	go.etcd.io/etcd/client/v3 v3.6.8
 	go.mongodb.org/mongo-driver v1.14.0 // indirect
-	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.65.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.68.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.65.0 // indirect
 	go.opentelemetry.io/otel v1.43.0 // indirect
 	go.opentelemetry.io/otel/metric v1.43.0 // indirect
@@ -287,7 +288,7 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/component-base v0.36.0 // indirect
-	k8s.io/kube-openapi v0.0.0-20260317180543-43fb72c5454a // indirect
+	k8s.io/kube-openapi v0.0.0-20260330154417-16be699c7b31 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.34.0 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/kustomize/api v0.21.1 // indirect

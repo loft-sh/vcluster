@@ -15,6 +15,8 @@ const (
 	NodeClaimConditionTypeScheduled = "Scheduled"
 	// NodeClaimConditionTypeNotDrifted is the condition that indicates if the node claim is not drifted from the desired state.
 	NodeClaimConditionTypeNotDrifted = "NotDrifted"
+	// NodeClaimConditionTypeDestroyed is the condition that indicates if the node claim has been successfully destroyed.
+	NodeClaimConditionTypeDestroyed = "Destroyed"
 )
 
 var (
@@ -138,6 +140,11 @@ type NodeClaimSpec struct {
 
 	// Requirements are the requirements for the NodeClaim.
 	Requirements []corev1.NodeSelectorRequirement `json:"requirements,omitempty"`
+
+	// Power describes the desired power state of the machine.
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="!has(self.state) || self.state == '' || self.state == 'On' || self.state == 'Off'",message="state must be On or Off"
+	Power *NodeClaimPower `json:"power,omitempty"`
 }
 
 type NodeClaimStatus struct {
@@ -156,6 +163,36 @@ type NodeClaimStatus struct {
 	// Conditions describe the current state of the platform NodeClaim.
 	// +optional
 	Conditions agentstoragev1.Conditions `json:"conditions,omitempty"`
+
+	// Power describes the observed power state of the machine.
+	// +optional
+	Power *NodeClaimPower `json:"power,omitempty"`
+}
+
+// NodeClaimPowerState is the power state of a machine.
+type NodeClaimPowerState string
+
+const (
+	NodeClaimPowerStateOn  NodeClaimPowerState = "On"
+	NodeClaimPowerStateOff NodeClaimPowerState = "Off"
+)
+
+// NodeClaimRebootAnnotation triggers a one-shot reboot of the machine. The
+// controller removes the annotation once the reboot has been initiated.
+const NodeClaimRebootAnnotation = "machines.vcluster.com/reboot"
+
+type NodeClaimPower struct {
+	// State is the power state.
+	//
+	// In spec, only "On" and "Off" are meaningful; an empty value is treated
+	// as "On".
+	//
+	// In status, "On" and "Off" indicate the observed state is stable.
+	// Providers may also surface their native intermediate state (e.g.
+	// "Starting", "Stopping", "Migrating", ...) as a passthrough. An empty
+	// value means the state could not be determined.
+	// +optional
+	State NodeClaimPowerState `json:"state,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
