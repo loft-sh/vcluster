@@ -171,3 +171,26 @@ func toJSON(obj any) string {
 	b, _ := json.Marshal(obj)
 	return string(b)
 }
+
+// countConfigMapsByLabel counts all ConfigMaps matching the given label selector in namespace,
+// paginating through the full result set to handle large counts.
+func countConfigMapsByLabel(ctx context.Context, client kubernetes.Interface, namespace, labelSelector string) (int, error) {
+	var count int
+	var continueToken string
+	for {
+		list, err := client.CoreV1().ConfigMaps(namespace).List(ctx, metav1.ListOptions{
+			LabelSelector: labelSelector,
+			Limit:         1000,
+			Continue:      continueToken,
+		})
+		if err != nil {
+			return 0, err
+		}
+		count += len(list.Items)
+		if list.Continue == "" {
+			break
+		}
+		continueToken = list.Continue
+	}
+	return count, nil
+}

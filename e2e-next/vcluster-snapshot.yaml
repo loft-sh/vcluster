@@ -1,4 +1,9 @@
 controlPlane:
+  distro:
+    k8s:
+      apiServer:
+        extraArgs:
+          - "--etcd-compaction-interval=1h"
   statefulSet:
     image:
       registry: ""
