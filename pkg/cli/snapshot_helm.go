@@ -196,13 +196,13 @@ func createSnapshotRequest(ctx context.Context, vCluster *find.VCluster, kubeCli
 func resolveSnapshotArgs(args []string, standalone bool) (string, string, error) {
 	if standalone {
 		if len(args) != 1 {
-			return "", "", fmt.Errorf("unexpected amount of arguments: %d, need exactly 1 argument. E.g. vcluster [snapshot|restore] s3://my-bucket/my-key --standalone", len(args))
+			return "", "", fmt.Errorf("unexpected amount of arguments: %d, need exactly 1 argument. E.g. vcluster [snapshot|restore] s3://my-bucket/my-key/snapshot1.tar.gz --standalone", len(args))
 		}
 		return "", args[0], nil
 	}
 
 	if len(args) != 2 {
-		return "", "", fmt.Errorf("unexpected amount of arguments: %d, need exactly 2 arguments. E.g. vcluster [snapshot|restore] my-vcluster s3://my-bucket/my-key", len(args))
+		return "", "", fmt.Errorf("unexpected amount of arguments: %d, need exactly 2 arguments. E.g. vcluster [snapshot|restore] my-vcluster s3://my-bucket/my-key/snapshot1.tar.gz", len(args))
 	}
 
 	return args[0], args[1], nil
