@@ -18,6 +18,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	vclusterconfig "github.com/loft-sh/vcluster/pkg/config"
 	pkgconstants "github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/etcd"
 	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
@@ -484,82 +485,67 @@ func describeSnapshotRestore(s *snapshotCtx) {
 		})
 	})
 
-	Describe("snapshot restore preserves objects across etcd page boundaries", Ordered, func() {
+	It("snapshot restore preserves objects across etcd page boundaries", func(ctx context.Context) {
 		const (
 			labelKey    = "etcd-pagination"
-			objectCount = 1500 // > default etcd page limit of 1000 to ensure pagination occurs
+			objectCount = etcd.EtcdPaginationLimit + 1 // > default etcd page limit of 1000 to ensure pagination occurs
 		)
-		var (
-			testNS       string
-			snapshotPath string
-			labelVal     string
-		)
+		testNS := "etcd-pagination-" + random.String(6)
+		snapshotPath := "container:///snapshot-data/" + testNS + ".tar.gz"
+		labelVal := testNS
 
-		BeforeAll(func(ctx context.Context) {
-			testNS = "etcd-pagination-" + random.String(6)
-			snapshotPath = "container:///snapshot-data/" + testNS + ".tar.gz"
-			labelVal = testNS
-			cleanupAllSnapshotArtifacts(ctx, s.hostClient, s.vClusterNS)
-		})
+		cleanupAllSnapshotArtifacts(ctx, s.hostClient, s.vClusterNS)
 
-		It("Creates a snapshot with enough objects to trigger etcd pagination and verifies they are restored", func(ctx context.Context) {
-			_, err := s.vClusterClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{Name: testNS},
-			}, metav1.CreateOptions{})
-			Expect(err).To(Or(Succeed(), Satisfy(kerrors.IsAlreadyExists)))
-
-			By("Creating many configmaps to trigger etcd pagination", func() {
-				for i := 0; i < objectCount; i++ {
-					_, err := s.vClusterClient.CoreV1().ConfigMaps(testNS).Create(ctx, &corev1.ConfigMap{
-						ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("cm-%d", i), Labels: map[string]string{labelKey: labelVal}},
-						Data:       map[string]string{"key": "value"},
-					}, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
-				}
-			})
-		})
-
-		It("Takes a snapshot of the tenant cluster", func(ctx context.Context) {
-			createSnapshot(s.vClusterName, s.vClusterNS, s.kubeconfig, true, snapshotPath, false)
-			waitForSnapshotToBeCreated(ctx, s.hostClient, s.vClusterNS)
-		})
-
-		It("Deletes the namespace and waits for it to be fully removed", func(ctx context.Context) {
-			By("Deleting the namespace", func() {
-				err := s.vClusterClient.CoreV1().Namespaces().Delete(ctx, testNS, metav1.DeleteOptions{})
-				Expect(err).To(Or(Succeed(), Satisfy(kerrors.IsNotFound)))
-			})
-
-			By("Waiting for the namespace to be fully terminated", func() {
-				Eventually(func(g Gomega, ctx context.Context) {
-					_, err := s.vClusterClient.CoreV1().Namespaces().Get(ctx, testNS, metav1.GetOptions{})
-					g.Expect(kerrors.IsNotFound(err)).To(BeTrue(), "namespace %s should be gone before restore", testNS)
-				}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
-			})
-		})
-
-		It("Restores snapshot and verifies the exact object count across page boundaries", func(ctx context.Context) {
-			By("Restoring the tenant cluster from snapshot", func() {
-				restoreVCluster(ctx, s.hostClient, s.vClusterName, s.vClusterNS, snapshotPath, s.kubeconfig, true, false)
-				s.refreshClient(ctx)
-			})
-
-			By("Verifying all configmaps are present with no missing or duplicated objects at page boundaries", func() {
-				Eventually(func(g Gomega) {
-					cms, err := s.vClusterClient.CoreV1().ConfigMaps(testNS).List(ctx, metav1.ListOptions{LabelSelector: labelKey + "=" + labelVal})
-					g.Expect(err).To(Succeed())
-					g.Expect(cms.Items).To(HaveLen(objectCount),
-						"expected exactly %d configmaps after restore but got %d; objects may be missing or duplicated at etcd page boundaries", objectCount, len(cms.Items))
-				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
-			})
-		})
-
-		AfterAll(func(ctx context.Context) {
+		DeferCleanup(func(ctx context.Context) {
 			err := s.vClusterClient.CoreV1().Namespaces().Delete(ctx, testNS, metav1.DeleteOptions{})
 			if !kerrors.IsNotFound(err) {
 				Expect(err).To(Succeed())
 			}
 			deleteSnapshotRequestConfigMaps(ctx, s.hostClient, s.vClusterNS)
+		})
+
+		_, err := s.vClusterClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{Name: testNS},
+		}, metav1.CreateOptions{})
+		Expect(err).To(Or(Succeed(), Satisfy(kerrors.IsAlreadyExists)))
+
+		By("Creating many configmaps to trigger etcd pagination", func() {
+			for i := 0; i < objectCount; i++ {
+				_, err := s.vClusterClient.CoreV1().ConfigMaps(testNS).Create(ctx, &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("cm-%d", i), Labels: map[string]string{labelKey: labelVal}},
+					Data:       map[string]string{"key": "value"},
+				}, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+			}
+		})
+
+		By("Taking a snapshot of the tenant cluster", func() {
+			createSnapshot(s.vClusterName, s.vClusterNS, s.kubeconfig, true, snapshotPath, false)
+			waitForSnapshotToBeCreated(ctx, s.hostClient, s.vClusterNS)
+		})
+
+		By("Deleting the namespace and waiting for it to be fully removed", func() {
+			err := s.vClusterClient.CoreV1().Namespaces().Delete(ctx, testNS, metav1.DeleteOptions{})
+			Expect(err).To(Or(Succeed(), Satisfy(kerrors.IsNotFound)))
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				_, err := s.vClusterClient.CoreV1().Namespaces().Get(ctx, testNS, metav1.GetOptions{})
+				g.Expect(kerrors.IsNotFound(err)).To(BeTrue(), "namespace %s should be gone before restore", testNS)
+			}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+		})
+
+		By("Restoring the tenant cluster from snapshot", func() {
+			restoreVCluster(ctx, s.hostClient, s.vClusterName, s.vClusterNS, snapshotPath, s.kubeconfig, true, false)
+			s.refreshClient(ctx)
+		})
+
+		By("Verifying all configmaps are present with no missing or duplicated objects at page boundaries", func() {
+			Eventually(func(g Gomega) {
+				cms, err := s.vClusterClient.CoreV1().ConfigMaps(testNS).List(ctx, metav1.ListOptions{LabelSelector: labelKey + "=" + labelVal})
+				g.Expect(err).To(Succeed())
+				g.Expect(cms.Items).To(HaveLen(objectCount),
+					"expected exactly %d configmaps after restore but got %d; objects may be missing or duplicated at etcd page boundaries", objectCount, len(cms.Items))
+			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 		})
 	})
 }
