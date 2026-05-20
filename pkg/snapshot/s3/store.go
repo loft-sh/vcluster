@@ -34,39 +34,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/go-logr/logr"
-	"github.com/loft-sh/vcluster/pkg/snapshot/types"
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/pkg/errors"
 	"k8s.io/klog/v2"
 )
 
-type Options struct {
-	Bucket string `json:"bucket,omitempty"`
-	Key    string `json:"key,omitempty"`
-
-	SkipClientCredentials bool `json:"skip-client-credentials,omitempty" url:"skip-client-credentials"`
-
-	AccessKeyID     string `json:"access-key-id,omitempty" url:"access-key-id,base64"`
-	SecretAccessKey string `json:"secret-access-key,omitempty" url:"secret-access-key,base64"`
-	SessionToken    string `json:"session-token,omitempty" url:"session-token,base64"`
-
-	Region    string `json:"region,omitempty" url:"region"`
-	Profile   string `json:"profile,omitempty" url:"profile"`
-	S3URL     string `json:"url,omitempty" url:"url,base64"`
-	PublicURL string `json:"public-url,omitempty" url:"public-url,base64"`
-	KmsKeyID  string `json:"kms-key-id,omitempty" url:"kms-key-id,base64"`
-	Tagging   string `json:"tagging,omitempty" url:"tagging,base64"`
-
-	S3ForcePathStyle      bool `json:"force-path-style,omitempty" url:"force-path-style"`
-	InsecureSkipTLSVerify bool `json:"insecure-skip-tls-verify,omitempty" url:"insecure-skip-tls-verify"`
-
-	CustomerKeyEncryptionFile string `json:"custom-key-encryption-file,omitempty" url:"custom-key-encryption-file,base64"`
-	CredentialsFile           string `json:"credentials-file,omitempty" url:"credentials-file,base64"`
-	ServerSideEncryption      string `json:"server-side-encryption,omitempty" url:"server-side-encryption,base64"`
-	CaCert                    string `json:"ca-cert,omitempty" url:"ca-cert,base64"`
-	ChecksumAlgorithm         string `json:"checksum-algorithm,omitempty" url:"checksum-algorithm"`
-}
-
-func (o *Options) FillCredentials(isClient bool) {
+func FillCredentials(o *snapshotapi.S3Options, isClient bool) {
 	if (isClient && o.SkipClientCredentials) || o.Bucket == "" || o.AccessKeyID != "" {
 		return
 	}
@@ -118,7 +91,7 @@ func NewStore(logger logr.Logger) *ObjectStore {
 	return &ObjectStore{log: logger}
 }
 
-func (o *ObjectStore) Init(config *Options) error {
+func (o *ObjectStore) Init(config *snapshotapi.S3Options) error {
 	if config.AccessKeyID != "" {
 		_ = os.Setenv("AWS_ACCESS_KEY_ID", config.AccessKeyID)
 	}
@@ -131,7 +104,7 @@ func (o *ObjectStore) Init(config *Options) error {
 	cfg, err := newConfigBuilder(o.log).WithRegion(config.Region).
 		WithProfile(config.Profile).
 		WithCredentialsFile(config.CredentialsFile).
-		WithTLSSettings(config.InsecureSkipTLSVerify, config.CaCert).Build()
+		WithTLSSettings(config.InsecureSkipTLSVerify, config.CACert).Build()
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -296,7 +269,7 @@ func (o *ObjectStore) GetObject(ctx context.Context) (io.ReadCloser, error) {
 	return output.Body, nil
 }
 
-func (o *ObjectStore) List(ctx context.Context) ([]types.Snapshot, error) {
+func (o *ObjectStore) List(ctx context.Context) ([]snapshotapi.Snapshot, error) {
 	prefix := o.key
 	if strings.HasSuffix(prefix, "tar.gz") {
 		// Use the "parent dir" as the prefix if a file was given
@@ -313,7 +286,7 @@ func (o *ObjectStore) List(ctx context.Context) ([]types.Snapshot, error) {
 		Prefix: aws.String(prefix),
 	})
 
-	snapshots := make([]types.Snapshot, 0)
+	snapshotsList := make([]snapshotapi.Snapshot, 0)
 	for paginator.HasMorePages() {
 		output, err := paginator.NextPage(ctx)
 		if err != nil {
@@ -337,14 +310,14 @@ func (o *ObjectStore) List(ctx context.Context) ([]types.Snapshot, error) {
 			}
 
 			// ID is the relative object name
-			snapshots = append(snapshots, types.Snapshot{
+			snapshotsList = append(snapshotsList, snapshotapi.Snapshot{
 				ID:        id,
 				URL:       toS3URL(o.bucket, *obj.Key, o.region),
 				Timestamp: *obj.LastModified,
 			})
 		}
 	}
-	return snapshots, nil
+	return snapshotsList, nil
 }
 
 func (o *ObjectStore) Delete(ctx context.Context) error {

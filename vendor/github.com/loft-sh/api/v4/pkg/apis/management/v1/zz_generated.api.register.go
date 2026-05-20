@@ -20,6 +20,10 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&App{},
 		&AppList{},
 		&AppCredentials{},
+		&ArgoCDApplication{},
+		&ArgoCDApplicationList{},
+		&ArgoCDApplicationTemplate{},
+		&ArgoCDApplicationTemplateList{},
 		&Backup{},
 		&BackupList{},
 		&BackupApply{},
@@ -57,6 +61,9 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&LicenseRequest{},
 		&LoftUpgrade{},
 		&LoftUpgradeList{},
+		&NetworkPeer{},
+		&NetworkPeerList{},
+		&NetworkPeerDebug{},
 		&NodeClaim{},
 		&NodeClaimList{},
 		&NodeEnvironment{},
@@ -131,6 +138,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VirtualClusterInstanceDebugShell{},
 		&VirtualClusterInstanceDebugShellPods{},
 		&VirtualClusterExternalDatabase{},
+		&VirtualClusterInstanceJoinScript{},
 		&VirtualClusterInstanceKubeConfig{},
 		&VirtualClusterInstanceLog{},
 		&VirtualClusterNodeAccessKey{},
@@ -157,6 +165,8 @@ var (
 			nil,
 			management.NewAppCredentialsREST,
 		),
+		management.ManagementArgoCDApplicationStorage,
+		management.ManagementArgoCDApplicationTemplateStorage,
 		management.ManagementBackupStorage,
 		builders.NewApiResourceWithStorage(
 			management.InternalBackupApplyREST,
@@ -235,6 +245,13 @@ var (
 			management.NewLicenseRequestREST,
 		),
 		management.ManagementLoftUpgradeStorage,
+		management.ManagementNetworkPeerStorage,
+		builders.NewApiResourceWithStorage(
+			management.InternalNetworkPeerDebugREST,
+			func() runtime.Object { return &NetworkPeerDebug{} }, // Register versioned resource
+			nil,
+			management.NewNetworkPeerDebugREST,
+		),
 		management.ManagementNodeClaimStorage,
 		builders.NewApiResourceWithStorage(
 			management.InternalNodeClaimStatus,
@@ -430,6 +447,12 @@ var (
 			management.NewVirtualClusterExternalDatabaseREST,
 		),
 		builders.NewApiResourceWithStorage(
+			management.InternalVirtualClusterInstanceJoinScriptREST,
+			func() runtime.Object { return &VirtualClusterInstanceJoinScript{} }, // Register versioned resource
+			nil,
+			management.NewVirtualClusterInstanceJoinScriptREST,
+		),
+		builders.NewApiResourceWithStorage(
 			management.InternalVirtualClusterInstanceKubeConfigREST,
 			func() runtime.Object { return &VirtualClusterInstanceKubeConfig{} }, // Register versioned resource
 			nil,
@@ -534,6 +557,22 @@ type AppCredentialsList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []AppCredentials `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type ArgoCDApplicationList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ArgoCDApplication `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type ArgoCDApplicationTemplateList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ArgoCDApplicationTemplate `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -718,6 +757,22 @@ type LoftUpgradeList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []LoftUpgrade `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type NetworkPeerList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []NetworkPeer `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type NetworkPeerDebugList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []NetworkPeerDebug `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -1110,6 +1165,14 @@ type VirtualClusterExternalDatabaseList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []VirtualClusterExternalDatabase `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type VirtualClusterInstanceJoinScriptList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []VirtualClusterInstanceJoinScript `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

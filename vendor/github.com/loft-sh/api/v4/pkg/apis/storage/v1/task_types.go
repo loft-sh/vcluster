@@ -170,7 +170,7 @@ const (
 	TaskStartedCondition agentstoragev1.ConditionType = "TaskStarted"
 )
 
-// HelmTaskType describes the type of a task
+// HelmTaskType describes the type of task
 type HelmTaskType string
 
 // These are the valid admin account types

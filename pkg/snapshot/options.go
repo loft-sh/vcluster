@@ -11,68 +11,31 @@ import (
 	"slices"
 	"strings"
 
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/snapshot/azure"
-	"github.com/loft-sh/vcluster/pkg/snapshot/container"
 	"github.com/loft-sh/vcluster/pkg/snapshot/oci"
 	"github.com/loft-sh/vcluster/pkg/snapshot/options"
 	"github.com/loft-sh/vcluster/pkg/snapshot/s3"
 	"github.com/spf13/pflag"
 )
 
-const (
-	// SnapshotReleaseKey stores info about the vCluster helm release
-	SnapshotReleaseKey = "/vcluster/snapshot/release"
-)
-
-type Options struct {
-	Type string `json:"type,omitempty"`
-
-	S3        s3.Options        `json:"s3"`
-	Container container.Options `json:"container"`
-	OCI       oci.Options       `json:"oci"`
-	Azure     azure.Options     `json:"azure"`
-
-	Release        *HelmRelease `json:"release,omitempty"`
-	IncludeVolumes bool         `json:"include-volumes,omitempty"`
-
-	// DelegateFromCLIToCluster indicates that the snapshot options are saved in a Kubernetes Secret because the
-	// snapshot/restore operation will be executed in a Kubernetes cluster.
-	DelegateFromCLIToCluster bool `json:"delegateFromCLIToCluster,omitempty"`
-}
-
-func (o *Options) GetURL() string {
-	var snapshotURL string
-	switch o.Type {
-	case "s3":
-		snapshotURL = "s3://" + o.S3.Bucket + "/" + o.S3.Key
-	case "container":
-		snapshotURL = "container://" + o.Container.Path
-	case "oci":
-		snapshotURL = "oci://" + o.OCI.Repository
-	case "azure":
-		snapshotURL = o.Azure.BlobURL
-	}
-
-	return snapshotURL
-}
-
-func (o *Options) SetURLAndFillCredentials(ctx context.Context, url string, credentialsRequiredInCluster bool) error {
-	err := Parse(url, o)
+func SetURLAndFillCredentials(ctx context.Context, snapshotOptions *snapshotapi.Options, url string, credentialsRequiredInCluster bool) error {
+	err := Parse(url, snapshotOptions)
 	if err != nil {
 		return fmt.Errorf("failed to parse snapshot URL: %w", err)
 	}
-	err = Validate(o, false)
+	err = Validate(snapshotOptions, false)
 	if err != nil {
 		return fmt.Errorf("invalid snapshot URL: %w", err)
 	}
-	switch o.Type {
+	switch snapshotOptions.Type {
 	case "oci":
-		o.OCI.FillCredentials(true)
+		oci.FillCredentials(&snapshotOptions.OCI, true)
 	case "s3":
-		o.S3.FillCredentials(true)
+		s3.FillCredentials(&snapshotOptions.S3, true)
 	case "azure":
-		err := o.Azure.FillCredentials(ctx, credentialsRequiredInCluster)
+		err := azure.FillCredentials(ctx, &snapshotOptions.Azure, credentialsRequiredInCluster)
 		if err != nil {
 			return fmt.Errorf("failed to fill azure credentials: %w", err)
 		}
@@ -80,22 +43,7 @@ func (o *Options) SetURLAndFillCredentials(ctx context.Context, url string, cred
 	return nil
 }
 
-type HelmRelease struct {
-	ReleaseName      string `json:"releaseName"`
-	ReleaseNamespace string `json:"releaseNamespace"`
-
-	ChartName    string `json:"chartName"`
-	ChartVersion string `json:"chartVersion"`
-
-	Values []byte `json:"values"`
-}
-
-type VClusterConfig struct {
-	ChartVersion string `json:"chartVersion"`
-	Values       string `json:"values"`
-}
-
-func Parse(snapshotURL string, snapshotOptions *Options) error {
+func Parse(snapshotURL string, snapshotOptions *snapshotapi.Options) error {
 	parsedURL, err := url.Parse(snapshotURL)
 	if err != nil {
 		return fmt.Errorf("error parsing snapshotURL %s: %w", snapshotURL, err)
@@ -156,10 +104,10 @@ func Parse(snapshotURL string, snapshotOptions *Options) error {
 	return nil
 }
 
-func ParseOptionsFromEnv() (*Options, error) {
+func ParseOptionsFromEnv() (*snapshotapi.Options, error) {
 	snapshotOptions := os.Getenv(constants.VClusterStorageOptionsEnv)
 	if snapshotOptions == "" {
-		return &Options{}, nil
+		return &snapshotapi.Options{}, nil
 	}
 
 	decoded, err := base64.StdEncoding.DecodeString(snapshotOptions)
@@ -167,7 +115,7 @@ func ParseOptionsFromEnv() (*Options, error) {
 		return nil, fmt.Errorf("failed to decode storage options from env: %w", err)
 	}
 
-	opts := &Options{}
+	opts := &snapshotapi.Options{}
 	err = json.Unmarshal(decoded, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal storage options from env: %w", err)
@@ -176,7 +124,7 @@ func ParseOptionsFromEnv() (*Options, error) {
 	return opts, nil
 }
 
-func Validate(options *Options, isList bool) error {
+func Validate(options *snapshotapi.Options, isList bool) error {
 	// storage needs to be either s3 or file
 	if options.Type == "s3" {
 		if !isList && options.S3.Key == "" {
@@ -204,7 +152,7 @@ func Validate(options *Options, isList bool) error {
 	return nil
 }
 
-func AddFlags(flags *pflag.FlagSet, options *Options) {
+func AddFlags(flags *pflag.FlagSet, options *snapshotapi.Options) {
 	// AWS S3
 	flags.StringVarP(&options.S3.KmsKeyID, "kms-key-id", "", "", "AWS KMS key ID that is configured for given S3 bucket. If set, aws-kms SSE will be used")
 	flags.StringVarP(&options.S3.CustomerKeyEncryptionFile, "customer-key-encryption-file", "", "", "AWS customer key encryption file used for SSE-C. Mutually exclusive with kms-key-id")

@@ -10,13 +10,14 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blockblob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
 	"github.com/go-logr/logr"
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/snapshot/types"
 )
 
 type ObjectStore struct {
 	log           logr.Logger
 	blobClient    *blockblob.Client
-	options       *Options
+	options       *snapshotapi.AzureOptions
 	accountName   string
 	containerName string
 	blobName      string
@@ -25,7 +26,7 @@ type ObjectStore struct {
 
 var _ types.Storage = &ObjectStore{}
 
-func NewStore(ctx context.Context, options *Options, logger logr.Logger) (*ObjectStore, error) {
+func NewStore(ctx context.Context, options *snapshotapi.AzureOptions, logger logr.Logger) (*ObjectStore, error) {
 	objectStore := &ObjectStore{
 		log:     logger,
 		options: options,
@@ -38,14 +39,14 @@ func NewStore(ctx context.Context, options *Options, logger logr.Logger) (*Objec
 	return objectStore, nil
 }
 
-func (o *ObjectStore) init(ctx context.Context, options *Options) error {
+func (o *ObjectStore) init(ctx context.Context, options *snapshotapi.AzureOptions) error {
 	if options.BlobURL == "" {
 		return fmt.Errorf("blob URL is required")
 	}
-	useSASToken := options.ContainsSAS()
+	useSASToken := ContainsSAS(options)
 
 	// Get the blob URL with SAS token appended
-	o.blobURL = options.GetBlobURLWithSAS()
+	o.blobURL = GetBlobURLWithSAS(options)
 
 	// Extract information from blob URL
 	info, err := getBlobInfo(o.blobURL)
@@ -86,7 +87,7 @@ func (o *ObjectStore) GetObject(ctx context.Context) (io.ReadCloser, error) {
 	}
 	return resp.Body, nil
 }
-func (o *ObjectStore) List(ctx context.Context) ([]types.Snapshot, error) {
+func (o *ObjectStore) List(ctx context.Context) ([]snapshotapi.Snapshot, error) {
 	// Create the container client for listing blobs
 	containerClient, err := newContainerClient(o.options, o.accountName, o.containerName)
 	if err != nil {
@@ -115,7 +116,7 @@ func (o *ObjectStore) List(ctx context.Context) ([]types.Snapshot, error) {
 		Prefix: &prefix,
 	})
 
-	snapshots := make([]types.Snapshot, 0)
+	snapshotsList := make([]snapshotapi.Snapshot, 0)
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
@@ -141,7 +142,7 @@ func (o *ObjectStore) List(ctx context.Context) ([]types.Snapshot, error) {
 			// Build blob URL without SAS token
 			blobURL := fmt.Sprintf("https://%s.blob.core.windows.net/%s/%s", o.accountName, o.containerName, *blobItem.Name)
 
-			snapshots = append(snapshots, types.Snapshot{
+			snapshotsList = append(snapshotsList, snapshotapi.Snapshot{
 				ID:        id,
 				URL:       blobURL,
 				Timestamp: *blobItem.Properties.LastModified,
@@ -149,7 +150,7 @@ func (o *ObjectStore) List(ctx context.Context) ([]types.Snapshot, error) {
 		}
 	}
 
-	return snapshots, nil
+	return snapshotsList, nil
 }
 
 func (o *ObjectStore) Delete(ctx context.Context) error {

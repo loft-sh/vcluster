@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
+
 	snapshotsv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/clientset/versioned"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
@@ -54,21 +56,21 @@ func (r *Restorer) Reconcile(ctx context.Context, requestObj runtime.Object, req
 	var err error
 
 	switch status.Phase {
-	case volumes.RequestPhaseNotStarted:
-		status.Phase = volumes.RequestPhaseInProgress
+	case snapshotapi.VolumeSnapshotPhaseNotStarted:
+		status.Phase = snapshotapi.VolumeSnapshotPhaseInProgress
 		fallthrough
-	case volumes.RequestPhaseInProgress:
+	case snapshotapi.VolumeSnapshotPhaseInProgress:
 		err = r.reconcileInProgress(ctx, requestObj, requestName, request, status)
 		if err != nil {
 			return fmt.Errorf("failed to reconcile failed volumes snapshot request %s: %w", requestName, err)
 		}
-	case volumes.RequestPhaseCompleted:
+	case snapshotapi.VolumeSnapshotPhaseCompleted:
 		fallthrough
-	case volumes.RequestPhasePartiallyFailed:
+	case snapshotapi.VolumeSnapshotPhasePartiallyFailed:
 		fallthrough
-	case volumes.RequestPhaseFailed:
+	case snapshotapi.VolumeSnapshotPhaseFailed:
 		fallthrough
-	case volumes.RequestPhaseSkipped:
+	case snapshotapi.VolumeSnapshotPhaseSkipped:
 		err = r.reconcileDone(ctx, requestName, status)
 		if err != nil {
 			return fmt.Errorf("failed to reconcile failed volumes snapshot request %s: %w", requestName, err)

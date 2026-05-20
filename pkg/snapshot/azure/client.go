@@ -12,6 +12,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blockblob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 )
 
 var (
@@ -78,7 +79,7 @@ func getBlobInfo(blobURL string) (BlobInfo, error) {
 // 2. Storage key (from options, then env var) → shared key credential
 // 3. Service principal (from options) → client secret credential (data plane)
 // 4. Fallback: look up storage key via DefaultAzureCredential + ARM API (CLI path)
-func newBlobClient(ctx context.Context, options *Options, info BlobInfo, blobURL string, useSASTokenFromBlobURL bool) (*blockblob.Client, error) {
+func newBlobClient(ctx context.Context, options *snapshotapi.AzureOptions, info BlobInfo, blobURL string, useSASTokenFromBlobURL bool) (*blockblob.Client, error) {
 	if useSASTokenFromBlobURL {
 		blobClient, err := blockblob.NewClientWithNoCredential(blobURL, nil)
 		if err != nil {
@@ -88,7 +89,7 @@ func newBlobClient(ctx context.Context, options *Options, info BlobInfo, blobURL
 	}
 
 	// Storage key from options or env var
-	if storageKey := options.GetStorageKey(); storageKey != "" {
+	if storageKey := GetStorageKey(options); storageKey != "" {
 		sharedKeyCredential, err := blob.NewSharedKeyCredential(info.AccountName, storageKey)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create shared key credential: %w", err)
@@ -101,8 +102,8 @@ func newBlobClient(ctx context.Context, options *Options, info BlobInfo, blobURL
 	}
 
 	// Service principal from options
-	if options.HasServicePrincipal() {
-		cred, err := azidentity.NewClientSecretCredential(options.GetTenantID(), options.GetClientID(), options.GetClientSecret(), nil)
+	if HasServicePrincipal(options) {
+		cred, err := azidentity.NewClientSecretCredential(GetTenantID(options), GetClientID(options), GetClientSecret(options), nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create client secret credential: %w", err)
 		}
@@ -114,7 +115,7 @@ func newBlobClient(ctx context.Context, options *Options, info BlobInfo, blobURL
 	}
 
 	// Fallback: look up storage key via DefaultAzureCredential (CLI path)
-	storageKey, err := getStorageKeyFromAzure(ctx, options.GetSubscriptionID(), options.GetResourceGroup(), info.AccountName)
+	storageKey, err := getStorageKeyFromAzure(ctx, GetSubscriptionID(options), GetResourceGroup(options), info.AccountName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get storage key from Azure: %w", err)
 	}
@@ -133,11 +134,11 @@ func newBlobClient(ctx context.Context, options *Options, info BlobInfo, blobURL
 // 1. Storage key (from options or env var) → shared key credential
 // 2. Service principal (from options) → client secret credential
 // 3. Fallback → DefaultAzureCredential (CLI path)
-func newContainerClient(options *Options, accountName, containerName string) (*container.Client, error) {
+func newContainerClient(options *snapshotapi.AzureOptions, accountName, containerName string) (*container.Client, error) {
 	containerURL := fmt.Sprintf("https://%s.blob.core.windows.net/%s", accountName, containerName)
 
 	// Storage key from options or env var
-	if storageKey := options.GetStorageKey(); storageKey != "" {
+	if storageKey := GetStorageKey(options); storageKey != "" {
 		sharedKeyCredential, err := blob.NewSharedKeyCredential(accountName, storageKey)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create shared key credential: %w", err)
@@ -150,8 +151,8 @@ func newContainerClient(options *Options, accountName, containerName string) (*c
 	}
 
 	// Service principal from options
-	if options.HasServicePrincipal() {
-		cred, err := azidentity.NewClientSecretCredential(options.GetTenantID(), options.GetClientID(), options.GetClientSecret(), nil)
+	if HasServicePrincipal(options) {
+		cred, err := azidentity.NewClientSecretCredential(GetTenantID(options), GetClientID(options), GetClientSecret(options), nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create client secret credential: %w", err)
 		}

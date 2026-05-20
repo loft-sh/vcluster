@@ -4,16 +4,17 @@ import (
 	"context"
 	"fmt"
 
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
+
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func (s *VolumeSnapshotter) reconcileDeleting(ctx context.Context, requestObj runtime.Object, requestName string, request *volumes.SnapshotsRequest, status *volumes.SnapshotsStatus) (retErr error) {
+func (s *VolumeSnapshotter) reconcileDeleting(ctx context.Context, requestObj runtime.Object, requestName string, request *snapshotapi.VolumeSnapshotsRequest, status *snapshotapi.VolumeSnapshotsStatus) (retErr error) {
 	if !status.IsDeletingVolumeSnapshots() {
-		return fmt.Errorf("invalid phase for snapshot request %s, expected %s or %s, got %s", requestName, volumes.RequestPhaseDeleting, volumes.RequestPhaseCanceling, status.Phase)
+		return fmt.Errorf("invalid phase for snapshot request %s, expected %s or %s, got %s", requestName, snapshotapi.VolumeSnapshotPhaseDeleting, snapshotapi.VolumeSnapshotPhaseCanceling, status.Phase)
 	}
 	s.logger.Debugf("Reconciling volume snapshots %s for request %s", status.Phase, requestName)
 	defer s.logger.Debugf("Reconciled volume snapshots %s for request %s", status.Phase, requestName)
@@ -29,7 +30,7 @@ func (s *VolumeSnapshotter) reconcileDeleting(ctx context.Context, requestObj ru
 		if retErr == nil {
 			return
 		}
-		status.Phase = volumes.RequestPhaseFailed
+		status.Phase = snapshotapi.VolumeSnapshotPhaseFailed
 		status.Error.Message = retErr.Error()
 		s.eventRecorder.Eventf(
 			requestObj,

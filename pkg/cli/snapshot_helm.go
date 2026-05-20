@@ -8,6 +8,7 @@ import (
 
 	"github.com/blang/semver/v4"
 	"github.com/ghodss/yaml"
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
@@ -26,7 +27,7 @@ const (
 	minAsyncSnapshotVersion = "0.29.0-alpha.1"
 )
 
-func CreateSnapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, podOptions *pod.Options, log log.Logger, delegateFromCLIToCluster, standalone bool) error {
+func CreateSnapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshotapi.Options, podOptions *pod.Options, log log.Logger, delegateFromCLIToCluster, standalone bool) error {
 	// init kube client and vCluster
 	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log, delegateFromCLIToCluster, standalone)
 	if err != nil {
@@ -45,7 +46,7 @@ func CreateSnapshot(ctx context.Context, args []string, globalFlags *flags.Globa
 		// set helm release
 		if vClusterRelease != nil && vClusterRelease.Chart != nil && vClusterRelease.Chart.Metadata != nil {
 			values, _ := yaml.Marshal(vClusterRelease.Config)
-			snapshotOpts.Release = &snapshot.HelmRelease{
+			snapshotOpts.Release = &snapshotapi.HelmRelease{
 				ReleaseName:      vClusterRelease.Name,
 				ReleaseNamespace: vClusterRelease.Namespace,
 				ChartName:        vClusterRelease.Chart.Metadata.Name,
@@ -68,7 +69,7 @@ func CreateSnapshot(ctx context.Context, args []string, globalFlags *flags.Globa
 	return nil
 }
 
-func GetSnapshots(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshot.Options, log log.Logger, standalone bool) error {
+func GetSnapshots(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshotapi.Options, log log.Logger, standalone bool) error {
 	_, snapshotURL, err := resolveSnapshotArgs(args, standalone)
 	if err != nil {
 		return err
@@ -108,7 +109,7 @@ func initSnapshotCommand(
 	ctx context.Context,
 	args []string,
 	globalFlags *flags.GlobalFlags,
-	snapshotOptions *snapshot.Options,
+	snapshotOptions *snapshotapi.Options,
 	log log.Logger,
 	credentialsRequiredInCluster bool,
 	standalone bool,
@@ -118,7 +119,7 @@ func initSnapshotCommand(
 		return nil, nil, nil, err
 	}
 
-	err = snapshotOptions.SetURLAndFillCredentials(ctx, snapshotURL, credentialsRequiredInCluster)
+	err = snapshot.SetURLAndFillCredentials(ctx, snapshotOptions, snapshotURL, credentialsRequiredInCluster)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to set snapshot url and fill credentials: %w", err)
 	}
@@ -162,7 +163,7 @@ func initSnapshotCommand(
 	return vCluster, kubeClient, restClient, nil
 }
 
-func createSnapshotRequest(ctx context.Context, vCluster *find.VCluster, kubeClient *kubernetes.Clientset, snapshotOpts *snapshot.Options, log log.Logger) error {
+func createSnapshotRequest(ctx context.Context, vCluster *find.VCluster, kubeClient *kubernetes.Clientset, snapshotOpts *snapshotapi.Options, log log.Logger) error {
 	err := checkIfVClusterSupportsSnapshotRequests(vCluster, log)
 	if err != nil {
 		return fmt.Errorf("vCluster version check failed: %w", err)
@@ -219,7 +220,7 @@ func checkIfVClusterSupportsSnapshotRequests(vCluster *find.VCluster, log log.Lo
 	return nil
 }
 
-func getVClusterConfig(ctx context.Context, vCluster *find.VCluster, kubeClient *kubernetes.Clientset, snapshotOpts *snapshot.Options) (*vclusterconfig.VirtualClusterConfig, error) {
+func getVClusterConfig(ctx context.Context, vCluster *find.VCluster, kubeClient *kubernetes.Clientset, snapshotOpts *snapshotapi.Options) (*vclusterconfig.VirtualClusterConfig, error) {
 	var err error
 	var vClusterConfig *vclusterconfig.VirtualClusterConfig
 	if snapshotOpts.Release != nil && snapshotOpts.Release.Values != nil {

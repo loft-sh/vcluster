@@ -3,6 +3,8 @@ package azure
 import (
 	"context"
 	"testing"
+
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 )
 
 func TestGetSubscriptionID(t *testing.T) {
@@ -41,8 +43,8 @@ func TestGetSubscriptionID(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv("AZURE_SUBSCRIPTION_ID", tt.envVar)
-			o := &Options{SubscriptionID: tt.structField}
-			if got := o.GetSubscriptionID(); got != tt.expected {
+			o := &snapshotapi.AzureOptions{SubscriptionID: tt.structField}
+			if got := GetSubscriptionID(o); got != tt.expected {
 				t.Fatalf("expected %q, got %q", tt.expected, got)
 			}
 		})
@@ -85,8 +87,8 @@ func TestGetResourceGroup(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv("AZURE_RESOURCE_GROUP", tt.envVar)
-			o := &Options{ResourceGroup: tt.structField}
-			if got := o.GetResourceGroup(); got != tt.expected {
+			o := &snapshotapi.AzureOptions{ResourceGroup: tt.structField}
+			if got := GetResourceGroup(o); got != tt.expected {
 				t.Fatalf("expected %q, got %q", tt.expected, got)
 			}
 		})
@@ -122,8 +124,8 @@ func TestGetBlobURLWithSAS(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			o := &Options{BlobURL: tt.blobURL, SAS: tt.sas}
-			if got := o.GetBlobURLWithSAS(); got != tt.expected {
+			o := &snapshotapi.AzureOptions{BlobURL: tt.blobURL, SAS: tt.sas}
+			if got := GetBlobURLWithSAS(o); got != tt.expected {
 				t.Fatalf("expected %q, got %q", tt.expected, got)
 			}
 		})
@@ -177,8 +179,8 @@ func TestContainsSAS(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			o := &Options{BlobURL: tt.blobURL, SAS: tt.sas}
-			if got := o.ContainsSAS(); got != tt.expected {
+			o := &snapshotapi.AzureOptions{BlobURL: tt.blobURL, SAS: tt.sas}
+			if got := ContainsSAS(o); got != tt.expected {
 				t.Fatalf("expected %v, got %v", tt.expected, got)
 			}
 		})
@@ -193,21 +195,21 @@ func TestFillCredentials(t *testing.T) {
 	// The path where tryToCreateSAS=true, ContainsSAS()=false, and the env var is unset requires Azure SDK — not tested.
 	tests := []struct {
 		name           string
-		options        Options
+		options        snapshotapi.AzureOptions
 		envSAS         string
 		tryToCreateSAS bool
 		wantSAS        string
 	}{
 		{
 			name: "no-op when tryToCreateSAS is false",
-			options: Options{
+			options: snapshotapi.AzureOptions{
 				BlobURL: "https://account.blob.core.windows.net/container/blob.tar.gz",
 			},
 			tryToCreateSAS: false,
 		},
 		{
 			name: "no-op when SAS field is already set",
-			options: Options{
+			options: snapshotapi.AzureOptions{
 				BlobURL: "https://account.blob.core.windows.net/container/blob.tar.gz",
 				SAS:     "sv=2022-11-02&sig=abc123",
 			},
@@ -216,14 +218,14 @@ func TestFillCredentials(t *testing.T) {
 		},
 		{
 			name: "no-op when blob URL already contains SAS",
-			options: Options{
+			options: snapshotapi.AzureOptions{
 				BlobURL: "https://account.blob.core.windows.net/container/blob.tar.gz?sv=2022-11-02&sig=abc123",
 			},
 			tryToCreateSAS: true,
 		},
 		{
 			name: "populates SAS from AZURE_STORAGE_BLOB_SAS env var",
-			options: Options{
+			options: snapshotapi.AzureOptions{
 				BlobURL: "https://account.blob.core.windows.net/container/blob.tar.gz",
 			},
 			envSAS:         "sv=2022-11-02&sig=fromenv",
@@ -236,7 +238,7 @@ func TestFillCredentials(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv(StorageBlobSASEnvVar, tt.envSAS)
 			o := tt.options
-			if err := o.FillCredentials(context.Background(), tt.tryToCreateSAS); err != nil {
+			if err := FillCredentials(context.Background(), &o, tt.tryToCreateSAS); err != nil {
 				t.Fatalf("expected no error, got %v", err)
 			}
 			if o.SAS != tt.wantSAS {

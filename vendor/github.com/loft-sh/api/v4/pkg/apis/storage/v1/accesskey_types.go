@@ -54,11 +54,11 @@ type AccessKeySpec struct {
 	// +optional
 	Disabled bool `json:"disabled,omitempty"`
 
-	// The time to life for this access key
+	// The time to live for this access key
 	// +optional
 	TTL int64 `json:"ttl,omitempty"`
 
-	// If this is specified, the time to life for this access key will
+	// If this is specified, the time to live for this access key will
 	// start after the lastActivity instead of creation timestamp
 	// +optional
 	TTLAfterLastActivity bool `json:"ttlAfterLastActivity,omitempty"`

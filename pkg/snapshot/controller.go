@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
@@ -92,7 +93,7 @@ func NewController(registerContext *synccontext.RegisterContext) (*Reconciler, e
 		isHostMode:         isHostMode,
 		kind:               snapshotReconciler,
 		finalizer:          ControllerFinalizer,
-		requestKey:         RequestKey,
+		requestKey:         snapshotapi.RequestKey,
 	}
 	return &Reconciler{
 		reconcilerBase:             reconciler,
@@ -129,7 +130,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	}
 
 	// Extract snapshot request details from the ConfigMap and the Secret 🔎
-	snapshotRequest, err := UnmarshalSnapshotRequest(&configMap)
+	snapshotRequest, err := snapshotapi.UnmarshalRequest(&configMap)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to unmarshal vcluster snapshot request from ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
 	}
@@ -169,7 +170,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	defer func() {
 		if retErr != nil {
 			// something went wrong, recorde error and update snapshot request phase to Failed
-			snapshotRequest.Status.Phase = RequestPhaseFailed
+			snapshotRequest.Status.Phase = snapshotapi.RequestPhaseFailed
 			snapshotRequest.Status.Error.Message = retErr.Error()
 			c.eventRecorder.Eventf(
 				&configMap,
@@ -193,25 +194,25 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	}()
 
 	switch snapshotRequest.Status.Phase {
-	case RequestPhaseNotStarted:
+	case snapshotapi.RequestPhaseNotStarted:
 		err = c.reconcileNewRequest(ctx, &configMap, snapshotRequest)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to reconcile new snapshot request %s/%s: %w", configMap.Namespace, configMap.Name, err)
 		}
-	case RequestPhaseDeletingVolumeSnapshots:
+	case snapshotapi.RequestPhaseDeletingVolumeSnapshots:
 		fallthrough
-	case RequestPhaseCanceling:
+	case snapshotapi.RequestPhaseCanceling:
 		if !snapshotRequest.Spec.IncludeVolumes {
 			snapshotRequest.Status.Phase = snapshotRequest.Status.Phase.Next()
 			return ctrl.Result{}, nil
 		}
-		if snapshotRequest.Status.Phase == RequestPhaseCanceling {
-			snapshotRequest.Status.VolumeSnapshots.Phase = volumes.RequestPhaseCanceling
+		if snapshotRequest.Status.Phase == snapshotapi.RequestPhaseCanceling {
+			snapshotRequest.Status.VolumeSnapshots.Phase = snapshotapi.VolumeSnapshotPhaseCanceling
 		} else {
-			snapshotRequest.Status.VolumeSnapshots.Phase = volumes.RequestPhaseDeleting
+			snapshotRequest.Status.VolumeSnapshots.Phase = snapshotapi.VolumeSnapshotPhaseDeleting
 		}
 		fallthrough
-	case RequestPhaseCreatingVolumeSnapshots:
+	case snapshotapi.RequestPhaseCreatingVolumeSnapshots:
 		requeueAfter, err := c.reconcileVolumeSnapshots(ctx, &configMap, snapshotRequest)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to reconcile volume snapshots for snapshot request %s/%s: %w", configMap.Namespace, configMap.Name, err)
@@ -221,7 +222,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 				RequeueAfter: requeueAfter,
 			}, nil
 		}
-	case RequestPhaseCreatingEtcdBackup:
+	case snapshotapi.RequestPhaseCreatingEtcdBackup:
 		requeue, err := c.reconcileCreatingEtcdBackup(ctx, &configMap, snapshotRequest)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to reconcile etcd backup creation for snapshot request %s/%s: %w", configMap.Namespace, configMap.Name, err)
@@ -231,28 +232,28 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 				RequeueAfter: 10 * time.Second,
 			}, nil
 		}
-	case RequestPhaseCanceled:
+	case snapshotapi.RequestPhaseCanceled:
 		fallthrough
-	case RequestPhaseDeleted:
+	case snapshotapi.RequestPhaseDeleted:
 		fallthrough
-	case RequestPhasePartiallyFailed:
+	case snapshotapi.RequestPhasePartiallyFailed:
 		fallthrough
-	case RequestPhaseCompleted:
+	case snapshotapi.RequestPhaseCompleted:
 		err = c.reconcileCompletedRequest(ctx, &configMap, snapshotRequest.RequestMetadata)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to reconcile completed snapshot request %s/%s: %w", configMap.Namespace, configMap.Name, err)
 		}
-	case RequestPhaseFailed:
+	case snapshotapi.RequestPhaseFailed:
 		err = c.reconcileFailedRequest(ctx, &configMap, snapshotRequest.RequestMetadata)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to reconcile failed snapshot request %s/%s: %w", configMap.Namespace, configMap.Name, err)
 		}
-	case RequestPhaseDeleting:
+	case snapshotapi.RequestPhaseDeleting:
 		err = c.reconcileDeleting(ctx, &configMap, snapshotRequest)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to reconcile snapshot deletion request %s/%s: %w", configMap.Namespace, configMap.Name, err)
 		}
-	case RequestPhaseDeletingEtcdBackup:
+	case snapshotapi.RequestPhaseDeletingEtcdBackup:
 		requeue, err := c.reconcileDeletingEtcdBackup(ctx, &configMap, snapshotRequest)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to reconcile snapshot deletion request %s/%s: %w", configMap.Namespace, configMap.Name, err)
@@ -269,7 +270,7 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	return ctrl.Result{}, nil
 }
 
-func (c *Reconciler) reconcileVolumeSnapshots(ctx context.Context, snapshotRequestObj runtime.Object, snapshotRequest *Request) (time.Duration, error) {
+func (c *Reconciler) reconcileVolumeSnapshots(ctx context.Context, snapshotRequestObj runtime.Object, snapshotRequest *snapshotapi.Request) (time.Duration, error) {
 	volumeSnapshotsRequest := &snapshotRequest.Spec.VolumeSnapshots
 	volumeSnapshotsStatus := &snapshotRequest.Status.VolumeSnapshots
 	previousVolumeSnapshotsRequestPhase := volumeSnapshotsStatus.Phase
@@ -280,28 +281,28 @@ func (c *Reconciler) reconcileVolumeSnapshots(ctx context.Context, snapshotReque
 
 	// check volume snapshots' status
 	switch volumeSnapshotsStatus.Phase {
-	case volumes.RequestPhaseCanceling:
+	case snapshotapi.VolumeSnapshotPhaseCanceling:
 		fallthrough
-	case volumes.RequestPhaseDeleting:
+	case snapshotapi.VolumeSnapshotPhaseDeleting:
 		fallthrough
-	case volumes.RequestPhaseInProgress:
-		if previousVolumeSnapshotsRequestPhase == volumes.RequestPhaseNotStarted {
+	case snapshotapi.VolumeSnapshotPhaseInProgress:
+		if previousVolumeSnapshotsRequestPhase == snapshotapi.VolumeSnapshotPhaseNotStarted {
 			// volume snapshots request just got initialized and moved to in-progress
 			return 5 * time.Second, nil
 		} else {
 			// ongoing volume snapshots reconciliation, this may take some time, wait a bit before reconciling again
 			return 30 * time.Second, nil
 		}
-	case volumes.RequestPhasePartiallyFailed:
+	case snapshotapi.VolumeSnapshotPhasePartiallyFailed:
 		fallthrough
-	case volumes.RequestPhaseCompleted:
-		snapshotRequest.Status.Phase = RequestPhaseCreatingEtcdBackup
-	case volumes.RequestPhaseFailed:
-		snapshotRequest.Status.Phase = RequestPhaseFailed
+	case snapshotapi.VolumeSnapshotPhaseCompleted:
+		snapshotRequest.Status.Phase = snapshotapi.RequestPhaseCreatingEtcdBackup
+	case snapshotapi.VolumeSnapshotPhaseFailed:
+		snapshotRequest.Status.Phase = snapshotapi.RequestPhaseFailed
 		snapshotRequest.Status.Error.Message = volumeSnapshotsStatus.Error.Message
-	case volumes.RequestPhaseCanceled:
-		snapshotRequest.Status.Phase = RequestPhaseCanceled
-	case volumes.RequestPhaseDeleted:
+	case snapshotapi.VolumeSnapshotPhaseCanceled:
+		snapshotRequest.Status.Phase = snapshotapi.RequestPhaseCanceled
+	case snapshotapi.VolumeSnapshotPhaseDeleted:
 		snapshotRequest.Status.Phase = snapshotRequest.Status.Phase.Next()
 	default:
 		return 0, fmt.Errorf("unexpected volume snapshots request phase %s", volumeSnapshotsStatus.Phase)
@@ -335,12 +336,12 @@ func (c *Reconciler) Register() error {
 }
 
 // reconcileNewRequest updates the snapshot request phase to "InProgress".
-func (c *Reconciler) reconcileNewRequest(_ context.Context, configMap *corev1.ConfigMap, snapshotRequest *Request) error {
+func (c *Reconciler) reconcileNewRequest(_ context.Context, configMap *corev1.ConfigMap, snapshotRequest *snapshotapi.Request) error {
 	if snapshotRequest.Spec.IncludeVolumes {
-		snapshotRequest.Spec.VolumeSnapshots = volumes.SnapshotsRequest{
-			Requests: []volumes.SnapshotRequest{},
+		snapshotRequest.Spec.VolumeSnapshots = snapshotapi.VolumeSnapshotsRequest{
+			Requests: []snapshotapi.VolumeSnapshotRequest{},
 		}
-		snapshotRequest.Status.Phase = RequestPhaseCreatingVolumeSnapshots
+		snapshotRequest.Status.Phase = snapshotapi.RequestPhaseCreatingVolumeSnapshots
 		c.eventRecorder.Eventf(
 			configMap,
 			nil,
@@ -351,7 +352,7 @@ func (c *Reconciler) reconcileNewRequest(_ context.Context, configMap *corev1.Co
 			configMap.Namespace,
 			configMap.Name)
 	} else {
-		snapshotRequest.Status.Phase = RequestPhaseCreatingEtcdBackup
+		snapshotRequest.Status.Phase = snapshotapi.RequestPhaseCreatingEtcdBackup
 		c.eventRecorder.Eventf(
 			configMap,
 			nil,
@@ -368,7 +369,7 @@ func (c *Reconciler) reconcileNewRequest(_ context.Context, configMap *corev1.Co
 
 // reconcileCreatingEtcdBackup creates the snapshot, uploads it to the specified storage, and updates
 // the snapshot request phase to "Completed".
-func (c *Reconciler) reconcileCreatingEtcdBackup(ctx context.Context, configMap *corev1.ConfigMap, snapshotRequest *Request) (bool, error) {
+func (c *Reconciler) reconcileCreatingEtcdBackup(ctx context.Context, configMap *corev1.ConfigMap, snapshotRequest *snapshotapi.Request) (bool, error) {
 	// Find snapshot request secret, it contains snapshot options (with the storage credentials) 🪪
 	var secret corev1.Secret
 	secretObjectKey := client.ObjectKey{
@@ -388,7 +389,7 @@ func (c *Reconciler) reconcileCreatingEtcdBackup(ctx context.Context, configMap 
 	c.logger.Infof("Found snapshot request Secret %s/%s", secret.Namespace, secret.Name)
 
 	// Extract snapshot options from the Secret 🔎
-	snapshotOptions, err := UnmarshalSnapshotOptions(&secret)
+	snapshotOptions, err := snapshotapi.UnmarshalOptions(&secret)
 	if err != nil {
 		return false, fmt.Errorf("failed to unmarshal vcluster snapshot request from ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
 	}
@@ -420,19 +421,19 @@ func (c *Reconciler) reconcileCreatingEtcdBackup(ctx context.Context, configMap 
 
 	// All done, now update the snapshot request phase to "Completed"! ✅
 	if snapshotRequest.Spec.IncludeVolumes {
-		if snapshotRequest.Status.VolumeSnapshots.Phase == volumes.RequestPhaseCompleted {
-			snapshotRequest.Status.Phase = RequestPhaseCompleted
-		} else if snapshotRequest.Status.VolumeSnapshots.Phase == volumes.RequestPhasePartiallyFailed {
-			snapshotRequest.Status.Phase = RequestPhasePartiallyFailed
+		if snapshotRequest.Status.VolumeSnapshots.Phase == snapshotapi.VolumeSnapshotPhaseCompleted {
+			snapshotRequest.Status.Phase = snapshotapi.RequestPhaseCompleted
+		} else if snapshotRequest.Status.VolumeSnapshots.Phase == snapshotapi.VolumeSnapshotPhasePartiallyFailed {
+			snapshotRequest.Status.Phase = snapshotapi.RequestPhasePartiallyFailed
 			snapshotRequest.Status.Error.Message = snapshotRequest.Status.VolumeSnapshots.Error.Message
 		} else {
 			return false, fmt.Errorf("unexpected volume snapshots request phase %s", snapshotRequest.Status.VolumeSnapshots.Phase)
 		}
 	} else {
-		snapshotRequest.Status.Phase = RequestPhaseCompleted
+		snapshotRequest.Status.Phase = snapshotapi.RequestPhaseCompleted
 	}
 
-	if snapshotRequest.Status.Phase == RequestPhaseCompleted {
+	if snapshotRequest.Status.Phase == snapshotapi.RequestPhaseCompleted {
 		c.eventRecorder.Eventf(
 			configMap,
 			nil,
@@ -458,12 +459,12 @@ func (c *Reconciler) reconcileCreatingEtcdBackup(ctx context.Context, configMap 
 	return false, nil
 }
 
-func (c *Reconciler) updateRequest(ctx context.Context, previousConfigMapState client.Patch, configMap *corev1.ConfigMap, snapshotRequest Request) error {
+func (c *Reconciler) updateRequest(ctx context.Context, previousConfigMapState client.Patch, configMap *corev1.ConfigMap, snapshotRequest snapshotapi.Request) error {
 	snapshotRequestJSON, err := json.Marshal(snapshotRequest)
 	if err != nil {
 		return fmt.Errorf("failed to marshal snapshot request to JSON: %w", err)
 	}
-	configMap.Data[RequestKey] = string(snapshotRequestJSON)
+	configMap.Data[snapshotapi.RequestKey] = string(snapshotRequestJSON)
 
 	// patch snapshot request ConfigMap
 	err = c.client().Patch(ctx, configMap, previousConfigMapState)
@@ -490,7 +491,7 @@ func (c *Reconciler) getOngoingSnapshotRequestsResourceNames(ctx context.Context
 
 	var ongoingRequestConfigMaps []types.NamespacedName
 	for _, configMap := range configMaps.Items {
-		snapshotRequest, err := UnmarshalSnapshotRequest(&configMap)
+		snapshotRequest, err := snapshotapi.UnmarshalRequest(&configMap)
 		if err != nil {
 			c.logger.Errorf("Failed to unmarshal vcluster snapshot request from ConfigMap %s/%s: %v", configMap.Namespace, configMap.Name, err)
 		}
@@ -520,8 +521,8 @@ func (c *Reconciler) getOngoingSnapshotRequestsResourceNames(ctx context.Context
 	return ongoingRequestConfigMaps, ongoingRequestSecrets, nil
 }
 
-func (c *Reconciler) cancelPreviousRequests(ctx context.Context, request *Request) (bool, error) {
-	if request.Status.Phase != RequestPhaseNotStarted {
+func (c *Reconciler) cancelPreviousRequests(ctx context.Context, request *snapshotapi.Request) (bool, error) {
+	if request.Status.Phase != snapshotapi.RequestPhaseNotStarted {
 		// the current request has already started, previous requests should be already canceled
 		return true, nil
 	}
@@ -540,13 +541,13 @@ func (c *Reconciler) cancelPreviousRequests(ctx context.Context, request *Reques
 	currentRequestCanContinue := true
 
 	for _, configMap := range configMaps.Items {
-		otherRequest, err := UnmarshalSnapshotRequest(&configMap)
+		otherRequest, err := snapshotapi.UnmarshalRequest(&configMap)
 		if err != nil {
 			c.logger.Errorf("Failed to unmarshal previous snapshot request from ConfigMap %s/%s: %v", configMap.Namespace, configMap.Name, err)
 			continue
 		}
 		if !request.ShouldCancel(otherRequest) {
-			if otherRequest.Status.Phase == RequestPhaseCanceling {
+			if otherRequest.Status.Phase == snapshotapi.RequestPhaseCanceling {
 				// the other request is still being canceled, so this one can't continue
 				currentRequestCanContinue = false
 			}
@@ -554,7 +555,7 @@ func (c *Reconciler) cancelPreviousRequests(ctx context.Context, request *Reques
 		}
 
 		// cancel the previous request
-		otherRequest.Status.Phase = RequestPhaseCanceling
+		otherRequest.Status.Phase = snapshotapi.RequestPhaseCanceling
 		oldValue := client.MergeFrom(configMap.DeepCopy())
 		err = c.updateRequest(ctx, oldValue, &configMap, *otherRequest)
 		if err != nil {

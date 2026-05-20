@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
+
 	snapshotsv1api "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
 	snapshotsv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/clientset/versioned"
-	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -31,7 +32,7 @@ const (
 )
 
 // createPreProvisionedVolumeSnapshot creates the pre-provisioned VolumeSnapshot
-func (h *snapshotHandler) createPreProvisionedVolumeSnapshot(ctx context.Context, requestLabel, requestName string, volumeSnapshotRequest volumes.SnapshotRequest) (*snapshotsv1api.VolumeSnapshot, error) {
+func (h *snapshotHandler) createPreProvisionedVolumeSnapshot(ctx context.Context, requestLabel, requestName string, volumeSnapshotRequest snapshotapi.VolumeSnapshotRequest) (*snapshotsv1api.VolumeSnapshot, error) {
 	volumeSnapshotName := fmt.Sprintf("%s-%s", volumeSnapshotRequest.PersistentVolumeClaim.Name, requestName)
 	h.logger.Debugf(
 		"Create VolumeSnapshot %s for PersistentVolumeClaim %s/%s for request %s",
@@ -82,7 +83,7 @@ func (h *snapshotHandler) createVolumeSnapshotContentResource(
 	ctx context.Context,
 	requestLabel,
 	requestName string,
-	snapshotRequest volumes.SnapshotRequest,
+	snapshotRequest snapshotapi.VolumeSnapshotRequest,
 	snapshotHandle string,
 	deletionPolicy snapshotsv1api.DeletionPolicy) (*snapshotsv1api.VolumeSnapshotContent, error) {
 	volumeSnapshotContentName := fmt.Sprintf("%s-%s", snapshotRequest.PersistentVolumeClaim.Name, requestName)
@@ -138,7 +139,7 @@ func (h *snapshotHandler) createVolumeSnapshotContentResource(
 // deleteVolumeSnapshot deletes the VolumeSnapshot and the VolumeSnapshotContent with the deletion policy set
 // to Delete, so it deletes the VolumeSnapshot and the VolumeSnapshotContent resources, as well as the volume snapshot
 // from the storage backend.
-func (h *snapshotHandler) deleteVolumeSnapshot(ctx context.Context, requestLabel, requestName string, volumeSnapshotRequest volumes.SnapshotRequest, snapshotHandle string, recreateResourceIfNotFound bool) (bool, error) {
+func (h *snapshotHandler) deleteVolumeSnapshot(ctx context.Context, requestLabel, requestName string, volumeSnapshotRequest snapshotapi.VolumeSnapshotRequest, snapshotHandle string, recreateResourceIfNotFound bool) (bool, error) {
 	volumeSnapshotNamespace := volumeSnapshotRequest.PersistentVolumeClaim.Namespace
 	volumeSnapshotName := fmt.Sprintf("%s-%s", volumeSnapshotRequest.PersistentVolumeClaim.Name, requestName)
 	var volumeSnapshotContentName string

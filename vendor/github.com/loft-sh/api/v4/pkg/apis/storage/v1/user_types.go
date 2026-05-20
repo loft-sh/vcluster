@@ -87,7 +87,7 @@ type UserSpec struct {
 	// +optional
 	TokenGeneration int64 `json:"tokenGeneration,omitempty"`
 
-	// If disabled is true, an user will not be able to login anymore. All other user resources
+	// If disabled is true, a user will not be able to login anymore. All other user resources
 	// are unaffected and other users can still interact with this user
 	// +optional
 	Disabled bool `json:"disabled,omitempty"`
@@ -105,7 +105,7 @@ type UserSpec struct {
 	ExtraClaims map[string]string `json:"extraClaims,omitempty"`
 }
 
-// UserStatus holds the status of an user
+// UserStatus holds the status of a user
 type UserStatus struct {
 	// Teams the user is currently part of
 	// +optional

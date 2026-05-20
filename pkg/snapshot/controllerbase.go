@@ -8,6 +8,7 @@ import (
 	"time"
 
 	snapshotsv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/clientset/versioned"
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	corev1 "k8s.io/api/core/v1"
@@ -127,7 +128,7 @@ func (c *reconcilerBase) removeFinalizer(ctx context.Context, configMap *corev1.
 }
 
 // reconcileCompletedRequest cleans up the completed snapshot/restore request resources.
-func (c *reconcilerBase) reconcileCompletedRequest(ctx context.Context, configMap *corev1.ConfigMap, requestMetadata RequestMetadata) error {
+func (c *reconcilerBase) reconcileCompletedRequest(ctx context.Context, configMap *corev1.ConfigMap, requestMetadata snapshotapi.RequestMetadata) error {
 	c.logger.Debugf("%s request from ConfigMap %s/%s has been completed", c.kind.ToCapital(), configMap.Namespace, configMap.Name)
 	err := c.reconcileDoneRequest(ctx, configMap, requestMetadata)
 	if err != nil {
@@ -137,7 +138,7 @@ func (c *reconcilerBase) reconcileCompletedRequest(ctx context.Context, configMa
 }
 
 // reconcileFailedRequest cleans up the failed snapshot/restore request resources.
-func (c *reconcilerBase) reconcileFailedRequest(ctx context.Context, configMap *corev1.ConfigMap, requestMetadata RequestMetadata) error {
+func (c *reconcilerBase) reconcileFailedRequest(ctx context.Context, configMap *corev1.ConfigMap, requestMetadata snapshotapi.RequestMetadata) error {
 	c.logger.Errorf("%s request from ConfigMap %s/%s has failed", c.kind.ToCapital(), configMap.Namespace, configMap.Name)
 	err := c.reconcileDoneRequest(ctx, configMap, requestMetadata)
 	if err != nil {
@@ -182,7 +183,7 @@ func (c *reconcilerBase) reconcileDeletedRequest(ctx context.Context, configMap 
 
 // reconcileDoneRequest deletes the snapshot/restore request Secret and removes the finalizer from the
 // snapshot/restore request ConfigMap.
-func (c *reconcilerBase) reconcileDoneRequest(ctx context.Context, configMap *corev1.ConfigMap, requestMetadata RequestMetadata) (retErr error) {
+func (c *reconcilerBase) reconcileDoneRequest(ctx context.Context, configMap *corev1.ConfigMap, requestMetadata snapshotapi.RequestMetadata) (retErr error) {
 	defer func() {
 		if retErr != nil {
 			// an error occurred, don't remove the finalizer
@@ -210,7 +211,7 @@ func (c *reconcilerBase) reconcileDoneRequest(ctx context.Context, configMap *co
 			err)
 	}
 
-	if time.Since(requestMetadata.CreationTimestamp.Time) >= DefaultRequestTTL {
+	if time.Since(requestMetadata.CreationTimestamp.Time) >= snapshotapi.DefaultRequestTTL {
 		err = c.deleteRequestConfigMap(ctx, configMap)
 		if err != nil {
 			return fmt.Errorf("failed to delete %s request ConfigMap %s/%s: %w", c.kind, configMap.Namespace, configMap.Name, err)

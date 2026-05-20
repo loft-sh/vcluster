@@ -14,6 +14,8 @@ type StorageV1Interface interface {
 	RESTClient() rest.Interface
 	AccessKeysGetter
 	AppsGetter
+	ArgoCDApplicationsGetter
+	ArgoCDApplicationTemplatesGetter
 	ClustersGetter
 	ClusterAccessesGetter
 	ClusterRoleTemplatesGetter
@@ -46,6 +48,14 @@ func (c *StorageV1Client) AccessKeys() AccessKeyInterface {
 
 func (c *StorageV1Client) Apps() AppInterface {
 	return newApps(c)
+}
+
+func (c *StorageV1Client) ArgoCDApplications(namespace string) ArgoCDApplicationInterface {
+	return newArgoCDApplications(c, namespace)
+}
+
+func (c *StorageV1Client) ArgoCDApplicationTemplates() ArgoCDApplicationTemplateInterface {
+	return newArgoCDApplicationTemplates(c)
 }
 
 func (c *StorageV1Client) Clusters() ClusterInterface {

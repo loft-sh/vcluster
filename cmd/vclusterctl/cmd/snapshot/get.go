@@ -3,6 +3,7 @@ package snapshot
 import (
 	"fmt"
 
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
 	"github.com/loft-sh/vcluster/pkg/cli/completion"
@@ -14,7 +15,7 @@ import (
 
 type GetCmd struct {
 	*flags.GlobalFlags
-	Snapshot   snapshot.Options
+	Snapshot   snapshotapi.Options
 	Standalone bool
 	Log        log.Logger
 }

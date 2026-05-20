@@ -14,6 +14,8 @@ type PlatformConfig struct {
 	Deletion          *Deletion          `json:"deletion,omitempty"  yaml:"deletion,omitempty"`
 	Platform          *Platform          `json:"platform,omitempty"  yaml:"platform,omitempty"`
 	NetrisIntegration *NetrisIntegration `json:"netris,omitempty"    yaml:"netris,omitempty"`
+	ArgoCDIntegration *ArgoCDIntegration `json:"argoCD,omitempty"`
+	ArgoCDDeploy      *ArgoCDDeploy      `json:"deploy,omitempty"`
 }
 
 // NewDefaultPlatformConfig returns an empty platform config.
@@ -255,7 +257,7 @@ type SnapshotRetention struct {
 type SnapshotVolumes struct {
 	// Enabled specifies whether a snapshot should also include volumes in the snapshot
 	// +optional
-	Enabled bool `json:"enabled,omitempty" yaml:"enabled,omitempty"`
+	Enabled bool `json:"enabled,omitempty"`
 }
 
 // SnapshotSecretCredential holds secret reference for credentials
@@ -350,4 +352,60 @@ type NetrisKubeVipConfig struct {
 	// IPRange specifies the IP range for kube-vip
 	// +optional
 	IPRange string `json:"ipRange,omitempty"`
+}
+
+// ArgoCDIntegration holds argo cd integration configuration.
+type ArgoCDIntegration struct {
+	// Enabled defines if argo cd integration is enabled
+	// +optional
+	Enabled bool `json:"enabled,omitempty"`
+
+	// Connector specifies the argo cd connector name
+	// +optional
+	Connector string `json:"connector,omitempty"`
+}
+
+// ArgoCDDeploy holds argo cd deploy configuration.
+type ArgoCDDeploy struct {
+	// Applications specifies the applications to deploy. This requires the argo cd integration to be enabled.
+	// +optional
+	Applications []ArgoCDApplication `json:"applications,omitempty"`
+}
+
+// ArgoCDApplication holds argo cd application configuration.
+type ArgoCDApplication struct {
+	// Name specifies the stable identifier of the argo cd application. It is used to derive generated
+	// ArgoCDApplication resource names and the final Argo CD application name.
+	// +optional
+	Name string `json:"name,omitempty"`
+
+	// DisplayName specifies the display name of the argo cd application.
+	// +optional
+	DisplayName string `json:"displayName,omitempty"`
+
+	// Target specifies the target of the argo cd application. This can be "vCluster" or "host". Defaults to "vCluster".
+	// +optional
+	Target string `json:"target,omitempty"`
+
+	// DestinationNamespace specifies the namespace of the destination.
+	// +optional
+	DestinationNamespace string `json:"destinationNamespace,omitempty"`
+
+	// Inline specifies the inline argo cd application definition. This requires the argo cd integration to be enabled.
+	// +optional
+	Inline map[string]interface{} `json:"inline,omitempty"`
+
+	// Template specifies the argo cd application template to use. This requires the argo cd integration to be enabled.
+	// +optional
+	Template *ArgoCDApplicationTemplate `json:"template,omitempty"`
+}
+
+type ArgoCDApplicationTemplate struct {
+	// Name specifies the name of the argo cd application template
+	// +optional
+	Name string `json:"name,omitempty"`
+
+	// Parameters specifies the parameters to pass to the argo cd application template.
+	// +optional
+	Parameters map[string]interface{} `json:"parameters,omitempty"`
 }

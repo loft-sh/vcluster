@@ -58,8 +58,28 @@ var (
 	NewAppREST = func(getter generic.RESTOptionsGetter) rest.Storage {
 		return NewAppRESTFunc(Factory)
 	}
-	NewAppRESTFunc          NewRESTFunc
-	ManagementBackupStorage = builders.NewApiResourceWithStorage( // Resource status endpoint
+	NewAppRESTFunc                     NewRESTFunc
+	ManagementArgoCDApplicationStorage = builders.NewApiResourceWithStorage( // Resource status endpoint
+		InternalArgoCDApplication,
+		func() runtime.Object { return &ArgoCDApplication{} },     // Register versioned resource
+		func() runtime.Object { return &ArgoCDApplicationList{} }, // Register versioned resource list
+		NewArgoCDApplicationREST,
+	)
+	NewArgoCDApplicationREST = func(getter generic.RESTOptionsGetter) rest.Storage {
+		return NewArgoCDApplicationRESTFunc(Factory)
+	}
+	NewArgoCDApplicationRESTFunc               NewRESTFunc
+	ManagementArgoCDApplicationTemplateStorage = builders.NewApiResourceWithStorage( // Resource status endpoint
+		InternalArgoCDApplicationTemplate,
+		func() runtime.Object { return &ArgoCDApplicationTemplate{} },     // Register versioned resource
+		func() runtime.Object { return &ArgoCDApplicationTemplateList{} }, // Register versioned resource list
+		NewArgoCDApplicationTemplateREST,
+	)
+	NewArgoCDApplicationTemplateREST = func(getter generic.RESTOptionsGetter) rest.Storage {
+		return NewArgoCDApplicationTemplateRESTFunc(Factory)
+	}
+	NewArgoCDApplicationTemplateRESTFunc NewRESTFunc
+	ManagementBackupStorage              = builders.NewApiResourceWithStorage( // Resource status endpoint
 		InternalBackup,
 		func() runtime.Object { return &Backup{} },     // Register versioned resource
 		func() runtime.Object { return &BackupList{} }, // Register versioned resource list
@@ -206,7 +226,17 @@ var (
 	NewLoftUpgradeREST = func(getter generic.RESTOptionsGetter) rest.Storage {
 		return NewLoftUpgradeRESTFunc(Factory)
 	}
-	NewLoftUpgradeRESTFunc     NewRESTFunc
+	NewLoftUpgradeRESTFunc       NewRESTFunc
+	ManagementNetworkPeerStorage = builders.NewApiResourceWithStorage( // Resource status endpoint
+		InternalNetworkPeer,
+		func() runtime.Object { return &NetworkPeer{} },     // Register versioned resource
+		func() runtime.Object { return &NetworkPeerList{} }, // Register versioned resource list
+		NewNetworkPeerREST,
+	)
+	NewNetworkPeerREST = func(getter generic.RESTOptionsGetter) rest.Storage {
+		return NewNetworkPeerRESTFunc(Factory)
+	}
+	NewNetworkPeerRESTFunc     NewRESTFunc
 	ManagementNodeClaimStorage = builders.NewApiResourceWithStorage( // Resource status endpoint
 		InternalNodeClaim,
 		func() runtime.Object { return &NodeClaim{} },     // Register versioned resource
@@ -541,7 +571,31 @@ var (
 		return NewAppCredentialsRESTFunc(Factory)
 	}
 	NewAppCredentialsRESTFunc NewRESTFunc
-	InternalBackup            = builders.NewInternalResource(
+	InternalArgoCDApplication = builders.NewInternalResource(
+		"argocdapplications",
+		"ArgoCDApplication",
+		func() runtime.Object { return &ArgoCDApplication{} },
+		func() runtime.Object { return &ArgoCDApplicationList{} },
+	)
+	InternalArgoCDApplicationStatus = builders.NewInternalResourceStatus(
+		"argocdapplications",
+		"ArgoCDApplicationStatus",
+		func() runtime.Object { return &ArgoCDApplication{} },
+		func() runtime.Object { return &ArgoCDApplicationList{} },
+	)
+	InternalArgoCDApplicationTemplate = builders.NewInternalResource(
+		"argocdapplicationtemplates",
+		"ArgoCDApplicationTemplate",
+		func() runtime.Object { return &ArgoCDApplicationTemplate{} },
+		func() runtime.Object { return &ArgoCDApplicationTemplateList{} },
+	)
+	InternalArgoCDApplicationTemplateStatus = builders.NewInternalResourceStatus(
+		"argocdapplicationtemplates",
+		"ArgoCDApplicationTemplateStatus",
+		func() runtime.Object { return &ArgoCDApplicationTemplate{} },
+		func() runtime.Object { return &ArgoCDApplicationTemplateList{} },
+	)
+	InternalBackup = builders.NewInternalResource(
 		"backups",
 		"Backup",
 		func() runtime.Object { return &Backup{} },
@@ -781,7 +835,27 @@ var (
 		func() runtime.Object { return &LoftUpgrade{} },
 		func() runtime.Object { return &LoftUpgradeList{} },
 	)
-	InternalNodeClaim = builders.NewInternalResource(
+	InternalNetworkPeer = builders.NewInternalResource(
+		"networkpeers",
+		"NetworkPeer",
+		func() runtime.Object { return &NetworkPeer{} },
+		func() runtime.Object { return &NetworkPeerList{} },
+	)
+	InternalNetworkPeerStatus = builders.NewInternalResourceStatus(
+		"networkpeers",
+		"NetworkPeerStatus",
+		func() runtime.Object { return &NetworkPeer{} },
+		func() runtime.Object { return &NetworkPeerList{} },
+	)
+	InternalNetworkPeerDebugREST = builders.NewInternalSubresource(
+		"networkpeers", "NetworkPeerDebug", "debug",
+		func() runtime.Object { return &NetworkPeerDebug{} },
+	)
+	NewNetworkPeerDebugREST = func(getter generic.RESTOptionsGetter) rest.Storage {
+		return NewNetworkPeerDebugRESTFunc(Factory)
+	}
+	NewNetworkPeerDebugRESTFunc NewRESTFunc
+	InternalNodeClaim           = builders.NewInternalResource(
 		"nodeclaims",
 		"NodeClaim",
 		func() runtime.Object { return &NodeClaim{} },
@@ -1273,6 +1347,14 @@ var (
 		return NewVirtualClusterExternalDatabaseRESTFunc(Factory)
 	}
 	NewVirtualClusterExternalDatabaseRESTFunc    NewRESTFunc
+	InternalVirtualClusterInstanceJoinScriptREST = builders.NewInternalSubresource(
+		"virtualclusterinstances", "VirtualClusterInstanceJoinScript", "joinscript",
+		func() runtime.Object { return &VirtualClusterInstanceJoinScript{} },
+	)
+	NewVirtualClusterInstanceJoinScriptREST = func(getter generic.RESTOptionsGetter) rest.Storage {
+		return NewVirtualClusterInstanceJoinScriptRESTFunc(Factory)
+	}
+	NewVirtualClusterInstanceJoinScriptRESTFunc  NewRESTFunc
 	InternalVirtualClusterInstanceKubeConfigREST = builders.NewInternalSubresource(
 		"virtualclusterinstances", "VirtualClusterInstanceKubeConfig", "kubeconfig",
 		func() runtime.Object { return &VirtualClusterInstanceKubeConfig{} },
@@ -1362,6 +1444,10 @@ var (
 		InternalApp,
 		InternalAppStatus,
 		InternalAppCredentialsREST,
+		InternalArgoCDApplication,
+		InternalArgoCDApplicationStatus,
+		InternalArgoCDApplicationTemplate,
+		InternalArgoCDApplicationTemplateStatus,
 		InternalBackup,
 		InternalBackupStatus,
 		InternalBackupApplyREST,
@@ -1399,6 +1485,9 @@ var (
 		InternalLicenseRequestREST,
 		InternalLoftUpgrade,
 		InternalLoftUpgradeStatus,
+		InternalNetworkPeer,
+		InternalNetworkPeerStatus,
+		InternalNetworkPeerDebugREST,
 		InternalNodeClaim,
 		InternalNodeClaimStatus,
 		InternalNodeEnvironment,
@@ -1473,6 +1562,7 @@ var (
 		InternalVirtualClusterInstanceDebugShellREST,
 		InternalVirtualClusterInstanceDebugShellPodsREST,
 		InternalVirtualClusterExternalDatabaseREST,
+		InternalVirtualClusterInstanceJoinScriptREST,
 		InternalVirtualClusterInstanceKubeConfigREST,
 		InternalVirtualClusterInstanceLogREST,
 		InternalVirtualClusterNodeAccessKeyREST,
@@ -1606,6 +1696,44 @@ type Apps struct {
 	PredefinedApps []PredefinedApp                 `json:"predefinedApps,omitempty"`
 }
 
+// +genclient
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type ArgoCDApplication struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              ArgoCDApplicationSpec   `json:"spec,omitempty"`
+	Status            ArgoCDApplicationStatus `json:"status,omitempty"`
+}
+
+type ArgoCDApplicationSpec struct {
+	storagev1.ArgoCDApplicationSpec `json:",inline"`
+}
+
+type ArgoCDApplicationStatus struct {
+	storagev1.ArgoCDApplicationStatus `json:",inline"`
+}
+
+// +genclient
+// +genclient:nonNamespaced
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type ArgoCDApplicationTemplate struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              ArgoCDApplicationTemplateSpec   `json:"spec,omitempty"`
+	Status            ArgoCDApplicationTemplateStatus `json:"status,omitempty"`
+}
+
+type ArgoCDApplicationTemplateSpec struct {
+	storagev1.ArgoCDApplicationTemplateSpec `json:",inline"`
+}
+
+type ArgoCDApplicationTemplateStatus struct {
+	storagev1.ArgoCDApplicationTemplateStatus `json:",inline"`
+}
+
 type AssignedVia struct {
 	ObjectName `json:",inline"`
 	Kind       string `json:"kind,omitempty"`
@@ -1646,7 +1774,6 @@ type AuditPolicyRule struct {
 
 type Authentication struct {
 	Connector                `json:",inline"`
-	Rancher                  *AuthenticationRancher  `json:"rancher,omitempty"`
 	Password                 *AuthenticationPassword `json:"password,omitempty"`
 	Connectors               []ConnectorWithName     `json:"connectors,omitempty"`
 	DisableTeamCreation      bool                    `json:"disableTeamCreation,omitempty"`
@@ -1725,12 +1852,6 @@ type AuthenticationOIDC struct {
 
 type AuthenticationPassword struct {
 	Disabled bool `json:"disabled,omitempty"`
-}
-
-type AuthenticationRancher struct {
-	Host        string `json:"host,omitempty"`
-	BearerToken string `json:"bearerToken,omitempty"`
-	Insecure    bool   `json:"insecure,omitempty"`
 }
 
 type AuthenticationSAML struct {
@@ -2179,6 +2300,7 @@ type KioskSpec struct {
 	SleepModeConfig                     clusterv1.SleepModeConfig           `json:"sleepModeConfig,omitempty"`
 	ChartInfo                           clusterv1.ChartInfo                 `json:"chartInfo,omitempty"`
 	StorageClusterQuota                 agentstoragev1.ClusterQuota         `json:"storageClusterQuota,omitempty"`
+	AccessKey                           storagev1.AccessKey                 `json:"accessKey,omitempty"`
 	UISettings                          uiv1.UISettings                     `json:"UISettings,omitempty"`
 	License                             License                             `json:"license,omitempty"`
 	NodeProviderBCMNodeWithResources    NodeProviderBCMNodeWithResources    `json:"nodeProviderBCMNodeWithResources,omitempty"`
@@ -2260,6 +2382,32 @@ type MaintenanceWindow struct {
 type ManagementRole struct {
 	ObjectName  `json:",inline"`
 	AssignedVia AssignedVia `json:"assignedVia,omitempty"`
+}
+
+// +genclient
+// +genclient:nonNamespaced
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type NetworkPeer struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              NetworkPeerSpec   `json:"spec,omitempty"`
+	Status            NetworkPeerStatus `json:"status,omitempty"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type NetworkPeerDebug struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+}
+
+type NetworkPeerSpec struct {
+	storagev1.NetworkPeerSpec `json:",inline"`
+}
+
+type NetworkPeerStatus struct {
+	storagev1.NetworkPeerStatus `json:",inline"`
 }
 
 // +genclient
@@ -3209,6 +3357,18 @@ type VirtualClusterInstanceDebugShellPods struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+type VirtualClusterInstanceJoinScript struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Status            VirtualClusterInstanceJoinScriptStatus `json:"status,omitempty"`
+}
+
+type VirtualClusterInstanceJoinScriptStatus struct {
+	JoinCommand string `json:"joinCommand,omitempty"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
 type VirtualClusterInstanceKubeConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -3743,6 +3903,244 @@ func (s *storageApp) UpdateApp(ctx context.Context, object *App) (*App, error) {
 }
 
 func (s *storageApp) DeleteApp(ctx context.Context, id string) (bool, error) {
+	st := s.GetStandardStorage()
+	_, sync, err := st.Delete(ctx, id, nil, &metav1.DeleteOptions{})
+	return sync, err
+}
+
+// ArgoCDApplication Functions and Structs
+//
+// +k8s:deepcopy-gen=false
+type ArgoCDApplicationStrategy struct {
+	builders.DefaultStorageStrategy
+}
+
+// +k8s:deepcopy-gen=false
+type ArgoCDApplicationStatusStrategy struct {
+	builders.DefaultStatusStorageStrategy
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type ArgoCDApplicationList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ArgoCDApplication `json:"items"`
+}
+
+func (ArgoCDApplication) NewStatus() interface{} {
+	return ArgoCDApplicationStatus{}
+}
+
+func (pc *ArgoCDApplication) GetStatus() interface{} {
+	return pc.Status
+}
+
+func (pc *ArgoCDApplication) SetStatus(s interface{}) {
+	pc.Status = s.(ArgoCDApplicationStatus)
+}
+
+func (pc *ArgoCDApplication) GetSpec() interface{} {
+	return pc.Spec
+}
+
+func (pc *ArgoCDApplication) SetSpec(s interface{}) {
+	pc.Spec = s.(ArgoCDApplicationSpec)
+}
+
+func (pc *ArgoCDApplication) GetObjectMeta() *metav1.ObjectMeta {
+	return &pc.ObjectMeta
+}
+
+func (pc *ArgoCDApplication) SetGeneration(generation int64) {
+	pc.ObjectMeta.Generation = generation
+}
+
+func (pc ArgoCDApplication) GetGeneration() int64 {
+	return pc.ObjectMeta.Generation
+}
+
+// Registry is an interface for things that know how to store ArgoCDApplication.
+// +k8s:deepcopy-gen=false
+type ArgoCDApplicationRegistry interface {
+	ListArgoCDApplications(ctx context.Context, options *internalversion.ListOptions) (*ArgoCDApplicationList, error)
+	GetArgoCDApplication(ctx context.Context, id string, options *metav1.GetOptions) (*ArgoCDApplication, error)
+	CreateArgoCDApplication(ctx context.Context, id *ArgoCDApplication) (*ArgoCDApplication, error)
+	UpdateArgoCDApplication(ctx context.Context, id *ArgoCDApplication) (*ArgoCDApplication, error)
+	DeleteArgoCDApplication(ctx context.Context, id string) (bool, error)
+}
+
+// NewRegistry returns a new Registry interface for the given Storage. Any mismatched types will panic.
+func NewArgoCDApplicationRegistry(sp builders.StandardStorageProvider) ArgoCDApplicationRegistry {
+	return &storageArgoCDApplication{sp}
+}
+
+// Implement Registry
+// storage puts strong typing around storage calls
+// +k8s:deepcopy-gen=false
+type storageArgoCDApplication struct {
+	builders.StandardStorageProvider
+}
+
+func (s *storageArgoCDApplication) ListArgoCDApplications(ctx context.Context, options *internalversion.ListOptions) (*ArgoCDApplicationList, error) {
+	if options != nil && options.FieldSelector != nil && !options.FieldSelector.Empty() {
+		return nil, fmt.Errorf("field selector not supported yet")
+	}
+	st := s.GetStandardStorage()
+	obj, err := st.List(ctx, options)
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*ArgoCDApplicationList), err
+}
+
+func (s *storageArgoCDApplication) GetArgoCDApplication(ctx context.Context, id string, options *metav1.GetOptions) (*ArgoCDApplication, error) {
+	st := s.GetStandardStorage()
+	obj, err := st.Get(ctx, id, options)
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*ArgoCDApplication), nil
+}
+
+func (s *storageArgoCDApplication) CreateArgoCDApplication(ctx context.Context, object *ArgoCDApplication) (*ArgoCDApplication, error) {
+	st := s.GetStandardStorage()
+	obj, err := st.Create(ctx, object, nil, &metav1.CreateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*ArgoCDApplication), nil
+}
+
+func (s *storageArgoCDApplication) UpdateArgoCDApplication(ctx context.Context, object *ArgoCDApplication) (*ArgoCDApplication, error) {
+	st := s.GetStandardStorage()
+	obj, _, err := st.Update(ctx, object.Name, rest.DefaultUpdatedObjectInfo(object), nil, nil, false, &metav1.UpdateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*ArgoCDApplication), nil
+}
+
+func (s *storageArgoCDApplication) DeleteArgoCDApplication(ctx context.Context, id string) (bool, error) {
+	st := s.GetStandardStorage()
+	_, sync, err := st.Delete(ctx, id, nil, &metav1.DeleteOptions{})
+	return sync, err
+}
+
+// ArgoCDApplicationTemplate Functions and Structs
+//
+// +k8s:deepcopy-gen=false
+type ArgoCDApplicationTemplateStrategy struct {
+	builders.DefaultStorageStrategy
+}
+
+// +k8s:deepcopy-gen=false
+type ArgoCDApplicationTemplateStatusStrategy struct {
+	builders.DefaultStatusStorageStrategy
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type ArgoCDApplicationTemplateList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ArgoCDApplicationTemplate `json:"items"`
+}
+
+func (ArgoCDApplicationTemplate) NewStatus() interface{} {
+	return ArgoCDApplicationTemplateStatus{}
+}
+
+func (pc *ArgoCDApplicationTemplate) GetStatus() interface{} {
+	return pc.Status
+}
+
+func (pc *ArgoCDApplicationTemplate) SetStatus(s interface{}) {
+	pc.Status = s.(ArgoCDApplicationTemplateStatus)
+}
+
+func (pc *ArgoCDApplicationTemplate) GetSpec() interface{} {
+	return pc.Spec
+}
+
+func (pc *ArgoCDApplicationTemplate) SetSpec(s interface{}) {
+	pc.Spec = s.(ArgoCDApplicationTemplateSpec)
+}
+
+func (pc *ArgoCDApplicationTemplate) GetObjectMeta() *metav1.ObjectMeta {
+	return &pc.ObjectMeta
+}
+
+func (pc *ArgoCDApplicationTemplate) SetGeneration(generation int64) {
+	pc.ObjectMeta.Generation = generation
+}
+
+func (pc ArgoCDApplicationTemplate) GetGeneration() int64 {
+	return pc.ObjectMeta.Generation
+}
+
+// Registry is an interface for things that know how to store ArgoCDApplicationTemplate.
+// +k8s:deepcopy-gen=false
+type ArgoCDApplicationTemplateRegistry interface {
+	ListArgoCDApplicationTemplates(ctx context.Context, options *internalversion.ListOptions) (*ArgoCDApplicationTemplateList, error)
+	GetArgoCDApplicationTemplate(ctx context.Context, id string, options *metav1.GetOptions) (*ArgoCDApplicationTemplate, error)
+	CreateArgoCDApplicationTemplate(ctx context.Context, id *ArgoCDApplicationTemplate) (*ArgoCDApplicationTemplate, error)
+	UpdateArgoCDApplicationTemplate(ctx context.Context, id *ArgoCDApplicationTemplate) (*ArgoCDApplicationTemplate, error)
+	DeleteArgoCDApplicationTemplate(ctx context.Context, id string) (bool, error)
+}
+
+// NewRegistry returns a new Registry interface for the given Storage. Any mismatched types will panic.
+func NewArgoCDApplicationTemplateRegistry(sp builders.StandardStorageProvider) ArgoCDApplicationTemplateRegistry {
+	return &storageArgoCDApplicationTemplate{sp}
+}
+
+// Implement Registry
+// storage puts strong typing around storage calls
+// +k8s:deepcopy-gen=false
+type storageArgoCDApplicationTemplate struct {
+	builders.StandardStorageProvider
+}
+
+func (s *storageArgoCDApplicationTemplate) ListArgoCDApplicationTemplates(ctx context.Context, options *internalversion.ListOptions) (*ArgoCDApplicationTemplateList, error) {
+	if options != nil && options.FieldSelector != nil && !options.FieldSelector.Empty() {
+		return nil, fmt.Errorf("field selector not supported yet")
+	}
+	st := s.GetStandardStorage()
+	obj, err := st.List(ctx, options)
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*ArgoCDApplicationTemplateList), err
+}
+
+func (s *storageArgoCDApplicationTemplate) GetArgoCDApplicationTemplate(ctx context.Context, id string, options *metav1.GetOptions) (*ArgoCDApplicationTemplate, error) {
+	st := s.GetStandardStorage()
+	obj, err := st.Get(ctx, id, options)
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*ArgoCDApplicationTemplate), nil
+}
+
+func (s *storageArgoCDApplicationTemplate) CreateArgoCDApplicationTemplate(ctx context.Context, object *ArgoCDApplicationTemplate) (*ArgoCDApplicationTemplate, error) {
+	st := s.GetStandardStorage()
+	obj, err := st.Create(ctx, object, nil, &metav1.CreateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*ArgoCDApplicationTemplate), nil
+}
+
+func (s *storageArgoCDApplicationTemplate) UpdateArgoCDApplicationTemplate(ctx context.Context, object *ArgoCDApplicationTemplate) (*ArgoCDApplicationTemplate, error) {
+	st := s.GetStandardStorage()
+	obj, _, err := st.Update(ctx, object.Name, rest.DefaultUpdatedObjectInfo(object), nil, nil, false, &metav1.UpdateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*ArgoCDApplicationTemplate), nil
+}
+
+func (s *storageArgoCDApplicationTemplate) DeleteArgoCDApplicationTemplate(ctx context.Context, id string) (bool, error) {
 	st := s.GetStandardStorage()
 	_, sync, err := st.Delete(ctx, id, nil, &metav1.DeleteOptions{})
 	return sync, err
@@ -5481,6 +5879,133 @@ func (s *storageLoftUpgrade) UpdateLoftUpgrade(ctx context.Context, object *Loft
 }
 
 func (s *storageLoftUpgrade) DeleteLoftUpgrade(ctx context.Context, id string) (bool, error) {
+	st := s.GetStandardStorage()
+	_, sync, err := st.Delete(ctx, id, nil, &metav1.DeleteOptions{})
+	return sync, err
+}
+
+// NetworkPeer Functions and Structs
+//
+// +k8s:deepcopy-gen=false
+type NetworkPeerStrategy struct {
+	builders.DefaultStorageStrategy
+}
+
+// +k8s:deepcopy-gen=false
+type NetworkPeerStatusStrategy struct {
+	builders.DefaultStatusStorageStrategy
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type NetworkPeerList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []NetworkPeer `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type NetworkPeerDebugList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []NetworkPeerDebug `json:"items"`
+}
+
+func (NetworkPeer) NewStatus() interface{} {
+	return NetworkPeerStatus{}
+}
+
+func (pc *NetworkPeer) GetStatus() interface{} {
+	return pc.Status
+}
+
+func (pc *NetworkPeer) SetStatus(s interface{}) {
+	pc.Status = s.(NetworkPeerStatus)
+}
+
+func (pc *NetworkPeer) GetSpec() interface{} {
+	return pc.Spec
+}
+
+func (pc *NetworkPeer) SetSpec(s interface{}) {
+	pc.Spec = s.(NetworkPeerSpec)
+}
+
+func (pc *NetworkPeer) GetObjectMeta() *metav1.ObjectMeta {
+	return &pc.ObjectMeta
+}
+
+func (pc *NetworkPeer) SetGeneration(generation int64) {
+	pc.ObjectMeta.Generation = generation
+}
+
+func (pc NetworkPeer) GetGeneration() int64 {
+	return pc.ObjectMeta.Generation
+}
+
+// Registry is an interface for things that know how to store NetworkPeer.
+// +k8s:deepcopy-gen=false
+type NetworkPeerRegistry interface {
+	ListNetworkPeers(ctx context.Context, options *internalversion.ListOptions) (*NetworkPeerList, error)
+	GetNetworkPeer(ctx context.Context, id string, options *metav1.GetOptions) (*NetworkPeer, error)
+	CreateNetworkPeer(ctx context.Context, id *NetworkPeer) (*NetworkPeer, error)
+	UpdateNetworkPeer(ctx context.Context, id *NetworkPeer) (*NetworkPeer, error)
+	DeleteNetworkPeer(ctx context.Context, id string) (bool, error)
+}
+
+// NewRegistry returns a new Registry interface for the given Storage. Any mismatched types will panic.
+func NewNetworkPeerRegistry(sp builders.StandardStorageProvider) NetworkPeerRegistry {
+	return &storageNetworkPeer{sp}
+}
+
+// Implement Registry
+// storage puts strong typing around storage calls
+// +k8s:deepcopy-gen=false
+type storageNetworkPeer struct {
+	builders.StandardStorageProvider
+}
+
+func (s *storageNetworkPeer) ListNetworkPeers(ctx context.Context, options *internalversion.ListOptions) (*NetworkPeerList, error) {
+	if options != nil && options.FieldSelector != nil && !options.FieldSelector.Empty() {
+		return nil, fmt.Errorf("field selector not supported yet")
+	}
+	st := s.GetStandardStorage()
+	obj, err := st.List(ctx, options)
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*NetworkPeerList), err
+}
+
+func (s *storageNetworkPeer) GetNetworkPeer(ctx context.Context, id string, options *metav1.GetOptions) (*NetworkPeer, error) {
+	st := s.GetStandardStorage()
+	obj, err := st.Get(ctx, id, options)
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*NetworkPeer), nil
+}
+
+func (s *storageNetworkPeer) CreateNetworkPeer(ctx context.Context, object *NetworkPeer) (*NetworkPeer, error) {
+	st := s.GetStandardStorage()
+	obj, err := st.Create(ctx, object, nil, &metav1.CreateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*NetworkPeer), nil
+}
+
+func (s *storageNetworkPeer) UpdateNetworkPeer(ctx context.Context, object *NetworkPeer) (*NetworkPeer, error) {
+	st := s.GetStandardStorage()
+	obj, _, err := st.Update(ctx, object.Name, rest.DefaultUpdatedObjectInfo(object), nil, nil, false, &metav1.UpdateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*NetworkPeer), nil
+}
+
+func (s *storageNetworkPeer) DeleteNetworkPeer(ctx context.Context, id string) (bool, error) {
 	st := s.GetStandardStorage()
 	_, sync, err := st.Delete(ctx, id, nil, &metav1.DeleteOptions{})
 	return sync, err
@@ -8552,6 +9077,14 @@ type VirtualClusterExternalDatabaseList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []VirtualClusterExternalDatabase `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type VirtualClusterInstanceJoinScriptList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []VirtualClusterInstanceJoinScript `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

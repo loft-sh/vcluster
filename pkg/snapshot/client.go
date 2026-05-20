@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -31,8 +32,8 @@ const (
 )
 
 type Client struct {
-	Request  *Request
-	Options  Options
+	Request  *snapshotapi.Request
+	Options  snapshotapi.Options
 	skipKeys map[string]struct{}
 }
 
@@ -88,7 +89,7 @@ func (c *Client) Run(ctx context.Context, vConfig *config.VirtualClusterConfig) 
 	return nil
 }
 
-func (c *Client) List(ctx context.Context) ([]types.Snapshot, error) {
+func (c *Client) List(ctx context.Context) ([]snapshotapi.Snapshot, error) {
 	var err error
 	// make sure to validate options
 	err = Validate(&c.Options, true)
@@ -172,7 +173,7 @@ func (c *Client) writeEtcdSnapshot(ctx context.Context, etcdClient etcd.Client, 
 			return fmt.Errorf("failed to marshal vCluster release: %w", err)
 		}
 
-		err = writeArchiveEntry(tarWriter, []byte(SnapshotReleaseKey), releaseBytes)
+		err = writeArchiveEntry(tarWriter, []byte(snapshotapi.SnapshotReleaseKey), releaseBytes)
 		if err != nil {
 			return fmt.Errorf("failed to snapshot vCluster release: %w", err)
 		}
@@ -192,7 +193,7 @@ func (c *Client) writeEtcdSnapshot(ctx context.Context, etcdClient etcd.Client, 
 		if err != nil {
 			return fmt.Errorf("failed to marshal snapshot request: %w", err)
 		}
-		key := fmt.Sprintf("%s/%s", RequestStoreKey, APIVersion)
+		key := fmt.Sprintf("%s/%s", RequestStoreKey, snapshotapi.APIVersion)
 		err = writeArchiveEntry(tarWriter, []byte(key), requestBytes)
 		if err != nil {
 			return fmt.Errorf("failed to snapshot request: %w", err)
@@ -269,7 +270,7 @@ func (c *Client) writeKeyValueSnapshot(ctx context.Context, etcdClient etcd.Clie
 			return fmt.Errorf("failed to marshal vCluster release: %w", err)
 		}
 
-		err = writeArchiveEntry(tarWriter, []byte(SnapshotReleaseKey), releaseBytes)
+		err = writeArchiveEntry(tarWriter, []byte(snapshotapi.SnapshotReleaseKey), releaseBytes)
 		if err != nil {
 			return fmt.Errorf("failed to snapshot vCluster release: %w", err)
 		}
@@ -281,7 +282,7 @@ func (c *Client) writeKeyValueSnapshot(ctx context.Context, etcdClient etcd.Clie
 		if err != nil {
 			return fmt.Errorf("failed to marshal snapshot request: %w", err)
 		}
-		key := fmt.Sprintf("%s/%s", RequestStoreKey, APIVersion)
+		key := fmt.Sprintf("%s/%s", RequestStoreKey, snapshotapi.APIVersion)
 		err = writeArchiveEntry(tarWriter, []byte(key), requestBytes)
 		if err != nil {
 			return fmt.Errorf("failed to snapshot request: %w", err)

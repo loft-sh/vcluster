@@ -103,7 +103,7 @@ type SpaceTemplateDefinition struct {
 	// +optional
 	InstanceTemplate SpaceInstanceTemplateDefinition `json:"instanceTemplate,omitempty"`
 
-	// Objects are Kubernetes style yamls that should get deployed into the virtual cluster
+	// Objects are Kubernetes style YAMLs that should get deployed into the virtual cluster
 	// +optional
 	Objects string `json:"objects,omitempty"`
 

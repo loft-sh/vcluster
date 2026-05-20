@@ -2,89 +2,28 @@ package snapshot
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/table"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/snapshot/azure"
-	snapshotTypes "github.com/loft-sh/vcluster/pkg/snapshot/types"
-	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/client-go/kubernetes"
-)
-
-const (
-	// APIVersion is the snapshot request API version.
-
-	RequestKey = "snapshotRequest"
-	OptionsKey = "snapshotOptions"
-
-	DefaultRequestTTL = 24 * time.Hour
 )
 
 var (
 	ErrSnapshotRequestNotFound = errors.New("snapshot request not found")
 )
 
-type Request struct {
-	RequestMetadata `json:"metadata,omitempty"`
-	Spec            RequestSpec   `json:"spec,omitempty"`
-	Status          RequestStatus `json:"status,omitempty"`
-}
-
-func (r *Request) Done() bool {
-	return r.Status.Phase == RequestPhaseCompleted ||
-		r.Status.Phase == RequestPhasePartiallyFailed ||
-		r.Status.Phase == RequestPhaseFailed ||
-		r.Status.Phase == RequestPhaseCanceled
-}
-
-func (r *Request) GetPhase() RequestPhase {
-	return r.Status.Phase
-}
-
-func (r *Request) ShouldCancel(otherRequest *Request) bool {
-	if otherRequest.Name == r.Name {
-		// don't cancel this request
-		return false
-	}
-	if otherRequest.Spec.URL != r.Spec.URL {
-		// don't cancel requests for different URLs
-		return false
-	}
-	if otherRequest.CreationTimestamp.Time.After(r.CreationTimestamp.Time) {
-		// don't cancel newer request
-		return false
-	}
-	shouldCancel := otherRequest.Status.Phase == RequestPhaseNotStarted ||
-		otherRequest.Status.Phase == RequestPhaseCreatingVolumeSnapshots ||
-		otherRequest.Status.Phase == RequestPhaseCreatingEtcdBackup
-	return shouldCancel
-}
-
-type RequestSpec struct {
-	URL             string                   `json:"url,omitempty"`
-	IncludeVolumes  bool                     `json:"includeVolumes,omitempty"`
-	VolumeSnapshots volumes.SnapshotsRequest `json:"volumeSnapshots,omitempty"`
-	Options         Options                  `json:"-"`
-}
-
-type RequestStatus struct {
-	Phase           RequestPhase                `json:"phase,omitempty"`
-	VolumeSnapshots volumes.SnapshotsStatus     `json:"volumeSnapshots,omitempty"`
-	Error           snapshotTypes.SnapshotError `json:"error,omitempty"`
-}
-
 // CreateSnapshotRequestResources creates snapshot request ConfigMap and Secret in the cluster. It returns the created
 // snapshot request.
-func CreateSnapshotRequestResources(ctx context.Context, vClusterNamespace, vClusterName string, vConfig *config.VirtualClusterConfig, options *Options, kubeClient *kubernetes.Clientset) (*Request, error) {
+func CreateSnapshotRequestResources(ctx context.Context, vClusterNamespace, vClusterName string, vConfig *config.VirtualClusterConfig, options *snapshotapi.Options, kubeClient *kubernetes.Clientset) (*snapshotapi.Request, error) {
 	if vConfig == nil {
 		return nil, fmt.Errorf("config is nil")
 	}
@@ -94,28 +33,27 @@ func CreateSnapshotRequestResources(ctx context.Context, vClusterNamespace, vClu
 	}
 
 	// first create the snapshot options Secret
-	secret, err := CreateSnapshotOptionsSecret(constants.SnapshotRequestLabel, vClusterNamespace, vClusterName, options)
+	secret, err := snapshotapi.NewSnapshotOptionsSecret(vClusterNamespace, vClusterName, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create snapshot options Secret: %w", err)
 	}
-	secret.GenerateName = fmt.Sprintf("%s-snapshot-request-", vClusterName)
 	secret, err = kubeClient.CoreV1().Secrets(vClusterNamespace).Create(ctx, secret, metav1.CreateOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create snapshot options Secret: %w", err)
 	}
 
 	// then create the snapshot request that will be reconciled by the controller
-	snapshotRequest := &Request{
-		RequestMetadata: RequestMetadata{
+	snapshotRequest := &snapshotapi.Request{
+		RequestMetadata: snapshotapi.RequestMetadata{
 			Name:              secret.Name,
 			CreationTimestamp: metav1.Now(),
 		},
-		Spec: RequestSpec{
+		Spec: snapshotapi.RequestSpec{
 			URL:            options.GetURL(),
 			IncludeVolumes: options.IncludeVolumes,
 		},
 	}
-	configMap, err := CreateSnapshotRequestConfigMap(vClusterNamespace, vClusterName, snapshotRequest)
+	configMap, err := snapshotapi.NewSnapshotRequestConfigMap(vClusterNamespace, vClusterName, snapshotRequest)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create snapshot request ConfigMap: %w", err)
 	}
@@ -142,114 +80,7 @@ func IsSnapshotRequestCreatedInHostCluster(config *config.VirtualClusterConfig) 
 	return true, nil
 }
 
-func UnmarshalSnapshotRequest(configMap *corev1.ConfigMap) (*Request, error) {
-	if configMap == nil {
-		return nil, fmt.Errorf("config map is nil")
-	}
-	// check if ConfigMap has the required snapshot request label
-	if _, ok := configMap.Labels[constants.SnapshotRequestLabel]; !ok {
-		return nil, fmt.Errorf("config map does not have the snapshot request label")
-	}
-
-	// extract the snapshot request from the ConfigMap (volume snapshot details will be added here)
-	snapshotRequestJSON, ok := configMap.Data[RequestKey]
-	if !ok {
-		return nil, fmt.Errorf("config map does not have the snapshot request")
-	}
-	var snapshotRequest Request
-	err := json.Unmarshal([]byte(snapshotRequestJSON), &snapshotRequest)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal snapshot request from ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
-	}
-
-	return &snapshotRequest, nil
-}
-
-func UnmarshalSnapshotOptions(secret *corev1.Secret) (*Options, error) {
-	if secret == nil {
-		return nil, fmt.Errorf("secret is nil")
-	}
-
-	// check if Secret has the required snapshot request label
-	if _, ok := secret.Labels[constants.SnapshotRequestLabel]; !ok {
-		return nil, fmt.Errorf("secret does not have the snapshot request label")
-	}
-
-	// extract snapshot options from the Secret
-	optionsJSON, ok := secret.Data[OptionsKey]
-	if !ok {
-		return nil, fmt.Errorf("secret does not have the snapshot options")
-	}
-	var snapshotOptions Options
-	err := json.Unmarshal(optionsJSON, &snapshotOptions)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal snapshot options: %w", err)
-	}
-
-	return &snapshotOptions, nil
-}
-
-func CreateSnapshotRequestConfigMap(vClusterNamespace, vClusterName string, snapshotRequest *Request) (*corev1.ConfigMap, error) {
-	if vClusterNamespace == "" {
-		return nil, fmt.Errorf("vClusterNamespace is not set")
-	}
-	if snapshotRequest == nil {
-		return nil, fmt.Errorf("snapshotRequest is nil")
-	}
-
-	// snapshot request, part 1 - ConfigMap
-	snapshotRequestJSON, err := json.Marshal(snapshotRequest)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal snapshot request: %w", err)
-	}
-
-	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: vClusterNamespace,
-			Labels: map[string]string{
-				constants.VClusterNamespaceLabel: vClusterNamespace,
-				constants.VClusterNameLabel:      vClusterName,
-				constants.SnapshotRequestLabel:   "",
-			},
-		},
-		Data: map[string]string{
-			RequestKey: string(snapshotRequestJSON),
-		},
-	}
-
-	return configMap, nil
-}
-
-func CreateSnapshotOptionsSecret(requestLabel, vClusterNamespace, vClusterName string, snapshotOptions *Options) (*corev1.Secret, error) {
-	if vClusterNamespace == "" {
-		return nil, fmt.Errorf("vClusterNamespace is not set")
-	}
-	if snapshotOptions == nil {
-		return nil, fmt.Errorf("snapshotOptions is nil")
-	}
-
-	optionsJSON, err := json.Marshal(snapshotOptions)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal snapshot options: %w", err)
-	}
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: vClusterNamespace,
-			Labels: map[string]string{
-				constants.VClusterNamespaceLabel: vClusterNamespace,
-				constants.VClusterNameLabel:      vClusterName,
-				requestLabel:                     "",
-			},
-		},
-		Data: map[string][]byte{
-			OptionsKey: optionsJSON,
-		},
-	}
-
-	return secret, nil
-}
-
-func GetSnapshots(ctx context.Context, vClusterNamespace string, snapshotOpts *Options, kubeClient *kubernetes.Clientset, log log.Logger) error {
+func GetSnapshots(ctx context.Context, vClusterNamespace string, snapshotOpts *snapshotapi.Options, kubeClient *kubernetes.Clientset, log log.Logger) error {
 	// First, try to get saved snapshots
 	restoreClient := NewRestoreClient(*snapshotOpts, false, false)
 
@@ -266,17 +97,17 @@ func GetSnapshots(ctx context.Context, vClusterNamespace string, snapshotOpts *O
 		// set to Completed/PartiallyFailed after the upload). Therefore, here
 		// we update the phase to the correct final state.
 		if savedSnapshotRequest.Spec.IncludeVolumes {
-			if savedSnapshotRequest.Status.VolumeSnapshots.Phase == volumes.RequestPhaseCompleted {
-				savedSnapshotRequest.Status.Phase = RequestPhaseCompleted
+			if savedSnapshotRequest.Status.VolumeSnapshots.Phase == snapshotapi.VolumeSnapshotPhaseCompleted {
+				savedSnapshotRequest.Status.Phase = snapshotapi.RequestPhaseCompleted
 			} else {
-				savedSnapshotRequest.Status.Phase = RequestPhasePartiallyFailed
+				savedSnapshotRequest.Status.Phase = snapshotapi.RequestPhasePartiallyFailed
 			}
 		} else {
-			savedSnapshotRequest.Status.Phase = RequestPhaseCompleted
+			savedSnapshotRequest.Status.Phase = snapshotapi.RequestPhaseCompleted
 		}
 	}
 
-	var inProgressSnapshotRequest *Request
+	var inProgressSnapshotRequest *snapshotapi.Request
 	listRequests := true
 	var continueOption string
 	for listRequests {
@@ -289,7 +120,7 @@ func GetSnapshots(ctx context.Context, vClusterNamespace string, snapshotOpts *O
 			return fmt.Errorf("failed to list snapshot request ConfigMaps: %w", err)
 		}
 		for _, configMap := range snapshotRequestConfigMaps.Items {
-			snapshotRequest, err := UnmarshalSnapshotRequest(&configMap)
+			snapshotRequest, err := snapshotapi.UnmarshalRequest(&configMap)
 			if err != nil {
 				return fmt.Errorf("failed to unmarshal snapshot request from ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
 			}
@@ -316,9 +147,9 @@ func GetSnapshots(ctx context.Context, vClusterNamespace string, snapshotOpts *O
 	var url string
 	var volumesStatus string
 	var saved string
-	var status RequestPhase
+	var status snapshotapi.RequestPhase
 	var age string
-	var snapshotRequestToShow *Request
+	var snapshotRequestToShow *snapshotapi.Request
 	if inProgressSnapshotRequest != nil {
 		snapshotRequestToShow = inProgressSnapshotRequest
 	} else {
@@ -332,7 +163,7 @@ func GetSnapshots(ctx context.Context, vClusterNamespace string, snapshotOpts *O
 		for _, volumeSnapshotRequest := range snapshotRequestToShow.Spec.VolumeSnapshots.Requests {
 			pvcName := fmt.Sprintf("%s/%s", volumeSnapshotRequest.PersistentVolumeClaim.Namespace, volumeSnapshotRequest.PersistentVolumeClaim.Name)
 			volumeSnapshotStatus, ok := snapshotRequestToShow.Status.VolumeSnapshots.Snapshots[pvcName]
-			if ok && volumeSnapshotStatus.Phase == volumes.RequestPhaseCompleted {
+			if ok && volumeSnapshotStatus.Phase == snapshotapi.VolumeSnapshotPhaseCompleted {
 				completedCount++
 			}
 		}
@@ -358,7 +189,7 @@ func GetSnapshots(ctx context.Context, vClusterNamespace string, snapshotOpts *O
 	return nil
 }
 
-func DeleteSnapshotRequestResources(ctx context.Context, vClusterNamespace, vClusterName string, vConfig *config.VirtualClusterConfig, options *Options, kubeClient *kubernetes.Clientset) error {
+func DeleteSnapshotRequestResources(ctx context.Context, vClusterNamespace, vClusterName string, vConfig *config.VirtualClusterConfig, options *snapshotapi.Options, kubeClient *kubernetes.Clientset) error {
 	// First, try to get saved snapshots
 	restoreClient := NewRestoreClient(*options, false, false)
 
@@ -375,21 +206,20 @@ func DeleteSnapshotRequestResources(ctx context.Context, vClusterNamespace, vClu
 
 	// update the snapshot request status to indicate that the snapshot request is in the cleaning up phase
 	savedSnapshotRequest.CreationTimestamp = metav1.Now()
-	savedSnapshotRequest.Status.Phase = RequestPhase(volumes.RequestPhaseDeleting)
+	savedSnapshotRequest.Status.Phase = snapshotapi.RequestPhaseDeleting
 
 	// first create the snapshot options Secret
-	secret, err := CreateSnapshotOptionsSecret(constants.SnapshotRequestLabel, vClusterNamespace, vClusterName, options)
+	secret, err := snapshotapi.NewSnapshotDeleteOptionsSecret(vClusterNamespace, vClusterName, options)
 	if err != nil {
 		return fmt.Errorf("failed to create snapshot options Secret: %w", err)
 	}
-	secret.GenerateName = fmt.Sprintf("%s-snapshot-request-delete-", vClusterName)
 	secret, err = kubeClient.CoreV1().Secrets(vClusterNamespace).Create(ctx, secret, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create snapshot options Secret: %w", err)
 	}
 
 	savedSnapshotRequest.Name = secret.Name
-	configMap, err := CreateSnapshotRequestConfigMap(vClusterNamespace, vClusterName, savedSnapshotRequest)
+	configMap, err := snapshotapi.NewSnapshotRequestConfigMap(vClusterNamespace, vClusterName, savedSnapshotRequest)
 	if err != nil {
 		return fmt.Errorf("failed to create snapshot request ConfigMap: %w", err)
 	}

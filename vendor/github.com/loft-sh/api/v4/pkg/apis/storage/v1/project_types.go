@@ -2,6 +2,7 @@ package v1
 
 import (
 	agentstoragev1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/storage/v1"
+	argoapplicationsv1alpha1 "github.com/loft-sh/external-types/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -24,12 +25,6 @@ const (
 	VaultPreviousClusterAnnotation                = "loft.sh/vault-integration-previous-cluster"
 	VaultPreviousNamespaceAnnotation              = "loft.sh/vault-integration-previous-namespace"
 	VaultPreviousVirtualClusterInstanceAnnotation = "loft.sh/vault-integration-previous-virtualclusterinstance"
-)
-
-const (
-	RancherIntegrationSynced agentstoragev1.ConditionType = "RancherIntegrationSynced"
-
-	RancherLastAppliedHashAnnotation = "loft.sh/rancher-integration-last-applied-hash"
 )
 
 const (
@@ -105,6 +100,13 @@ type ProjectSpec struct {
 	// +optional
 	AllowedTemplates []AllowedTemplate `json:"allowedTemplates,omitempty"`
 
+	// AllowedNodeTypes restricts which NodeTypes can be referenced by
+	// NodeClaims in this project. An entry can be an exact name
+	// ("aws.large") or a provider wildcard ("aws.*"). If unset (nil),
+	// all NodeTypes are allowed; an empty list disallows all NodeTypes.
+	// +optional
+	AllowedNodeTypes []AllowedNodeType `json:"allowedNodeTypes"`
+
 	// RequireTemplate configures if a template is required for instance creation.
 	// +optional
 	RequireTemplate RequireTemplate `json:"requireTemplate,omitempty"`
@@ -139,9 +141,6 @@ type ProjectSpec struct {
 	// +optional
 	VaultIntegration *VaultIntegrationSpec `json:"vault,omitempty"`
 
-	// RancherIntegration holds information about Rancher Integration
-	// +optional
-	RancherIntegration *RancherIntegrationSpec `json:"rancher,omitempty"`
 }
 
 type RequireTemplate struct {
@@ -232,6 +231,13 @@ type AllowedRunner struct {
 
 type AllowedCluster struct {
 	// Name is the name of the cluster that is allowed to create an environment in.
+	// +optional
+	Name string `json:"name,omitempty"`
+}
+
+type AllowedNodeType struct {
+	// Name of the NodeType, or "<provider>.*" to allow all NodeTypes
+	// of the given provider.
 	// +optional
 	Name string `json:"name,omitempty"`
 }
@@ -389,11 +395,30 @@ type ArgoProjectSpec struct {
 	// will be "*" indicating all source repositories.
 	// +optional
 	SourceRepos []string `json:"sourceRepos,omitempty"`
+	// Destinations contains list of destinations available for deployment
+	Destinations []argoapplicationsv1alpha1.ApplicationDestination `json:"destinations,omitempty"`
 	// Roles is a list of roles that should be attached to the ArgoCD project. If roles are provided
 	// no loft default roles will be set. If no roles are provided *and* SSO is enabled, loft will
 	// configure sane default values.
 	// +optional
 	Roles []ArgoProjectRole `json:"roles,omitempty"`
+	// ClusterResourceWhitelist contains a list of whitelisted cluster level resources
+	// If not specified or empty, deny all cluster-scope resources.
+	// +optional
+	ClusterResourceWhitelist []argoapplicationsv1alpha1.ClusterResourceRestrictionItem `json:"clusterResourceWhitelist,omitempty"`
+	// NamespaceResourceWhitelist contains a list of whitelisted namespace level resources
+	// If not specified or empty, allow all namespace-scope resources.
+	// +optional
+	NamespaceResourceWhitelist []metav1.GroupKind `json:"namespaceResourceWhitelist,omitempty"`
+	// ClusterResourceBlacklist contains a list of blacklisted cluster level resources
+	// +optional
+	ClusterResourceBlacklist []argoapplicationsv1alpha1.ClusterResourceRestrictionItem `json:"clusterResourceBlacklist,omitempty"`
+	// NamespaceResourceBlacklist contains a list of blacklisted namespace level resources
+	// +optional
+	NamespaceResourceBlacklist []metav1.GroupKind `json:"namespaceResourceBlacklist,omitempty"`
+	// SourceNamespaces defines the namespaces application resources are allowed to be created in
+	// +optional
+	SourceNamespaces []string `json:"sourceNamespaces,omitempty"`
 }
 
 type ArgoProjectSpecMetadata struct {
@@ -425,8 +450,12 @@ type ArgoProjectPolicyRule struct {
 	// +optional
 	Action string `json:"action,omitempty"`
 	// Application is the ArgoCD project/repository to apply the rule to.
+	// DEPRECATED: Wasn't used. Kind provides a more flexible way to specify the resource type.
 	// +optional
 	Application string `json:"application,omitempty"`
+	// Kind is the kind to apply the rule to
+	// +optional
+	Kind string `json:"kind,omitempty"`
 	// Allow applies the "allow" permission to the rule, if allow is not set, the permission will
 	// always be set to "deny".
 	// +optional
@@ -475,50 +504,6 @@ type VaultAuthSpec struct {
 	// Secret data should contain the `token` key.
 	// +optional
 	TokenSecretRef *corev1.SecretKeySelector `json:"tokenSecretRef,omitempty"`
-}
-
-type RancherIntegrationSpec struct {
-	// Enabled indicates if the Rancher Project Integration is enabled for this project.
-	// +optional
-	Enabled bool `json:"enabled,omitempty"`
-
-	// ProjectRef defines references to rancher project, required for syncMembers and syncVirtualClusters.syncMembers
-	// +optional
-	ProjectRef RancherProjectRef `json:"projectRef,omitempty"`
-
-	// ImportVirtualClusters defines settings to import virtual clusters to Rancher on creation
-	// +optional
-	ImportVirtualClusters ImportVirtualClustersSpec `json:"importVirtualClusters,omitempty"`
-
-	// SyncMembers defines settings to sync Rancher project members to the loft project
-	// +optional
-	SyncMembers SyncMembersSpec `json:"syncMembers,omitempty"`
-}
-
-type RancherProjectRef struct {
-	// Cluster defines the Rancher cluster ID
-	// Needs to be the same id within Loft
-	Cluster string `json:"cluster,omitempty"`
-
-	// Project defines the Rancher project ID
-	Project string `json:"project,omitempty"`
-}
-
-type ImportVirtualClustersSpec struct {
-	// RoleMapping indicates an optional role mapping from a rancher project role to a rancher cluster role. Map to an empty role to exclude users and groups with that role from
-	// being synced.
-	// +optional
-	RoleMapping map[string]string `json:"roleMapping,omitempty"`
-}
-
-type SyncMembersSpec struct {
-	// Enabled indicates whether to sync rancher project members to the loft project.
-	Enabled bool `json:"enabled,omitempty"`
-
-	// RoleMapping indicates an optional role mapping from a rancher role to a loft role. Map to an empty role to exclude users and groups with that role from
-	// being synced.
-	// +optional
-	RoleMapping map[string]string `json:"roleMapping,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
