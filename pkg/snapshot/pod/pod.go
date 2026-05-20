@@ -13,7 +13,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/loft-sh/api/v4/pkg/snapshot"
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/constants"
@@ -58,7 +58,7 @@ func SnapshotExec(
 	command []string,
 	vCluster *find.VCluster,
 	podOptions *Options,
-	snapshotOptions *snapshot.Options,
+	snapshotOptions *snapshotapi.Options,
 ) error {
 	// get target pod
 	var targetPod *corev1.Pod
@@ -103,7 +103,7 @@ func RunSnapshotPod(
 	command []string,
 	vCluster *find.VCluster,
 	podOptions *Options,
-	snapshotOptions *snapshot.Options,
+	snapshotOptions *snapshotapi.Options,
 	log log.Logger,
 ) error {
 	// should exec?
@@ -197,7 +197,7 @@ func CreateSnapshotPod(
 	command []string,
 	vCluster *find.VCluster,
 	podOptions *Options,
-	snapshotOptions *snapshot.Options,
+	snapshotOptions *snapshotapi.Options,
 	log log.Logger,
 ) (*corev1.Pod, error) {
 	// get pod spec
@@ -387,7 +387,7 @@ func CreateSnapshotPod(
 	return newPod, nil
 }
 
-func ToOptionsString(options *snapshot.Options) (string, error) {
+func ToOptionsString(options *snapshotapi.Options) (string, error) {
 	jsonBytes, err := json.Marshal(options)
 	if err != nil {
 		return "", err

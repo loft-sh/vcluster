@@ -12,7 +12,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	remotev1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/loft-sh/api/v4/pkg/snapshot"
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	oras "oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/content/file"
@@ -29,7 +29,7 @@ const (
 	EtcdLayerMediaType = "application/vnd.loft.vcluster.etcd.v1.tar+gzip"
 )
 
-func FillCredentials(o *snapshot.OCIOptions, isClient bool) {
+func FillCredentials(o *snapshotapi.OCIOptions, isClient bool) {
 	// try to get username and password if not set
 	if (isClient && o.SkipClientCredentials) || o.Repository == "" || o.Username != "" {
 		return
@@ -46,7 +46,7 @@ func FillCredentials(o *snapshot.OCIOptions, isClient bool) {
 	}
 }
 
-func NewStore(options *snapshot.OCIOptions) *Store {
+func NewStore(options *snapshotapi.OCIOptions) *Store {
 	// fill credentials if not set
 	FillCredentials(options, false)
 
@@ -56,7 +56,7 @@ func NewStore(options *snapshot.OCIOptions) *Store {
 }
 
 type Store struct {
-	options *snapshot.OCIOptions
+	options *snapshotapi.OCIOptions
 }
 
 func (s *Store) Target() string {
@@ -154,7 +154,7 @@ func (s *Store) GetObject(ctx context.Context) (io.ReadCloser, error) {
 	return etcdReader, nil
 }
 
-func (s *Store) List(ctx context.Context) ([]snapshot.Snapshot, error) {
+func (s *Store) List(ctx context.Context) ([]snapshotapi.Snapshot, error) {
 	repository, err := name.NewRepository(s.options.Repository)
 	if err != nil {
 		if !errors.Is(err, &name.ErrBadName{}) {
@@ -181,7 +181,7 @@ func (s *Store) List(ctx context.Context) ([]snapshot.Snapshot, error) {
 		return nil, err
 	}
 
-	var snapshotsList []snapshot.Snapshot
+	var snapshotsList []snapshotapi.Snapshot
 	for _, tag := range tags {
 		repoTag := repository.Tag(tag)
 		img, err := remote.Image(repoTag, remote.WithContext(ctx), remote.WithAuth(&authn.Basic{
@@ -204,7 +204,7 @@ func (s *Store) List(ctx context.Context) ([]snapshot.Snapshot, error) {
 				manifest.Annotations[v1.AnnotationCreated],
 			)
 
-			snapshotsList = append(snapshotsList, snapshot.Snapshot{
+			snapshotsList = append(snapshotsList, snapshotapi.Snapshot{
 				ID:        tag,
 				URL:       repoTag.String(),
 				Timestamp: createdTime,

@@ -4,7 +4,7 @@ import (
 	"cmp"
 	"fmt"
 
-	"github.com/loft-sh/api/v4/pkg/snapshot"
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli"
 	"github.com/loft-sh/vcluster/pkg/cli/completion"
@@ -19,7 +19,7 @@ import (
 type RestoreCmd struct {
 	*flags.GlobalFlags
 
-	Snapshot       snapshot.Options
+	Snapshot       snapshotapi.Options
 	Pod            pod.Options
 	Driver         string
 	Name           string

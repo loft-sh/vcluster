@@ -11,7 +11,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/loft-sh/api/v4/pkg/snapshot"
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/snapshot/azure"
 	"github.com/loft-sh/vcluster/pkg/snapshot/oci"
@@ -20,7 +20,7 @@ import (
 	"github.com/spf13/pflag"
 )
 
-func SetURLAndFillCredentials(ctx context.Context, snapshotOptions *snapshot.Options, url string, credentialsRequiredInCluster bool) error {
+func SetURLAndFillCredentials(ctx context.Context, snapshotOptions *snapshotapi.Options, url string, credentialsRequiredInCluster bool) error {
 	err := Parse(url, snapshotOptions)
 	if err != nil {
 		return fmt.Errorf("failed to parse snapshot URL: %w", err)
@@ -43,7 +43,7 @@ func SetURLAndFillCredentials(ctx context.Context, snapshotOptions *snapshot.Opt
 	return nil
 }
 
-func Parse(snapshotURL string, snapshotOptions *snapshot.Options) error {
+func Parse(snapshotURL string, snapshotOptions *snapshotapi.Options) error {
 	parsedURL, err := url.Parse(snapshotURL)
 	if err != nil {
 		return fmt.Errorf("error parsing snapshotURL %s: %w", snapshotURL, err)
@@ -104,10 +104,10 @@ func Parse(snapshotURL string, snapshotOptions *snapshot.Options) error {
 	return nil
 }
 
-func ParseOptionsFromEnv() (*snapshot.Options, error) {
+func ParseOptionsFromEnv() (*snapshotapi.Options, error) {
 	snapshotOptions := os.Getenv(constants.VClusterStorageOptionsEnv)
 	if snapshotOptions == "" {
-		return &snapshot.Options{}, nil
+		return &snapshotapi.Options{}, nil
 	}
 
 	decoded, err := base64.StdEncoding.DecodeString(snapshotOptions)
@@ -115,7 +115,7 @@ func ParseOptionsFromEnv() (*snapshot.Options, error) {
 		return nil, fmt.Errorf("failed to decode storage options from env: %w", err)
 	}
 
-	opts := &snapshot.Options{}
+	opts := &snapshotapi.Options{}
 	err = json.Unmarshal(decoded, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal storage options from env: %w", err)
@@ -124,7 +124,7 @@ func ParseOptionsFromEnv() (*snapshot.Options, error) {
 	return opts, nil
 }
 
-func Validate(options *snapshot.Options, isList bool) error {
+func Validate(options *snapshotapi.Options, isList bool) error {
 	// storage needs to be either s3 or file
 	if options.Type == "s3" {
 		if !isList && options.S3.Key == "" {
@@ -152,7 +152,7 @@ func Validate(options *snapshot.Options, isList bool) error {
 	return nil
 }
 
-func AddFlags(flags *pflag.FlagSet, options *snapshot.Options) {
+func AddFlags(flags *pflag.FlagSet, options *snapshotapi.Options) {
 	// AWS S3
 	flags.StringVarP(&options.S3.KmsKeyID, "kms-key-id", "", "", "AWS KMS key ID that is configured for given S3 bucket. If set, aws-kms SSE will be used")
 	flags.StringVarP(&options.S3.CustomerKeyEncryptionFile, "customer-key-encryption-file", "", "", "AWS customer key encryption file used for SSE-C. Mutually exclusive with kms-key-id")

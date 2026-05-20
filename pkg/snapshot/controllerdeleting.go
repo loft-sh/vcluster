@@ -5,22 +5,22 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/loft-sh/api/v4/pkg/snapshot"
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // reconcileNewRequest updates the snapshot request phase to "InProgress".
-func (c *Reconciler) reconcileDeleting(_ context.Context, configMap *corev1.ConfigMap, snapshotRequest *snapshot.Request) error {
-	if snapshotRequest.Status.Phase != snapshot.RequestPhaseDeleting {
-		return fmt.Errorf("invalid phase for snapshot deletion request %s, expected %s, got %s", snapshotRequest.Name, snapshot.RequestPhaseDeleting, snapshotRequest.Status.Phase)
+func (c *Reconciler) reconcileDeleting(_ context.Context, configMap *corev1.ConfigMap, snapshotRequest *snapshotapi.Request) error {
+	if snapshotRequest.Status.Phase != snapshotapi.RequestPhaseDeleting {
+		return fmt.Errorf("invalid phase for snapshot deletion request %s, expected %s, got %s", snapshotRequest.Name, snapshotapi.RequestPhaseDeleting, snapshotRequest.Status.Phase)
 	}
 	c.logger.Debugf("Reconciling snapshot deletion request %s/%s", configMap.Namespace, configMap.Name)
 	defer c.logger.Debugf("Reconciled snapshot deletion request %s/%s, new phase is %s", configMap.Namespace, configMap.Name, snapshotRequest.Status.Phase)
 
 	if snapshotRequest.Spec.IncludeVolumes {
-		snapshotRequest.Status.Phase = snapshot.RequestPhaseDeletingVolumeSnapshots
+		snapshotRequest.Status.Phase = snapshotapi.RequestPhaseDeletingVolumeSnapshots
 		c.eventRecorder.Eventf(
 			configMap,
 			nil,
@@ -32,7 +32,7 @@ func (c *Reconciler) reconcileDeleting(_ context.Context, configMap *corev1.Conf
 			configMap.Name,
 		)
 	} else {
-		snapshotRequest.Status.Phase = snapshot.RequestPhaseDeletingEtcdBackup
+		snapshotRequest.Status.Phase = snapshotapi.RequestPhaseDeletingEtcdBackup
 		c.eventRecorder.Eventf(
 			configMap,
 			nil,
@@ -47,9 +47,9 @@ func (c *Reconciler) reconcileDeleting(_ context.Context, configMap *corev1.Conf
 	return nil
 }
 
-func (c *Reconciler) reconcileDeletingEtcdBackup(ctx context.Context, configMap *corev1.ConfigMap, snapshotRequest *snapshot.Request) (bool, error) {
-	if snapshotRequest.Status.Phase != snapshot.RequestPhaseDeletingEtcdBackup {
-		return false, fmt.Errorf("invalid phase for snapshot deletion request %s, expected %s, got %s", snapshotRequest.Name, snapshot.RequestPhaseDeletingEtcdBackup, snapshotRequest.Status.Phase)
+func (c *Reconciler) reconcileDeletingEtcdBackup(ctx context.Context, configMap *corev1.ConfigMap, snapshotRequest *snapshotapi.Request) (bool, error) {
+	if snapshotRequest.Status.Phase != snapshotapi.RequestPhaseDeletingEtcdBackup {
+		return false, fmt.Errorf("invalid phase for snapshot deletion request %s, expected %s, got %s", snapshotRequest.Name, snapshotapi.RequestPhaseDeletingEtcdBackup, snapshotRequest.Status.Phase)
 	}
 	c.logger.Debugf("Deleting etcd backup at %s for snapshot deletion request %s/%s", snapshotRequest.Spec.URL, configMap.Namespace, configMap.Name)
 	// Find snapshot request secret, it contains snapshot options (with the storage credentials) 🪪
@@ -70,7 +70,7 @@ func (c *Reconciler) reconcileDeletingEtcdBackup(ctx context.Context, configMap 
 	}
 
 	// Extract snapshot options from the Secret 🔎
-	snapshotOptions, err := UnmarshalSnapshotOptions(&secret)
+	snapshotOptions, err := snapshotapi.UnmarshalOptions(&secret)
 	if err != nil {
 		return false, fmt.Errorf("failed to unmarshal vcluster snapshot request from ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
 	}

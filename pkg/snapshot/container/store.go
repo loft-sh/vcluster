@@ -9,10 +9,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/loft-sh/api/v4/pkg/snapshot"
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 )
 
-func NewStore(options *snapshot.ContainerOptions) *Store {
+func NewStore(options *snapshotapi.ContainerOptions) *Store {
 	return &Store{
 		path: options.Path,
 	}
@@ -46,7 +46,7 @@ func (s *Store) PutObject(_ context.Context, body io.Reader) error {
 	return err
 }
 
-func (s *Store) List(_ context.Context) ([]snapshot.Snapshot, error) {
+func (s *Store) List(_ context.Context) ([]snapshotapi.Snapshot, error) {
 	path := s.path
 	fileInfo, err := os.Stat(path)
 	if err != nil {
@@ -57,7 +57,7 @@ func (s *Store) List(_ context.Context) ([]snapshot.Snapshot, error) {
 		path = filepath.Dir(path)
 	}
 
-	var snapshotsList []snapshot.Snapshot
+	var snapshotsList []snapshotapi.Snapshot
 	entries, err := os.ReadDir(path)
 	if err != nil {
 		return nil, err
@@ -80,7 +80,7 @@ func (s *Store) List(_ context.Context) ([]snapshot.Snapshot, error) {
 			continue
 		}
 
-		snapshotsList = append(snapshotsList, snapshot.Snapshot{
+		snapshotsList = append(snapshotsList, snapshotapi.Snapshot{
 			ID:        entry.Name(),
 			URL:       "container://" + path + "/" + entry.Name(),
 			Timestamp: eInfo.ModTime(),

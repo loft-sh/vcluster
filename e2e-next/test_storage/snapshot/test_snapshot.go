@@ -20,7 +20,6 @@ import (
 	vclusterconfig "github.com/loft-sh/vcluster/pkg/config"
 	pkgconstants "github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/helm"
-	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -639,7 +638,7 @@ func describeSnapshotDeletion(s *snapshotCtx) {
 				secrets, err := s.hostClient.CoreV1().Secrets(s.vClusterNS).List(ctx, listOptions)
 				g.Expect(err).To(Succeed())
 				g.Expect(secrets.Items).To(HaveLen(1))
-				snapshotOptions, err = snapshot.UnmarshalSnapshotOptions(&secrets.Items[0])
+				snapshotOptions, err = snapshotapi.UnmarshalOptions(&secrets.Items[0])
 				g.Expect(err).To(Succeed())
 			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 
@@ -648,19 +647,19 @@ func describeSnapshotDeletion(s *snapshotCtx) {
 			snapshotRequestCMs, err := s.hostClient.CoreV1().ConfigMaps(s.vClusterNS).List(ctx, listOptions)
 			Expect(err).To(Succeed())
 			Expect(snapshotRequestCMs.Items).To(HaveLen(1))
-			snapshotRequest, err := snapshot.UnmarshalSnapshotRequest(&snapshotRequestCMs.Items[0])
+			snapshotRequest, err := snapshotapi.UnmarshalRequest(&snapshotRequestCMs.Items[0])
 			Expect(err).To(Succeed())
 
 			snapshotRequest.Name = deleteSnapshotRequestName
 			snapshotRequest.CreationTimestamp = metav1.Now()
 			snapshotRequest.Status.Phase = snapshotapi.RequestPhaseDeleting
 
-			deleteCM, err := snapshot.CreateSnapshotRequestConfigMap(s.vClusterNS, s.vClusterName, snapshotRequest)
+			deleteCM, err := snapshotapi.NewSnapshotRequestConfigMap(s.vClusterNS, s.vClusterName, snapshotRequest)
 			Expect(err).To(Succeed())
 			deleteCM.Name = deleteSnapshotRequestName
 
-			deleteSecret, err := snapshot.CreateSnapshotOptionsSecret(
-				pkgconstants.SnapshotRequestLabel, s.vClusterNS, s.vClusterName, snapshotOptions)
+			deleteSecret, err := snapshotapi.NewOptionsSecret(
+				snapshotapi.SnapshotRequestLabel, s.vClusterNS, s.vClusterName, snapshotOptions)
 			Expect(err).To(Succeed())
 			deleteSecret.Name = deleteSnapshotRequestName
 
@@ -674,7 +673,7 @@ func describeSnapshotDeletion(s *snapshotCtx) {
 			Eventually(func(g Gomega) {
 				cm, err := s.hostClient.CoreV1().ConfigMaps(s.vClusterNS).Get(ctx, deleteSnapshotRequestName, metav1.GetOptions{})
 				g.Expect(err).To(Succeed())
-				req, err := snapshot.UnmarshalSnapshotRequest(cm)
+				req, err := snapshotapi.UnmarshalRequest(cm)
 				g.Expect(err).To(Succeed())
 				g.Expect(req.Status.Phase).To(Equal(snapshotapi.RequestPhaseDeleted))
 				g.Expect(req.Status.VolumeSnapshots.Phase).To(Equal(snapshotapi.VolumeSnapshotPhaseDeleted))
@@ -830,9 +829,9 @@ func getTwoSnapshotRequests(g Gomega, ctx context.Context, hostClient kubernetes
 		previousCM = configMaps.Items[1]
 		newerCM = configMaps.Items[0]
 	}
-	previous, err := snapshot.UnmarshalSnapshotRequest(&previousCM)
+	previous, err := snapshotapi.UnmarshalRequest(&previousCM)
 	g.Expect(err).To(Succeed())
-	newer, err := snapshot.UnmarshalSnapshotRequest(&newerCM)
+	newer, err := snapshotapi.UnmarshalRequest(&newerCM)
 	g.Expect(err).To(Succeed())
 	return previous, newer
 }

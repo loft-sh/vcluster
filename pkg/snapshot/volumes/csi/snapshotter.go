@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/loft-sh/api/v4/pkg/snapshot"
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 
 	snapshotsv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/clientset/versioned"
 	"github.com/loft-sh/vcluster/pkg/config"
@@ -30,7 +30,7 @@ var (
 	ErrVolumeSnapshotClassNotFound  = errors.New("VolumeSnapshotClass error")
 )
 
-// VolumeSnapshotter is a volume.Snapshotter interface implementation that creates CSI volume snapshot.
+// VolumeSnapshotter is a volume.Snapshotter interface implementation that creates CSI volume snapshots.
 type VolumeSnapshotter struct {
 	snapshotHandler
 	vConfig *config.VirtualClusterConfig
@@ -85,40 +85,40 @@ func (s *VolumeSnapshotter) CheckIfPersistentVolumeIsSupported(pv *corev1.Persis
 	return nil
 }
 
-func (s *VolumeSnapshotter) Reconcile(ctx context.Context, requestObj runtime.Object, requestName string, request *snapshot.VolumeSnapshotsRequest, status *snapshot.VolumeSnapshotsStatus) error {
+func (s *VolumeSnapshotter) Reconcile(ctx context.Context, requestObj runtime.Object, requestName string, request *snapshotapi.VolumeSnapshotsRequest, status *snapshotapi.VolumeSnapshotsStatus) error {
 	s.logger.Debugf("Reconcile volume snapshots for snapshot request %s", requestName)
 	defer s.logger.Debugf("Reconciled volume snapshots for snapshot request %s", requestName)
 	var err error
 
 	switch status.Phase {
-	case snapshot.VolumeSnapshotPhaseNotStarted:
+	case snapshotapi.VolumeSnapshotPhaseNotStarted:
 		err = s.reconcileNotStarted(ctx, requestName, request, status)
 		if err != nil {
 			return fmt.Errorf("failed to reconcile new volumes snapshot request %s: %w", requestName, err)
 		}
-	case snapshot.VolumeSnapshotPhaseInProgress:
+	case snapshotapi.VolumeSnapshotPhaseInProgress:
 		err = s.reconcileInProgress(ctx, requestObj, requestName, request, status)
 		if err != nil {
 			return fmt.Errorf("failed to reconcile volumes snapshots request %s: %w", requestName, err)
 		}
-	case snapshot.VolumeSnapshotPhaseCompleted:
+	case snapshotapi.VolumeSnapshotPhaseCompleted:
 		fallthrough
-	case snapshot.VolumeSnapshotPhasePartiallyFailed:
+	case snapshotapi.VolumeSnapshotPhasePartiallyFailed:
 		fallthrough
-	case snapshot.VolumeSnapshotPhaseFailed:
+	case snapshotapi.VolumeSnapshotPhaseFailed:
 		fallthrough
-	case snapshot.VolumeSnapshotPhaseCanceled:
+	case snapshotapi.VolumeSnapshotPhaseCanceled:
 		fallthrough
-	case snapshot.VolumeSnapshotPhaseDeleted:
+	case snapshotapi.VolumeSnapshotPhaseDeleted:
 		fallthrough
-	case snapshot.VolumeSnapshotPhaseSkipped:
+	case snapshotapi.VolumeSnapshotPhaseSkipped:
 		err = s.reconcileDone(ctx, requestName, status)
 		if err != nil {
 			return fmt.Errorf("failed to reconcile failed volumes snapshot request %s: %w", requestName, err)
 		}
-	case snapshot.VolumeSnapshotPhaseDeleting:
+	case snapshotapi.VolumeSnapshotPhaseDeleting:
 		fallthrough
-	case snapshot.VolumeSnapshotPhaseCanceling:
+	case snapshotapi.VolumeSnapshotPhaseCanceling:
 		err = s.reconcileDeleting(ctx, requestObj, requestName, request, status)
 		if err != nil {
 			return fmt.Errorf("failed to reconcile canceling volumes snapshot request %s: %w", requestName, err)
@@ -138,11 +138,11 @@ func (s *VolumeSnapshotter) Cleanup(ctx context.Context) error {
 		LabelSelector: PreProvisionedVolumeSnapshotLabel,
 	}
 
-	// 1. Delete all VolumeSnapshot resources that have been created while creating vcluster snapshot.
+	// 1. Delete all VolumeSnapshot resources that have been created while creating vcluster snapshots.
 	//
 	// Currently, all VolumeSnapshot resources are using a VolumeSnapshotClass with delete policy set to
 	// 'Retain', so it's safe to delete the VolumeSnapshots that have been already  added to a vcluster
-	// snapshot.
+	// snapshots.
 	volumeSnapshots, err := s.snapshotsClient.SnapshotV1().VolumeSnapshots("").List(ctx, listOptions)
 	if err != nil {
 		return fmt.Errorf("failed to list VolumeSnapshots: %w", err)
@@ -156,7 +156,7 @@ func (s *VolumeSnapshotter) Cleanup(ctx context.Context) error {
 		s.logger.Debugf("Deleted pre-provisioned VolumeSnapshot %s/%s", volumeSnapshot.Namespace, volumeSnapshot.Name)
 	}
 
-	// 2. Delete all VolumeSnapshotContent resources that have been created while creating vcluster snapshot.
+	// 2. Delete all VolumeSnapshotContent resources that have been created while creating vcluster snapshots.
 	volumeSnapshotContents, err := s.snapshotsClient.SnapshotV1().VolumeSnapshotContents().List(ctx, listOptions)
 	if err != nil {
 		return fmt.Errorf("failed to list VolumeSnapshotContents: %w", err)

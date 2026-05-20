@@ -34,12 +34,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/go-logr/logr"
-	"github.com/loft-sh/api/v4/pkg/snapshot"
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/pkg/errors"
 	"k8s.io/klog/v2"
 )
 
-func FillCredentials(o *snapshot.S3Options, isClient bool) {
+func FillCredentials(o *snapshotapi.S3Options, isClient bool) {
 	if (isClient && o.SkipClientCredentials) || o.Bucket == "" || o.AccessKeyID != "" {
 		return
 	}
@@ -91,7 +91,7 @@ func NewStore(logger logr.Logger) *ObjectStore {
 	return &ObjectStore{log: logger}
 }
 
-func (o *ObjectStore) Init(config *snapshot.S3Options) error {
+func (o *ObjectStore) Init(config *snapshotapi.S3Options) error {
 	if config.AccessKeyID != "" {
 		_ = os.Setenv("AWS_ACCESS_KEY_ID", config.AccessKeyID)
 	}
@@ -269,7 +269,7 @@ func (o *ObjectStore) GetObject(ctx context.Context) (io.ReadCloser, error) {
 	return output.Body, nil
 }
 
-func (o *ObjectStore) List(ctx context.Context) ([]snapshot.Snapshot, error) {
+func (o *ObjectStore) List(ctx context.Context) ([]snapshotapi.Snapshot, error) {
 	prefix := o.key
 	if strings.HasSuffix(prefix, "tar.gz") {
 		// Use the "parent dir" as the prefix if a file was given
@@ -286,7 +286,7 @@ func (o *ObjectStore) List(ctx context.Context) ([]snapshot.Snapshot, error) {
 		Prefix: aws.String(prefix),
 	})
 
-	snapshotsList := make([]snapshot.Snapshot, 0)
+	snapshotsList := make([]snapshotapi.Snapshot, 0)
 	for paginator.HasMorePages() {
 		output, err := paginator.NextPage(ctx)
 		if err != nil {
@@ -310,7 +310,7 @@ func (o *ObjectStore) List(ctx context.Context) ([]snapshot.Snapshot, error) {
 			}
 
 			// ID is the relative object name
-			snapshotsList = append(snapshotsList, snapshot.Snapshot{
+			snapshotsList = append(snapshotsList, snapshotapi.Snapshot{
 				ID:        id,
 				URL:       toS3URL(o.bucket, *obj.Key, o.region),
 				Timestamp: *obj.LastModified,

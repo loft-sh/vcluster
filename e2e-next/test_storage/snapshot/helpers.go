@@ -83,7 +83,7 @@ func restoreVCluster(ctx context.Context, hostClient kubernetes.Interface, vClus
 }
 
 func waitForSnapshotToBeCreated(ctx context.Context, hostClient kubernetes.Interface, vClusterNamespace string) {
-	waitForRequestToFinish(ctx, hostClient, vClusterNamespace, pkgconstants.SnapshotRequestLabel, snapshot.UnmarshalSnapshotRequest, constants.PollingTimeoutVeryLong)
+	waitForRequestToFinish(ctx, hostClient, vClusterNamespace, pkgconstants.SnapshotRequestLabel, snapshotapi.UnmarshalRequest, constants.PollingTimeoutVeryLong)
 }
 
 type unmarshalRequestFunc[T snapshotapi.LongRunningRequest] func(request *corev1.ConfigMap) (T, error)

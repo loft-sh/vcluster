@@ -11,7 +11,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/sas"
-	"github.com/loft-sh/api/v4/pkg/snapshot"
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/spf13/pflag"
 )
 
@@ -34,7 +34,7 @@ const (
 	ClientSecretEnvVar = "AZURE_CLIENT_SECRET"
 )
 
-func GetSubscriptionID(o *snapshot.AzureOptions) string {
+func GetSubscriptionID(o *snapshotapi.AzureOptions) string {
 	if o.SubscriptionID != "" {
 		return o.SubscriptionID
 	}
@@ -44,7 +44,7 @@ func GetSubscriptionID(o *snapshot.AzureOptions) string {
 	return ""
 }
 
-func GetResourceGroup(o *snapshot.AzureOptions) string {
+func GetResourceGroup(o *snapshotapi.AzureOptions) string {
 	if o.ResourceGroup != "" {
 		return o.ResourceGroup
 	}
@@ -54,7 +54,7 @@ func GetResourceGroup(o *snapshot.AzureOptions) string {
 	return ""
 }
 
-func GetStorageKey(o *snapshot.AzureOptions) string {
+func GetStorageKey(o *snapshotapi.AzureOptions) string {
 	if o.StorageKey != "" {
 		return o.StorageKey
 	}
@@ -64,7 +64,7 @@ func GetStorageKey(o *snapshot.AzureOptions) string {
 	return ""
 }
 
-func GetTenantID(o *snapshot.AzureOptions) string {
+func GetTenantID(o *snapshotapi.AzureOptions) string {
 	if o.TenantID != "" {
 		return o.TenantID
 	}
@@ -74,7 +74,7 @@ func GetTenantID(o *snapshot.AzureOptions) string {
 	return ""
 }
 
-func GetClientID(o *snapshot.AzureOptions) string {
+func GetClientID(o *snapshotapi.AzureOptions) string {
 	if o.ClientID != "" {
 		return o.ClientID
 	}
@@ -84,7 +84,7 @@ func GetClientID(o *snapshot.AzureOptions) string {
 	return ""
 }
 
-func GetClientSecret(o *snapshot.AzureOptions) string {
+func GetClientSecret(o *snapshotapi.AzureOptions) string {
 	if o.ClientSecret != "" {
 		return o.ClientSecret
 	}
@@ -94,11 +94,11 @@ func GetClientSecret(o *snapshot.AzureOptions) string {
 	return ""
 }
 
-func HasServicePrincipal(o *snapshot.AzureOptions) bool {
+func HasServicePrincipal(o *snapshotapi.AzureOptions) bool {
 	return GetTenantID(o) != "" && GetClientID(o) != "" && GetClientSecret(o) != ""
 }
 
-func FillCredentials(ctx context.Context, o *snapshot.AzureOptions, tryToCreateSAS bool) error {
+func FillCredentials(ctx context.Context, o *snapshotapi.AzureOptions, tryToCreateSAS bool) error {
 	if ContainsSAS(o) || !tryToCreateSAS {
 		return nil
 	}
@@ -112,14 +112,14 @@ func FillCredentials(ctx context.Context, o *snapshot.AzureOptions, tryToCreateS
 }
 
 // GetBlobURLWithSAS returns the blob URL with SAS token appended
-func GetBlobURLWithSAS(o *snapshot.AzureOptions) string {
+func GetBlobURLWithSAS(o *snapshotapi.AzureOptions) string {
 	if o.SAS == "" {
 		return o.BlobURL
 	}
 	return o.BlobURL + "?" + o.SAS
 }
 
-func ContainsSAS(o *snapshot.AzureOptions) bool {
+func ContainsSAS(o *snapshotapi.AzureOptions) bool {
 	return blobURLContainsSAS(o.BlobURL) || o.SAS != ""
 }
 
@@ -155,7 +155,7 @@ func blobURLContainsSAS(blobURL string) bool {
 //	  --expiry "$EXPIRY" \
 //	  --account-key "$AZURE_STORAGE_KEY" \
 //	  -o tsv
-func getStorageSAS(ctx context.Context, options snapshot.AzureOptions) (string, error) {
+func getStorageSAS(ctx context.Context, options snapshotapi.AzureOptions) (string, error) {
 	if sasToken := os.Getenv(StorageBlobSASEnvVar); sasToken != "" {
 		return sasToken, nil
 	}
@@ -203,7 +203,7 @@ func getStorageSAS(ctx context.Context, options snapshot.AzureOptions) (string, 
 }
 
 // AddFlags adds CLI flags required for working with Azure storage.
-func AddFlags(flags *pflag.FlagSet, options *snapshot.AzureOptions) {
+func AddFlags(flags *pflag.FlagSet, options *snapshotapi.AzureOptions) {
 	flags.StringVar(&options.SubscriptionID, "azure-subscription-id", "", "Azure subscription ID where the storage account is located")
 	flags.StringVar(&options.ResourceGroup, "azure-resource-group", "", "Azure resource group where the storage account is located")
 }

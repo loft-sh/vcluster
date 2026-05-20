@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/loft-sh/api/v4/pkg/snapshot"
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/snapshot/azure"
 	"github.com/loft-sh/vcluster/pkg/snapshot/container"
 	"github.com/loft-sh/vcluster/pkg/snapshot/oci"
@@ -13,7 +13,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func CreateStore(ctx context.Context, options *snapshot.Options) (types.Storage, error) {
+func CreateStore(ctx context.Context, options *snapshotapi.Options) (types.Storage, error) {
 	if options.Type == "s3" {
 		objectStore := s3.NewStore(klog.FromContext(ctx))
 		err := objectStore.Init(&options.S3)

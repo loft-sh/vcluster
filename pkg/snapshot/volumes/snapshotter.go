@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/loft-sh/api/v4/pkg/snapshot"
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -25,7 +25,7 @@ type CreateSnapshotsResult struct {
 	SnapshottedPersistentVolumes []PersistentVolumeReference
 }
 
-// Snapshotter creates and restores persistent volume snapshot.
+// Snapshotter creates and restores persistent volume snapshots.
 type Snapshotter interface {
 	// CheckIfPersistentVolumeIsSupported checks if the snapshotter can create a volume snapshot of
 	// the specified persistent volume.
@@ -39,10 +39,10 @@ type Snapshotter interface {
 	CheckIfPersistentVolumeIsSupported(pv *corev1.PersistentVolume) error
 
 	// Reconcile volume snapshots request.
-	Reconcile(ctx context.Context, requestObj runtime.Object, requestName string, spec *snapshot.VolumeSnapshotsRequest, status *snapshot.VolumeSnapshotsStatus) error
+	Reconcile(ctx context.Context, requestObj runtime.Object, requestName string, spec *snapshotapi.VolumeSnapshotsRequest, status *snapshotapi.VolumeSnapshotsStatus) error
 
 	// Cleanup does any necessary clean up of the cluster after taking the snapshot of the volumes.
 	// E.g. it can remove all the resources that were created by the snapshotter in order to create
-	// volume snapshot.
+	// volume snapshots.
 	Cleanup(ctx context.Context) error
 }
