@@ -24,6 +24,10 @@ var (
 	ErrConflict = errors.New("etcdwrapper: conflict")
 )
 
+const (
+	EtcdPaginationLimit = 1000
+)
+
 type Client interface {
 	List(ctx context.Context, key string) ([]Value, error)
 	ListStream(ctx context.Context, key string) <-chan *ValueOrError
@@ -121,7 +125,7 @@ func listStream(
 	prefix string,
 	getFn func(ctx context.Context, key string, opts ...clientv3.OpOption) (*clientv3.GetResponse, error),
 ) <-chan *ValueOrError {
-	retChan := make(chan *ValueOrError, 1000)
+	retChan := make(chan *ValueOrError, EtcdPaginationLimit)
 
 	go func() {
 		defer close(retChan)
@@ -133,7 +137,7 @@ func listStream(
 
 		for {
 			options := []clientv3.OpOption{
-				clientv3.WithLimit(1000),
+				clientv3.WithLimit(EtcdPaginationLimit),
 				clientv3.WithRange(rangeEnd),
 			}
 
