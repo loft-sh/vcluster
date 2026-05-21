@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/loft-sh/log"
 	vclusterconfig "github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
@@ -25,7 +26,7 @@ const dataMountPath = "/data"
 
 func snapshotToLocalFile(ctx context.Context, vCluster *find.VCluster,
 	kubeClient *kubernetes.Clientset, restConfig *rest.Config,
-	snapshotOpts *snapshot.Options, log log.Logger, vClusterConfig *vclusterconfig.VirtualClusterConfig) error {
+	snapshotOpts *snapshotapi.Options, log log.Logger, vClusterConfig *vclusterconfig.VirtualClusterConfig) error {
 	tempPath := fmt.Sprintf("%s/vcluster-snapshot-%d.tar.gz", dataMountPath, time.Now().Unix())
 	localPath := snapshotOpts.File.Path
 	if !vCluster.IsStandalone {
@@ -87,7 +88,7 @@ func snapshotToLocalFile(ctx context.Context, vCluster *find.VCluster,
 
 func restoreFromLocalFile(ctx context.Context, vCluster *find.VCluster,
 	kubeClient *kubernetes.Clientset, restConfig *rest.Config,
-	snapshotOpts *snapshot.Options, podOpts *pod.Options,
+	snapshotOpts *snapshotapi.Options, podOpts *pod.Options,
 	log log.Logger, cmdArgs []string) error {
 	tempPath := fmt.Sprintf("%s/vcluster-restore-%d.tar.gz", dataMountPath, time.Now().Unix())
 	localPath := snapshotOpts.File.Path
@@ -121,7 +122,7 @@ func restoreFromLocalFile(ctx context.Context, vCluster *find.VCluster,
 		Pod:       targetPod.Name,
 		Namespace: vCluster.Namespace,
 		Container: "syncer",
-		Command:   []string{"/bin/sh", "-c", "cat > " + tempPath},
+		Command:   []string{"sh", "-c", "cat > \"$1\"", "--", tempPath},
 		Stdin:     f,
 		Stdout:    os.Stdout,
 		Stderr:    os.Stderr,
@@ -140,12 +141,12 @@ func waitForSnapshotRequest(ctx context.Context, kubeClient *kubernetes.Clientse
 			if err != nil {
 				return false, fmt.Errorf("get snapshot request ConfigMap: %w", err)
 			}
-			req, err := snapshot.UnmarshalSnapshotRequest(cm)
+			req, err := snapshotapi.UnmarshalRequest(cm)
 			if err != nil {
 				return false, fmt.Errorf("unmarshal snapshot request: %w", err)
 			}
 			if req.Done() {
-				if req.Status.Phase == snapshot.RequestPhaseCompleted {
+				if req.Status.Phase == snapshotapi.RequestPhaseCompleted {
 					return true, nil
 				}
 				return false, fmt.Errorf("snapshot %s: %s", req.Status.Phase, req.Status.Error.Message)
@@ -155,8 +156,8 @@ func waitForSnapshotRequest(ctx context.Context, kubeClient *kubernetes.Clientse
 }
 
 func findVClusterPod(vCluster *find.VCluster) (*corev1.Pod, error) {
-	for i := range vCluster.Pods {
-		p := &vCluster.Pods[i]
+	for _, pod := range vCluster.Pods {
+		p := &pod
 		if (vCluster.StatefulSet != nil || vCluster.Deployment != nil) && len(p.Name) > 0 {
 			return p, nil
 		}

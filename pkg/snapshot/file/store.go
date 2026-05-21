@@ -9,14 +9,14 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/loft-sh/vcluster/pkg/snapshot/types"
+	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 )
 
 type Options struct {
 	Path string `json:"path,omitempty"`
 }
 
-func NewStore(options *Options) *Store {
+func NewStore(options *snapshotapi.FileOptions) *Store {
 	return &Store{path: options.Path}
 }
 
@@ -45,7 +45,7 @@ func (s *Store) PutObject(_ context.Context, body io.Reader) error {
 	return err
 }
 
-func (s *Store) List(_ context.Context) ([]types.Snapshot, error) {
+func (s *Store) List(_ context.Context) ([]snapshotapi.Snapshot, error) {
 	path := s.path
 	fi, err := os.Stat(path)
 	if err != nil {
@@ -60,7 +60,7 @@ func (s *Store) List(_ context.Context) ([]types.Snapshot, error) {
 		return nil, err
 	}
 
-	var snapshots []types.Snapshot
+	var snapshots []snapshotapi.Snapshot
 	for _, entry := range entries {
 		info, err := entry.Info()
 		if err != nil {
@@ -72,7 +72,7 @@ func (s *Store) List(_ context.Context) ([]types.Snapshot, error) {
 		if info.IsDir() || !strings.HasSuffix(entry.Name(), ".tar.gz") {
 			continue
 		}
-		snapshots = append(snapshots, types.Snapshot{
+		snapshots = append(snapshots, snapshotapi.Snapshot{
 			ID:        entry.Name(),
 			URL:       "file://" + path + "/" + entry.Name(),
 			Timestamp: info.ModTime(),

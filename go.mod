@@ -29,9 +29,9 @@ require (
 	github.com/invopop/jsonschema v0.12.0
 	github.com/kubernetes-csi/external-snapshotter/client/v8 v8.2.0
 	github.com/loft-sh/admin-apis v0.0.0-20260311181619-506013b79ba0
-	github.com/loft-sh/agentapi/v4 v4.10.0-alpha.2
+	github.com/loft-sh/agentapi/v4 v4.10.0-alpha.3
 	github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e
-	github.com/loft-sh/api/v4 v4.10.0-alpha.2
+	github.com/loft-sh/api/v4 v4.10.0-alpha.3
 	github.com/loft-sh/e2e-framework v0.0.0-20260423133544-5291e728f979
 	github.com/loft-sh/image v0.0.0-20250625154753-87447a6ad364
 	github.com/loft-sh/utils v0.0.29
@@ -294,5 +294,3 @@ require (
 	sigs.k8s.io/kustomize/api v0.21.1 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.21.1 // indirect
 )
-
-replace github.com/loft-sh/api/v4 => /Users/josesilva/Development/loft/github/loft-enterprise/staging/src/github.com/loft-sh/api/v4
