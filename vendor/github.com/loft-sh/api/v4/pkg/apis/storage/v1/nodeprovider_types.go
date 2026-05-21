@@ -339,6 +339,18 @@ type Metal3Deployment struct {
 	// Enabled controls whether Metal3 and Ironic are deployed into the cluster.
 	Enabled bool `json:"enabled"`
 
+	// ChartRepo overrides the Helm chart repository used to install Metal3.
+	// +optional
+	ChartRepo string `json:"chartRepo,omitempty"`
+
+	// Chart overrides the Helm chart name used to install Metal3.
+	// +optional
+	Chart string `json:"chart,omitempty"`
+
+	// Version overrides the Helm chart version used to install Metal3.
+	// +optional
+	Version string `json:"version,omitempty"`
+
 	// HelmValues is raw YAML that will be passed as values to the Metal3 Helm chart.
 	// +optional
 	HelmValues string `json:"helmValues,omitempty"`

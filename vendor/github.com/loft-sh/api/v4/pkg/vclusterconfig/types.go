@@ -387,10 +387,6 @@ type ArgoCDApplication struct {
 	// +optional
 	Target string `json:"target,omitempty"`
 
-	// DestinationNamespace specifies the namespace of the destination.
-	// +optional
-	DestinationNamespace string `json:"destinationNamespace,omitempty"`
-
 	// Inline specifies the inline argo cd application definition. This requires the argo cd integration to be enabled.
 	// +optional
 	Inline map[string]interface{} `json:"inline,omitempty"`

@@ -32,6 +32,76 @@
       "type": "object",
       "description": "APIServiceService holds the service name and namespace of the host apiservice."
     },
+    "ArgoCDApplication": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name specifies the stable identifier of the argo cd application. It is used to derive generated\nArgoCDApplication resource names and the final Argo CD application name.\n+optional"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "DisplayName specifies the display name of the argo cd application.\n+optional"
+        },
+        "target": {
+          "type": "string",
+          "description": "Target specifies the target of the argo cd application. This can be \"vCluster\" or \"host\". Defaults to \"vCluster\".\n+optional"
+        },
+        "inline": {
+          "type": "object",
+          "description": "Inline specifies the inline argo cd application definition. This requires the argo cd integration to be enabled.\n+optional"
+        },
+        "template": {
+          "$ref": "#/$defs/ArgoCDApplicationTemplate",
+          "description": "Template specifies the argo cd application template to use. This requires the argo cd integration to be enabled.\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "ArgoCDApplication holds argo cd application configuration."
+    },
+    "ArgoCDApplicationTemplate": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name specifies the name of the argo cd application template\n+optional"
+        },
+        "parameters": {
+          "type": "object",
+          "description": "Parameters specifies the parameters to pass to the argo cd application template.\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ArgoCDDeploy": {
+      "properties": {
+        "applications": {
+          "items": {
+            "$ref": "#/$defs/ArgoCDApplication"
+          },
+          "type": "array",
+          "description": "Applications specifies the applications to deploy. This requires the argo cd integration to be enabled.\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "ArgoCDDeploy holds argo cd deploy configuration."
+    },
+    "ArgoCDIntegration": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if argo cd integration is enabled\n+optional"
+        },
+        "connector": {
+          "type": "string",
+          "description": "Connector specifies the argo cd connector name\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "ArgoCDIntegration holds argo cd integration configuration."
+    },
     "AutoUpgrade": {
       "properties": {
         "enabled": {
@@ -1243,6 +1313,10 @@
         "volumeSnapshotController": {
           "$ref": "#/$defs/VolumeSnapshotController",
           "description": "VolumeSnapshotController holds dedicated CSI snapshot-controller configuration."
+        },
+        "argoCD": {
+          "$ref": "#/$defs/ArgoCDDeploy",
+          "description": "ArgoCD holds dedicated configuration for argoCD Apps to deploy"
         }
       },
       "additionalProperties": false,
@@ -2583,6 +2657,10 @@
         "netris": {
           "$ref": "#/$defs/NetrisIntegration",
           "description": "Netris integration helps configuring netris networking for vCluster."
+        },
+        "argoCD": {
+          "$ref": "#/$defs/ArgoCDIntegration",
+          "description": "ArgoCD integration helps configuring ArgoCD for vCluster."
         }
       },
       "additionalProperties": false,
