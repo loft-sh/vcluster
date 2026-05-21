@@ -340,6 +340,9 @@ type Deploy struct {
 
 	// VolumeSnapshotController holds dedicated CSI snapshot-controller configuration.
 	VolumeSnapshotController VolumeSnapshotController `json:"volumeSnapshotController,omitempty"`
+
+	// ArgoCD holds dedicated configuration for argoCD Apps to deploy
+	ArgoCD vclusterconfig.ArgoCDDeploy `json:"argoCD,omitempty"`
 }
 
 type DeployMetricsServer struct {
@@ -726,6 +729,9 @@ type Integrations struct {
 
 	// Netris integration helps configuring netris networking for vCluster.
 	Netris vclusterconfig.NetrisIntegration `json:"netris,omitempty"`
+
+	// ArgoCD integration helps configuring ArgoCD for vCluster.
+	ArgoCD vclusterconfig.ArgoCDIntegration `json:"argoCD,omitempty"`
 }
 
 // CertManager reuses a host cert-manager and makes its CRDs from it available inside the vCluster
