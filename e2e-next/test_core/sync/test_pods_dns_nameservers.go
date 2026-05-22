@@ -190,6 +190,30 @@ func PodDNSNameserversSpec() {
 				Expect(err).To(Succeed())
 			}
 
+			// expectDNSNameserversWarning polls events on the virtual pod
+			// until at least one Warning event with Reason=DNSNameservers
+			// appears. The syncer emits this event for each failed selector,
+			// so it is the only user-visible signal that the pod is blocked
+			// because of nameserver resolution.
+			expectDNSNameserversWarning := func(ctx context.Context, podName string) {
+				GinkgoHelper()
+				Eventually(func(g Gomega) {
+					events, err := vClusterClient.CoreV1().Events("default").List(ctx, metav1.ListOptions{
+						FieldSelector: "involvedObject.name=" + podName + ",involvedObject.kind=Pod",
+					})
+					g.Expect(err).To(Succeed())
+					found := false
+					for _, e := range events.Items {
+						if e.Type == corev1.EventTypeWarning && e.Reason == "DNSNameservers" {
+							found = true
+							break
+						}
+					}
+					g.Expect(found).To(BeTrue(),
+						"no Warning DNSNameservers event on pod %s, events=%+v", podName, events.Items)
+				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+			}
+
 			It("writes all resolved ClusterIPs to synced pods", func(ctx context.Context) {
 				var pod *corev1.Pod
 
@@ -326,6 +350,10 @@ func PodDNSNameserversSpec() {
 							"host pod for %s should not exist, got err=%v", pod.Name, err)
 					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutShort).Should(Succeed())
 				})
+
+				By("Verifying a Warning DNSNameservers event was emitted on the virtual pod", func() {
+					expectDNSNameserversWarning(ctx, pod.Name)
+				})
 			})
 
 			It("blocks pod creation when all host-scoped Services are missing", func(ctx context.Context) {
@@ -348,6 +376,10 @@ func PodDNSNameserversSpec() {
 						g.Expect(kerrors.IsNotFound(err)).To(BeTrue(),
 							"host pod for %s should not exist, got err=%v", pod.Name, err)
 					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutShort).Should(Succeed())
+				})
+
+				By("Verifying a Warning DNSNameservers event was emitted on the virtual pod", func() {
+					expectDNSNameserversWarning(ctx, pod.Name)
 				})
 			})
 
