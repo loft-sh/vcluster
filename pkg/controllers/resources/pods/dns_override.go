@@ -59,7 +59,7 @@ func resolveEntryIP(ctx context.Context, e dnsNameserverEntry) (string, error) {
 	case 1:
 		ip := svcList.Items[0].Spec.ClusterIP
 		if ip == "" || ip == corev1.ClusterIPNone {
-			return "", fmt.Errorf("Service %s/%s has no ClusterIP", svcList.Items[0].Namespace, svcList.Items[0].Name)
+			return "", fmt.Errorf("service %s/%s has no ClusterIP", svcList.Items[0].Namespace, svcList.Items[0].Name)
 		}
 		return ip, nil
 	default:
@@ -76,11 +76,10 @@ func resolveEntryIP(ctx context.Context, e dnsNameserverEntry) (string, error) {
 // virtual manager's cache. Returns (nil, nil) when no nameservers are configured.
 func buildDNSNameserversResolver(ctx *synccontext.RegisterContext) (*dnsNameserversResolver, error) {
 	cfgEntries := ctx.Config.Sync.ToHost.Pods.DNS.Nameservers
-	if len(cfgEntries) == 0 {
-		return nil, nil
-	}
-
 	res := &dnsNameserversResolver{}
+	if len(cfgEntries) == 0 {
+		return res, nil
+	}
 	hostCaches := map[string]client.Reader{}
 
 	for i, ce := range cfgEntries {
