@@ -1577,7 +1577,7 @@ type DNSNameserverEntry struct {
 type DNSNameserverService struct {
 	// Scope chooses which cluster to look up the Service in.
 	//
-	// +kubebuilder:validation:Enum=host;tenant
+	// +kubebuilder:validation:Enum=control-plane-host;tenant-cluster
 	Scope DNSNameserverScope `json:"scope,omitempty"`
 
 	// Namespace containing the Service.
@@ -1594,10 +1594,10 @@ type DNSNameserverScope string
 
 const (
 	// DNSNameserverScopeHost looks the Service up in the Control Plane Cluster (host).
-	DNSNameserverScopeHost DNSNameserverScope = "host"
+	DNSNameserverScopeHost DNSNameserverScope = "control-plane-host"
 
 	// DNSNameserverScopeTenant looks the Service up inside the tenant cluster.
-	DNSNameserverScopeTenant DNSNameserverScope = "tenant"
+	DNSNameserverScopeTenant DNSNameserverScope = "tenant-cluster"
 )
 
 type SyncRewriteHosts struct {

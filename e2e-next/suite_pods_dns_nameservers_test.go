@@ -156,6 +156,7 @@ func podsDNSNameserversPreSetup(ctx context.Context) error {
 // would race the next pre-setup with "forbidden: namespace is being
 // terminated".
 func podsDNSNameserversCleanup(ctx context.Context) {
+	GinkgoHelper()
 	hostCluster := cluster.From(ctx, constants.GetHostClusterName())
 	if hostCluster == nil {
 		return

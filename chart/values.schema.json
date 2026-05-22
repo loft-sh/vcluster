@@ -1121,7 +1121,7 @@
       "properties": {
         "scope": {
           "type": "string",
-          "description": "Scope chooses which cluster to look up the Service in.\n\n+kubebuilder:validation:Enum=host;tenant"
+          "description": "Scope chooses which cluster to look up the Service in.\n\n+kubebuilder:validation:Enum=control-plane-host;tenant-cluster"
         },
         "namespace": {
           "type": "string",

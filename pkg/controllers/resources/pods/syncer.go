@@ -187,30 +187,48 @@ func (s *podSyncer) ModifyController(registerContext *synccontext.RegisterContex
 
 	builder = builder.Watches(&corev1.Namespace{}, eventHandler)
 
-	// When sync.toHost.pods.dns.nameservers is configured, watch the host
+	// When sync.toHost.pods.dns.nameservers is configured, watch the
 	// Services that back each entry. A Service's ClusterIP can change (delete
 	// + recreate), or the label selector can suddenly match a different
 	// Service. Either case means every virtual pod's injected nameservers
 	// must be recomputed, so we enqueue every virtual pod whenever a watched
-	// host namespace sees a Service event.
+	// namespace sees a Service event. Both host-scoped and tenant-scoped
+	// entries are watched -- without the tenant watch, ClusterIP/selector
+	// changes in tenant Services would not trigger reconciles and existing
+	// pods would keep stale injected nameservers until an unrelated event.
 	if s.dnsNameservers != nil {
+		enqueueAllVirtualPods := func(ctx context.Context, watchedNS string) []reconcile.Request {
+			pods := &corev1.PodList{}
+			if err := registerContext.VirtualManager.GetClient().List(ctx, pods); err != nil {
+				klog.FromContext(ctx).Info("failed to list virtual pods on dns nameserver Service event", "namespace", watchedNS, "error", err)
+				return nil
+			}
+			requests := make([]reconcile.Request, 0, len(pods.Items))
+			for _, pod := range pods.Items {
+				requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{
+					Name:      pod.GetName(),
+					Namespace: pod.GetNamespace(),
+				}})
+			}
+			return requests
+		}
+
 		for ns, hostCache := range s.dnsNameservers.hostCaches {
 			watchedNS := ns
 			builder = builder.WatchesRawSource(source.Kind(hostCache, &corev1.Service{},
 				handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, _ *corev1.Service) []reconcile.Request {
-					pods := &corev1.PodList{}
-					if err := registerContext.VirtualManager.GetClient().List(ctx, pods); err != nil {
-						klog.FromContext(ctx).Info("failed to list virtual pods on dns nameserver Service event", "namespace", watchedNS, "error", err)
+					return enqueueAllVirtualPods(ctx, watchedNS)
+				})))
+		}
+
+		if len(s.dnsNameservers.tenantNamespaces) > 0 {
+			tenantNamespaces := s.dnsNameservers.tenantNamespaces
+			builder = builder.WatchesRawSource(source.Kind(registerContext.VirtualManager.GetCache(), &corev1.Service{},
+				handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, svc *corev1.Service) []reconcile.Request {
+					if _, watched := tenantNamespaces[svc.GetNamespace()]; !watched {
 						return nil
 					}
-					requests := make([]reconcile.Request, 0, len(pods.Items))
-					for _, pod := range pods.Items {
-						requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{
-							Name:      pod.GetName(),
-							Namespace: pod.GetNamespace(),
-						}})
-					}
-					return requests
+					return enqueueAllVirtualPods(ctx, svc.GetNamespace())
 				})))
 		}
 	}

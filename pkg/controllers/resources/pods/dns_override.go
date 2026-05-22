@@ -23,6 +23,12 @@ type dnsNameserversResolver struct {
 	// the selected Service's ClusterIP changes or when the label selector
 	// suddenly matches a different Service.
 	hostCaches map[string]cache.Cache
+
+	// tenantNamespaces is the set of tenant-cluster namespaces referenced
+	// by tenant-scoped entries. The pod syncer uses it to filter Service
+	// events from the virtual cache so re-resolution also runs when a
+	// tenant Service's ClusterIP or selector match changes.
+	tenantNamespaces map[string]struct{}
 }
 
 type dnsNameserverEntry struct {
@@ -89,7 +95,8 @@ func resolveEntryIPs(ctx context.Context, e dnsNameserverEntry) ([]string, error
 func buildDNSNameserversResolver(ctx *synccontext.RegisterContext) (*dnsNameserversResolver, error) {
 	cfgEntries := ctx.Config.Sync.ToHost.Pods.DNS.Nameservers
 	res := &dnsNameserversResolver{
-		hostCaches: map[string]cache.Cache{},
+		hostCaches:       map[string]cache.Cache{},
+		tenantNamespaces: map[string]struct{}{},
 	}
 	if len(cfgEntries) == 0 {
 		return res, nil
@@ -131,6 +138,7 @@ func buildDNSNameserversResolver(ctx *synccontext.RegisterContext) (*dnsNameserv
 
 		case vclusterconfig.DNSNameserverScopeTenant:
 			entry.reader = ctx.VirtualManager.GetClient()
+			res.tenantNamespaces[svc.Namespace] = struct{}{}
 
 		default:
 			return nil, fmt.Errorf("nameservers[%d]: unknown scope %q", i, svc.Scope)

@@ -7,6 +7,7 @@ import (
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/pkg/util/podhelper"
+	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -55,6 +56,30 @@ const (
 	// PodDNSNameserversSecondaryExpectedIP is the IP returned by the
 	// secondary CoreDNS instance for PodDNSNameserversSecondaryExpectedName.
 	PodDNSNameserversSecondaryExpectedIP = "5.6.7.8"
+
+	// PodDNSNameserversTenantDNSNamespace is the namespace of the
+	// tenant-cluster kube-dns Service that the third nameservers entry
+	// targets.
+	PodDNSNameserversTenantDNSNamespace = "kube-system"
+
+	// PodDNSNameserversTenantDNSService is the name of the tenant-cluster
+	// kube-dns Service that the third nameservers entry targets.
+	PodDNSNameserversTenantDNSService = "kube-dns"
+
+	// PodDNSNameserversTenantDNSLabelKey is the label key the
+	// tenant-cluster entry selects on. The vCluster syncer labels the
+	// in-tenant kube-dns Service with this key.
+	PodDNSNameserversTenantDNSLabelKey = "k8s-app"
+
+	// PodDNSNameserversTenantDNSLabelValue is the label value the
+	// tenant-cluster entry selects on. Matches the value vCluster uses to
+	// label its in-tenant kube-dns Service.
+	PodDNSNameserversTenantDNSLabelValue = "vcluster-kube-dns"
+
+	// PodDNSNameserversAltTenantDNSService is an alternate tenant-side
+	// Service that takes the tenant-cluster selector value at runtime to
+	// exercise re-resolution on tenant Service events.
+	PodDNSNameserversAltTenantDNSService = "kube-dns-alt"
 )
 
 // PodDNSNameserversSpec exercises sync.toHost.pods.dns.nameservers: pods
@@ -74,6 +99,7 @@ func PodDNSNameserversSpec() {
 				hostNS         string
 				primaryIP      string
 				secondaryIP    string
+				tenantDNSIP    string
 			)
 
 			BeforeEach(func(ctx context.Context) {
@@ -93,6 +119,13 @@ func PodDNSNameserversSpec() {
 				Expect(err).To(Succeed())
 				secondaryIP = secondarySvc.Spec.ClusterIP
 				Expect(secondaryIP).NotTo(BeEmpty(), "secondary DNS Service has no ClusterIP")
+
+				// Resolve the tenant-scope kube-dns Service so specs can
+				// assert the IP that the tenant-cluster entry injects.
+				tenantDNSSvc, err := vClusterClient.CoreV1().Services(PodDNSNameserversTenantDNSNamespace).Get(ctx, PodDNSNameserversTenantDNSService, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				tenantDNSIP = tenantDNSSvc.Spec.ClusterIP
+				Expect(tenantDNSIP).NotTo(BeEmpty(), "tenant kube-dns Service has no ClusterIP")
 			})
 
 			// createVPod creates a pod in the vCluster default namespace
@@ -164,16 +197,16 @@ func PodDNSNameserversSpec() {
 					pod = createVPod(ctx, nil)
 				})
 
-				By("Waiting for the host pod to receive both resolved nameservers", func() {
+				By("Waiting for the host pod to receive all three resolved nameservers", func() {
 					Eventually(func(g Gomega) {
 						hostPod, err := getHostPod(ctx, pod.Name)
 						g.Expect(err).To(Succeed(), "host pod for %s not yet present", pod.Name)
 						g.Expect(hostPod.Spec.DNSPolicy).To(Equal(corev1.DNSNone),
 							"host pod dnsPolicy is %s, expected None", hostPod.Spec.DNSPolicy)
 						g.Expect(hostPod.Spec.DNSConfig).NotTo(BeNil(), "host pod dnsConfig is nil")
-						g.Expect(hostPod.Spec.DNSConfig.Nameservers).To(Equal([]string{primaryIP, secondaryIP}),
-							"host pod nameservers %v != expected [%s %s]",
-							hostPod.Spec.DNSConfig.Nameservers, primaryIP, secondaryIP)
+						g.Expect(hostPod.Spec.DNSConfig.Nameservers).To(Equal([]string{primaryIP, secondaryIP, tenantDNSIP}),
+							"host pod nameservers %v != expected [%s %s %s]",
+							hostPod.Spec.DNSConfig.Nameservers, primaryIP, secondaryIP, tenantDNSIP)
 					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
@@ -295,8 +328,8 @@ func PodDNSNameserversSpec() {
 				})
 			})
 
-			It("blocks pod creation when all Services are missing", func(ctx context.Context) {
-				By("Removing the dns-ns label from both Services", func() {
+			It("blocks pod creation when all host-scoped Services are missing", func(ctx context.Context) {
+				By("Removing the dns-ns label from both host Services", func() {
 					setServiceLabel(ctx, PodDNSNameserversPrimaryService, "")
 					DeferCleanup(func(ctx context.Context) {
 						setServiceLabel(ctx, PodDNSNameserversPrimaryService, "primary")
@@ -323,7 +356,7 @@ func PodDNSNameserversSpec() {
 				// syncer deletes it. Standalone pods would not be recreated
 				// because the syncer treats a missing host pod with a
 				// non-empty StartTime as terminal and deletes the virtual pod.
-				deployName := "dns-dep-rebind-ip"
+				deployName := "dns-dep-rebind-ip-" + random.String(6)
 				selector := map[string]string{"app": deployName}
 				replicas := int32(1)
 
@@ -453,6 +486,77 @@ func PodDNSNameserversSpec() {
 							"host pod nameservers %v lost new primary IP %s",
 							hostPod.Spec.DNSConfig.Nameservers, newPrimaryIP)
 					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+				})
+			})
+
+			It("re-reconciles on tenant-scope Service events", func(ctx context.Context) {
+				// The tenant watch's job is to enqueue virtual pods when a
+				// Service event fires inside a configured tenant namespace.
+				// Adding an alternate Service with the same selector forces
+				// the resolver to return a different IP set, and the syncer
+				// reacts by deleting the host pod whose injected
+				// nameservers no longer match. The host pod deletion is the
+				// signal that the watch fired -- without it the syncer
+				// never sees the new Service and the host pod stays put.
+				//
+				// The pod cannot be recreated with the new IP set because
+				// Kubernetes caps dnsConfig.nameservers at 3 entries; the
+				// recreation failure is unrelated to the watch and is the
+				// reason this spec asserts on the deletion rather than the
+				// recreation.
+				pod := createVPod(ctx, nil)
+
+				var oldHostPodUID string
+				By("Waiting for the host pod to receive the original tenant kube-dns IP", func() {
+					Eventually(func(g Gomega) {
+						hostPod, err := getHostPod(ctx, pod.Name)
+						g.Expect(err).To(Succeed(), "host pod for %s not yet present", pod.Name)
+						g.Expect(hostPod.Spec.DNSConfig).NotTo(BeNil(), "host pod dnsConfig is nil")
+						g.Expect(hostPod.Spec.DNSConfig.Nameservers).To(ContainElement(tenantDNSIP),
+							"host pod nameservers %v missing tenant kube-dns IP %s",
+							hostPod.Spec.DNSConfig.Nameservers, tenantDNSIP)
+						oldHostPodUID = string(hostPod.UID)
+					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+				})
+
+				By("Creating an alternate tenant Service with the same k8s-app=vcluster-kube-dns label", func() {
+					altSvc := &corev1.Service{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      PodDNSNameserversAltTenantDNSService,
+							Namespace: PodDNSNameserversTenantDNSNamespace,
+							Labels: map[string]string{
+								PodDNSNameserversTenantDNSLabelKey: PodDNSNameserversTenantDNSLabelValue,
+							},
+						},
+						Spec: corev1.ServiceSpec{
+							Type: corev1.ServiceTypeClusterIP,
+							Ports: []corev1.ServicePort{
+								{Name: "dns", Port: 53, Protocol: corev1.ProtocolUDP},
+								{Name: "dns-tcp", Port: 53, Protocol: corev1.ProtocolTCP},
+							},
+						},
+					}
+					_, err := vClusterClient.CoreV1().Services(PodDNSNameserversTenantDNSNamespace).Create(ctx, altSvc, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					DeferCleanup(func(ctx context.Context) {
+						err := vClusterClient.CoreV1().Services(PodDNSNameserversTenantDNSNamespace).Delete(ctx, PodDNSNameserversAltTenantDNSService, metav1.DeleteOptions{})
+						if !kerrors.IsNotFound(err) {
+							Expect(err).To(Succeed())
+						}
+					})
+				})
+
+				By("Verifying the host pod was deleted because the tenant watch fired", func() {
+					Eventually(func(g Gomega) {
+						hostPod, err := getHostPod(ctx, pod.Name)
+						if kerrors.IsNotFound(err) {
+							return
+						}
+						g.Expect(err).To(Succeed())
+						g.Expect(string(hostPod.UID)).NotTo(Equal(oldHostPodUID),
+							"host pod UID %s unchanged -- tenant Service event did not enqueue the pod for reconcile",
+							oldHostPodUID)
+					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 			})
 
