@@ -43,6 +43,8 @@ const podsDNSNameserversVClusterName = "pods-dns-nameservers-vcluster"
 
 func init() { suitePodsDNSNameserversVCluster() }
 
+// Ordered because all It specs depend on the vCluster started by BeforeAll;
+// BeforeAll must complete before any spec runs.
 func suitePodsDNSNameserversVCluster() {
 	Describe("pods-dns-nameservers-vcluster", labels.PR, labels.Sync, Ordered,
 		cluster.Use(clusters.HostCluster),

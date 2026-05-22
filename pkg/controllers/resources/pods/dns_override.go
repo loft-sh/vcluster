@@ -84,8 +84,10 @@ func buildDNSNameserversResolver(ctx *synccontext.RegisterContext) (*dnsNameserv
 
 	for i, ce := range cfgEntries {
 		svc := ce.Service
-		// selector validity is guaranteed by validateDNSNameservers at startup
-		selector, _ := svc.LabelSelector.ToSelector()
+		selector, err := svc.LabelSelector.ToSelector()
+		if err != nil {
+			return nil, fmt.Errorf("nameservers[%d]: invalid label selector: %w", i, err)
+		}
 
 		entry := dnsNameserverEntry{
 			namespace: svc.Namespace,

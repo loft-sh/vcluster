@@ -803,6 +803,13 @@ func (t *translator) applyDNSNameservers(
 		return fmt.Errorf("all nameserver Service entries failed to resolve, requeuing: %v", errs)
 	}
 
+	if vPod.Spec.DNSPolicy == corev1.DNSDefault {
+		t.eventRecorder.Eventf(
+			vPod, nil, "Warning", "DNSNameservers", "PodDNSNameservers",
+			"pod uses dnsPolicy=Default; nameserver override converts it to DNSNone, node resolv.conf search domains and options are not preserved",
+		)
+	}
+
 	existing := pPod.Spec.DNSConfig
 	newCfg := &corev1.PodDNSConfig{
 		Nameservers: ips,
