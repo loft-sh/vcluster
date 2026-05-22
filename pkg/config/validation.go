@@ -54,6 +54,10 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 		}
 	}
 
+	if err := validateDNSNameservers(vConfig.Sync.ToHost.Pods.DNS.Nameservers); err != nil {
+		return err
+	}
+
 	// check if enable scheduler works correctly
 	if vConfig.SchedulingInVirtualClusterEnabled() && !vConfig.Sync.FromHost.Nodes.Selector.All && len(vConfig.Sync.FromHost.Nodes.Selector.Labels) == 0 {
 		vConfig.Sync.FromHost.Nodes.Selector.All = true
@@ -995,7 +999,7 @@ func ValidateExperimentalProxyCustomResourcesConfig(cfg map[string]config.Custom
 		}
 	}
 
-	// All entries sharing a group/version must agree on target vCluster and access mode —
+	// All entries sharing a group/version must agree on target vCluster and access mode --
 	// APIService aggregation routes the whole group/version to one proxy, so mismatched
 	// settings are ambiguous and would otherwise be silently dropped.
 	for _, group := range lo.GroupBy(entries, func(e entry) string { return e.gvKey }) {
@@ -1014,5 +1018,29 @@ func ValidateExperimentalProxyCustomResourcesConfig(cfg map[string]config.Custom
 }
 
 var ProValidateConfig = func(_ *VirtualClusterConfig) error {
+	return nil
+}
+
+// validateDNSNameservers validates entries in sync.toHost.pods.dns.nameservers.
+func validateDNSNameservers(entries []config.DNSNameserverEntry) error {
+	for i, entry := range entries {
+		svc := entry.Service
+		if svc.Scope != config.DNSNameserverScopeHost && svc.Scope != config.DNSNameserverScopeTenant {
+			return fmt.Errorf(
+				"sync.toHost.pods.dns.nameservers[%d].service.scope must be %q or %q, got %q",
+				i, config.DNSNameserverScopeHost, config.DNSNameserverScopeTenant, svc.Scope,
+			)
+		}
+		if svc.Namespace == "" {
+			return fmt.Errorf("sync.toHost.pods.dns.nameservers[%d].service.namespace must be set", i)
+		}
+		if svc.LabelSelector == nil ||
+			(len(svc.LabelSelector.MatchLabels) == 0 && len(svc.LabelSelector.MatchExpressions) == 0) {
+			return fmt.Errorf("sync.toHost.pods.dns.nameservers[%d].service.labelSelector must be set and non-empty", i)
+		}
+		if _, err := svc.LabelSelector.ToSelector(); err != nil {
+			return fmt.Errorf("sync.toHost.pods.dns.nameservers[%d].service.labelSelector is invalid: %w", i, err)
+		}
+	}
 	return nil
 }

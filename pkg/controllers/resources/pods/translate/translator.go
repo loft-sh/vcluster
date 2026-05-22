@@ -46,6 +46,11 @@ const (
 	ClusterAutoScalerDaemonSetAnnotation = "cluster-autoscaler.kubernetes.io/daemonset-pod"
 	ServiceAccountNameAnnotation         = "vcluster.loft.sh/service-account-name"
 	ServiceAccountTokenAnnotation        = "vcluster.loft.sh/token-"
+
+	// TenantClusterHostNamespaceLabel is stamped on every synced pod to carry
+	// the Control Plane Cluster namespace of the vCluster instance. Used by
+	// Candy and NetworkPolicy selectors to identify pods from a specific vCluster.
+	TenantClusterHostNamespaceLabel = "vcluster.loft.sh/tenant-host-namespace"
 )
 
 var (
@@ -56,9 +61,25 @@ var (
 )
 
 type Translator interface {
-	Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error)
+	Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string, dnsNameservers DNSNameserversResolver) (*corev1.Pod, error)
 	Diff(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Pod]) error
 	TranslateContainerEnv(ctx *synccontext.SyncContext, envVar []corev1.EnvVar, envFrom []corev1.EnvFromSource, vPod *corev1.Pod, serviceEnvMap map[string]string) ([]corev1.EnvVar, []corev1.EnvFromSource, error)
+}
+
+// DNSNameserversResolver resolves the list of Service ClusterIPs to write to
+// dnsConfig.nameservers on synced pods. Implementations must be safe for
+// concurrent use and must read from informer caches (no API-server calls on
+// the hot path).
+type DNSNameserversResolver interface {
+	// Enabled reports whether any nameservers are configured.
+	Enabled() bool
+
+	// Resolve returns one ClusterIP per successfully resolved entry, in
+	// configuration order. For each entry that fails (missing / >1 match),
+	// a non-fatal error is appended to errs -- the caller emits a Warning
+	// event per error. If ips is empty, the caller must return an error
+	// and requeue rather than creating the pod with default DNS.
+	Resolve(ctx *synccontext.SyncContext) (ips []string, errs []error)
 }
 
 func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder events.EventRecorder) (Translator, error) {
@@ -179,7 +200,7 @@ type translator struct {
 	enforcedTolerations []corev1.Toleration
 }
 
-func (t *translator) Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error) {
+func (t *translator) Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string, dnsNameservers DNSNameserversResolver) (*corev1.Pod, error) {
 	// get Namespace resource in order to have access to its labels
 	vNamespace := &corev1.Namespace{}
 	err := t.vClient.Get(ctx, client.ObjectKey{Name: vPod.ObjectMeta.GetNamespace()}, vNamespace)
@@ -293,6 +314,9 @@ func (t *translator) Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, s
 	for k, v := range vNamespace.GetLabels() {
 		updatedLabels[translate.HostLabelNamespace(k)] = v
 	}
+	// Stamp tenant-identity label unconditionally so Candy and NetworkPolicy
+	// selectors can always identify pods from this vCluster instance.
+	updatedLabels[TenantClusterHostNamespaceLabel] = ctx.CurrentNamespace
 	pPod.SetLabels(updatedLabels)
 
 	// translate services to environment variables
@@ -311,6 +335,9 @@ func (t *translator) Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, s
 
 	// translate the dns config
 	t.translateDNSConfig(pPod, vPod, dnsIP)
+	if err := t.applyDNSNameservers(ctx, pPod, vPod, dnsNameservers); err != nil {
+		return nil, err
+	}
 
 	// truncate hostname if needed
 	if pPod.Spec.Hostname == "" {
@@ -750,6 +777,50 @@ func (t *translator) translateDNSConfig(pPod *corev1.Pod, vPod *corev1.Pod, name
 	case corev1.DNSDefault:
 		return
 	}
+}
+
+func (t *translator) applyDNSNameservers(
+	ctx *synccontext.SyncContext,
+	pPod *corev1.Pod,
+	vPod *corev1.Pod,
+	resolver DNSNameserversResolver,
+) error {
+	if resolver == nil || !resolver.Enabled() {
+		return nil
+	}
+	if pPod.Spec.HostNetwork {
+		return nil
+	}
+	if vPod.Spec.DNSConfig != nil && len(vPod.Spec.DNSConfig.Nameservers) > 0 {
+		t.eventRecorder.Eventf(
+			vPod, nil, "Warning", "DNSNameservers", "PodDNSNameservers",
+			"pod already pins dnsConfig.nameservers; skipping nameserver override",
+		)
+		return nil
+	}
+
+	ips, errs := resolver.Resolve(ctx)
+	for _, err := range errs {
+		t.eventRecorder.Eventf(
+			vPod, nil, "Warning", "DNSNameservers", "PodDNSNameservers",
+			"could not resolve nameserver Service entry: %v", err,
+		)
+	}
+	if len(ips) == 0 {
+		return fmt.Errorf("all nameserver Service entries failed to resolve, requeuing: %v", errs)
+	}
+
+	existing := pPod.Spec.DNSConfig
+	newCfg := &corev1.PodDNSConfig{
+		Nameservers: ips,
+	}
+	if existing != nil {
+		newCfg.Searches = existing.Searches
+		newCfg.Options = existing.Options
+	}
+	pPod.Spec.DNSPolicy = corev1.DNSNone
+	pPod.Spec.DNSConfig = newCfg
+	return nil
 }
 
 func translateDNSClusterFirstConfig(pPod *corev1.Pod, vPod *corev1.Pod, clusterDomain, nameServer string) {

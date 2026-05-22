@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/util/namespaces"
 )
@@ -2341,6 +2343,196 @@ func TestValidateAutoUpgradeSecurityContext(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			err := validatePrivatedNodesMode(tc.vclusterConfig)
 			tc.checkErr(t, err)
+		})
+	}
+}
+
+func TestDNSNameserversValidation(t *testing.T) {
+	type testCase struct {
+		name    string
+		entries []config.DNSNameserverEntry
+		wantErr bool
+	}
+
+	validSelector := &config.StandardLabelSelector{
+		MatchLabels: map[string]string{"app": "coredns"},
+	}
+	validSelectorExpr := &config.StandardLabelSelector{
+		MatchExpressions: []metav1.LabelSelectorRequirement{
+			{
+				Key:      "app",
+				Operator: metav1.LabelSelectorOpIn,
+				Values:   []string{"coredns"},
+			},
+		},
+	}
+	badOpSelector := &config.StandardLabelSelector{
+		MatchExpressions: []metav1.LabelSelectorRequirement{
+			{
+				Key:      "app",
+				Operator: metav1.LabelSelectorOperator("NotARealOperator"),
+				Values:   []string{"coredns"},
+			},
+		},
+	}
+
+	cases := []testCase{
+		{
+			name:    "empty list is valid",
+			entries: nil,
+			wantErr: false,
+		},
+		{
+			name: "valid host scope",
+			entries: []config.DNSNameserverEntry{
+				{
+					Service: config.DNSNameserverService{
+						Scope:         config.DNSNameserverScopeHost,
+						Namespace:     "kube-system",
+						LabelSelector: validSelector,
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid tenant scope",
+			entries: []config.DNSNameserverEntry{
+				{
+					Service: config.DNSNameserverService{
+						Scope:         config.DNSNameserverScopeTenant,
+						Namespace:     "kube-system",
+						LabelSelector: validSelectorExpr,
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "missing scope",
+			entries: []config.DNSNameserverEntry{
+				{
+					Service: config.DNSNameserverService{
+						Namespace:     "kube-system",
+						LabelSelector: validSelector,
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "bad scope value",
+			entries: []config.DNSNameserverEntry{
+				{
+					Service: config.DNSNameserverService{
+						Scope:         "cluster",
+						Namespace:     "kube-system",
+						LabelSelector: validSelector,
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "missing namespace",
+			entries: []config.DNSNameserverEntry{
+				{
+					Service: config.DNSNameserverService{
+						Scope:         config.DNSNameserverScopeHost,
+						LabelSelector: validSelector,
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "nil labelSelector",
+			entries: []config.DNSNameserverEntry{
+				{
+					Service: config.DNSNameserverService{
+						Scope:     config.DNSNameserverScopeHost,
+						Namespace: "kube-system",
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "empty labelSelector",
+			entries: []config.DNSNameserverEntry{
+				{
+					Service: config.DNSNameserverService{
+						Scope:         config.DNSNameserverScopeHost,
+						Namespace:     "kube-system",
+						LabelSelector: &config.StandardLabelSelector{},
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "malformed labelSelector with bad operator",
+			entries: []config.DNSNameserverEntry{
+				{
+					Service: config.DNSNameserverService{
+						Scope:         config.DNSNameserverScopeHost,
+						Namespace:     "kube-system",
+						LabelSelector: badOpSelector,
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "multi-entry: first valid, second invalid",
+			entries: []config.DNSNameserverEntry{
+				{
+					Service: config.DNSNameserverService{
+						Scope:         config.DNSNameserverScopeHost,
+						Namespace:     "kube-system",
+						LabelSelector: validSelector,
+					},
+				},
+				{
+					Service: config.DNSNameserverService{
+						Scope:         config.DNSNameserverScopeTenant,
+						LabelSelector: validSelector,
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "multi-entry: both valid",
+			entries: []config.DNSNameserverEntry{
+				{
+					Service: config.DNSNameserverService{
+						Scope:         config.DNSNameserverScopeHost,
+						Namespace:     "kube-system",
+						LabelSelector: validSelector,
+					},
+				},
+				{
+					Service: config.DNSNameserverService{
+						Scope:         config.DNSNameserverScopeTenant,
+						Namespace:     "kube-system",
+						LabelSelector: validSelectorExpr,
+					},
+				},
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateDNSNameservers(tc.entries)
+			if tc.wantErr && err == nil {
+				t.Fatalf("expected error, got nil")
+			}
+			if !tc.wantErr && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
 		})
 	}
 }

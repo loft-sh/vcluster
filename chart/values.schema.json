@@ -1106,6 +1106,36 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "DNSNameserverEntry": {
+      "properties": {
+        "service": {
+          "$ref": "#/$defs/DNSNameserverService",
+          "description": "Service selects the Service whose ClusterIP becomes one nameserver."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "DNSNameserverEntry is one element of the nameservers list."
+    },
+    "DNSNameserverService": {
+      "properties": {
+        "scope": {
+          "type": "string",
+          "description": "Scope chooses which cluster to look up the Service in.\n\n+kubebuilder:validation:Enum=host;tenant"
+        },
+        "namespace": {
+          "type": "string",
+          "description": "Namespace containing the Service."
+        },
+        "labelSelector": {
+          "$ref": "#/$defs/StandardLabelSelector",
+          "description": "LabelSelector must match exactly one Service in Namespace. If zero or\nmore than one Service matches, a Warning event is emitted for this entry\nand the entry is skipped (other entries are still resolved)."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "DNSNameserverService describes the Service lookup for a single nameserver."
+    },
     "Database": {
       "properties": {
         "embedded": {
@@ -5011,10 +5041,28 @@
         "hybridScheduling": {
           "$ref": "#/$defs/HybridScheduling",
           "description": "HybridScheduling is used to enable and configure hybrid scheduling for pods in the virtual cluster."
+        },
+        "dns": {
+          "$ref": "#/$defs/SyncPodsDNS",
+          "description": "DNS controls DNS-related behavior for synced pods."
         }
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "SyncPodsDNS": {
+      "properties": {
+        "nameservers": {
+          "items": {
+            "$ref": "#/$defs/DNSNameserverEntry"
+          },
+          "type": "array",
+          "description": "Nameservers is a list of Service-based nameserver sources. Each entry\nresolves independently to a Service ClusterIP which is written to\ndnsConfig.nameservers on every synced pod, in configuration order.\n\nEntries that fail to resolve emit a Warning event but do not block\nthe remaining entries. If ALL entries fail, pod sync returns an error\nand requeues -- the pod is not created until at least one Service is found.\n\nPods with spec.hostNetwork=true and pods that already pin\nspec.dnsConfig.nameservers are skipped entirely."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "SyncPodsDNS controls DNS-related behavior for synced pods."
     },
     "SyncRewriteHosts": {
       "properties": {

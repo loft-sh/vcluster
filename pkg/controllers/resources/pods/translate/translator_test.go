@@ -570,7 +570,7 @@ func TestPodResourcesTranslation(t *testing.T) {
 			err := vClient.Create(syncCtx.Context, vNamespace)
 			assert.NilError(t, err)
 
-			pPod, err := tr.Translate(syncCtx, &tc.vPod, nil, "", "")
+			pPod, err := tr.Translate(syncCtx, &tc.vPod, nil, "", "", nil)
 			assert.NilError(t, err)
 
 			if tc.shouldTranslate {
@@ -1036,7 +1036,7 @@ func TestTranslateEnforcedTolerationDedup(t *testing.T) {
 		},
 	}
 
-	pPod, err := tr.Translate(syncCtx, vPod, nil, "", "")
+	pPod, err := tr.Translate(syncCtx, vPod, nil, "", "", nil)
 	assert.NilError(t, err)
 
 	// Count how many times the enforced toleration appears on the physical pod.
@@ -1047,4 +1047,203 @@ func TestTranslateEnforcedTolerationDedup(t *testing.T) {
 		}
 	}
 	assert.Equal(t, count, 1, "enforced toleration must appear exactly once on the physical pod, got %d", count)
+}
+
+type fakeNameserversResolver struct {
+	enabled bool
+	ips     []string
+	errs    []error
+}
+
+func (f *fakeNameserversResolver) Enabled() bool { return f.enabled }
+func (f *fakeNameserversResolver) Resolve(_ *synccontext.SyncContext) ([]string, []error) {
+	return f.ips, f.errs
+}
+
+func newDNSNameserversTranslator(t *testing.T, recorder events.EventRecorder) (*translator, *synccontext.SyncContext) {
+	t.Helper()
+	pClient := testingutil.NewFakeClient(scheme.Scheme)
+	vClient := testingutil.NewFakeClient(scheme.Scheme)
+	imageTranslator, _ := NewImageTranslator(map[string]string{})
+
+	tr := &translator{
+		eventRecorder:   recorder,
+		log:             loghelper.New("pods-syncer-translator-test"),
+		vClient:         vClient,
+		pClient:         pClient,
+		imageTranslator: imageTranslator,
+	}
+
+	registerCtx := generictesting.NewFakeRegisterContext(testingutil.NewFakeConfig(), pClient, vClient)
+	syncCtx := registerCtx.ToSyncContext("test")
+	return tr, syncCtx
+}
+
+func basePodPair() (*corev1.Pod, *corev1.Pod) {
+	vPod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "p", Namespace: "ns"},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{{Name: "c", Image: "nginx"}},
+		},
+	}
+	pPod := vPod.DeepCopy()
+	return vPod, pPod
+}
+
+func drainEvents(ch <-chan string) []string {
+	out := []string{}
+	for {
+		select {
+		case e := <-ch:
+			out = append(out, e)
+		default:
+			return out
+		}
+	}
+}
+
+func TestApplyDNSNameservers(t *testing.T) {
+	t.Run("nil resolver does not mutate", func(t *testing.T) {
+		recorder := events.NewFakeRecorder(10)
+		tr, syncCtx := newDNSNameserversTranslator(t, recorder)
+		vPod, pPod := basePodPair()
+		err := tr.applyDNSNameservers(syncCtx, pPod, vPod, nil)
+		assert.NilError(t, err)
+		assert.Assert(t, pPod.Spec.DNSConfig == nil)
+		assert.Equal(t, pPod.Spec.DNSPolicy, corev1.DNSPolicy(""))
+		assert.Equal(t, len(drainEvents(recorder.Events)), 0)
+	})
+
+	t.Run("disabled resolver does not mutate", func(t *testing.T) {
+		recorder := events.NewFakeRecorder(10)
+		tr, syncCtx := newDNSNameserversTranslator(t, recorder)
+		vPod, pPod := basePodPair()
+		resolver := &fakeNameserversResolver{enabled: false}
+		err := tr.applyDNSNameservers(syncCtx, pPod, vPod, resolver)
+		assert.NilError(t, err)
+		assert.Assert(t, pPod.Spec.DNSConfig == nil)
+		assert.Equal(t, pPod.Spec.DNSPolicy, corev1.DNSPolicy(""))
+		assert.Equal(t, len(drainEvents(recorder.Events)), 0)
+	})
+
+	t.Run("single entry happy path preserves searches and options", func(t *testing.T) {
+		recorder := events.NewFakeRecorder(10)
+		tr, syncCtx := newDNSNameserversTranslator(t, recorder)
+		vPod, pPod := basePodPair()
+		pPod.Spec.DNSConfig = &corev1.PodDNSConfig{
+			Searches: []string{"default.svc.cluster.local"},
+			Options: []corev1.PodDNSConfigOption{
+				{Name: "ndots", Value: ptr.To("5")},
+			},
+		}
+		resolver := &fakeNameserversResolver{enabled: true, ips: []string{"10.0.0.99"}}
+		err := tr.applyDNSNameservers(syncCtx, pPod, vPod, resolver)
+		assert.NilError(t, err)
+		assert.Equal(t, pPod.Spec.DNSPolicy, corev1.DNSNone)
+		assert.Assert(t, pPod.Spec.DNSConfig != nil)
+		assert.DeepEqual(t, pPod.Spec.DNSConfig.Nameservers, []string{"10.0.0.99"})
+		assert.DeepEqual(t, pPod.Spec.DNSConfig.Searches, []string{"default.svc.cluster.local"})
+		assert.Equal(t, len(pPod.Spec.DNSConfig.Options), 1)
+		assert.Equal(t, len(drainEvents(recorder.Events)), 0)
+	})
+
+	t.Run("two entries both resolve", func(t *testing.T) {
+		recorder := events.NewFakeRecorder(10)
+		tr, syncCtx := newDNSNameserversTranslator(t, recorder)
+		vPod, pPod := basePodPair()
+		resolver := &fakeNameserversResolver{enabled: true, ips: []string{"10.0.0.1", "10.0.0.2"}}
+		err := tr.applyDNSNameservers(syncCtx, pPod, vPod, resolver)
+		assert.NilError(t, err)
+		assert.Equal(t, pPod.Spec.DNSPolicy, corev1.DNSNone)
+		assert.DeepEqual(t, pPod.Spec.DNSConfig.Nameservers, []string{"10.0.0.1", "10.0.0.2"})
+		assert.Equal(t, len(drainEvents(recorder.Events)), 0)
+	})
+
+	t.Run("partial failure: one of two resolves", func(t *testing.T) {
+		recorder := events.NewFakeRecorder(10)
+		tr, syncCtx := newDNSNameserversTranslator(t, recorder)
+		vPod, pPod := basePodPair()
+		resolver := &fakeNameserversResolver{
+			enabled: true,
+			ips:     []string{"10.0.0.1"},
+			errs:    []error{fmt.Errorf("svc not found")},
+		}
+		err := tr.applyDNSNameservers(syncCtx, pPod, vPod, resolver)
+		assert.NilError(t, err)
+		assert.Equal(t, pPod.Spec.DNSPolicy, corev1.DNSNone)
+		assert.DeepEqual(t, pPod.Spec.DNSConfig.Nameservers, []string{"10.0.0.1"})
+		assert.Equal(t, len(drainEvents(recorder.Events)), 1)
+	})
+
+	t.Run("all entries fail returns error and emits events", func(t *testing.T) {
+		recorder := events.NewFakeRecorder(10)
+		tr, syncCtx := newDNSNameserversTranslator(t, recorder)
+		vPod, pPod := basePodPair()
+		resolver := &fakeNameserversResolver{
+			enabled: true,
+			ips:     nil,
+			errs: []error{
+				fmt.Errorf("err1"),
+				fmt.Errorf("err2"),
+			},
+		}
+		err := tr.applyDNSNameservers(syncCtx, pPod, vPod, resolver)
+		assert.Assert(t, err != nil)
+		assert.Assert(t, pPod.Spec.DNSConfig == nil)
+		assert.Equal(t, pPod.Spec.DNSPolicy, corev1.DNSPolicy(""))
+		assert.Equal(t, len(drainEvents(recorder.Events)), 2)
+	})
+
+	t.Run("hostNetwork pod is skipped", func(t *testing.T) {
+		recorder := events.NewFakeRecorder(10)
+		tr, syncCtx := newDNSNameserversTranslator(t, recorder)
+		vPod, pPod := basePodPair()
+		pPod.Spec.HostNetwork = true
+		resolver := &fakeNameserversResolver{enabled: true, ips: []string{"10.0.0.99"}}
+		err := tr.applyDNSNameservers(syncCtx, pPod, vPod, resolver)
+		assert.NilError(t, err)
+		assert.Assert(t, pPod.Spec.DNSConfig == nil)
+		assert.Equal(t, pPod.Spec.DNSPolicy, corev1.DNSPolicy(""))
+		assert.Equal(t, len(drainEvents(recorder.Events)), 0)
+	})
+
+	t.Run("pod with existing dnsConfig.nameservers is skipped", func(t *testing.T) {
+		recorder := events.NewFakeRecorder(10)
+		tr, syncCtx := newDNSNameserversTranslator(t, recorder)
+		vPod, pPod := basePodPair()
+		vPod.Spec.DNSConfig = &corev1.PodDNSConfig{
+			Nameservers: []string{"8.8.8.8"},
+		}
+		resolver := &fakeNameserversResolver{enabled: true, ips: []string{"10.0.0.99"}}
+		err := tr.applyDNSNameservers(syncCtx, pPod, vPod, resolver)
+		assert.NilError(t, err)
+		assert.Assert(t, pPod.Spec.DNSConfig == nil)
+		assert.Equal(t, pPod.Spec.DNSPolicy, corev1.DNSPolicy(""))
+		assert.Equal(t, len(drainEvents(recorder.Events)), 1)
+	})
+}
+
+func TestTranslateStampsTenantHostNamespaceLabel(t *testing.T) {
+	pClient := testingutil.NewFakeClient(scheme.Scheme)
+	vClient := testingutil.NewFakeClient(scheme.Scheme)
+	registerCtx := generictesting.NewFakeRegisterContext(testingutil.NewFakeConfig(), pClient, vClient)
+	fakeRecorder := events.NewFakeRecorder(10)
+
+	tr, err := NewTranslator(registerCtx, fakeRecorder)
+	assert.NilError(t, err)
+	syncCtx := registerCtx.ToSyncContext("tenant-label-test")
+
+	vNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "ns"}}
+	assert.NilError(t, vClient.Create(syncCtx.Context, vNamespace))
+
+	vPod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "p", Namespace: "ns"},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{{Name: "c", Image: "nginx"}},
+		},
+	}
+
+	pPod, err := tr.Translate(syncCtx, vPod, nil, "", "", nil)
+	assert.NilError(t, err)
+	assert.Equal(t, pPod.Labels[TenantClusterHostNamespaceLabel], syncCtx.CurrentNamespace)
 }

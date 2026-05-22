@@ -85,6 +85,11 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		return nil, errors.Wrap(err, "create pod translator")
 	}
 
+	dnsNameservers, err := buildDNSNameserversResolver(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("build dns nameservers resolver: %w", err)
+	}
+
 	schedulingConfig, err := scheduling.NewConfig(
 		ctx.Config.IsVirtualSchedulerEnabled(),
 		ctx.Config.Sync.ToHost.Pods.HybridScheduling.Enabled,
@@ -116,6 +121,7 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		physicalClusterClient: physicalClusterClient,
 		physicalClusterConfig: ctx.HostManager.GetConfig(),
 		podTranslator:         podTranslator,
+		dnsNameservers:        dnsNameservers,
 		nodeSelector:          nodeSelector,
 
 		hostClusterVersion: hostClusterVersion,
@@ -133,6 +139,7 @@ type podSyncer struct {
 	fakeKubeletIPs   bool
 
 	podTranslator         translatepods.Translator
+	dnsNameservers        *dnsNameserversResolver
 	virtualClusterClient  kubernetes.Interface
 	physicalClusterClient kubernetes.Interface
 	physicalClusterConfig *rest.Config

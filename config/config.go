@@ -1547,7 +1547,58 @@ type SyncPods struct {
 
 	// HybridScheduling is used to enable and configure hybrid scheduling for pods in the virtual cluster.
 	HybridScheduling HybridScheduling `json:"hybridScheduling,omitempty"`
+
+	// DNS controls DNS-related behavior for synced pods.
+	DNS SyncPodsDNS `json:"dns,omitempty"`
 }
+
+// SyncPodsDNS controls DNS-related behavior for synced pods.
+type SyncPodsDNS struct {
+	// Nameservers is a list of Service-based nameserver sources. Each entry
+	// resolves independently to a Service ClusterIP which is written to
+	// dnsConfig.nameservers on every synced pod, in configuration order.
+	//
+	// Entries that fail to resolve emit a Warning event but do not block
+	// the remaining entries. If ALL entries fail, pod sync returns an error
+	// and requeues -- the pod is not created until at least one Service is found.
+	//
+	// Pods with spec.hostNetwork=true and pods that already pin
+	// spec.dnsConfig.nameservers are skipped entirely.
+	Nameservers []DNSNameserverEntry `json:"nameservers,omitempty"`
+}
+
+// DNSNameserverEntry is one element of the nameservers list.
+type DNSNameserverEntry struct {
+	// Service selects the Service whose ClusterIP becomes one nameserver.
+	Service DNSNameserverService `json:"service,omitempty"`
+}
+
+// DNSNameserverService describes the Service lookup for a single nameserver.
+type DNSNameserverService struct {
+	// Scope chooses which cluster to look up the Service in.
+	//
+	// +kubebuilder:validation:Enum=host;tenant
+	Scope DNSNameserverScope `json:"scope,omitempty"`
+
+	// Namespace containing the Service.
+	Namespace string `json:"namespace,omitempty"`
+
+	// LabelSelector must match exactly one Service in Namespace. If zero or
+	// more than one Service matches, a Warning event is emitted for this entry
+	// and the entry is skipped (other entries are still resolved).
+	LabelSelector *StandardLabelSelector `json:"labelSelector,omitempty"`
+}
+
+// DNSNameserverScope chooses where the nameserver Service is looked up.
+type DNSNameserverScope string
+
+const (
+	// DNSNameserverScopeHost looks the Service up in the Control Plane Cluster (host).
+	DNSNameserverScopeHost DNSNameserverScope = "host"
+
+	// DNSNameserverScopeTenant looks the Service up inside the tenant cluster.
+	DNSNameserverScopeTenant DNSNameserverScope = "tenant"
+)
 
 type SyncRewriteHosts struct {
 	// Enabled specifies if rewriting stateful set pods should be enabled.

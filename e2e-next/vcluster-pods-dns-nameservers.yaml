@@ -1,0 +1,24 @@
+controlPlane:
+  statefulSet:
+    image:
+      registry: ""
+      repository: {{ .Repository }}
+      tag: {{ .Tag }}
+sync:
+  toHost:
+    pods:
+      enabled: true
+      dns:
+        nameservers:
+          - service:
+              scope: host
+              namespace: vcluster-dns-test
+              labelSelector:
+                matchLabels:
+                  vcluster.loft.sh/dns-ns: primary
+          - service:
+              scope: host
+              namespace: vcluster-dns-test
+              labelSelector:
+                matchLabels:
+                  vcluster.loft.sh/dns-ns: secondary
