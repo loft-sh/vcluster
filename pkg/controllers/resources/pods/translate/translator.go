@@ -799,8 +799,11 @@ func (t *translator) applyDNSNameservers(
 			"could not resolve nameserver Service entry: %v", err,
 		)
 	}
+	if len(errs) > 0 {
+		return fmt.Errorf("one or more nameserver Service entries failed to resolve, requeuing: %v", errs)
+	}
 	if len(ips) == 0 {
-		return fmt.Errorf("all nameserver Service entries failed to resolve, requeuing: %v", errs)
+		return fmt.Errorf("nameserver Service entries returned no ClusterIPs, requeuing")
 	}
 
 	if vPod.Spec.DNSPolicy == corev1.DNSDefault {

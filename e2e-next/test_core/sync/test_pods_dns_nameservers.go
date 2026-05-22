@@ -2,7 +2,6 @@ package test_core
 
 import (
 	"context"
-	"strings"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
@@ -277,7 +276,7 @@ func PodDNSNameserversSpec() {
 				})
 			})
 
-			It("resolves partial list when one Service is missing", func(ctx context.Context) {
+			It("blocks pod creation when one Service is missing", func(ctx context.Context) {
 				By("Removing the dns-ns label from the secondary Service", func() {
 					setServiceLabel(ctx, PodDNSNameserversSecondaryService, "")
 					DeferCleanup(func(ctx context.Context) {
@@ -287,34 +286,12 @@ func PodDNSNameserversSpec() {
 
 				pod := createVPod(ctx, nil)
 
-				By("Waiting for the host pod to receive only the primary nameserver", func() {
-					Eventually(func(g Gomega) {
-						hostPod, err := getHostPod(ctx, pod.Name)
-						g.Expect(err).To(Succeed(), "host pod for %s not yet present", pod.Name)
-						g.Expect(hostPod.Spec.DNSConfig).NotTo(BeNil(), "host pod dnsConfig is nil")
-						g.Expect(hostPod.Spec.DNSConfig.Nameservers).To(Equal([]string{primaryIP}),
-							"expected only primary nameserver, got %v", hostPod.Spec.DNSConfig.Nameservers)
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
-				})
-
-				By("Waiting for a warning event on the virtual pod about the unresolved nameserver", func() {
-					Eventually(func(g Gomega) {
-						events, err := vClusterClient.CoreV1().Events("default").List(ctx, metav1.ListOptions{
-							FieldSelector: "involvedObject.name=" + pod.Name,
-						})
-						g.Expect(err).To(Succeed(), "failed to list events for pod %s", pod.Name)
-						var found bool
-						for _, ev := range events.Items {
-							if ev.Type == corev1.EventTypeWarning &&
-								(containsAny(ev.Message, "nameserver", "DNS") || containsAny(ev.Reason, "DNS", "Nameserver")) {
-								found = true
-								break
-							}
-						}
-						g.Expect(found).To(BeTrue(),
-							"no DNS nameserver warning event found for pod %s, events: %d",
-							pod.Name, len(events.Items))
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+				By("Verifying the host pod is not created while one selector fails to resolve", func() {
+					Consistently(func(g Gomega) {
+						_, err := getHostPod(ctx, pod.Name)
+						g.Expect(kerrors.IsNotFound(err)).To(BeTrue(),
+							"host pod for %s should not exist, got err=%v", pod.Name, err)
+					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutShort).Should(Succeed())
 				})
 			})
 
@@ -547,19 +524,6 @@ func PodDNSNameserversSpec() {
 			})
 		},
 	)
-}
-
-// containsAny reports whether s contains any of the given substrings.
-func containsAny(s string, subs ...string) bool {
-	for _, sub := range subs {
-		if sub == "" {
-			continue
-		}
-		if strings.Contains(s, sub) {
-			return true
-		}
-	}
-	return false
 }
 
 // stripPortNodePort clears NodePort and TargetPort.IntVal on each port so

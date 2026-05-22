@@ -42,43 +42,45 @@ func (r *dnsNameserversResolver) Resolve(ctx context.Context) ([]string, []error
 	var ips []string
 	var errs []error
 	for _, e := range r.entries {
-		ip, err := resolveEntryIP(ctx, e)
+		entryIPs, err := resolveEntryIPs(ctx, e)
 		if err != nil {
 			errs = append(errs, err)
-		} else {
-			ips = append(ips, ip)
+			continue
 		}
+		ips = append(ips, entryIPs...)
 	}
 	return ips, errs
 }
 
-func resolveEntryIP(ctx context.Context, e dnsNameserverEntry) (string, error) {
+func resolveEntryIPs(ctx context.Context, e dnsNameserverEntry) ([]string, error) {
 	if e.selector == nil {
-		return "", fmt.Errorf("nil label selector for namespace %q", e.namespace)
+		return nil, fmt.Errorf("nil label selector for namespace %q", e.namespace)
 	}
 	var svcList corev1.ServiceList
 	if err := e.reader.List(ctx, &svcList,
 		client.InNamespace(e.namespace),
 		client.MatchingLabelsSelector{Selector: e.selector},
 	); err != nil {
-		return "", fmt.Errorf("list Services in %q: %w", e.namespace, err)
+		return nil, fmt.Errorf("list Services in %q: %w", e.namespace, err)
 	}
-	switch len(svcList.Items) {
-	case 0:
-		return "", fmt.Errorf("no Service matches selector %q in namespace %q", e.selector, e.namespace)
-	case 1:
-		ip := svcList.Items[0].Spec.ClusterIP
+	if len(svcList.Items) == 0 {
+		return nil, fmt.Errorf("no Service matches selector %q in namespace %q", e.selector, e.namespace)
+	}
+
+	ips := make([]string, 0, len(svcList.Items))
+	skipped := make([]string, 0, len(svcList.Items))
+	for _, svc := range svcList.Items {
+		ip := svc.Spec.ClusterIP
 		if ip == "" || ip == corev1.ClusterIPNone {
-			return "", fmt.Errorf("service %s/%s has no ClusterIP", svcList.Items[0].Namespace, svcList.Items[0].Name)
+			skipped = append(skipped, fmt.Sprintf("%s/%s", svc.Namespace, svc.Name))
+			continue
 		}
-		return ip, nil
-	default:
-		names := make([]string, 0, len(svcList.Items))
-		for _, s := range svcList.Items {
-			names = append(names, s.Name)
-		}
-		return "", fmt.Errorf("expected exactly one Service, got %d: %v", len(svcList.Items), names)
+		ips = append(ips, ip)
 	}
+	if len(ips) == 0 {
+		return nil, fmt.Errorf("no Service with a ClusterIP matches selector %q in namespace %q (headless or unassigned: %v)", e.selector, e.namespace, skipped)
+	}
+	return ips, nil
 }
 
 // buildDNSNameserversResolver constructs the resolver and starts a dedicated

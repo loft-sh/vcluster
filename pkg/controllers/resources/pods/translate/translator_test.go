@@ -1160,7 +1160,7 @@ func TestApplyDNSNameservers(t *testing.T) {
 		assert.Equal(t, len(drainEvents(recorder.Events)), 0)
 	})
 
-	t.Run("partial failure: one of two resolves", func(t *testing.T) {
+	t.Run("partial failure blocks pod: one of two resolves", func(t *testing.T) {
 		recorder := events.NewFakeRecorder(10)
 		tr, syncCtx := newDNSNameserversTranslator(t, recorder)
 		vPod, pPod := basePodPair()
@@ -1170,9 +1170,9 @@ func TestApplyDNSNameservers(t *testing.T) {
 			errs:    []error{fmt.Errorf("svc not found")},
 		}
 		err := tr.applyDNSNameservers(syncCtx, pPod, vPod, resolver)
-		assert.NilError(t, err)
-		assert.Equal(t, pPod.Spec.DNSPolicy, corev1.DNSNone)
-		assert.DeepEqual(t, pPod.Spec.DNSConfig.Nameservers, []string{"10.0.0.1"})
+		assert.Assert(t, err != nil)
+		assert.Assert(t, pPod.Spec.DNSConfig == nil)
+		assert.Equal(t, pPod.Spec.DNSPolicy, corev1.DNSPolicy(""))
 		assert.Equal(t, len(drainEvents(recorder.Events)), 1)
 	})
 
