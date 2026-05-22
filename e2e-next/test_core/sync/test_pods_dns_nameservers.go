@@ -253,7 +253,7 @@ func PodDNSNameserversSpec() {
 							ctx, vClusterRestConfig, "default", pod.Name, "main",
 							[]string{"nslookup", PodDNSNameserversPrimaryExpectedName}, nil,
 						)
-						g.Expect(err).NotTo(HaveOccurred(),
+						g.Expect(err).To(Succeed(),
 							"nslookup primary failed: stdout=%s stderr=%s", string(stdout), string(stderr))
 						g.Expect(string(stdout)).To(ContainSubstring(PodDNSNameserversPrimaryExpectedIP),
 							"primary nslookup output missing expected IP: %s", string(stdout))
@@ -264,7 +264,7 @@ func PodDNSNameserversSpec() {
 							ctx, vClusterRestConfig, "default", pod.Name, "main",
 							[]string{"nslookup", PodDNSNameserversSecondaryExpectedName}, nil,
 						)
-						g.Expect(err).NotTo(HaveOccurred(),
+						g.Expect(err).To(Succeed(),
 							"nslookup secondary failed: stdout=%s stderr=%s", string(stdout), string(stderr))
 						g.Expect(string(stdout)).To(ContainSubstring(PodDNSNameserversSecondaryExpectedIP),
 							"secondary nslookup output missing expected IP: %s", string(stdout))

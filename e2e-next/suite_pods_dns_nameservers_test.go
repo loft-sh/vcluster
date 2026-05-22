@@ -53,8 +53,9 @@ const podsDNSNameserversVClusterName = "pods-dns-nameservers-vcluster"
 func init() { suitePodsDNSNameserversVCluster() }
 
 func suitePodsDNSNameserversVCluster() {
-	// Ordered: BeforeAll must complete (vCluster + host namespace created)
-	// before any spec runs; specs share the lazily-created vCluster.
+	// Ordered: BeforeAll must complete before any spec runs so the vCluster
+	// and host namespace exist. Specs themselves are independent — each
+	// recreates its own pods via BeforeEach and shares no sequential state.
 	Describe("pods-dns-nameservers-vcluster", labels.PR, labels.Sync, Ordered,
 		cluster.Use(clusters.HostCluster),
 		func() {
