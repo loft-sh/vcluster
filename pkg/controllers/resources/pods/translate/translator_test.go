@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
@@ -1221,5 +1222,20 @@ func TestApplyDNSNameservers(t *testing.T) {
 		assert.Assert(t, pPod.Spec.DNSConfig == nil)
 		assert.Equal(t, pPod.Spec.DNSPolicy, corev1.DNSPolicy(""))
 		assert.Equal(t, len(drainEvents(recorder.Events)), 1)
+	})
+
+	t.Run("DNSPolicy=Default emits a Warning about lost resolv.conf options", func(t *testing.T) {
+		recorder := events.NewFakeRecorder(10)
+		tr, syncCtx := newDNSNameserversTranslator(t, recorder)
+		vPod, pPod := basePodPair()
+		vPod.Spec.DNSPolicy = corev1.DNSDefault
+		resolver := &fakeNameserversResolver{enabled: true, ips: []string{"10.0.0.99"}}
+		err := tr.applyDNSNameservers(syncCtx, pPod, vPod, resolver)
+		assert.NilError(t, err)
+		assert.Equal(t, pPod.Spec.DNSPolicy, corev1.DNSNone)
+		assert.DeepEqual(t, pPod.Spec.DNSConfig.Nameservers, []string{"10.0.0.99"})
+		evts := drainEvents(recorder.Events)
+		assert.Equal(t, len(evts), 1)
+		assert.Assert(t, strings.Contains(evts[0], "resolv.conf"), "got %q", evts[0])
 	})
 }
