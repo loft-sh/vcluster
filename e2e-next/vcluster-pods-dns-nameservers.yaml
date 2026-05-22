@@ -15,10 +15,10 @@ sync:
               namespace: vcluster-dns-test
               labelSelector:
                 matchLabels:
-                  vcluster.loft.sh/dns-ns: primary
+                  vcluster.com/dns-ns: primary
           - service:
               scope: host
               namespace: vcluster-dns-test
               labelSelector:
                 matchLabels:
-                  vcluster.loft.sh/dns-ns: secondary
+                  vcluster.com/dns-ns: secondary

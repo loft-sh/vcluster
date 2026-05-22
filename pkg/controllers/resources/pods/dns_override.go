@@ -16,6 +16,13 @@ import (
 
 type dnsNameserversResolver struct {
 	entries []dnsNameserverEntry
+
+	// hostCaches maps host namespace to the cache.Cache backing the
+	// resolver's reads from that namespace. The pod syncer reuses these
+	// caches to install Service watches that re-enqueue virtual pods when
+	// the selected Service's ClusterIP changes or when the label selector
+	// suddenly matches a different Service.
+	hostCaches map[string]cache.Cache
 }
 
 type dnsNameserverEntry struct {
@@ -46,6 +53,9 @@ func (r *dnsNameserversResolver) Resolve(ctx context.Context) ([]string, []error
 }
 
 func resolveEntryIP(ctx context.Context, e dnsNameserverEntry) (string, error) {
+	if e.selector == nil {
+		return "", fmt.Errorf("nil label selector for namespace %q", e.namespace)
+	}
 	var svcList corev1.ServiceList
 	if err := e.reader.List(ctx, &svcList,
 		client.InNamespace(e.namespace),
@@ -76,11 +86,12 @@ func resolveEntryIP(ctx context.Context, e dnsNameserverEntry) (string, error) {
 // virtual manager's cache. Returns (nil, nil) when no nameservers are configured.
 func buildDNSNameserversResolver(ctx *synccontext.RegisterContext) (*dnsNameserversResolver, error) {
 	cfgEntries := ctx.Config.Sync.ToHost.Pods.DNS.Nameservers
-	res := &dnsNameserversResolver{}
+	res := &dnsNameserversResolver{
+		hostCaches: map[string]cache.Cache{},
+	}
 	if len(cfgEntries) == 0 {
 		return res, nil
 	}
-	hostCaches := map[string]client.Reader{}
 
 	for i, ce := range cfgEntries {
 		svc := ce.Service
@@ -96,8 +107,8 @@ func buildDNSNameserversResolver(ctx *synccontext.RegisterContext) (*dnsNameserv
 
 		switch svc.Scope {
 		case vclusterconfig.DNSNameserverScopeHost:
-			if r, ok := hostCaches[svc.Namespace]; ok {
-				entry.reader = r
+			if c, ok := res.hostCaches[svc.Namespace]; ok {
+				entry.reader = c
 			} else {
 				c, err := cache.New(ctx.HostManager.GetConfig(), cache.Options{
 					Scheme: ctx.HostManager.GetScheme(),
@@ -112,7 +123,7 @@ func buildDNSNameserversResolver(ctx *synccontext.RegisterContext) (*dnsNameserv
 				if err := ctx.HostManager.Add(c); err != nil {
 					return nil, fmt.Errorf("nameservers[%d]: attach host cache: %w", i, err)
 				}
-				hostCaches[svc.Namespace] = c
+				res.hostCaches[svc.Namespace] = c
 				entry.reader = c
 			}
 

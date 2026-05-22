@@ -42,6 +42,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	translatepods "github.com/loft-sh/vcluster/pkg/controllers/resources/pods/translate"
 )
@@ -184,7 +185,37 @@ func (s *podSyncer) ModifyController(registerContext *synccontext.RegisterContex
 		},
 	}
 
-	return builder.Watches(&corev1.Namespace{}, eventHandler), nil
+	builder = builder.Watches(&corev1.Namespace{}, eventHandler)
+
+	// When sync.toHost.pods.dns.nameservers is configured, watch the host
+	// Services that back each entry. A Service's ClusterIP can change (delete
+	// + recreate), or the label selector can suddenly match a different
+	// Service. Either case means every virtual pod's injected nameservers
+	// must be recomputed, so we enqueue every virtual pod whenever a watched
+	// host namespace sees a Service event.
+	if s.dnsNameservers != nil {
+		for ns, hostCache := range s.dnsNameservers.hostCaches {
+			watchedNS := ns
+			builder = builder.WatchesRawSource(source.Kind(hostCache, &corev1.Service{},
+				handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, _ *corev1.Service) []reconcile.Request {
+					pods := &corev1.PodList{}
+					if err := registerContext.VirtualManager.GetClient().List(ctx, pods); err != nil {
+						klog.FromContext(ctx).Info("failed to list virtual pods on dns nameserver Service event", "namespace", watchedNS, "error", err)
+						return nil
+					}
+					requests := make([]reconcile.Request, 0, len(pods.Items))
+					for _, pod := range pods.Items {
+						requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{
+							Name:      pod.GetName(),
+							Namespace: pod.GetNamespace(),
+						}})
+					}
+					return requests
+				})))
+		}
+	}
+
+	return builder, nil
 }
 
 var _ syncertypes.Syncer = &podSyncer{}
@@ -351,6 +382,16 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 	} else if event.Virtual.Spec.NodeName != "" && event.Host.Spec.NodeName != event.Virtual.Spec.NodeName {
 		// if physical pod nodeName is different from virtual pod nodeName, we delete the virtual one
 		return patcher.DeleteVirtualObjectWithOptions(ctx, event.Virtual, event.Host, "node name is different between the two", &client.DeleteOptions{GracePeriodSeconds: &minimumGracePeriodInSeconds})
+	}
+
+	// dnsConfig.nameservers is immutable on a running pod, so when the
+	// resolved Service ClusterIPs change (Service was recreated or the
+	// label selector now matches a different Service) we delete the host
+	// pod and let SyncToHost recreate it with the new nameservers.
+	if shouldRecreate, reason := s.dnsNameserversDrift(ctx, event.Virtual, event.Host); shouldRecreate {
+		return patcher.DeleteHostObjectWithOptions(ctx, event.Host, event.Virtual, reason, &client.DeleteOptions{
+			GracePeriodSeconds: &zero,
+		})
 	}
 
 	// validate virtual pod before syncing it to the host cluster
@@ -626,6 +667,39 @@ func (s *podSyncer) assignNodeToPod(ctx *synccontext.SyncContext, pObj *corev1.P
 	}
 
 	return nil
+}
+
+// dnsNameserversDrift reports whether the host pod's injected
+// dnsConfig.nameservers no longer match what the resolver would write
+// today. Pods that opted out (hostNetwork) or pinned their own
+// nameservers are never recreated. Resolver errors are ignored here
+// because dropping the host pod on a transient resolver hiccup would be
+// worse than leaving slightly stale nameservers; the next event-driven
+// reconcile retries.
+func (s *podSyncer) dnsNameserversDrift(ctx *synccontext.SyncContext, vPod, pPod *corev1.Pod) (bool, string) {
+	if s.dnsNameservers == nil || !s.dnsNameservers.Enabled() {
+		return false, ""
+	}
+	if pPod.Spec.HostNetwork {
+		return false, ""
+	}
+	if vPod.Spec.DNSConfig != nil && len(vPod.Spec.DNSConfig.Nameservers) > 0 {
+		return false, ""
+	}
+
+	ips, errs := s.dnsNameservers.Resolve(ctx)
+	if len(ips) == 0 || len(errs) > 0 {
+		return false, ""
+	}
+
+	var current []string
+	if pPod.Spec.DNSConfig != nil {
+		current = pPod.Spec.DNSConfig.Nameservers
+	}
+	if slices.Equal(current, ips) {
+		return false, ""
+	}
+	return true, fmt.Sprintf("dns nameservers changed from %v to %v", current, ips)
 }
 
 func (s *podSyncer) applyLimitByClasses(ctx *synccontext.SyncContext, virtual *corev1.Pod) bool {
