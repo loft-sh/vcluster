@@ -457,6 +457,29 @@ func PodDNSNameserversSpec() {
 
 					err = hostClient.CoreV1().Services(PodDNSNameserversNamespace).Delete(ctx, PodDNSNameserversPrimaryService, metav1.DeleteOptions{})
 					Expect(err).To(Succeed())
+					DeferCleanup(func(ctx context.Context) {
+						_, existErr := hostClient.CoreV1().Services(PodDNSNameserversNamespace).Get(
+							ctx, PodDNSNameserversPrimaryService, metav1.GetOptions{})
+						if kerrors.IsNotFound(existErr) {
+							restored := &corev1.Service{
+								ObjectMeta: metav1.ObjectMeta{
+									Name:      PodDNSNameserversPrimaryService,
+									Namespace: PodDNSNameserversNamespace,
+									Labels:    origSvc.Labels,
+								},
+								Spec: corev1.ServiceSpec{
+									Type:     corev1.ServiceTypeClusterIP,
+									Selector: origSvc.Spec.Selector,
+									Ports:    stripPortNodePort(origSvc.Spec.Ports),
+								},
+							}
+							_, err := hostClient.CoreV1().Services(PodDNSNameserversNamespace).Create(
+								ctx, restored, metav1.CreateOptions{})
+							Expect(err).To(Succeed())
+							return
+						}
+						Expect(existErr).To(Succeed())
+					})
 
 					Eventually(func(g Gomega) {
 						_, err := hostClient.CoreV1().Services(PodDNSNameserversNamespace).Get(ctx, PodDNSNameserversPrimaryService, metav1.GetOptions{})
