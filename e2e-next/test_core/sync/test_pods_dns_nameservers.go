@@ -158,7 +158,7 @@ func PodDNSNameserversSpec() {
 				Expect(err).To(Succeed())
 			}
 
-			It("writes all resolved ClusterIPs to synced pods", labels.PR, func(ctx context.Context) {
+			It("writes all resolved ClusterIPs to synced pods", func(ctx context.Context) {
 				var pod *corev1.Pod
 
 				By("Creating a simple pod in the vCluster", func() {

@@ -17,6 +17,7 @@ import (
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	"github.com/loft-sh/vcluster/e2e-next/clusters"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
+	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/e2e-next/setup/lazyvcluster"
 	test_core "github.com/loft-sh/vcluster/e2e-next/test_core/sync"
 	. "github.com/onsi/ginkgo/v2"
@@ -52,13 +53,12 @@ const podsDNSNameserversVClusterName = "pods-dns-nameservers-vcluster"
 func init() { suitePodsDNSNameserversVCluster() }
 
 func suitePodsDNSNameserversVCluster() {
-	// Serial: every spec re-creates the same-named vCluster and host
-	// namespace in BeforeEach, so parallel processes would collide on the
-	// Helm release and the shared dns-test namespace.
-	Describe("pods-dns-nameservers-vcluster", Serial,
+	// Ordered: BeforeAll must complete (vCluster + host namespace created)
+	// before any spec runs; specs share the lazily-created vCluster.
+	Describe("pods-dns-nameservers-vcluster", labels.PR, labels.Sync, Ordered,
 		cluster.Use(clusters.HostCluster),
 		func() {
-			BeforeEach(func(ctx context.Context) context.Context {
+			BeforeAll(func(ctx context.Context) context.Context {
 				DeferCleanup(podsDNSNameserversCleanup)
 				return lazyvcluster.LazyVCluster(ctx,
 					podsDNSNameserversVClusterName,
