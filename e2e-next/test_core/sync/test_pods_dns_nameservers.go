@@ -89,7 +89,6 @@ const (
 func PodDNSNameserversSpec() {
 	Describe("Pod DNS nameservers override",
 		labels.Core,
-		labels.Sync,
 		labels.Pods,
 		func() {
 			var (
