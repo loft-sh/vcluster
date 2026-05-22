@@ -77,9 +77,8 @@ func TestSyncTable(t *testing.T) {
 			podtranslate.UIDAnnotation:                string(vObjectMeta.UID),
 		},
 		Labels: map[string]string{
-			translate.NamespaceLabel:                     vObjectMeta.Namespace,
-			translate.MarkerLabel:                        translate.VClusterName,
-			podtranslate.TenantClusterHostNamespaceLabel: testingutil.DefaultTestCurrentNamespace,
+			translate.NamespaceLabel: vObjectMeta.Namespace,
+			translate.MarkerLabel:    translate.VClusterName,
 		},
 	}
 	virtualNode := corev1.Node{
@@ -384,9 +383,8 @@ func TestSync(t *testing.T) {
 			podtranslate.UIDAnnotation:                string(vObjectMeta.UID),
 		},
 		Labels: map[string]string{
-			translate.NamespaceLabel:                     vObjectMeta.Namespace,
-			translate.MarkerLabel:                        translate.VClusterName,
-			podtranslate.TenantClusterHostNamespaceLabel: testingutil.DefaultTestCurrentNamespace,
+			translate.NamespaceLabel: vObjectMeta.Namespace,
+			translate.MarkerLabel:    translate.VClusterName,
 		},
 	}
 	pPodBase := &corev1.Pod{
@@ -489,9 +487,8 @@ func TestSync(t *testing.T) {
 				podtranslate.UIDAnnotation:                string(vHostPathPod.UID),
 			},
 			Labels: map[string]string{
-				translate.NamespaceLabel:                     vHostPathPod.Namespace,
-				translate.MarkerLabel:                        translate.VClusterName,
-				podtranslate.TenantClusterHostNamespaceLabel: testingutil.DefaultTestCurrentNamespace,
+				translate.NamespaceLabel: vHostPathPod.Namespace,
+				translate.MarkerLabel:    translate.VClusterName,
 			},
 			// CreationTimestamp: metav1.Time{},
 			// ResourceVersion:   "999",

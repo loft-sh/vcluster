@@ -34,10 +34,6 @@ const (
 	// PodDNSNameserversLabelKey is the label key the nameservers entries
 	// select on. Values: "primary" or "secondary".
 	PodDNSNameserversLabelKey = "vcluster.loft.sh/dns-ns"
-
-	// podDNSNameserversTenantHostLabel is the label written by the syncer
-	// onto host pods carrying the resolved nameservers.
-	podDNSNameserversTenantHostLabel = "vcluster.loft.sh/tenant-host-namespace"
 )
 
 // PodDNSNameserversSpec exercises sync.toHost.pods.dns.nameservers: pods
@@ -134,14 +130,14 @@ func PodDNSNameserversSpec() {
 				Expect(err).To(Succeed())
 			}
 
-			It("writes all resolved ClusterIPs and tenant-identity label to synced pods", func(ctx context.Context) {
+			It("writes all resolved ClusterIPs to synced pods", func(ctx context.Context) {
 				podName := "dns-pod-default-" + random.String(6)
 
 				By("Creating a simple pod in the vCluster", func() {
 					createVPod(ctx, podName, nil)
 				})
 
-				By("Waiting for the host pod to receive both resolved nameservers and the tenant label", func() {
+				By("Waiting for the host pod to receive both resolved nameservers", func() {
 					Eventually(func(g Gomega) {
 						hostPod, err := getHostPod(ctx, podName)
 						g.Expect(err).To(Succeed(), "host pod for %s not yet present", podName)
@@ -151,10 +147,6 @@ func PodDNSNameserversSpec() {
 						g.Expect(hostPod.Spec.DNSConfig.Nameservers).To(Equal([]string{primaryIP, secondaryIP}),
 							"host pod nameservers %v != expected [%s %s]",
 							hostPod.Spec.DNSConfig.Nameservers, primaryIP, secondaryIP)
-						g.Expect(hostPod.Labels).To(HaveKey(podDNSNameserversTenantHostLabel),
-							"tenant-host-namespace label missing, labels: %v", hostPod.Labels)
-						g.Expect(hostPod.Labels[podDNSNameserversTenantHostLabel]).NotTo(BeEmpty(),
-							"tenant-host-namespace label value is empty")
 					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 			})

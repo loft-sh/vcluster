@@ -83,7 +83,6 @@ func (t *translator) Diff(ctx *synccontext.SyncContext, event *synccontext.SyncE
 	for k, v := range vNamespace.GetLabels() {
 		event.Host.Labels[translate.HostLabelNamespace(k)] = v
 	}
-
 	// update pod annotations
 	event.Host.Annotations[VClusterLabelsAnnotation] = LabelsAnnotation(vPod)
 	if len(vPod.OwnerReferences) > 0 {

@@ -28,7 +28,7 @@ func (r *dnsNameserversResolver) Enabled() bool {
 	return r != nil && len(r.entries) > 0
 }
 
-func (r *dnsNameserversResolver) Resolve(ctx *synccontext.SyncContext) ([]string, []error) {
+func (r *dnsNameserversResolver) Resolve(ctx context.Context) ([]string, []error) {
 	if !r.Enabled() {
 		return nil, nil
 	}
@@ -81,19 +81,12 @@ func buildDNSNameserversResolver(ctx *synccontext.RegisterContext) (*dnsNameserv
 	}
 
 	res := &dnsNameserversResolver{}
+	hostCaches := map[string]client.Reader{}
 
 	for i, ce := range cfgEntries {
 		svc := ce.Service
-		if svc.LabelSelector == nil {
-			return nil, fmt.Errorf("nameservers[%d]: selector is nil", i)
-		}
-		selector, err := svc.LabelSelector.ToSelector()
-		if err != nil {
-			return nil, fmt.Errorf("nameservers[%d]: invalid selector: %w", i, err)
-		}
-		if selector.Empty() {
-			return nil, fmt.Errorf("nameservers[%d]: selector is empty", i)
-		}
+		// selector validity is guaranteed by validateDNSNameservers at startup
+		selector, _ := svc.LabelSelector.ToSelector()
 
 		entry := dnsNameserverEntry{
 			namespace: svc.Namespace,
@@ -102,20 +95,25 @@ func buildDNSNameserversResolver(ctx *synccontext.RegisterContext) (*dnsNameserv
 
 		switch svc.Scope {
 		case vclusterconfig.DNSNameserverScopeHost:
-			c, err := cache.New(ctx.HostManager.GetConfig(), cache.Options{
-				Scheme: ctx.HostManager.GetScheme(),
-				Mapper: ctx.HostManager.GetRESTMapper(),
-				DefaultNamespaces: map[string]cache.Config{
-					svc.Namespace: {},
-				},
-			})
-			if err != nil {
-				return nil, fmt.Errorf("nameservers[%d]: build host cache: %w", i, err)
+			if r, ok := hostCaches[svc.Namespace]; ok {
+				entry.reader = r
+			} else {
+				c, err := cache.New(ctx.HostManager.GetConfig(), cache.Options{
+					Scheme: ctx.HostManager.GetScheme(),
+					Mapper: ctx.HostManager.GetRESTMapper(),
+					DefaultNamespaces: map[string]cache.Config{
+						svc.Namespace: {},
+					},
+				})
+				if err != nil {
+					return nil, fmt.Errorf("nameservers[%d]: build host cache: %w", i, err)
+				}
+				if err := ctx.HostManager.Add(c); err != nil {
+					return nil, fmt.Errorf("nameservers[%d]: attach host cache: %w", i, err)
+				}
+				hostCaches[svc.Namespace] = c
+				entry.reader = c
 			}
-			if err := ctx.HostManager.Add(c); err != nil {
-				return nil, fmt.Errorf("nameservers[%d]: attach host cache: %w", i, err)
-			}
-			entry.reader = c
 
 		case vclusterconfig.DNSNameserverScopeTenant:
 			entry.reader = ctx.VirtualManager.GetClient()

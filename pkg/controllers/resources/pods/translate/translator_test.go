@@ -1,6 +1,7 @@
 package translate
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"testing"
@@ -1056,7 +1057,7 @@ type fakeNameserversResolver struct {
 }
 
 func (f *fakeNameserversResolver) Enabled() bool { return f.enabled }
-func (f *fakeNameserversResolver) Resolve(_ *synccontext.SyncContext) ([]string, []error) {
+func (f *fakeNameserversResolver) Resolve(_ context.Context) ([]string, []error) {
 	return f.ips, f.errs
 }
 
@@ -1221,29 +1222,4 @@ func TestApplyDNSNameservers(t *testing.T) {
 		assert.Equal(t, pPod.Spec.DNSPolicy, corev1.DNSPolicy(""))
 		assert.Equal(t, len(drainEvents(recorder.Events)), 1)
 	})
-}
-
-func TestTranslateStampsTenantHostNamespaceLabel(t *testing.T) {
-	pClient := testingutil.NewFakeClient(scheme.Scheme)
-	vClient := testingutil.NewFakeClient(scheme.Scheme)
-	registerCtx := generictesting.NewFakeRegisterContext(testingutil.NewFakeConfig(), pClient, vClient)
-	fakeRecorder := events.NewFakeRecorder(10)
-
-	tr, err := NewTranslator(registerCtx, fakeRecorder)
-	assert.NilError(t, err)
-	syncCtx := registerCtx.ToSyncContext("tenant-label-test")
-
-	vNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "ns"}}
-	assert.NilError(t, vClient.Create(syncCtx.Context, vNamespace))
-
-	vPod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{Name: "p", Namespace: "ns"},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{{Name: "c", Image: "nginx"}},
-		},
-	}
-
-	pPod, err := tr.Translate(syncCtx, vPod, nil, "", "", nil)
-	assert.NilError(t, err)
-	assert.Equal(t, pPod.Labels[TenantClusterHostNamespaceLabel], syncCtx.CurrentNamespace)
 }

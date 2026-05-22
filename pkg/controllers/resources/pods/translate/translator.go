@@ -2,6 +2,7 @@ package translate
 
 import (
 	"cmp"
+	"context"
 	"encoding/json"
 	"fmt"
 	"path"
@@ -46,11 +47,6 @@ const (
 	ClusterAutoScalerDaemonSetAnnotation = "cluster-autoscaler.kubernetes.io/daemonset-pod"
 	ServiceAccountNameAnnotation         = "vcluster.loft.sh/service-account-name"
 	ServiceAccountTokenAnnotation        = "vcluster.loft.sh/token-"
-
-	// TenantClusterHostNamespaceLabel is stamped on every synced pod to carry
-	// the Control Plane Cluster namespace of the vCluster instance. Used by
-	// Candy and NetworkPolicy selectors to identify pods from a specific vCluster.
-	TenantClusterHostNamespaceLabel = "vcluster.loft.sh/tenant-host-namespace"
 )
 
 var (
@@ -79,7 +75,7 @@ type DNSNameserversResolver interface {
 	// a non-fatal error is appended to errs -- the caller emits a Warning
 	// event per error. If ips is empty, the caller must return an error
 	// and requeue rather than creating the pod with default DNS.
-	Resolve(ctx *synccontext.SyncContext) (ips []string, errs []error)
+	Resolve(ctx context.Context) (ips []string, errs []error)
 }
 
 func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder events.EventRecorder) (Translator, error) {
@@ -314,9 +310,6 @@ func (t *translator) Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, s
 	for k, v := range vNamespace.GetLabels() {
 		updatedLabels[translate.HostLabelNamespace(k)] = v
 	}
-	// Stamp tenant-identity label unconditionally so Candy and NetworkPolicy
-	// selectors can always identify pods from this vCluster instance.
-	updatedLabels[TenantClusterHostNamespaceLabel] = ctx.CurrentNamespace
 	pPod.SetLabels(updatedLabels)
 
 	// translate services to environment variables
