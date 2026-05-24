@@ -26,6 +26,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/platform/defaults"
 	"github.com/loft-sh/vcluster/pkg/telemetry"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
+	"github.com/loft-sh/vcluster/pkg/util/clihelper"
 	"github.com/mitchellh/go-homedir"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -68,7 +69,7 @@ func NewRootCmd(log log.Logger) *cobra.Command {
 
 			return nil
 		},
-		Long: `vcluster root command`,
+		Long: "\n" + clihelper.ASCIIArt,
 	}
 }
 
