@@ -2061,11 +2061,14 @@ type VirtualClusterKubeConfig struct {
 	// ServerCAKey is the server ca key path.
 	ServerCAKey string `json:"serverCAKey,omitempty"`
 
-	// ServerCAKey is the server ca cert path.
+	// ServerCACert is the server ca cert path.
 	ServerCACert string `json:"serverCACert,omitempty"`
 
-	// ServerCAKey is the client ca cert path.
+	// ClientCACert is the client ca cert path.
 	ClientCACert string `json:"clientCACert,omitempty"`
+
+	// ClientCAKey is the client ca key path.
+	ClientCAKey string `json:"clientCAKey,omitempty"`
 
 	// RequestHeaderCACert is the request header ca cert path.
 	RequestHeaderCACert string `json:"requestHeaderCACert,omitempty"`

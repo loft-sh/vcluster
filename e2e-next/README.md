@@ -139,6 +139,7 @@ Each suite file maps to one vCluster. One file, one vCluster, one function.
 | `suite_plugin_test.go` | `plugin-vcluster` | no |
 | `suite_lifecycle_test.go` | `cli-vcluster` | no |
 | `suite_export_kubeconfig_test.go` | `export-kubeconfig-vcluster` | no |
+| `suite_migration_test.go` | `migration-vcluster` | no |
 | `suite_vind_test.go` | (self-managed) | no |
 
 ## Labels
@@ -161,6 +162,7 @@ Labels are defined in `labels/labels.go`. `labels.PR` goes on suites that should
 | `exportkubeconfig` | `export-kubeconfig-vcluster` |
 | `isolation` | `isolation-mode-vcluster` |
 | `metricsproxy` | `metricsproxy-vcluster` |
+| `migration` | `migration-vcluster` |
 | `nodesync` | `node-sync-vcluster` |
 | `plugin` | `plugin-vcluster` |
 | `rootless` | `rootless-vcluster` |
