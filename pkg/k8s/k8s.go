@@ -11,6 +11,7 @@ import (
 	"time"
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/pkg/certs"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/etcd"
@@ -150,14 +151,25 @@ func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualCl
 				args = append(args, "--bind-address=127.0.0.1")
 				args = append(args, "--client-ca-file="+vConfig.VirtualClusterKubeConfig().ClientCACert)
 				args = append(args, "--cluster-name=kubernetes")
-				args = append(args, "--cluster-signing-cert-file="+vConfig.VirtualClusterKubeConfig().ServerCACert)
-				args = append(args, "--cluster-signing-key-file="+vConfig.VirtualClusterKubeConfig().ServerCAKey)
 				args = append(args, "--kubeconfig="+constants.ControllerManagerConf)
 				args = append(args, "--requestheader-client-ca-file="+vConfig.VirtualClusterKubeConfig().RequestHeaderCACert)
 				args = append(args, "--root-ca-file="+vConfig.VirtualClusterKubeConfig().ServerCACert)
 				args = append(args, "--service-account-private-key-file="+constants.SAKey)
 				args = append(args, "--use-service-account-credentials=true")
 				args = append(args, "--leader-elect=true")
+
+				if !hasClusterSigningFileArgs(controllerManager.ExtraArgs) {
+					splitClusterSigningCA, err := certs.HasSplitClusterSigningCA(
+						vConfig.VirtualClusterKubeConfig().ServerCACert,
+						vConfig.VirtualClusterKubeConfig().ClientCACert,
+					)
+					if err != nil {
+						klog.Errorf("error configuring cluster signing args: %s", err.Error())
+						osutil.Exit(1)
+						return
+					}
+					args = appendClusterSigningArgs(args, vConfig.VirtualClusterKubeConfig(), splitClusterSigningCA)
+				}
 
 				if vConfig.PrivateNodes.Enabled {
 					controllers := "--controllers=*,bootstrapsigner,tokencleaner"
@@ -380,6 +392,45 @@ func ExecTemplate(templateContents string, name, namespace string, values *vclus
 	}
 
 	return b.Bytes(), nil
+}
+
+func appendClusterSigningArgs(args []string, kubeConfig vclusterconfig.VirtualClusterKubeConfig, splitCA bool) []string {
+	if !splitCA {
+		args = append(args, "--cluster-signing-cert-file="+kubeConfig.ServerCACert)
+		args = append(args, "--cluster-signing-key-file="+kubeConfig.ServerCAKey)
+		return args
+	}
+
+	args = append(args, "--cluster-signing-kube-apiserver-client-cert-file="+kubeConfig.ClientCACert)
+	args = append(args, "--cluster-signing-kube-apiserver-client-key-file="+kubeConfig.ClientCAKey)
+	args = append(args, "--cluster-signing-kubelet-client-cert-file="+kubeConfig.ClientCACert)
+	args = append(args, "--cluster-signing-kubelet-client-key-file="+kubeConfig.ClientCAKey)
+	args = append(args, "--cluster-signing-kubelet-serving-cert-file="+kubeConfig.ServerCACert)
+	args = append(args, "--cluster-signing-kubelet-serving-key-file="+kubeConfig.ServerCAKey)
+	args = append(args, "--cluster-signing-legacy-unknown-cert-file="+kubeConfig.ServerCACert)
+	args = append(args, "--cluster-signing-legacy-unknown-key-file="+kubeConfig.ServerCAKey)
+	return args
+}
+
+func hasClusterSigningFileArgs(args []string) bool {
+	for _, flag := range []string{
+		"--cluster-signing-cert-file",
+		"--cluster-signing-key-file",
+		"--cluster-signing-kube-apiserver-client-cert-file",
+		"--cluster-signing-kube-apiserver-client-key-file",
+		"--cluster-signing-kubelet-client-cert-file",
+		"--cluster-signing-kubelet-client-key-file",
+		"--cluster-signing-kubelet-serving-cert-file",
+		"--cluster-signing-kubelet-serving-key-file",
+		"--cluster-signing-legacy-unknown-cert-file",
+		"--cluster-signing-legacy-unknown-key-file",
+	} {
+		if command.ContainsFlag(args, flag) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // waits for the api to be up, ignoring certs and calling it
