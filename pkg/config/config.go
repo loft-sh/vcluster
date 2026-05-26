@@ -45,6 +45,7 @@ func (v VirtualClusterConfig) VirtualClusterKubeConfig() config.VirtualClusterKu
 		ServerCAKey:         constants.ServerCAKey,
 		ServerCACert:        constants.ServerCACert,
 		ClientCACert:        constants.ClientCACert,
+		ClientCAKey:         constants.ClientCAKey,
 		RequestHeaderCACert: constants.RequestHeaderCACert,
 	}
 
@@ -54,6 +55,9 @@ func (v VirtualClusterConfig) VirtualClusterKubeConfig() config.VirtualClusterKu
 	}
 	if retConfig.ClientCACert == "" {
 		retConfig.ClientCACert = distroConfig.ClientCACert
+	}
+	if retConfig.ClientCAKey == "" {
+		retConfig.ClientCAKey = distroConfig.ClientCAKey
 	}
 	if retConfig.ServerCAKey == "" {
 		retConfig.ServerCAKey = distroConfig.ServerCAKey
