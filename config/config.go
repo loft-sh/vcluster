@@ -1693,6 +1693,11 @@ type NetworkingAdvanced struct {
 	// any other modification. You will need to provide a namespace for the service, e.g. my-other-service.my-other-namespace
 	FallbackHostCluster bool `json:"fallbackHostCluster,omitempty"`
 
+	// OverrideDNS overrides the DNS server address that vCluster sets on synced pods. Accepts either
+	// an IP address (e.g. "10.96.0.10") or a hostname (e.g. "my-dns.example.com"). When a hostname
+	// is given it is resolved once at startup and an error is returned if resolution fails.
+	OverrideDNS string `json:"overrideDNS,omitempty"`
+
 	// ProxyKubelets allows rewriting certain metrics and stats from the Kubelet to "fake" this for applications such as
 	// prometheus or other node exporters.
 	ProxyKubelets NetworkProxyKubelets `json:"proxyKubelets,omitempty"`

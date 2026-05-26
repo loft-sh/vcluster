@@ -104,6 +104,11 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		return nil, fmt.Errorf("failed to parse host cluster version : %w", err)
 	}
 
+	overrideDNSIP, err := resolveDNSOverride(ctx.Config.Networking.Advanced.OverrideDNS)
+	if err != nil {
+		return nil, err
+	}
+
 	return &podSyncer{
 		GenericTranslator: genericTranslator,
 		Importer:          pro.NewImporter(podsMapper),
@@ -111,6 +116,7 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		serviceName:      ctx.Config.Name,
 		schedulingConfig: schedulingConfig,
 		fakeKubeletIPs:   ctx.Config.Networking.Advanced.ProxyKubelets.ByIP,
+		overrideDNSIP:    overrideDNSIP,
 
 		virtualClusterClient:  virtualClusterClient,
 		physicalClusterClient: physicalClusterClient,
@@ -131,6 +137,7 @@ type podSyncer struct {
 	serviceName      string
 	schedulingConfig scheduling.Config
 	fakeKubeletIPs   bool
+	overrideDNSIP    string
 
 	podTranslator         translatepods.Translator
 	virtualClusterClient  kubernetes.Interface

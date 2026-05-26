@@ -3,6 +3,7 @@ package pods
 import (
 	"errors"
 	"fmt"
+	"net"
 
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/specialservices"
@@ -67,6 +68,10 @@ func (s *podSyncer) findKubernetesIP(ctx *synccontext.SyncContext) (string, erro
 }
 
 func (s *podSyncer) findKubernetesDNSIP(ctx *synccontext.SyncContext) (string, error) {
+	if s.overrideDNSIP != "" {
+		return s.overrideDNSIP, nil
+	}
+
 	if specialservices.Default == nil {
 		return "", errors.New("specialservices default not initialized")
 	}
@@ -87,6 +92,26 @@ func (s *podSyncer) findKubernetesDNSIP(ctx *synccontext.SyncContext) (string, e
 	}
 
 	return ip, nil
+}
+
+// resolveDNSOverride resolves value to an IP address suitable for use as the DNS nameserver on
+// synced pods. If value is empty, "" is returned. If value is already a valid IP address it is
+// returned unchanged. Otherwise value is treated as a hostname: it is resolved via the system
+// resolver once at startup, the resolved IP is logged, and an error is returned if resolution
+// fails.
+func resolveDNSOverride(value string) (string, error) {
+	if value == "" {
+		return "", nil
+	}
+	if net.ParseIP(value) != nil {
+		return value, nil
+	}
+	addrs, err := net.LookupHost(value)
+	if err != nil {
+		return "", fmt.Errorf("networking.advanced.overrideDNS: failed to resolve hostname %q: %w", value, err)
+	}
+	klog.Infof("networking.advanced.overrideDNS: resolved hostname %q to %s", value, addrs[0])
+	return addrs[0], nil
 }
 
 func (s *podSyncer) translateAndFindDNSService(ctx *synccontext.SyncContext, kubeClient client.Client, namespace, name string) string {

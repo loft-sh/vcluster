@@ -691,7 +691,93 @@ func TestSync(t *testing.T) {
 				assert.NilError(t, err)
 			},
 		},
+		{
+			// DNS IP is resolved from the kube-dns service in the host cluster.
+			Name: "SyncToHost uses DNS service IP for ClusterFirst pods",
+			InitialVirtualState: []runtime.Object{
+				&corev1.Pod{
+					ObjectMeta: vObjectMeta,
+					Spec:       corev1.PodSpec{DNSPolicy: corev1.DNSClusterFirst},
+				},
+				vNamespace.DeepCopy(),
+			},
+			InitialPhysicalState: []runtime.Object{pVclusterService.DeepCopy(), pDNSService.DeepCopy()},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Pod"): {
+					func() *corev1.Pod {
+						p := pPodBase.DeepCopy()
+						p.Spec.DNSPolicy = corev1.DNSNone
+						p.Spec.DNSConfig = &corev1.PodDNSConfig{
+							Nameservers: []string{pDNSService.Spec.ClusterIP},
+							Searches:    []string{"testns.svc.cluster.local", "svc.cluster.local", "cluster.local"},
+							Options:     []corev1.PodDNSConfigOption{{Name: "ndots", Value: ptr.To("5")}},
+						}
+						return p
+					}(),
+				},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncContext, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*podSyncer).SyncToHost(syncContext, synccontext.NewSyncToHostEvent(&corev1.Pod{
+					ObjectMeta: vObjectMeta,
+					Spec:       corev1.PodSpec{DNSPolicy: corev1.DNSClusterFirst},
+				}))
+				assert.NilError(t, err)
+			},
+		},
+		{
+			// When networking.advanced.overrideDNS is set to an IP, that IP is used directly and
+			// the kube-dns service is never consulted (it is absent from InitialPhysicalState).
+			Name: "SyncToHost uses overrideDNS IP for ClusterFirst pods",
+			InitialVirtualState: []runtime.Object{
+				&corev1.Pod{
+					ObjectMeta: vObjectMeta,
+					Spec:       corev1.PodSpec{DNSPolicy: corev1.DNSClusterFirst},
+				},
+				vNamespace.DeepCopy(),
+			},
+			// pDNSService intentionally absent — override must not fall back to service lookup.
+			InitialPhysicalState: []runtime.Object{pVclusterService.DeepCopy()},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Pod"): {
+					func() *corev1.Pod {
+						p := pPodBase.DeepCopy()
+						p.Spec.DNSPolicy = corev1.DNSNone
+						p.Spec.DNSConfig = &corev1.PodDNSConfig{
+							Nameservers: []string{"9.9.9.9"},
+							Searches:    []string{"testns.svc.cluster.local", "svc.cluster.local", "cluster.local"},
+							Options:     []corev1.PodDNSConfigOption{{Name: "ndots", Value: ptr.To("5")}},
+						}
+						return p
+					}(),
+				},
+			},
+			AdjustConfig: func(vConfig *config.VirtualClusterConfig) {
+				vConfig.Networking.Advanced.OverrideDNS = "9.9.9.9"
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncContext, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*podSyncer).SyncToHost(syncContext, synccontext.NewSyncToHostEvent(&corev1.Pod{
+					ObjectMeta: vObjectMeta,
+					Spec:       corev1.PodSpec{DNSPolicy: corev1.DNSClusterFirst},
+				}))
+				assert.NilError(t, err)
+			},
+		},
 	})
+}
+
+func TestNewPodSyncerOverrideDNSError(t *testing.T) {
+	translate.Default = translate.NewSingleNamespaceTranslator(testingutil.DefaultTestTargetNamespace)
+	specialservices.Default = specialservices.NewDefaultServiceSyncer()
+
+	test := syncertesting.SyncTest{}
+	pClient, vClient, vConfig := test.Setup()
+	registerContext := syncertesting.NewFakeRegisterContext(vConfig, pClient, vClient)
+	registerContext.Config.Networking.Advanced.OverrideDNS = "this.hostname.does.not.exist.invalid"
+
+	_, err := New(registerContext)
+	assert.Assert(t, err != nil, "expected New() to return an error for an unresolvable overrideDNS hostname")
 }
 
 func TestBuildResizePatch(t *testing.T) {
