@@ -93,6 +93,7 @@ and whether the tests gate PRs.
 
 Each suite file maps to one vCluster. One file, one vCluster, one function.
 
+<<<<<<< HEAD
 | Suite file | vCluster | PR-gated | Specs |
 |------------|----------|----------|-------|
 | `suite_e2e_test.go` | `common-vcluster` | yes | 14 (sync, fromHost, coredns, webhook, deploy) |
@@ -129,6 +130,86 @@ Each suite file maps to one vCluster. One file, one vCluster, one function.
 | `secrets` | Secret fromHost sync |
 | `networkpolicies` | NetworkPolicy sync (requires Calico CNI) |
 | `non-default` | Tests requiring special infra (e.g. Calico CNI) - excluded by default |
+=======
+| Suite file | vCluster | PR-gated |
+|------------|----------|----------|
+| `suite_e2e_test.go` | `common-vcluster` | yes |
+| `suite_fromhost_limitclasses_test.go` | `fromhost-limitclasses-vcluster` | yes |
+| `suite_servicesync_test.go` | `service-sync-vcluster` | yes |
+| `suite_kubeletproxy_test.go` | `kubelet-proxy-vcluster` | yes |
+| `suite_snapshot_test.go` | `snapshot-vcluster` | no |
+| `suite_ha_certs_test.go` | `certs-vcluster` | no |
+| `suite_cert_rotation_test.go` | `short-certs-vcluster` | no |
+| `suite_ha_cert_rotation_test.go` | `ha-short-certs-vcluster` | no |
+| `suite_metricsproxy_test.go` | `metricsproxy-vcluster` | no |
+| `suite_isolation_mode_test.go` | `isolation-mode-vcluster` | no |
+| `suite_node_test.go` | `node-sync-vcluster` | no |
+| `suite_rootless_test.go` | `rootless-vcluster` | no |
+| `suite_scheduler_test.go` | `scheduler-vcluster` | no |
+| `suite_plugin_test.go` | `plugin-vcluster` | no |
+| `suite_lifecycle_test.go` | `cli-vcluster` | no |
+| `suite_export_kubeconfig_test.go` | `export-kubeconfig-vcluster` | no |
+| `suite_migration_test.go` | `migration-vcluster` | no |
+| `suite_vind_test.go` | (self-managed) | no |
+
+## Labels
+
+Labels are defined in `labels/labels.go`. `labels.PR` goes on suites that should gate every PR. Every opt-in suite has one primary label that matches its vCluster (e.g. `labels.Rootless` for `rootless-vcluster`) so `--label-filter='rootless'` targets just that suite.
+
+**Scheduling:**
+
+| Label | Applied to | Run it with |
+|-------|------------|-------------|
+| `pr` | PR-gated suites | `--label-filter='pr'` |
+| `non-default` | Tests needing special infra (e.g. Calico) | excluded by default |
+
+**Per-suite primary labels:**
+
+| Label | Suite |
+|-------|-------|
+| `certs` | `short-certs-vcluster`, `ha-short-certs-vcluster`, `certs-vcluster` |
+| `cli` | `cli-vcluster` |
+| `exportkubeconfig` | `export-kubeconfig-vcluster` |
+| `isolation` | `isolation-mode-vcluster` |
+| `metricsproxy` | `metricsproxy-vcluster` |
+| `migration` | `migration-vcluster` |
+| `nodesync` | `node-sync-vcluster` |
+| `plugin` | `plugin-vcluster` |
+| `rootless` | `rootless-vcluster` |
+| `scheduler` | `scheduler-vcluster` |
+| `snapshots` | `snapshot-vcluster` |
+| `vind` | `test_vind` |
+
+**Feature-area labels (spec level, for cross-suite filters):**
+
+`core`, `sync`, `deploy`, `storage`, `security`, `integration`, plus resource-specific `pods`, `pvcs`, `coredns`, `webhooks`, `events`, `configmaps`, `secrets`, `networkpolicies`, `priorityclasses`, `runtimeclasses`, `storageclasses`, `ingressclasses`.
+
+## Timeout Constants
+
+Use these instead of hardcoded durations. Defined in `constants/timeouts.go`.
+
+| Constant | Duration | Use for |
+|----------|----------|---------|
+| `PollingInterval` | 2s | Polling interval for all `Eventually`/`Consistently` |
+| `PollingTimeoutVeryShort` | 5s | Immediate state checks (resource already exists) |
+| `PollingTimeoutShort` | 20s | Quick API operations (get, list, delete) |
+| `PollingTimeout` | 60s | Standard operations (pod ready, secret created) |
+| `PollingTimeoutLong` | 120s | Resource creation (namespace, VCI becoming Ready) |
+| `PollingTimeoutVeryLong` | 300s | vCluster startup, cluster creation |
+
+## Timeout Constants
+
+Use these instead of hardcoded durations. Defined in `constants/timeouts.go`.
+
+| Constant | Duration | Use for |
+|----------|----------|---------|
+| `PollingInterval` | 2s | Polling interval for all `Eventually`/`Consistently` |
+| `PollingTimeoutVeryShort` | 5s | Immediate state checks (resource already exists) |
+| `PollingTimeoutShort` | 20s | Quick API operations (get, list, delete) |
+| `PollingTimeout` | 60s | Standard operations (pod ready, secret created) |
+| `PollingTimeoutLong` | 120s | Resource creation (namespace, VCI becoming Ready) |
+| `PollingTimeoutVeryLong` | 300s | vCluster startup, cluster creation |
+>>>>>>> 0f8c245a0 (fix: k3s to k8s cert migration (#3952))
 
 ## Running Tests
 

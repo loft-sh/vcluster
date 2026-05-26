@@ -21,6 +21,9 @@ import (
 var (
 	migratedFromK3sAnnotation = "vcluster.loft.sh/migrated-from-k3s"
 
+	k3sClientCACertPath = "/data/server/tls/client-ca.crt"
+	k3sClientCAKeyPath  = "/data/server/tls/client-ca.key"
+
 	k3sKubeConfig = map[string]string{
 		certs.AdminKubeConfigFileName:             "/data/server/cred/admin.kubeconfig",
 		certs.ControllerManagerKubeConfigFileName: "/data/server/cred/controller.kubeconfig",
@@ -34,8 +37,12 @@ var (
 		certs.ServerCACertName: "/data/server/tls/server-ca.crt",
 		certs.ServerCAKeyName:  "/data/server/tls/server-ca.key",
 
-		certs.ClientCACertName: "/data/server/tls/client-ca.crt",
-		certs.ClientCAKeyName:  "/data/server/tls/client-ca.key",
+		// Kubernetes cert renewal signs component client certificates with ca.*,
+		// while the migrated apiserver authenticates clients with client-ca.*.
+		certs.CACertName:       k3sClientCACertPath,
+		certs.CAKeyName:        k3sClientCAKeyPath,
+		certs.ClientCACertName: k3sClientCACertPath,
+		certs.ClientCAKeyName:  k3sClientCAKeyPath,
 
 		certs.FrontProxyCACertName: "/data/server/tls/request-header-ca.crt",
 		certs.FrontProxyCAKeyName:  "/data/server/tls/request-header-ca.key",

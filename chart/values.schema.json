@@ -5415,11 +5415,15 @@
         },
         "serverCACert": {
           "type": "string",
-          "description": "ServerCAKey is the server ca cert path."
+          "description": "ServerCACert is the server ca cert path."
         },
         "clientCACert": {
           "type": "string",
-          "description": "ServerCAKey is the client ca cert path."
+          "description": "ClientCACert is the client ca cert path."
+        },
+        "clientCAKey": {
+          "type": "string",
+          "description": "ClientCAKey is the client ca key path."
         },
         "requestHeaderCACert": {
           "type": "string",

@@ -41,4 +41,5 @@ var (
 	Plugin           = Label("plugin")
 	CLI              = Label("cli")
 	ExportKubeConfig = Label("exportkubeconfig")
+	Migration        = Label("migration")
 )
