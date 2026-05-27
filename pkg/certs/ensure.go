@@ -1,6 +1,7 @@
 package certs
 
 import (
+	"bytes"
 	"context"
 	"crypto"
 	"crypto/ecdsa"
@@ -25,6 +26,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	certutil "k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/keyutil"
@@ -348,6 +350,22 @@ func generateCertificates(
 		return fmt.Errorf("split ca cert: %w", err)
 	}
 
+	// k3s can use split client/server CAs. In that case StartK8S switches the
+	// controller-manager to per-signer args, so make sure kubeadm-generated
+	// serving certs and kubeconfigs keep using server-ca for apiserver TLS.
+	err = ensureAPIServerServingCertSignedByServerCA(certificateDir, kubeadmConfig)
+	if err != nil {
+		return fmt.Errorf("ensure apiserver cert: %w", err)
+	}
+
+	// For split k3s CAs, kubeconfigs must trust server-ca because they connect
+	// to the apiserver serving cert. This keeps regenerated kubeconfigs aligned
+	// with the per-signer controller-manager args and server-ca-signed leafs.
+	err = ensureKubeConfigsTrustServerCA(certificateDir)
+	if err != nil {
+		return fmt.Errorf("ensure kube configs trust server ca: %w", err)
+	}
+
 	return nil
 }
 
@@ -443,6 +461,120 @@ func splitCACert(certificateDir string) error {
 	}
 
 	return nil
+}
+
+// ensureKubeConfigsTrustServerCA keeps generated kubeconfigs trusting server-ca
+// when a migrated k3s cluster has split server/client CAs. Kubeconfigs connect
+// to the apiserver, so they must trust the CA that signs apiserver.crt, not the
+// client CA exposed as ca.crt in this mode.
+func ensureKubeConfigsTrustServerCA(certificateDir string) error {
+	caCert, err := os.ReadFile(filepath.Join(certificateDir, CACertName))
+	if err != nil {
+		return fmt.Errorf("read %s: %w", CACertName, err)
+	}
+
+	serverCACert, err := os.ReadFile(filepath.Join(certificateDir, ServerCACertName))
+	if err != nil {
+		return fmt.Errorf("read %s: %w", ServerCACertName, err)
+	}
+
+	if equalFirstPEMCertificate(caCert, serverCACert) {
+		return nil
+	}
+
+	for _, kubeConfigName := range []string{
+		AdminKubeConfigFileName,
+		ControllerManagerKubeConfigFileName,
+		SchedulerKubeConfigFileName,
+	} {
+		err := ensureKubeConfigTrustsCA(filepath.Join(certificateDir, kubeConfigName), serverCACert)
+		if err != nil {
+			return fmt.Errorf("update %s: %w", kubeConfigName, err)
+		}
+	}
+
+	return nil
+}
+
+func ensureKubeConfigTrustsCA(path string, caCert []byte) error {
+	kubeConfig, err := clientcmd.LoadFromFile(path)
+	if err != nil {
+		return fmt.Errorf("load kube config: %w", err)
+	}
+
+	for _, cluster := range kubeConfig.Clusters {
+		cluster.CertificateAuthority = ""
+		cluster.CertificateAuthorityData = caCert
+	}
+
+	err = clientcmd.WriteToFile(*kubeConfig, path)
+	if err != nil {
+		return fmt.Errorf("write kube config: %w", err)
+	}
+
+	return nil
+}
+
+// ensureAPIServerServingCertSignedByServerCA keeps the apiserver serving leaf on
+// server-ca when a migrated k3s cluster has split server/client CAs. Existing
+// migrated certs are already signed correctly, but kubeadm would sign a future
+// regenerated apiserver.crt with ca.crt, which points at client-ca in this mode.
+func ensureAPIServerServingCertSignedByServerCA(certificateDir string, kubeadmConfig *kubeadmapi.InitConfiguration) error {
+	caCert, err := os.ReadFile(filepath.Join(certificateDir, CACertName))
+	if err != nil {
+		return fmt.Errorf("read %s: %w", CACertName, err)
+	}
+
+	serverCACert, err := os.ReadFile(filepath.Join(certificateDir, ServerCACertName))
+	if err != nil {
+		return fmt.Errorf("read %s: %w", ServerCACertName, err)
+	}
+
+	if equalFirstPEMCertificate(caCert, serverCACert) {
+		return nil
+	}
+
+	serverCA, serverCAKey, err := pkiutil.TryLoadCertAndKeyFromDisk(certificateDir, strings.TrimSuffix(ServerCACertName, ".crt"))
+	if err != nil {
+		return fmt.Errorf("load %s: %w", ServerCACertName, err)
+	}
+
+	if err := os.Remove(filepath.Join(certificateDir, APIServerCertName)); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("remove %s: %w", APIServerCertName, err)
+	}
+	if err := os.Remove(filepath.Join(certificateDir, APIServerKeyName)); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("remove %s: %w", APIServerKeyName, err)
+	}
+
+	if err := certs.KubeadmCertAPIServer().CreateFromCA(kubeadmConfig, serverCA, serverCAKey); err != nil {
+		return fmt.Errorf("create %s from %s: %w", APIServerCertName, ServerCACertName, err)
+	}
+
+	return nil
+}
+
+func HasSplitClusterSigningCA(serverCACertPath, clientCACertPath string) (bool, error) {
+	serverCACert, err := os.ReadFile(serverCACertPath)
+	if err != nil {
+		return false, fmt.Errorf("read server ca cert: %w", err)
+	}
+
+	clientCACert, err := os.ReadFile(clientCACertPath)
+	if err != nil {
+		return false, fmt.Errorf("read client ca cert: %w", err)
+	}
+
+	return !equalFirstPEMCertificate(serverCACert, clientCACert), nil
+}
+
+func equalFirstPEMCertificate(a, b []byte) bool {
+	aBlock, _ := pem.Decode(a)
+	bBlock, _ := pem.Decode(b)
+	if aBlock == nil || bBlock == nil || aBlock.Type != "CERTIFICATE" || bBlock.Type != "CERTIFICATE" {
+		return bytes.Equal(a, b)
+	}
+
+	return bytes.Equal(aBlock.Bytes, bBlock.Bytes)
 }
 
 func copyFileIfNotExists(src, dst string) error {

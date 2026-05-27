@@ -40,4 +40,5 @@ var (
 	NodeSync     = Label("nodesync")
 	Plugin       = Label("plugin")
 	CLI          = Label("cli")
+	Migration    = Label("migration")
 )
