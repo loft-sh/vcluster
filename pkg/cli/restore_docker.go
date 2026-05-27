@@ -165,12 +165,24 @@ func RestoreDocker(ctx context.Context, globalFlags *flags.GlobalFlags, snapshot
 
 	// Use caller's CreateOptions if provided (from vcluster create --restore),
 	// otherwise build minimal options from snapshot metadata.
-	createOpts := callerOpts
-	if createOpts == nil {
+	var createOpts *CreateOptions
+	if callerOpts == nil {
 		createOpts = &CreateOptions{
 			Connect:       true,
 			UpdateCurrent: true,
 		}
+	} else {
+		// Copy so we don't mutate the caller's struct. Deep-copy Values to
+		// avoid sharing the backing array with the caller's slice on append.
+		// SetValues is intentionally left as a shallow copy: buildExtraValues
+		// and mergeAllValues only read it, never append to it.
+		// Clear Restore: the archive is already extracted; clearing it also
+		// prevents buildExtraValues from making a redundant (potentially
+		// failing) second fetch of the snapshot URL inside CreateDocker.
+		opts := *callerOpts
+		opts.Restore = ""
+		opts.Values = append([]string(nil), callerOpts.Values...)
+		createOpts = &opts
 	}
 	if createOpts.ChartVersion == "" || createOpts.ChartVersion == upgrade.DevelopmentVersion {
 		createOpts.ChartVersion = chartVersion
