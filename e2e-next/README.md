@@ -106,6 +106,7 @@ Each suite file maps to one vCluster. One file, one vCluster, one function.
 | `suite_node_test.go` | `node-sync-vcluster` | no | 6 (nodesync + shared specs) |
 | `suite_rootless_test.go` | `rootless-vcluster` | no | 6 (rootless + shared specs) |
 | `suite_scheduler_test.go` | `scheduler-vcluster` | no | 7 (scheduler + shared specs) |
+| `suite_migration_test.go` | `migration-vcluster` | no | 1 (control-plane distro) |
 | `suite_vind_test.go` | (self-managed) | no | 1 (docker driver lifecycle) |
 
 ## Labels
@@ -129,6 +130,7 @@ Each suite file maps to one vCluster. One file, one vCluster, one function.
 | `secrets` | Secret fromHost sync |
 | `networkpolicies` | NetworkPolicy sync (requires Calico CNI) |
 | `non-default` | Tests requiring special infra (e.g. Calico CNI) - excluded by default |
+| `migration` | Migration from k3s to k8s |
 
 ## Running Tests
 

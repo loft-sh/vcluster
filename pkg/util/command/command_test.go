@@ -65,3 +65,46 @@ func TestMergeArgs(t *testing.T) {
 		})
 	}
 }
+
+func TestContainsFlag(t *testing.T) {
+	tests := []struct {
+		name     string
+		args     []string
+		flag     string
+		expected bool
+	}{
+		{
+			name:     "same flag with inline value",
+			args:     []string{"--foo=bar"},
+			flag:     "--foo",
+			expected: true,
+		},
+		{
+			name:     "same flag with split value",
+			args:     []string{"--foo", "bar"},
+			flag:     "--foo",
+			expected: true,
+		},
+		{
+			name:     "different flag",
+			args:     []string{"--foobar=baz"},
+			flag:     "--foo",
+			expected: false,
+		},
+		{
+			name:     "non flag args are ignored",
+			args:     []string{"foo"},
+			flag:     "--foo",
+			expected: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := ContainsFlag(test.args, test.flag)
+			if result != test.expected {
+				t.Errorf("expected %v, got %v", test.expected, result)
+			}
+		})
+	}
+}

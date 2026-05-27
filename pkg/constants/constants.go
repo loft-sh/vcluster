@@ -22,6 +22,7 @@ var (
 	ServerCAKey         = filepath.Join(PKIDir, "server-ca.key")
 	ServerCACert        = filepath.Join(PKIDir, "server-ca.crt")
 	ClientCACert        = filepath.Join(PKIDir, "client-ca.crt")
+	ClientCAKey         = filepath.Join(PKIDir, "client-ca.key")
 	RequestHeaderCACert = filepath.Join(PKIDir, "front-proxy-ca.crt")
 
 	FrontProxyClientCert = filepath.Join(PKIDir, "front-proxy-client.crt")

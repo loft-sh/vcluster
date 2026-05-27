@@ -23,7 +23,7 @@ const VClusterManaged = "_VCLUSTER_MANAGED=yes"
 func MergeArgs(baseArgs []string, extraArgs []string) []string {
 	newArgs := []string{}
 	for _, arg := range baseArgs {
-		if containsFlag(extraArgs, arg) {
+		if ContainsFlag(extraArgs, arg) {
 			continue
 		}
 
@@ -33,7 +33,7 @@ func MergeArgs(baseArgs []string, extraArgs []string) []string {
 	return newArgs
 }
 
-func containsFlag(args []string, flag string) bool {
+func ContainsFlag(args []string, flag string) bool {
 	for _, arg := range args {
 		if !strings.HasPrefix(arg, "--") || !strings.HasPrefix(flag, "--") {
 			continue
