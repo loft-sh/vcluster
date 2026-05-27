@@ -111,6 +111,12 @@ tests:
       - equal:
           path: metadata.namespace
           value: my-namespace
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: ["pods/status", "pods/ephemeralcontainers", "persistentvolumeclaims/status"]
+            verbs: ["patch", "update"]
 
   - it: multi-namespace mode
     set:
