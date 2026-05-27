@@ -216,10 +216,12 @@ func (o *ObjectStore) Target() string {
 
 func (o *ObjectStore) PutObject(ctx context.Context, body io.Reader) error {
 	input := &s3.PutObjectInput{
-		Bucket:  aws.String(o.bucket),
-		Key:     aws.String(o.key),
-		Body:    &wrapper{body},
-		Tagging: aws.String(o.tagging),
+		Bucket: aws.String(o.bucket),
+		Key:    aws.String(o.key),
+		Body:   &wrapper{body},
+	}
+	if o.tagging != "" {
+		input.Tagging = aws.String(o.tagging)
 	}
 
 	switch {
