@@ -67,7 +67,7 @@ rules:
     resources: [ "endpointslices" ]
     verbs: [ "create", "list", "get", "delete", "patch", "update", "watch" ]
   {{- end }}
-  {{- if or .Values.privateNodes.enabled (gt (int .Values.controlPlane.statefulSet.highAvailability.replicas) 1) }}
+  {{- if or .Values.privateNodes.enabled (gt (int .Values.controlPlane.statefulSet.highAvailability.replicas) 1) .Values.controlPlane.backingStore.etcd.embedded.enabled }}
   - apiGroups: ["coordination.k8s.io"]
     resources: ["leases"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]

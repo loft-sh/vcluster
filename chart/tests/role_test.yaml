@@ -429,6 +429,45 @@ tests:
             verbs:
               ["create", "delete", "patch", "update", "get", "list", "watch"]
 
+  - it: embedded etcd grants lease verbs
+    # Embedded etcd uses a host-namespace Lease for the health-checker leader
+    # election. Without this rule, single-replica embedded-etcd deployments
+    # spin in lease-acquire retries.
+    set:
+      controlPlane:
+        backingStore:
+          etcd:
+            embedded:
+              enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: Role
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["coordination.k8s.io"]
+            resources: ["leases"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]
+
+  - it: default config does not grant lease verbs
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: Role
+      - notContains:
+          path: rules
+          content:
+            apiGroups: ["coordination.k8s.io"]
+            resources: ["leases"]
+            verbs:
+              ["create", "delete", "patch", "update", "get", "list", "watch"]
+
   - it: volume snapshot rules
     set:
       rbac:
