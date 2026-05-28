@@ -95,6 +95,27 @@ func TestGetSnapshotArchiveKind(t *testing.T) {
 			wantKind: EtcdSnapshotKind,
 		},
 		{
+			name: "etcd snapshot - release, request then DBStoreKey",
+			setup: func(t *testing.T) string {
+				return newTestArchive(t,
+					archiveEntry{key: snapshotapi.SnapshotReleaseKey, value: []byte("{}")},
+					archiveEntry{key: RequestStoreKey + "/v1", value: []byte("{}")},
+					archiveEntry{key: DBStoreKey, value: []byte("db-bytes")},
+				)
+			},
+			wantKind: EtcdSnapshotKind,
+		},
+		{
+			name: "etcd snapshot - request then DBStoreKey (no release)",
+			setup: func(t *testing.T) string {
+				return newTestArchive(t,
+					archiveEntry{key: RequestStoreKey + "/v1", value: []byte("{}")},
+					archiveEntry{key: DBStoreKey, value: []byte("db-bytes")},
+				)
+			},
+			wantKind: EtcdSnapshotKind,
+		},
+		{
 			name: "kv snapshot - registry key first",
 			setup: func(t *testing.T) string {
 				return newTestArchive(t,
@@ -118,6 +139,45 @@ func TestGetSnapshotArchiveKind(t *testing.T) {
 			setup: func(t *testing.T) string {
 				return newTestArchive(t,
 					archiveEntry{key: RequestStoreKey + "/v1", value: []byte("{}")},
+				)
+			},
+			wantKind: KeyValueSnapshotKind,
+		},
+		{
+			name: "kv snapshot - only request key, EOF after",
+			setup: func(t *testing.T) string {
+				return newTestArchive(t,
+					archiveEntry{key: RequestStoreKey + "/v1", value: []byte("{}")},
+				)
+			},
+			wantKind: KeyValueSnapshotKind,
+		},
+		{
+			name: "kv snapshot - release then request key, EOF after",
+			setup: func(t *testing.T) string {
+				return newTestArchive(t,
+					archiveEntry{key: snapshotapi.SnapshotReleaseKey, value: []byte("{}")},
+					archiveEntry{key: RequestStoreKey + "/v1", value: []byte("{}")},
+				)
+			},
+			wantKind: KeyValueSnapshotKind,
+		},
+		{
+			name: "kv snapshot - release, request then non-DB key",
+			setup: func(t *testing.T) string {
+				return newTestArchive(t,
+					archiveEntry{key: snapshotapi.SnapshotReleaseKey, value: []byte("{}")},
+					archiveEntry{key: RequestStoreKey + "/v1", value: []byte("{}")},
+					archiveEntry{key: "/registry/pods/default/foo", value: []byte("v")},
+				)
+			},
+			wantKind: KeyValueSnapshotKind,
+		},
+		{
+			name: "kv snapshot - exact RequestStoreKey (no suffix)",
+			setup: func(t *testing.T) string {
+				return newTestArchive(t,
+					archiveEntry{key: RequestStoreKey, value: []byte("{}")},
 				)
 			},
 			wantKind: KeyValueSnapshotKind,
