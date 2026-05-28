@@ -179,14 +179,6 @@ func (c *Client) writeEtcdSnapshot(ctx context.Context, etcdClient etcd.Client, 
 		}
 	}
 
-	// DBStoreKey as the second entry (or first, if no release) marks this archive
-	// as an EtcdSnapshot; otherwise it is treated as a KeyValueSnapshot.
-	// Keep getSnapshotArchiveKind in sync with any structure changes.
-	log.Info("Adding etcd snapshot to snapshot archive")
-	if err := writeArchiveFileEntry(tarWriter, DBStoreKey, dbPath); err != nil {
-		return fmt.Errorf("failed to write etcd snapshot to tar archive: %w", err)
-	}
-
 	if c.Request != nil {
 		log.Info("Adding snapshot request to snapshot archive")
 		requestBytes, err := json.Marshal(c.Request)
@@ -198,6 +190,14 @@ func (c *Client) writeEtcdSnapshot(ctx context.Context, etcdClient etcd.Client, 
 		if err != nil {
 			return fmt.Errorf("failed to snapshot request: %w", err)
 		}
+	}
+
+	// DBStoreKey as the third entry (or first, if no release or snapshot request) marks this archive
+	// as an EtcdSnapshot; otherwise it is treated as a KeyValueSnapshot.
+	// Keep getSnapshotArchiveKind in sync with any structure changes.
+	log.Info("Adding etcd snapshot to snapshot archive")
+	if err := writeArchiveFileEntry(tarWriter, DBStoreKey, dbPath); err != nil {
+		return fmt.Errorf("failed to write etcd snapshot to tar archive: %w", err)
 	}
 
 	if c.skipKeys != nil {

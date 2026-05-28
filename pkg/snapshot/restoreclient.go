@@ -1182,6 +1182,17 @@ func getSnapshotArchiveKind(fileName string) (SnapshotKind, error) {
 		}
 	}
 
+	// found request store key, reading the next entry header
+	if strings.HasPrefix(header.Name, RequestStoreKey) {
+		header, err = tarReader.Next()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return KeyValueSnapshotKind, nil
+			}
+			return UnknownSnapshotKind, fmt.Errorf("failed to read tar header: %w", err)
+		}
+	}
+
 	// found the DBStoreKey, return EtcdSnapshotKind.
 	if header.Name == DBStoreKey {
 		return EtcdSnapshotKind, nil
