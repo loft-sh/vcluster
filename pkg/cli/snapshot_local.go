@@ -12,7 +12,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
 	"github.com/loft-sh/vcluster/pkg/util/podhelper"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -53,7 +52,7 @@ func snapshotToLocalFile(ctx context.Context, vCluster *find.VCluster,
 		return nil
 	}
 
-	targetPod, err := findVClusterPod(vCluster)
+	targetPod, err := pod.FindVClusterPod(vCluster)
 	if err != nil {
 		return err
 	}
@@ -106,7 +105,7 @@ func restoreFromLocalFile(ctx context.Context, vCluster *find.VCluster,
 
 	// Stream the local file into the syncer PVC via exec before pausing.
 	// The PVC (and the staged file) persist through scale-to-zero.
-	targetPod, err := findVClusterPod(vCluster)
+	targetPod, err := pod.FindVClusterPod(vCluster)
 	if err != nil {
 		return err
 	}
@@ -153,14 +152,4 @@ func waitForSnapshotRequest(ctx context.Context, kubeClient *kubernetes.Clientse
 			}
 			return false, nil
 		})
-}
-
-func findVClusterPod(vCluster *find.VCluster) (*corev1.Pod, error) {
-	for _, pod := range vCluster.Pods {
-		p := &pod
-		if (vCluster.StatefulSet != nil || vCluster.Deployment != nil) && len(p.Name) > 0 {
-			return p, nil
-		}
-	}
-	return nil, fmt.Errorf("no running pod found for vCluster %s", vCluster.Name)
 }
