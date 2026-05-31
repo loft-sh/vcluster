@@ -1233,6 +1233,9 @@ type SyncToHost struct {
 	// Ingresses defines if ingresses created within the virtual cluster should get synced to the host cluster.
 	Ingresses EnableSwitchWithPatches `json:"ingresses,omitempty"`
 
+	// GatewayAPI defines Gateway API resources created within the virtual cluster that should get synced to the host cluster.
+	GatewayAPI GatewayAPIEnableSwitchWithPatches `json:"gatewayApi,omitempty"`
+
 	// Services defines if services created within the virtual cluster should get synced to the host cluster.
 	Services EnableSwitchWithPatches `json:"services,omitempty"`
 
@@ -1291,6 +1294,37 @@ type EnableSwitchWithPatches struct {
 	Patches []TranslatePatch `json:"patches,omitempty"`
 }
 
+type GatewayAPIEnableSwitchWithPatches struct {
+	EnableSwitchWithPatches
+
+	// HTTPRoutes configures HTTPRoute sync to the host cluster.
+	HTTPRoutes EnableSwitchWithPatches `json:"httpRoutes,omitempty"`
+
+	// Gateways configures tenant-created Gateway sync to the host cluster.
+	Gateways EnableSwitchWithPatches `json:"gateways,omitempty"`
+
+	// TLSRoutes configures TLSRoute sync to the host cluster.
+	TLSRoutes EnableSwitchWithPatches `json:"tlsRoutes,omitempty"`
+
+	// BackendTLSPolicies configures BackendTLSPolicy sync to the host cluster.
+	BackendTLSPolicies EnableSwitchWithPatches `json:"backendTLSPolicies,omitempty"`
+
+	// ReferenceGrants configures ReferenceGrant sync to the host cluster. Enabled may be "auto", "true", or "false".
+	ReferenceGrants EnableAutoSwitchWithPatches `json:"referenceGrants,omitempty"`
+
+	// HTTPRoutePatches patch HTTPRoute resources according to the provided specification.
+	HTTPRoutePatches []TranslatePatch `json:"httpRoutePatches,omitempty"`
+
+	// TLSRoutePatches patch TLSRoute resources according to the provided specification.
+	TLSRoutePatches []TranslatePatch `json:"tlsRoutePatches,omitempty"`
+
+	// BackendTLSPolicyPatches patch BackendTLSPolicy resources according to the provided specification.
+	BackendTLSPolicyPatches []TranslatePatch `json:"backendTLSPolicyPatches,omitempty"`
+
+	// ReferenceGrantPatches patch ReferenceGrant resources according to the provided specification.
+	ReferenceGrantPatches []TranslatePatch `json:"referenceGrantPatches,omitempty"`
+}
+
 type EnableSwitchWithResourcesMappings struct {
 	// Enabled defines if this option should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
@@ -1332,6 +1366,12 @@ type SyncFromHost struct {
 
 	// IngressClasses defines if ingress classes should get synced from the host cluster to the virtual cluster, but not back.
 	IngressClasses EnableSwitchWithPatchesAndSelector `json:"ingressClasses,omitempty"`
+
+	// GatewayClasses defines if gateway classes should get synced from the host cluster to the virtual cluster, but not back.
+	GatewayClasses EnableSwitchWithPatchesAndSelector `json:"gatewayClasses,omitempty"`
+
+	// Gateways defines if selected host Gateways should get synced from the host cluster to the virtual cluster, but not back.
+	Gateways FromHostGateways `json:"gateways,omitempty"`
 
 	// RuntimeClasses defines if runtime classes should get synced from the host cluster to the virtual cluster, but not back.
 	RuntimeClasses EnableSwitchWithPatchesAndSelector `json:"runtimeClasses,omitempty"`
@@ -1392,6 +1432,69 @@ type EnableSwitchWithPatchesAndSelector struct {
 
 	// Selector defines the selector to use for the resource. If not set, all resources of that type will be synced.
 	Selector StandardLabelSelector `json:"selector,omitempty"`
+}
+
+type FromHostGateways struct {
+	EnableSwitchWithPatchesAndSelector
+
+	// HostNamespaces is the list of host namespaces from which Gateways may be imported.
+	HostNamespaces []string `json:"hostNamespaces,omitempty"`
+
+	// VirtualNamespace is the namespace where imported Gateways are mirrored in the virtual cluster.
+	VirtualNamespace string `json:"virtualNamespace,omitempty"`
+
+	// Imports explicitly imports individual host Gateways and can override selector-derived defaults.
+	Imports []GatewayImport `json:"imports,omitempty"`
+
+	// AllowedRoutes configures the tenant-facing allowedRoutes policy shown on imported Gateways and enforced for Routes.
+	AllowedRoutes GatewayAllowedRoutesConfig `json:"allowedRoutes,omitempty"`
+
+	// Status configures how Gateway status is mirrored.
+	Status GatewayImportStatus `json:"status,omitempty"`
+
+	// Metadata configures imported Gateway metadata visibility.
+	Metadata GatewayImportMetadata `json:"metadata,omitempty"`
+
+	// Sanitize configures sensitive host field sanitization.
+	Sanitize GatewayImportSanitize `json:"sanitize,omitempty"`
+}
+
+type GatewayImport struct {
+	HostNamespace string `json:"hostNamespace,omitempty"`
+	Name          string `json:"name,omitempty"`
+	VirtualName   string `json:"virtualName,omitempty"`
+
+	VirtualNamespacePolicy *GatewayVirtualNamespacePolicy `json:"virtualNamespacePolicy,omitempty"`
+	AllowedHostnames       []string                       `json:"allowedHostnames,omitempty"`
+}
+
+type GatewayAllowedRoutesConfig struct {
+	DefaultVirtualNamespacePolicy *GatewayVirtualNamespacePolicy       `json:"defaultVirtualNamespacePolicy,omitempty"`
+	Overrides                     []GatewayAllowedRoutesPolicyOverride `json:"overrides,omitempty"`
+}
+
+type GatewayAllowedRoutesPolicyOverride struct {
+	HostNamespace          string                        `json:"hostNamespace,omitempty"`
+	Name                   string                        `json:"name,omitempty"`
+	VirtualNamespacePolicy GatewayVirtualNamespacePolicy `json:"virtualNamespacePolicy,omitempty"`
+}
+
+type GatewayVirtualNamespacePolicy struct {
+	From     string                `json:"from,omitempty"`
+	Selector StandardLabelSelector `json:"selector,omitempty"`
+}
+
+type GatewayImportStatus struct {
+	ExposeAddresses bool `json:"exposeAddresses,omitempty"`
+}
+
+type GatewayImportMetadata struct {
+	ExposeSourceGateway bool `json:"exposeSourceGateway,omitempty"`
+}
+
+type GatewayImportSanitize struct {
+	CertificateRefs bool `json:"certificateRefs,omitempty"`
+	Infrastructure  bool `json:"infrastructure,omitempty"`
 }
 
 type EnableAutoSwitchWithPatchesAndSelector struct {

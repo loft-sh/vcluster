@@ -14,6 +14,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 var Scheme = runtime.NewScheme()
@@ -34,6 +35,9 @@ func init() {
 
 	// Register VolumeSnapshot CRDs
 	_ = volumesnapshotv1.AddToScheme(Scheme)
+
+	// Register GatewayAPI CRDs
+	_ = gatewayv1.Install(Scheme)
 
 	// Register Loft CRDs
 	_ = agentstoragev1.AddToScheme(Scheme)
