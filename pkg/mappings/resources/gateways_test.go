@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	rootconfig "github.com/loft-sh/vcluster/config"
 	pkgconfig "github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -12,38 +11,41 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-func TestImportedGatewayMapperUsesVirtualNamespaceAndExplicitRename(t *testing.T) {
+func TestImportedGatewayMapperUsesExactAndWildcardMappings(t *testing.T) {
 	mapper := NewImportedGatewayMapper()
 	vcConfig := &pkgconfig.VirtualClusterConfig{}
-	vcConfig.Sync.FromHost.Gateways.VirtualNamespace = "vcluster-gateways"
-	vcConfig.Sync.FromHost.Gateways.HostNamespaces = []string{"networking"}
-	vcConfig.Sync.FromHost.Gateways.Imports = []rootconfig.GatewayImport{{
-		HostNamespace: "platform",
-		Name:          "shared-edge",
-		VirtualName:   "platform-shared-edge",
-	}}
+	vcConfig.Sync.FromHost.Gateways.Mappings.ByName = map[string]string{
+		"networking/*":      "tenant-gateways/*",
+		"platform/edge":     "shared-gateways/edge-public",
+		"platform/internal": "shared-gateways/internal-public",
+	}
 	ctx := &synccontext.SyncContext{Context: context.Background(), Config: vcConfig}
 
 	got := mapper.HostToVirtual(ctx, types.NamespacedName{Namespace: "networking", Name: "shared-edge"}, &gatewayv1.Gateway{})
-	if got.Namespace != "vcluster-gateways" || got.Name != "shared-edge" {
-		t.Fatalf("expected networking/shared-edge to map to vcluster-gateways/shared-edge, got %s/%s", got.Namespace, got.Name)
+	if got.Namespace != "tenant-gateways" || got.Name != "shared-edge" {
+		t.Fatalf("expected wildcard mapping to tenant-gateways/shared-edge, got %s/%s", got.Namespace, got.Name)
 	}
 
-	got = mapper.HostToVirtual(ctx, types.NamespacedName{Namespace: "platform", Name: "shared-edge"}, &gatewayv1.Gateway{})
-	if got.Namespace != "vcluster-gateways" || got.Name != "platform-shared-edge" {
-		t.Fatalf("expected explicit import rename to map to vcluster-gateways/platform-shared-edge, got %s/%s", got.Namespace, got.Name)
+	got = mapper.HostToVirtual(ctx, types.NamespacedName{Namespace: "platform", Name: "edge"}, &gatewayv1.Gateway{})
+	if got.Namespace != "shared-gateways" || got.Name != "edge-public" {
+		t.Fatalf("expected exact mapping to shared-gateways/edge-public, got %s/%s", got.Namespace, got.Name)
 	}
 
-	back := mapper.VirtualToHost(ctx, types.NamespacedName{Namespace: "vcluster-gateways", Name: "platform-shared-edge"}, &gatewayv1.Gateway{})
-	if back.Namespace != "platform" || back.Name != "shared-edge" {
-		t.Fatalf("expected explicit virtual name to reverse-map to platform/shared-edge, got %s/%s", back.Namespace, back.Name)
+	back := mapper.VirtualToHost(ctx, types.NamespacedName{Namespace: "shared-gateways", Name: "edge-public"}, &gatewayv1.Gateway{})
+	if back.Namespace != "platform" || back.Name != "edge" {
+		t.Fatalf("expected exact reverse mapping to platform/edge, got %s/%s", back.Namespace, back.Name)
+	}
+
+	back = mapper.VirtualToHost(ctx, types.NamespacedName{Namespace: "tenant-gateways", Name: "shared-edge"}, &gatewayv1.Gateway{})
+	if back.Namespace != "networking" || back.Name != "shared-edge" {
+		t.Fatalf("expected wildcard reverse mapping to networking/shared-edge, got %s/%s", back.Namespace, back.Name)
 	}
 }
 
-func TestGatewayMapperUsesTenantTranslationOutsideImportNamespace(t *testing.T) {
+func TestGatewayMapperUsesTenantTranslationForUnmappedTenantGateway(t *testing.T) {
 	mapper := NewImportedGatewayMapper()
 	vcConfig := &pkgconfig.VirtualClusterConfig{}
-	vcConfig.Sync.FromHost.Gateways.VirtualNamespace = "vcluster-gateways"
+	vcConfig.Sync.FromHost.Gateways.Mappings.ByName = map[string]string{"platform/edge": "shared-gateways/edge"}
 	vcConfig.Sync.ToHost.GatewayAPI.Gateways.Enabled = true
 	ctx := &synccontext.SyncContext{Context: context.Background(), Config: vcConfig}
 
@@ -52,38 +54,55 @@ func TestGatewayMapperUsesTenantTranslationOutsideImportNamespace(t *testing.T) 
 	if got != expected {
 		t.Fatalf("expected tenant Gateway to use standard physical translation %s, got %s", expected.String(), got.String())
 	}
-
-	reserved := mapper.VirtualToHost(ctx, types.NamespacedName{Namespace: "vcluster-gateways", Name: "edge"}, &gatewayv1.Gateway{})
-	if reserved == expected {
-		t.Fatalf("expected reserved import namespace Gateway to avoid tenant toHost translation")
-	}
 }
 
-func TestImportedGatewayMapperManagedOnlyForSelectedHostGateways(t *testing.T) {
+func TestImportedGatewayMapperManagedOnlyForMappedHostGateways(t *testing.T) {
 	mapper := NewImportedGatewayMapper()
 	vcConfig := &pkgconfig.VirtualClusterConfig{}
-	vcConfig.Sync.FromHost.Gateways.HostNamespaces = []string{"networking"}
+	vcConfig.Sync.FromHost.Gateways.Mappings.ByName = map[string]string{
+		"networking/*":  "tenant-gateways/*",
+		"platform/edge": "shared-gateways/edge-public",
+	}
 	vcConfig.Sync.FromHost.Gateways.Selector.MatchLabels = map[string]string{"expose": "true"}
 	ctx := &synccontext.SyncContext{Context: context.Background(), Config: vcConfig}
 
-	selected := &gatewayv1.Gateway{}
-	selected.SetNamespace("networking")
-	selected.SetName("shared-edge")
-	selected.SetLabels(map[string]string{"expose": "true"})
-	managed, err := mapper.IsManaged(ctx, selected)
+	selectedWildcard := &gatewayv1.Gateway{}
+	selectedWildcard.SetNamespace("networking")
+	selectedWildcard.SetName("shared-edge")
+	selectedWildcard.SetLabels(map[string]string{"expose": "true"})
+	managed, err := mapper.IsManaged(ctx, selectedWildcard)
 	if err != nil || !managed {
-		t.Fatalf("expected selected Gateway to be managed, managed=%v err=%v", managed, err)
+		t.Fatalf("expected selector-matching wildcard Gateway to be managed, managed=%v err=%v", managed, err)
 	}
 
-	unselected := &gatewayv1.Gateway{}
-	unselected.SetNamespace("demo")
-	unselected.SetName("tenant-gw")
-	unselected.SetLabels(map[string]string{"expose": "true"})
-	managed, err = mapper.IsManaged(ctx, unselected)
+	unselectedWildcard := &gatewayv1.Gateway{}
+	unselectedWildcard.SetNamespace("networking")
+	unselectedWildcard.SetName("private-edge")
+	managed, err = mapper.IsManaged(ctx, unselectedWildcard)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if managed {
-		t.Fatalf("expected Gateway outside configured hostNamespaces to be unmanaged")
+		t.Fatalf("expected selector-missing wildcard Gateway to be unmanaged")
+	}
+
+	exact := &gatewayv1.Gateway{}
+	exact.SetNamespace("platform")
+	exact.SetName("edge")
+	managed, err = mapper.IsManaged(ctx, exact)
+	if err != nil || !managed {
+		t.Fatalf("expected exact mapped Gateway to bypass selector and be managed, managed=%v err=%v", managed, err)
+	}
+
+	unmapped := &gatewayv1.Gateway{}
+	unmapped.SetNamespace("demo")
+	unmapped.SetName("tenant-gw")
+	unmapped.SetLabels(map[string]string{"expose": "true"})
+	managed, err = mapper.IsManaged(ctx, unmapped)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if managed {
+		t.Fatalf("expected unmapped host Gateway to be unmanaged")
 	}
 }

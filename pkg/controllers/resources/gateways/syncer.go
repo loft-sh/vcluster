@@ -2,6 +2,7 @@ package gateways
 
 import (
 	"fmt"
+	"maps"
 
 	rootconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/mappings/resources"
@@ -25,7 +26,6 @@ const (
 	ImportedGatewayLabel    = "vcluster.loft.sh/imported-gateway"
 	ManagedByAnnotation     = "vcluster.loft.sh/managed-by"
 	SourceGatewayAnnotation = "vcluster.loft.sh/source-gateway"
-	DefaultVirtualNamespace = "vcluster-gateways"
 )
 
 type gatewaySyncer struct {
@@ -81,16 +81,18 @@ func (s *tenantGatewaySyncer) Syncer() syncertypes.Sync[client.Object] {
 }
 
 func (s *tenantGatewaySyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*gatewayv1.Gateway]) (ctrl.Result, error) {
-	if !tenantGatewayEligible(ctx, s, event.Virtual) {
-		return ctrl.Result{}, nil
-	}
 	if event.HostOld != nil || event.Virtual.DeletionTimestamp != nil {
 		return patcher.DeleteHostObject(ctx, event.HostOld, event.Virtual, "virtual Gateway was deleted")
 	}
+	eligible, err := tenantGatewayEligible(ctx, s, event.Virtual)
+	if err != nil || !eligible {
+		return ctrl.Result{}, err
+	}
 
 	hostName := s.VirtualToHost(ctx, types.NamespacedName{Namespace: event.Virtual.Namespace, Name: event.Virtual.Name}, event.Virtual)
-	if tenantGatewayHostConflict(ctx, s, event.Virtual, hostName) {
-		return ctrl.Result{}, nil
+	conflict, err := tenantGatewayHostConflict(ctx, s, event.Virtual, hostName)
+	if err != nil || conflict {
+		return ctrl.Result{}, err
 	}
 	host, err := s.translate(ctx, event.Virtual)
 	if err != nil {
@@ -104,8 +106,12 @@ func (s *tenantGatewaySyncer) SyncToHost(ctx *synccontext.SyncContext, event *sy
 }
 
 func (s *tenantGatewaySyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*gatewayv1.Gateway]) (_ ctrl.Result, retErr error) {
-	if !tenantGatewayEligible(ctx, s, event.Virtual) {
-		return ctrl.Result{}, nil
+	eligible, err := tenantGatewayEligible(ctx, s, event.Virtual)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if !eligible {
+		return patcher.DeleteHostObject(ctx, event.Host, event.Virtual, "tenant Gateway is no longer eligible for host sync")
 	}
 	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.GatewayAPI.Gateways.Patches, false))
 	if err != nil {
@@ -132,36 +138,43 @@ func (s *tenantGatewaySyncer) SyncToVirtual(ctx *synccontext.SyncContext, event 
 	return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, reason)
 }
 
-func tenantGatewayHostConflict(ctx *synccontext.SyncContext, s *tenantGatewaySyncer, gateway *gatewayv1.Gateway, hostName types.NamespacedName) bool {
-	for _, imp := range ctx.Config.Sync.FromHost.Gateways.Imports {
-		if imp.HostNamespace == hostName.Namespace && imp.Name == hostName.Name {
-			s.EventRecorder().Eventf(gateway, nil, "Warning", "SyncWarning", "SyncGateway", "Gateway conflicts with imported host Gateway %s/%s", hostName.Namespace, hostName.Name)
-			return true
-		}
+func tenantGatewayHostConflict(ctx *synccontext.SyncContext, s *tenantGatewaySyncer, gateway *gatewayv1.Gateway, hostName types.NamespacedName) (bool, error) {
+	if resources.GatewayHostCoveredByMapping(ctx, hostName) {
+		s.EventRecorder().Eventf(gateway, nil, "Warning", "SyncWarning", "SyncGateway", "Gateway conflicts with imported host Gateway %s/%s", hostName.Namespace, hostName.Name)
+		return true, nil
 	}
 
 	existing := &gatewayv1.Gateway{}
-	if err := ctx.HostClient.Get(ctx, hostName, existing); err == nil && !translate.Default.IsManaged(ctx, existing) {
-		s.EventRecorder().Eventf(gateway, nil, "Warning", "SyncWarning", "SyncGateway", "Gateway conflicts with unmanaged host Gateway %s/%s", hostName.Namespace, hostName.Name)
-		return true
+	err := ctx.HostClient.Get(ctx, hostName, existing)
+	if kerrors.IsNotFound(err) {
+		return false, nil
+	} else if err != nil {
+		return false, fmt.Errorf("get host Gateway %s/%s: %w", hostName.Namespace, hostName.Name, err)
 	}
-	return false
+	if !translate.Default.IsManaged(ctx, existing) {
+		s.EventRecorder().Eventf(gateway, nil, "Warning", "SyncWarning", "SyncGateway", "Gateway conflicts with unmanaged host Gateway %s/%s", hostName.Namespace, hostName.Name)
+		return true, nil
+	}
+	return false, nil
 }
 
-func tenantGatewayEligible(ctx *synccontext.SyncContext, s *tenantGatewaySyncer, gateway *gatewayv1.Gateway) bool {
+func tenantGatewayEligible(ctx *synccontext.SyncContext, s *tenantGatewaySyncer, gateway *gatewayv1.Gateway) (bool, error) {
 	if gateway == nil {
-		return false
+		return false, nil
 	}
-	if gateway.Namespace == importedGatewayVirtualNamespace(ctx) {
-		s.EventRecorder().Eventf(gateway, nil, "Warning", "SyncWarning", "SyncGateway", "Gateway namespace %q is reserved for imported Gateways", gateway.Namespace)
-		return false
+	if resources.GatewayTenantTargetMapped(ctx, types.NamespacedName{Namespace: gateway.Namespace, Name: gateway.Name}) {
+		s.EventRecorder().Eventf(gateway, nil, "Warning", "SyncWarning", "SyncGateway", "Gateway %s/%s is reserved for an imported Gateway", gateway.Namespace, gateway.Name)
+		return false, nil
 	}
 	gatewayClass := &gatewayv1.GatewayClass{}
-	if err := ctx.VirtualClient.Get(ctx, types.NamespacedName{Name: string(gateway.Spec.GatewayClassName)}, gatewayClass); err != nil {
+	err := ctx.VirtualClient.Get(ctx, types.NamespacedName{Name: string(gateway.Spec.GatewayClassName)}, gatewayClass)
+	if kerrors.IsNotFound(err) {
 		s.EventRecorder().Eventf(gateway, nil, "Warning", "SyncWarning", "SyncGateway", "GatewayClass %q is not visible in the virtual cluster", gateway.Spec.GatewayClassName)
-		return false
+		return false, nil
+	} else if err != nil {
+		return false, fmt.Errorf("get virtual GatewayClass %q: %w", gateway.Spec.GatewayClassName, err)
 	}
-	return true
+	return true, nil
 }
 
 func (s *gatewaySyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*gatewayv1.Gateway]) (ctrl.Result, error) {
@@ -223,13 +236,13 @@ func (s *gatewaySyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccont
 func virtualGateway(ctx *synccontext.SyncContext, s *gatewaySyncer, host *gatewayv1.Gateway) *gatewayv1.Gateway {
 	vName := s.HostToVirtual(ctx, types.NamespacedName{Name: host.Name, Namespace: host.Namespace}, host)
 	vObj := translate.CopyObjectWithName(host, vName, false)
-	vObj.Labels = copyStringMap(host.Labels)
+	vObj.Labels = maps.Clone(host.Labels)
 	if vObj.Labels == nil {
 		vObj.Labels = map[string]string{}
 	}
 	vObj.Labels[ImportedGatewayLabel] = "true"
 
-	vObj.Annotations = copyStringMap(host.Annotations)
+	vObj.Annotations = maps.Clone(host.Annotations)
 	if vObj.Annotations == nil {
 		vObj.Annotations = map[string]string{}
 	}
@@ -271,11 +284,6 @@ func gatewayStatusToVirtual(ctx *synccontext.SyncContext, status gatewayv1.Gatew
 }
 
 func virtualNamespacePolicyFor(ctx *synccontext.SyncContext, host *gatewayv1.Gateway) *rootconfig.GatewayVirtualNamespacePolicy {
-	for _, imp := range ctx.Config.Sync.FromHost.Gateways.Imports {
-		if imp.HostNamespace == host.Namespace && imp.Name == host.Name && imp.VirtualNamespacePolicy != nil {
-			return imp.VirtualNamespacePolicy
-		}
-	}
 	for _, override := range ctx.Config.Sync.FromHost.Gateways.AllowedRoutes.Overrides {
 		if override.HostNamespace == host.Namespace && override.Name == host.Name {
 			return &override.VirtualNamespacePolicy
@@ -298,14 +306,11 @@ func toGatewayAllowedRoutes(p *rootconfig.GatewayVirtualNamespacePolicy) *gatewa
 }
 
 func gatewaySelected(ctx *synccontext.SyncContext, gateway *gatewayv1.Gateway) (bool, string, error) {
-	for _, imp := range ctx.Config.Sync.FromHost.Gateways.Imports {
-		if imp.HostNamespace == gateway.Namespace && imp.Name == gateway.Name {
-			return true, "", nil
-		}
+	if resources.GatewayHostExactMapped(ctx, types.NamespacedName{Namespace: gateway.Namespace, Name: gateway.Name}) {
+		return true, "", nil
 	}
-
-	if !containsString(ctx.Config.Sync.FromHost.Gateways.HostNamespaces, gateway.Namespace) {
-		return false, fmt.Sprintf("host namespace %q is not listed under sync.fromHost.gateways.hostNamespaces", gateway.Namespace), nil
+	if !resources.GatewayHostWildcardMapped(ctx, gateway.Namespace) {
+		return false, fmt.Sprintf("host Gateway %s/%s is not covered by sync.fromHost.gateways.mappings.byName", gateway.Namespace, gateway.Name), nil
 	}
 
 	matches, err := ctx.Config.Sync.FromHost.Gateways.Selector.Matches(gateway)
@@ -319,40 +324,16 @@ func gatewaySelected(ctx *synccontext.SyncContext, gateway *gatewayv1.Gateway) (
 }
 
 func ensureVirtualNamespace(ctx *synccontext.SyncContext) error {
-	nsName := importedGatewayVirtualNamespace(ctx)
-	ns := &corev1.Namespace{}
-	if err := ctx.VirtualClient.Get(ctx, types.NamespacedName{Name: nsName}, ns); err != nil {
-		if !kerrors.IsNotFound(err) {
-			return err
+	for nsName := range resources.GatewayMappedTenantNamespaces(ctx) {
+		ns := &corev1.Namespace{}
+		if err := ctx.VirtualClient.Get(ctx, types.NamespacedName{Name: nsName}, ns); err != nil {
+			if !kerrors.IsNotFound(err) {
+				return err
+			}
+			if err := ctx.VirtualClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nsName, Labels: map[string]string{ImportedGatewayLabel: "true"}}}); err != nil {
+				return err
+			}
 		}
-		return ctx.VirtualClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nsName, Labels: map[string]string{ImportedGatewayLabel: "true"}}})
 	}
 	return nil
-}
-
-func importedGatewayVirtualNamespace(ctx *synccontext.SyncContext) string {
-	if ctx != nil && ctx.Config != nil && ctx.Config.Sync.FromHost.Gateways.VirtualNamespace != "" {
-		return ctx.Config.Sync.FromHost.Gateways.VirtualNamespace
-	}
-	return DefaultVirtualNamespace
-}
-
-func containsString(values []string, search string) bool {
-	for _, value := range values {
-		if value == search {
-			return true
-		}
-	}
-	return false
-}
-
-func copyStringMap(in map[string]string) map[string]string {
-	if in == nil {
-		return nil
-	}
-	out := make(map[string]string, len(in))
-	for k, v := range in {
-		out[k] = v
-	}
-	return out
 }

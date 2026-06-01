@@ -1,14 +1,4 @@
-// Package gatewaysync provides the shared to-host sync orchestration for the
-// homogeneous Gateway API resources (HTTPRoute, TLSRoute, BackendTLSPolicy and
-// ReferenceGrant). Each resource keeps a thin syncer that supplies type-specific
-// translation closures and delegates the boilerplate — patcher lifecycle,
-// reference-error classification, event recording, and the create/delete flows —
-// to the helpers here.
-//
-// The Gateway syncer intentionally does not build on these helpers: its
-// GatewayClass eligibility check and bidirectional GatewayClassName handling
-// diverge enough that routing it through hooks would obscure rather than simplify
-// it. It still shares the leaf event/reason helpers below.
+// Package gatewaysync provides shared to-host sync orchestration for Gateway API resources.
 package gatewaysync
 
 import (
@@ -19,18 +9,17 @@ import (
 	routetranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/gatewayroutes/translate"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/pro"
+	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
-// CreateToHost runs the standard to-host create flow: delete the host object when
-// the virtual object is gone, otherwise translate it (toHost) and create it on the
-// host. Denied or unsupported references are terminal — they are surfaced as events
-// and not requeued, since retrying cannot succeed until the user changes the spec.
+// CreateToHost runs the standard to-host create flow.
 func CreateToHost[O any, T interface {
 	*O
 	client.Object
@@ -62,13 +51,7 @@ func CreateToHost[O any, T interface {
 	return patcher.CreateHostObject(ctx, event.Virtual, pObj, rec, true)
 }
 
-// Sync runs the standard update flow. translateSpec computes the desired host spec
-// (and classifies reference errors); on a terminal reference error the host object
-// is deleted so it cannot linger with a stale or unauthorized spec. Otherwise the
-// patcher is opened, labels and annotations are reconciled bidirectionally, and
-// applyToHost assigns the translated spec and mirrors status onto the virtual
-// object. A non-nil applyToHost result (e.g. a transient status-translation
-// failure) is surfaced and requeued.
+// Sync runs the standard to-host update flow.
 func Sync[T client.Object](
 	ctx *synccontext.SyncContext,
 	event *synccontext.SyncEvent[T],
@@ -91,7 +74,6 @@ func Sync[T client.Object](
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
 
-	// Mutations until return are included in this deferred patch payload.
 	defer func() {
 		if err := patch.Patch(ctx, event.Host, event.Virtual); err != nil {
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
@@ -112,9 +94,7 @@ func Sync[T client.Object](
 	return ctrl.Result{}, retErr
 }
 
-// CreateToVirtual runs the standard from-host import flow: delete the host object
-// when its virtual counterpart is gone, otherwise build the virtual object
-// (buildVirtual) and create it.
+// CreateToVirtual runs the standard from-host import create flow.
 func CreateToVirtual[O any, T interface {
 	*O
 	client.Object
@@ -137,10 +117,7 @@ func CreateToVirtual[O any, T interface {
 	return patcher.CreateVirtualObject(ctx, event.Host, vObj, rec, true)
 }
 
-// recordTerminalRefError records the appropriate event for a denied or unsupported
-// reference and reports whether the error was such a terminal condition. Terminal
-// reference errors must not be requeued: retrying cannot succeed until the user
-// changes the spec.
+// recordTerminalRefError records denied or unsupported reference errors.
 func recordTerminalRefError(rec events.EventRecorder, obj client.Object, err error) bool {
 	switch {
 	case gatewayauthz.IsNotPermitted(err):
@@ -181,5 +158,16 @@ func RecordUnsupportedReference(rec events.EventRecorder, obj client.Object, err
 }
 
 func recordWarning(rec events.EventRecorder, obj client.Object, reason, note string, args ...any) {
-	rec.Eventf(obj, nil, "Warning", reason, fmt.Sprintf("Sync%s", obj.GetObjectKind().GroupVersionKind().Kind), note, args...)
+	kind := obj.GetObjectKind().GroupVersionKind().Kind
+	if kind == "" {
+		gvk, err := apiutil.GVKForObject(obj, scheme.Scheme)
+		if err == nil {
+			kind = gvk.Kind
+		}
+	}
+	if kind == "" {
+		kind = "Object"
+	}
+
+	rec.Eventf(obj, nil, "Warning", reason, "Sync"+kind, note, args...)
 }

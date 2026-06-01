@@ -5,7 +5,9 @@ import (
 	"strings"
 
 	rootconfig "github.com/loft-sh/vcluster/config"
+	"github.com/loft-sh/vcluster/pkg/mappings/resources"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -28,7 +30,7 @@ func validateImportedGatewayHostnamePolicy(ctx *synccontext.SyncContext, route *
 	return nil
 }
 
-func importedGatewayForParent(ctx *synccontext.SyncContext, routeNamespace string, parent gatewayv1.ParentReference) *rootconfig.GatewayImport {
+func importedGatewayForParent(ctx *synccontext.SyncContext, routeNamespace string, parent gatewayv1.ParentReference) *rootconfig.GatewayAllowedRoutesPolicyOverride {
 	if parent.Group != nil && string(*parent.Group) != gatewayv1.GroupVersion.Group {
 		return nil
 	}
@@ -40,22 +42,15 @@ func importedGatewayForParent(ctx *synccontext.SyncContext, routeNamespace strin
 	if parent.Namespace != nil && *parent.Namespace != "" {
 		parentNamespace = string(*parent.Namespace)
 	}
-	virtualNamespace := ctx.Config.Sync.FromHost.Gateways.VirtualNamespace
-	if virtualNamespace == "" {
-		virtualNamespace = "vcluster-gateways"
-	}
-	if parentNamespace != virtualNamespace {
+	host, ok := resources.GatewayVirtualToHost(ctx, types.NamespacedName{Namespace: parentNamespace, Name: string(parent.Name)})
+	if !ok {
 		return nil
 	}
 
-	for i := range ctx.Config.Sync.FromHost.Gateways.Imports {
-		imp := &ctx.Config.Sync.FromHost.Gateways.Imports[i]
-		virtualName := imp.VirtualName
-		if virtualName == "" {
-			virtualName = imp.Name
-		}
-		if virtualName == string(parent.Name) {
-			return imp
+	for i := range ctx.Config.Sync.FromHost.Gateways.AllowedRoutes.Overrides {
+		override := &ctx.Config.Sync.FromHost.Gateways.AllowedRoutes.Overrides[i]
+		if override.HostNamespace == host.Namespace && override.Name == host.Name {
+			return override
 		}
 	}
 	return nil

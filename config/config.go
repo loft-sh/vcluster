@@ -1437,14 +1437,8 @@ type EnableSwitchWithPatchesAndSelector struct {
 type FromHostGateways struct {
 	EnableSwitchWithPatchesAndSelector
 
-	// HostNamespaces is the list of host namespaces from which Gateways may be imported.
-	HostNamespaces []string `json:"hostNamespaces,omitempty"`
-
-	// VirtualNamespace is the namespace where imported Gateways are mirrored in the virtual cluster.
-	VirtualNamespace string `json:"virtualNamespace,omitempty"`
-
-	// Imports explicitly imports individual host Gateways and can override selector-derived defaults.
-	Imports []GatewayImport `json:"imports,omitempty"`
+	// Mappings define Host Gateway namespace/name to tenant-facing namespace/name placement.
+	Mappings FromHostMappings `json:"mappings,omitempty"`
 
 	// AllowedRoutes configures the tenant-facing allowedRoutes policy shown on imported Gateways and enforced for Routes.
 	AllowedRoutes GatewayAllowedRoutesConfig `json:"allowedRoutes,omitempty"`
@@ -1459,15 +1453,6 @@ type FromHostGateways struct {
 	Sanitize GatewayImportSanitize `json:"sanitize,omitempty"`
 }
 
-type GatewayImport struct {
-	HostNamespace string `json:"hostNamespace,omitempty"`
-	Name          string `json:"name,omitempty"`
-	VirtualName   string `json:"virtualName,omitempty"`
-
-	VirtualNamespacePolicy *GatewayVirtualNamespacePolicy `json:"virtualNamespacePolicy,omitempty"`
-	AllowedHostnames       []string                       `json:"allowedHostnames,omitempty"`
-}
-
 type GatewayAllowedRoutesConfig struct {
 	DefaultVirtualNamespacePolicy *GatewayVirtualNamespacePolicy       `json:"defaultVirtualNamespacePolicy,omitempty"`
 	Overrides                     []GatewayAllowedRoutesPolicyOverride `json:"overrides,omitempty"`
@@ -1477,6 +1462,7 @@ type GatewayAllowedRoutesPolicyOverride struct {
 	HostNamespace          string                        `json:"hostNamespace,omitempty"`
 	Name                   string                        `json:"name,omitempty"`
 	VirtualNamespacePolicy GatewayVirtualNamespacePolicy `json:"virtualNamespacePolicy,omitempty"`
+	AllowedHostnames       []string                      `json:"allowedHostnames,omitempty"`
 }
 
 type GatewayVirtualNamespacePolicy struct {

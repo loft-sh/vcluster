@@ -2,13 +2,13 @@ package httproutes
 
 import (
 	"fmt"
-	"reflect"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	gatewayauthz "github.com/loft-sh/vcluster/pkg/controllers/resources/gatewayapi/authz"
 	routetranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/gatewayroutes/translate"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -134,11 +134,7 @@ func filterToHost(ctx *synccontext.SyncContext, routeNamespace string, filter *g
 	return nil
 }
 
-// preserveHostRule re-prepends a named host rule (identified by
-// constants.PreserveHostRuleAnnotation) onto the desired host spec so it survives
-// vCluster's re-derivation of spec from virtual. The annotation's value is the rule's
-// HTTPRouteRule.Name. This is the extension hook for external host-side controllers
-// that need to inject a high-priority managed rule which is not visible to the tenant.
+// preserveHostRule keeps a named host-managed rule in the desired host spec.
 func preserveHostRule(hostSpec gatewayv1.HTTPRouteSpec, desiredSpec *gatewayv1.HTTPRouteSpec, annotations map[string]string) {
 	if desiredSpec == nil {
 		return
@@ -199,11 +195,7 @@ func preserveRequestMirrorFilters(hostSpec gatewayv1.HTTPRouteSpec, desiredSpec 
 	}
 }
 
-// matchingHostRule returns the host-side rule whose mirror filters should be preserved onto the
-// desired rule at index i. It prefers name-based correlation (Gateway API v1 HTTPRouteRule.Name)
-// when both sides have named rules, and falls back to positional correlation otherwise. This keeps
-// the original index-based behavior intact for unnamed routes while preventing misalignment when a
-// host controller injects, removes, or reorders rules.
+// matchingHostRule prefers rule-name matching and falls back to index matching for unnamed rules.
 func matchingHostRule(
 	hostSpec gatewayv1.HTTPRouteSpec,
 	desiredIndex int,
@@ -214,9 +206,6 @@ func matchingHostRule(
 		if rule, ok := hostRulesByName[*desiredName]; ok {
 			return rule
 		}
-		// Desired rule is named but host has no rule with that name — do not silently fall back
-		// to positional matching, which would attach the host's mirror filter to a semantically
-		// different rule.
 		return nil
 	}
 	if desiredIndex >= len(hostSpec.Rules) {
@@ -227,7 +216,7 @@ func matchingHostRule(
 
 func hasRequestMirrorFilter(filters []gatewayv1.HTTPRouteFilter, searchFilter gatewayv1.HTTPRouteFilter) bool {
 	for _, filter := range filters {
-		if isRequestMirrorFilter(filter) && reflect.DeepEqual(filter.RequestMirror.BackendRef, searchFilter.RequestMirror.BackendRef) {
+		if isRequestMirrorFilter(filter) && apiequality.Semantic.DeepEqual(filter.RequestMirror.BackendRef, searchFilter.RequestMirror.BackendRef) {
 			return true
 		}
 	}

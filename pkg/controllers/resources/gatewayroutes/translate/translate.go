@@ -117,11 +117,8 @@ func PolicyTargetRefToHost(ctx *synccontext.SyncContext, policyNamespace string,
 	return policyTargetRefToHost(ctx, policyNamespace, ref, options.validateHostObject)
 }
 
-// ReferenceGrantToToHost translates a ReferenceGrant.spec.to[i] entry's name
-// (when set) through the appropriate kind-specific mapper. The lookup namespace
-// is the ReferenceGrant's own namespace, since `to` always points at objects in
-// the same namespace as the grant.
-func ReferenceGrantToToHost(ctx *synccontext.SyncContext, grantNamespace string, ref *gatewayv1.ReferenceGrantTo, opts ...ToHostOption) error {
+// ReferenceGrantToHost translates a ReferenceGrant.spec.to[i] entry name to the host name.
+func ReferenceGrantToHost(ctx *synccontext.SyncContext, grantNamespace string, ref *gatewayv1.ReferenceGrantTo, opts ...ToHostOption) error {
 	if ref.Name == nil || *ref.Name == "" {
 		return nil
 	}

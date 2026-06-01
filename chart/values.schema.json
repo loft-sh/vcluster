@@ -2530,23 +2530,9 @@
           "$ref": "#/$defs/StandardLabelSelector",
           "description": "Selector defines the selector to use for the resource. If not set, all resources of that type will be synced."
         },
-        "hostNamespaces": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "description": "HostNamespaces is the list of host namespaces from which Gateways may be imported."
-        },
-        "virtualNamespace": {
-          "type": "string",
-          "description": "VirtualNamespace is the namespace where imported Gateways are mirrored in the virtual cluster."
-        },
-        "imports": {
-          "items": {
-            "$ref": "#/$defs/GatewayImport"
-          },
-          "type": "array",
-          "description": "Imports explicitly imports individual host Gateways and can override selector-derived defaults."
+        "mappings": {
+          "$ref": "#/$defs/FromHostMappings",
+          "description": "Mappings define Host Gateway namespace/name to tenant-facing namespace/name placement."
         },
         "allowedRoutes": {
           "$ref": "#/$defs/GatewayAllowedRoutesConfig",
@@ -2667,24 +2653,6 @@
           "type": "string"
         },
         "name": {
-          "type": "string"
-        },
-        "virtualNamespacePolicy": {
-          "$ref": "#/$defs/GatewayVirtualNamespacePolicy"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "GatewayImport": {
-      "properties": {
-        "hostNamespace": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        },
-        "virtualName": {
           "type": "string"
         },
         "virtualNamespacePolicy": {

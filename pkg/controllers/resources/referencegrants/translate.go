@@ -37,7 +37,7 @@ func specToHost(ctx *synccontext.SyncContext, vGrant *gatewayv1.ReferenceGrant, 
 	}
 
 	for i := range retSpec.To {
-		err := routetranslate.ReferenceGrantToToHost(ctx, vGrant.Namespace, &retSpec.To[i], routetranslate.WithValidateHostObject(validateRefs))
+		err := routetranslate.ReferenceGrantToHost(ctx, vGrant.Namespace, &retSpec.To[i], routetranslate.WithValidateHostObject(validateRefs))
 		if err != nil {
 			return nil, fmt.Errorf("translate to[%d]: %w", i, err)
 		}

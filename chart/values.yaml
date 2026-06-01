@@ -210,14 +210,28 @@ sync:
     gateways:
       # Enabled defines if this option should be enabled.
       enabled: false
-      # HostNamespaces is the list of host namespaces from which Gateways may be imported.
-      hostNamespaces: []
-      # VirtualNamespace is the namespace where imported Gateways are mirrored in the virtual cluster.
-      virtualNamespace: vcluster-gateways
+      # Mappings define Host Gateway namespace/name to tenant-facing namespace/name placement.
+      mappings:
+        # ByName is a map of host-object-namespace/host-object-name: virtual-object-namespace/virtual-object-name.
+        # There are several wildcards supported:
+        # 1. To match all objects in host namespace and sync them to different namespace in vCluster:
+        # byName:
+        #   "foo/*": "foo-in-virtual/*"
+        # 2. To match specific object in the host namespace and sync it to the same namespace with the same name:
+        # byName:
+        #   "foo/my-object": "foo/my-object"
+        # 3. To match specific object in the host namespace and sync it to the same namespace with different name:
+        # byName:
+        #   "foo/my-object": "foo/my-virtual-object"
+        # 4. To match all objects in the vCluster host namespace and sync them to a different namespace in vCluster:
+        # byName:
+        #   "": "my-virtual-namespace/*"
+        # 5. To match specific objects in the vCluster host namespace and sync them to a different namespace in vCluster:
+        # byName:
+        #   "/my-object": "my-virtual-namespace/my-object"
+        byName: {}
       # Selector defines the selector to use for the resource. If not set, all resources of that type will be synced.
       selector: {}
-      # Imports explicitly imports individual host Gateways and can override selector-derived defaults.
-      imports: []
       # AllowedRoutes configures the tenant-facing allowedRoutes policy shown on imported Gateways and enforced for Routes.
       allowedRoutes:
         defaultVirtualNamespacePolicy: {}

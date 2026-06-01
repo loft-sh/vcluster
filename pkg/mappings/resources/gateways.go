@@ -2,6 +2,7 @@ package resources
 
 import (
 	_ "embed"
+	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/mappings/generic"
@@ -17,8 +18,8 @@ import (
 var gatewaysCRD string
 
 func CreateGatewayMapper(ctx *synccontext.RegisterContext) (synccontext.Mapper, error) {
-	if ctx.Config.Sync.FromHost.Gateways.Enabled {
-		err := ensureHostGatewayAPIKind(ctx, mappings.Gateways(), "sync.fromHost.gateways.enabled")
+	if ctx.Config.Sync.FromHost.Gateways.Enabled || ctx.Config.Sync.ToHost.GatewayAPI.Gateways.Enabled {
+		err := ensureHostGatewayAPIKind(ctx, mappings.Gateways(), "sync.fromHost.gateways.enabled or sync.toHost.gatewayApi.gateways.enabled")
 		if err != nil {
 			return nil, err
 		}
@@ -58,28 +59,12 @@ func (m *importedGatewayMapper) VirtualToHost(ctx *synccontext.SyncContext, req 
 		return req
 	}
 
-	virtualNamespace := gatewayVirtualNamespace(ctx)
-	if req.Namespace != virtualNamespace {
-		if ctx.Config.Sync.ToHost.GatewayAPI.Gateways.Enabled {
-			return translate.Default.HostName(ctx, req.Name, req.Namespace)
-		}
-		return req
+	if host, ok := GatewayVirtualToHost(ctx, req); ok {
+		return host
 	}
-
-	for _, imp := range ctx.Config.Sync.FromHost.Gateways.Imports {
-		virtualName := imp.VirtualName
-		if virtualName == "" {
-			virtualName = imp.Name
-		}
-		if virtualName == req.Name {
-			return types.NamespacedName{Namespace: imp.HostNamespace, Name: imp.Name}
-		}
+	if ctx.Config.Sync.ToHost.GatewayAPI.Gateways.Enabled {
+		return translate.Default.HostName(ctx, req.Name, req.Namespace)
 	}
-
-	if len(ctx.Config.Sync.FromHost.Gateways.HostNamespaces) == 1 {
-		return types.NamespacedName{Namespace: ctx.Config.Sync.FromHost.Gateways.HostNamespaces[0], Name: req.Name}
-	}
-
 	return req
 }
 
@@ -88,20 +73,9 @@ func (m *importedGatewayMapper) HostToVirtual(ctx *synccontext.SyncContext, req 
 		return req
 	}
 
-	for _, imp := range ctx.Config.Sync.FromHost.Gateways.Imports {
-		if imp.HostNamespace == req.Namespace && imp.Name == req.Name {
-			virtualName := imp.VirtualName
-			if virtualName == "" {
-				virtualName = imp.Name
-			}
-			return types.NamespacedName{Namespace: gatewayVirtualNamespace(ctx), Name: virtualName}
-		}
+	if virtual, ok := GatewayHostToVirtual(ctx, req); ok {
+		return virtual
 	}
-
-	if containsGatewayHostNamespace(ctx.Config.Sync.FromHost.Gateways.HostNamespaces, req.Namespace) {
-		return types.NamespacedName{Namespace: gatewayVirtualNamespace(ctx), Name: req.Name}
-	}
-
 	if ctx.Config.Sync.ToHost.GatewayAPI.Gateways.Enabled {
 		vName := generic.TryToTranslateBackByAnnotations(ctx, req, pObj, m.gvk)
 		if vName.Name != "" {
@@ -110,19 +84,18 @@ func (m *importedGatewayMapper) HostToVirtual(ctx *synccontext.SyncContext, req 
 		return generic.TryToTranslateBackByName(ctx, req, m.gvk)
 	}
 
-	return types.NamespacedName{Namespace: gatewayVirtualNamespace(ctx), Name: req.Name}
+	return req
 }
 
 func (m *importedGatewayMapper) IsManaged(ctx *synccontext.SyncContext, obj client.Object) (bool, error) {
 	if ctx == nil || ctx.Config == nil || obj == nil {
 		return false, nil
 	}
-	for _, imp := range ctx.Config.Sync.FromHost.Gateways.Imports {
-		if imp.HostNamespace == obj.GetNamespace() && imp.Name == obj.GetName() {
-			return true, nil
-		}
+	host := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
+	if GatewayHostExactMapped(ctx, host) {
+		return true, nil
 	}
-	if containsGatewayHostNamespace(ctx.Config.Sync.FromHost.Gateways.HostNamespaces, obj.GetNamespace()) {
+	if GatewayHostWildcardMapped(ctx, host.Namespace) {
 		return ctx.Config.Sync.FromHost.Gateways.Selector.Matches(obj)
 	}
 	if ctx.Config.Sync.ToHost.GatewayAPI.Gateways.Enabled {
@@ -131,18 +104,81 @@ func (m *importedGatewayMapper) IsManaged(ctx *synccontext.SyncContext, obj clie
 	return false, nil
 }
 
-func containsGatewayHostNamespace(namespaces []string, namespace string) bool {
-	for _, candidate := range namespaces {
-		if candidate == namespace {
-			return true
-		}
+func GatewayHostToVirtual(ctx *synccontext.SyncContext, host types.NamespacedName) (types.NamespacedName, bool) {
+	if ctx == nil || ctx.Config == nil {
+		return types.NamespacedName{}, false
 	}
-	return false
+	mappings := ctx.Config.Sync.FromHost.Gateways.Mappings.ByName
+	if target, ok := mappings[host.Namespace+"/"+host.Name]; ok {
+		return ParseGatewayNamespacedName(target, host.Name)
+	}
+	if target, ok := mappings[host.Namespace+"/*"]; ok {
+		return ParseGatewayNamespacedName(target, host.Name)
+	}
+	return types.NamespacedName{}, false
 }
 
-func gatewayVirtualNamespace(ctx *synccontext.SyncContext) string {
-	if ctx != nil && ctx.Config != nil && ctx.Config.Sync.FromHost.Gateways.VirtualNamespace != "" {
-		return ctx.Config.Sync.FromHost.Gateways.VirtualNamespace
+func GatewayVirtualToHost(ctx *synccontext.SyncContext, virtual types.NamespacedName) (types.NamespacedName, bool) {
+	if ctx == nil || ctx.Config == nil {
+		return types.NamespacedName{}, false
 	}
-	return "vcluster-gateways"
+	for source, target := range ctx.Config.Sync.FromHost.Gateways.Mappings.ByName {
+		targetName, ok := ParseGatewayNamespacedName(target, virtual.Name)
+		if !ok || targetName != virtual {
+			continue
+		}
+		return ParseGatewayNamespacedName(source, virtual.Name)
+	}
+	return types.NamespacedName{}, false
+}
+
+func GatewayHostCoveredByMapping(ctx *synccontext.SyncContext, host types.NamespacedName) bool {
+	return GatewayHostExactMapped(ctx, host) || GatewayHostWildcardMapped(ctx, host.Namespace)
+}
+
+func GatewayHostExactMapped(ctx *synccontext.SyncContext, host types.NamespacedName) bool {
+	if ctx == nil || ctx.Config == nil {
+		return false
+	}
+	_, ok := ctx.Config.Sync.FromHost.Gateways.Mappings.ByName[host.Namespace+"/"+host.Name]
+	return ok
+}
+
+func GatewayHostWildcardMapped(ctx *synccontext.SyncContext, hostNamespace string) bool {
+	if ctx == nil || ctx.Config == nil {
+		return false
+	}
+	_, ok := ctx.Config.Sync.FromHost.Gateways.Mappings.ByName[hostNamespace+"/*"]
+	return ok
+}
+
+func GatewayTenantTargetMapped(ctx *synccontext.SyncContext, tenant types.NamespacedName) bool {
+	_, ok := GatewayVirtualToHost(ctx, tenant)
+	return ok
+}
+
+func GatewayMappedTenantNamespaces(ctx *synccontext.SyncContext) map[string]struct{} {
+	namespaces := map[string]struct{}{}
+	if ctx == nil || ctx.Config == nil {
+		return namespaces
+	}
+	for _, target := range ctx.Config.Sync.FromHost.Gateways.Mappings.ByName {
+		targetName, ok := ParseGatewayNamespacedName(target, "*")
+		if ok {
+			namespaces[targetName.Namespace] = struct{}{}
+		}
+	}
+	return namespaces
+}
+
+func ParseGatewayNamespacedName(value, wildcardName string) (types.NamespacedName, bool) {
+	parts := strings.Split(value, "/")
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return types.NamespacedName{}, false
+	}
+	name := parts[1]
+	if name == "*" {
+		name = wildcardName
+	}
+	return types.NamespacedName{Namespace: parts[0], Name: name}, true
 }

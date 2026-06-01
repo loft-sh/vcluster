@@ -2,6 +2,7 @@ package gateways
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	rootconfig "github.com/loft-sh/vcluster/config"
@@ -11,6 +12,7 @@ import (
 	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -127,10 +129,33 @@ func TestTenantGatewaySyncRequiresVirtualGatewayClass(t *testing.T) {
 	}
 }
 
-func TestTenantGatewaySyncSkipsReservedImportNamespace(t *testing.T) {
+func TestTenantGatewaySyncDeletesExistingHostWhenGatewayClassDisappears(t *testing.T) {
 	vcConfig := &pkgconfig.VirtualClusterConfig{}
 	vcConfig.Sync.ToHost.GatewayAPI.Gateways.Enabled = true
-	vcConfig.Sync.FromHost.Gateways.VirtualNamespace = "vcluster-gateways"
+	hostName := types.NamespacedName{Namespace: testingutil.DefaultTestTargetNamespace, Name: "edge-x-team-a-x-suffix"}
+	host := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: hostName.Namespace, Name: hostName.Name}}
+	pClient := testingutil.NewFakeClient(scheme.Scheme, host)
+	vClient := testingutil.NewFakeClient(scheme.Scheme)
+	registerCtx := syncertesting.NewFakeRegisterContext(vcConfig, pClient, vClient)
+	syncCtx, object := syncertesting.FakeStartSyncer(t, registerCtx, NewToHost)
+	syncer := object.(*tenantGatewaySyncer)
+
+	virtual := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "edge"}, Spec: gatewayv1.GatewaySpec{GatewayClassName: gatewayv1.ObjectName("missing")}}
+	_, err := syncer.Sync(syncCtx, synccontext.NewSyncEvent(host, virtual))
+	if err != nil {
+		t.Fatalf("expected missing GatewayClass to delete stale host Gateway without hard error: %v", err)
+	}
+
+	got := &gatewayv1.Gateway{}
+	if err := pClient.Get(context.Background(), hostName, got); err == nil {
+		t.Fatalf("expected stale host Gateway to be deleted")
+	}
+}
+
+func TestTenantGatewaySyncSkipsMappedImportedTargetButAllowsSameNamespace(t *testing.T) {
+	vcConfig := &pkgconfig.VirtualClusterConfig{}
+	vcConfig.Sync.ToHost.GatewayAPI.Gateways.Enabled = true
+	vcConfig.Sync.FromHost.Gateways.Mappings.ByName = map[string]string{"platform/edge": "team-a/edge"}
 	pClient := testingutil.NewFakeClient(scheme.Scheme)
 	vClient := testingutil.NewFakeClient(scheme.Scheme,
 		&gatewayv1.GatewayClass{ObjectMeta: metav1.ObjectMeta{Name: "tenant-class"}},
@@ -139,22 +164,29 @@ func TestTenantGatewaySyncSkipsReservedImportNamespace(t *testing.T) {
 	syncCtx, object := syncertesting.FakeStartSyncer(t, registerCtx, NewToHost)
 	syncer := object.(*tenantGatewaySyncer)
 
-	virtual := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "vcluster-gateways", Name: "edge"}, Spec: gatewayv1.GatewaySpec{GatewayClassName: gatewayv1.ObjectName("tenant-class")}}
-	_, err := syncer.SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(virtual))
+	mapped := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "edge"}, Spec: gatewayv1.GatewaySpec{GatewayClassName: gatewayv1.ObjectName("tenant-class")}}
+	_, err := syncer.SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(mapped))
 	if err != nil {
-		t.Fatalf("expected reserved namespace to be a warning/skip, not hard error: %v", err)
+		t.Fatalf("expected mapped imported target to be a warning/skip, not hard error: %v", err)
+	}
+	if err := pClient.Get(context.Background(), translate.Default.HostName(syncCtx, "edge", "team-a"), &gatewayv1.Gateway{}); err == nil {
+		t.Fatalf("did not expect mapped imported target Gateway to sync to host")
 	}
 
-	host := &gatewayv1.Gateway{}
-	if err := pClient.Get(context.Background(), types.NamespacedName{Namespace: "vcluster-gateways", Name: "edge"}, host); err == nil {
-		t.Fatalf("did not expect reserved imported mirror namespace Gateway to sync to host")
+	other := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "other"}, Spec: gatewayv1.GatewaySpec{GatewayClassName: gatewayv1.ObjectName("tenant-class")}}
+	_, err = syncer.SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(other))
+	if err != nil {
+		t.Fatalf("expected non-mapped Gateway in same namespace to sync: %v", err)
+	}
+	if err := pClient.Get(context.Background(), translate.Default.HostName(syncCtx, "other", "team-a"), &gatewayv1.Gateway{}); err != nil {
+		t.Fatalf("expected non-mapped Gateway in same namespace to sync to host: %v", err)
 	}
 }
 
 func TestTenantGatewaySyncSkipsImportedHostNameConflict(t *testing.T) {
 	vcConfig := &pkgconfig.VirtualClusterConfig{}
 	vcConfig.Sync.ToHost.GatewayAPI.Gateways.Enabled = true
-	vcConfig.Sync.FromHost.Gateways.Imports = []rootconfig.GatewayImport{{HostNamespace: testingutil.DefaultTestTargetNamespace, Name: "edge-x-team-a-x-suffix"}}
+	vcConfig.Sync.FromHost.Gateways.Mappings.ByName = map[string]string{testingutil.DefaultTestTargetNamespace + "/edge-x-team-a-x-suffix": "shared-gateways/edge"}
 	pClient := testingutil.NewFakeClient(scheme.Scheme)
 	vClient := testingutil.NewFakeClient(scheme.Scheme, &gatewayv1.GatewayClass{ObjectMeta: metav1.ObjectMeta{Name: "tenant-class"}})
 	registerCtx := syncertesting.NewFakeRegisterContext(vcConfig, pClient, vClient)
@@ -198,15 +230,56 @@ func TestTenantGatewaySyncDoesNotOverwriteUnmanagedHostGateway(t *testing.T) {
 	}
 }
 
-func TestGatewaySelectedExplicitImportOverridesSelector(t *testing.T) {
+func TestEnsureVirtualNamespacesCreatesEveryMappedTenantNamespace(t *testing.T) {
 	vcConfig := &pkgconfig.VirtualClusterConfig{}
-	vcConfig.Sync.FromHost.Gateways.Imports = []rootconfig.GatewayImport{{HostNamespace: "networking", Name: "edge"}}
+	vcConfig.Sync.FromHost.Gateways.Mappings.ByName = map[string]string{
+		"platform/*":      "team-a-gateways/*",
+		"networking/edge": "shared-gateways/edge-public",
+	}
+	vClient := testingutil.NewFakeClient(scheme.Scheme)
+	ctx := &synccontext.SyncContext{Context: context.Background(), Config: vcConfig, VirtualClient: vClient}
+
+	if err := ensureVirtualNamespace(ctx); err != nil {
+		t.Fatalf("ensure virtual namespaces: %v", err)
+	}
+	for _, ns := range []string{"team-a-gateways", "shared-gateways"} {
+		coreNS := &corev1.Namespace{}
+		if err := vClient.Get(context.Background(), types.NamespacedName{Name: ns}, coreNS); err != nil {
+			t.Fatalf("expected namespace %s to be created: %v", ns, err)
+		}
+	}
+}
+
+func TestGatewaySelectedUsesMappingsAndExactMappingsBypassSelector(t *testing.T) {
+	vcConfig := &pkgconfig.VirtualClusterConfig{}
+	vcConfig.Sync.FromHost.Gateways.Mappings.ByName = map[string]string{
+		"networking/*":  "tenant-gateways/*",
+		"platform/edge": "shared-gateways/edge",
+	}
 	vcConfig.Sync.FromHost.Gateways.Selector.MatchLabels = map[string]string{"import": "yes"}
 	ctx := &synccontext.SyncContext{Context: context.Background(), Config: vcConfig}
-	host := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "networking", Name: "edge"}}
 
-	selected, reason, err := gatewaySelected(ctx, host)
+	exact := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "platform", Name: "edge"}}
+	selected, reason, err := gatewaySelected(ctx, exact)
 	if err != nil || !selected || reason != "" {
-		t.Fatalf("expected explicit import to be selected regardless of selector, selected=%v reason=%q err=%v", selected, reason, err)
+		t.Fatalf("expected exact mapping to be selected regardless of selector, selected=%v reason=%q err=%v", selected, reason, err)
+	}
+
+	wildcardSelected := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "networking", Name: "edge", Labels: map[string]string{"import": "yes"}}}
+	selected, reason, err = gatewaySelected(ctx, wildcardSelected)
+	if err != nil || !selected || reason != "" {
+		t.Fatalf("expected selector-matching wildcard mapping to be selected, selected=%v reason=%q err=%v", selected, reason, err)
+	}
+
+	wildcardUnselected := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "networking", Name: "internal"}}
+	selected, reason, err = gatewaySelected(ctx, wildcardUnselected)
+	if err != nil || selected || !strings.Contains(reason, "selector") {
+		t.Fatalf("expected selector-missing wildcard mapping to be ignored, selected=%v reason=%q err=%v", selected, reason, err)
+	}
+
+	unmapped := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "demo", Name: "edge", Labels: map[string]string{"import": "yes"}}}
+	selected, reason, err = gatewaySelected(ctx, unmapped)
+	if err != nil || selected || !strings.Contains(reason, "not covered") {
+		t.Fatalf("expected unmapped Gateway to be ignored, selected=%v reason=%q err=%v", selected, reason, err)
 	}
 }

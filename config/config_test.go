@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/invopop/jsonschema"
 	"gotest.tools/assert"
 	"gotest.tools/assert/cmp"
 	"sigs.k8s.io/yaml"
@@ -138,6 +139,51 @@ controlPlane:
 				t.Errorf("Config.UnmarshalYAMLStrict() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestGatewayFromHostUnreleasedNamespaceFieldsAreUnknown(t *testing.T) {
+	fields := map[string]string{
+		"hostNamespaces":   "[platform]",
+		"virtualNamespace": "tenant-gateways",
+		"imports":          "[{hostNamespace: platform, name: edge}]",
+	}
+	for field, value := range fields {
+		t.Run(field, func(t *testing.T) {
+			data := []byte(`
+sync:
+  fromHost:
+    gateways:
+      enabled: true
+      mappings:
+        byName:
+          platform/edge: tenant-gateways/edge
+      ` + field + `: ` + value + `
+`)
+
+			err := (&Config{}).UnmarshalYAMLStrict(data)
+			if err == nil {
+				t.Fatalf("expected %s to be rejected as an unknown field", field)
+			}
+			if strings.Contains(err.Error(), "mappings.byName") || strings.Contains(err.Error(), "removed") || strings.Contains(err.Error(), "deprecated") {
+				t.Fatalf("expected normal unknown-field error without compatibility guidance, got %v", err)
+			}
+		})
+	}
+}
+
+func TestGatewayFromHostSchemaOmitsUnreleasedNamespaceFields(t *testing.T) {
+	schema := jsonschema.Reflect(&Config{})
+	defs := schema.Definitions
+	gatewaySchema := defs["FromHostGateways"]
+	if gatewaySchema == nil {
+		t.Fatalf("expected FromHostGateways schema definition")
+	}
+
+	for _, field := range []string{"hostNamespaces", "virtualNamespace", "imports"} {
+		if _, ok := gatewaySchema.Properties.Get(field); ok {
+			t.Fatalf("schema must not expose unreleased Gateway field %s", field)
+		}
 	}
 }
 

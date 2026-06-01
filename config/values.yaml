@@ -100,10 +100,9 @@ sync:
       enabled: false
     gateways:
       enabled: false
-      hostNamespaces: []
-      virtualNamespace: vcluster-gateways
+      mappings:
+        byName: {}
       selector: {}
-      imports: []
       allowedRoutes:
         defaultVirtualNamespacePolicy: {}
         overrides: []

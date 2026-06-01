@@ -15,23 +15,63 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-func TestValidateImportedGatewayHostnamePolicyRejectsDisallowedHostname(t *testing.T) {
+func TestValidateImportedGatewayHostnamePolicyRejectsDisallowedHostnameThroughMapping(t *testing.T) {
 	vcConfig := &pkgconfig.VirtualClusterConfig{}
-	vcConfig.Sync.FromHost.Gateways.VirtualNamespace = "vcluster-gateways"
-	vcConfig.Sync.FromHost.Gateways.Imports = []rootconfig.GatewayImport{{
+	vcConfig.Sync.FromHost.Gateways.Mappings.ByName = map[string]string{"networking/shared-edge": "tenant-gateways/edge"}
+	vcConfig.Sync.FromHost.Gateways.AllowedRoutes.Overrides = []rootconfig.GatewayAllowedRoutesPolicyOverride{{
 		HostNamespace:    "networking",
 		Name:             "shared-edge",
 		AllowedHostnames: []string{"*.team-a.example.com"},
 	}}
 	ctx := &synccontext.SyncContext{Context: context.Background(), Config: vcConfig}
-	parentNamespace := gatewayv1.Namespace("vcluster-gateways")
+	parentNamespace := gatewayv1.Namespace("tenant-gateways")
 	route := &gatewayv1.HTTPRoute{}
 	route.Namespace = "demo"
-	route.Spec.ParentRefs = []gatewayv1.ParentReference{{Name: "shared-edge", Namespace: &parentNamespace}}
+	route.Spec.ParentRefs = []gatewayv1.ParentReference{{Name: "edge", Namespace: &parentNamespace}}
 	route.Spec.Hostnames = []gatewayv1.Hostname{"admin.example.com"}
 
 	if err := validateImportedGatewayHostnamePolicy(ctx, route); err == nil {
 		t.Fatalf("expected disallowed hostname to be rejected")
+	}
+}
+
+func TestValidateImportedGatewayHostnamePolicyAllowsWildcardMatchThroughMapping(t *testing.T) {
+	vcConfig := &pkgconfig.VirtualClusterConfig{}
+	vcConfig.Sync.FromHost.Gateways.Mappings.ByName = map[string]string{"networking/shared-edge": "tenant-gateways/edge"}
+	vcConfig.Sync.FromHost.Gateways.AllowedRoutes.Overrides = []rootconfig.GatewayAllowedRoutesPolicyOverride{{
+		HostNamespace:    "networking",
+		Name:             "shared-edge",
+		AllowedHostnames: []string{"*.team-a.example.com"},
+	}}
+	ctx := &synccontext.SyncContext{Context: context.Background(), Config: vcConfig}
+	parentNamespace := gatewayv1.Namespace("tenant-gateways")
+	route := &gatewayv1.HTTPRoute{}
+	route.Namespace = "demo"
+	route.Spec.ParentRefs = []gatewayv1.ParentReference{{Name: "edge", Namespace: &parentNamespace}}
+	route.Spec.Hostnames = []gatewayv1.Hostname{"api.team-a.example.com"}
+
+	if err := validateImportedGatewayHostnamePolicy(ctx, route); err != nil {
+		t.Fatalf("expected wildcard hostname to be allowed: %v", err)
+	}
+}
+
+func TestValidateImportedGatewayHostnamePolicyIgnoresUnmappedParent(t *testing.T) {
+	vcConfig := &pkgconfig.VirtualClusterConfig{}
+	vcConfig.Sync.FromHost.Gateways.Mappings.ByName = map[string]string{"networking/shared-edge": "tenant-gateways/edge"}
+	vcConfig.Sync.FromHost.Gateways.AllowedRoutes.Overrides = []rootconfig.GatewayAllowedRoutesPolicyOverride{{
+		HostNamespace:    "networking",
+		Name:             "shared-edge",
+		AllowedHostnames: []string{"*.team-a.example.com"},
+	}}
+	ctx := &synccontext.SyncContext{Context: context.Background(), Config: vcConfig}
+	parentNamespace := gatewayv1.Namespace("team-a")
+	route := &gatewayv1.HTTPRoute{}
+	route.Namespace = "demo"
+	route.Spec.ParentRefs = []gatewayv1.ParentReference{{Name: "tenant-gateway", Namespace: &parentNamespace}}
+	route.Spec.Hostnames = []gatewayv1.Hostname{"admin.example.com"}
+
+	if err := validateImportedGatewayHostnamePolicy(ctx, route); err != nil {
+		t.Fatalf("expected unmapped parent to ignore imported Gateway hostname policy: %v", err)
 	}
 }
 
@@ -58,25 +98,5 @@ func TestHTTPRouteParentRefCanTargetManagedTenantGateway(t *testing.T) {
 	}
 	if spec.ParentRefs[0].Name != gatewayv1.ObjectName(hostGatewayName.Name) {
 		t.Fatalf("expected parentRef to translate to host Gateway name %q, got %q", hostGatewayName.Name, spec.ParentRefs[0].Name)
-	}
-}
-
-func TestValidateImportedGatewayHostnamePolicyAllowsWildcardMatch(t *testing.T) {
-	vcConfig := &pkgconfig.VirtualClusterConfig{}
-	vcConfig.Sync.FromHost.Gateways.VirtualNamespace = "vcluster-gateways"
-	vcConfig.Sync.FromHost.Gateways.Imports = []rootconfig.GatewayImport{{
-		HostNamespace:    "networking",
-		Name:             "shared-edge",
-		AllowedHostnames: []string{"*.team-a.example.com"},
-	}}
-	ctx := &synccontext.SyncContext{Context: context.Background(), Config: vcConfig}
-	parentNamespace := gatewayv1.Namespace("vcluster-gateways")
-	route := &gatewayv1.HTTPRoute{}
-	route.Namespace = "demo"
-	route.Spec.ParentRefs = []gatewayv1.ParentReference{{Name: "shared-edge", Namespace: &parentNamespace}}
-	route.Spec.Hostnames = []gatewayv1.Hostname{"api.team-a.example.com"}
-
-	if err := validateImportedGatewayHostnamePolicy(ctx, route); err != nil {
-		t.Fatalf("expected wildcard hostname to be allowed: %v", err)
 	}
 }

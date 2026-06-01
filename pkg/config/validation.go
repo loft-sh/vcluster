@@ -248,14 +248,8 @@ func validateGatewayAPIConfig(vConfig *VirtualClusterConfig) error {
 	if !gateways.Enabled {
 		return nil
 	}
-	if gateways.VirtualNamespace == "" {
-		gateways.VirtualNamespace = "vcluster-gateways"
-	}
-	if !gateways.Selector.Empty() && len(gateways.HostNamespaces) == 0 {
-		return fmt.Errorf("sync.fromHost.gateways.hostNamespaces is required when sync.fromHost.gateways.selector is set")
-	}
-	if len(gateways.HostNamespaces) == 0 && len(gateways.Imports) == 0 {
-		return fmt.Errorf("sync.fromHost.gateways.hostNamespaces or sync.fromHost.gateways.imports is required when sync.fromHost.gateways.enabled=true")
+	if err := validateGatewayMappings(gateways.Mappings.ByName, vConfig.HostNamespace); err != nil {
+		return err
 	}
 	if !gateways.Sanitize.CertificateRefs {
 		gateways.Sanitize.CertificateRefs = true
@@ -268,32 +262,15 @@ func validateGatewayAPIConfig(vConfig *VirtualClusterConfig) error {
 		return err
 	}
 	for i := range gateways.AllowedRoutes.Overrides {
-		if err := validateGatewayVirtualNamespacePolicy(fmt.Sprintf("sync.fromHost.gateways.allowedRoutes.overrides[%d].virtualNamespacePolicy", i), &gateways.AllowedRoutes.Overrides[i].VirtualNamespacePolicy); err != nil {
+		override := &gateways.AllowedRoutes.Overrides[i]
+		path := fmt.Sprintf("sync.fromHost.gateways.allowedRoutes.overrides[%d]", i)
+		if err := validateGatewayVirtualNamespacePolicy(path+".virtualNamespacePolicy", &override.VirtualNamespacePolicy); err != nil {
 			return err
 		}
-	}
-
-	virtualNames := map[string]string{}
-	for i, imp := range gateways.Imports {
-		path := fmt.Sprintf("sync.fromHost.gateways.imports[%d]", i)
-		if imp.HostNamespace == "" {
-			return fmt.Errorf("%s.hostNamespace is required", path)
+		if !gatewayMappingsCoverHost(gateways.Mappings.ByName, override.HostNamespace, override.Name) {
+			return fmt.Errorf("%s references host Gateway %s/%s not covered by sync.fromHost.gateways.mappings.byName", path, override.HostNamespace, override.Name)
 		}
-		if imp.Name == "" {
-			return fmt.Errorf("%s.name is required", path)
-		}
-		virtualName := imp.VirtualName
-		if virtualName == "" {
-			virtualName = imp.Name
-		}
-		if existing, ok := virtualNames[virtualName]; ok {
-			return fmt.Errorf("%s.virtualName duplicate virtualName %q already used by %s", path, virtualName, existing)
-		}
-		virtualNames[virtualName] = path
-		if err := validateGatewayVirtualNamespacePolicy(path+".virtualNamespacePolicy", imp.VirtualNamespacePolicy); err != nil {
-			return err
-		}
-		for j, hostname := range imp.AllowedHostnames {
+		for j, hostname := range override.AllowedHostnames {
 			if !validGatewayHostnamePattern(hostname) {
 				return fmt.Errorf("%s.allowedHostnames[%d] is invalid: %q", path, j, hostname)
 			}
@@ -301,6 +278,108 @@ func validateGatewayAPIConfig(vConfig *VirtualClusterConfig) error {
 	}
 
 	return nil
+}
+
+type gatewayMappingRef struct {
+	namespace string
+	name      string
+	wildcard  bool
+}
+
+func validateGatewayMappings(mappings map[string]string, controlPlaneNamespace string) error {
+	if len(mappings) == 0 {
+		return fmt.Errorf("sync.fromHost.gateways.mappings.byName are empty")
+	}
+
+	sourceWildcards := map[string]string{}
+	targetWildcards := map[string]string{}
+	exactTargets := map[string]string{}
+
+	for key, value := range mappings {
+		host, err := parseGatewayMappingRef(key)
+		if err != nil {
+			return fmt.Errorf("sync.fromHost.gateways.mappings.byName has invalid key %q: %w", key, err)
+		}
+		tenant, err := parseGatewayMappingRef(value)
+		if err != nil {
+			return fmt.Errorf("sync.fromHost.gateways.mappings.byName has invalid value %q: %w", value, err)
+		}
+		if tenant.namespace == "kube-system" || tenant.namespace == "kube-public" || tenant.namespace == "kube-node-lease" || (controlPlaneNamespace != "" && tenant.namespace == controlPlaneNamespace) {
+			return fmt.Errorf("sync.fromHost.gateways.mappings.byName target namespace %q is reserved", tenant.namespace)
+		}
+		if host.wildcard != tenant.wildcard {
+			return fmt.Errorf("sync.fromHost.gateways.mappings.byName wildcard key %q must map to tenant namespace/*", key)
+		}
+		if host.wildcard {
+			if existing, ok := sourceWildcards[host.namespace]; ok {
+				return fmt.Errorf("sync.fromHost.gateways.mappings.byName has duplicate wildcard source namespace %q already used by %s", host.namespace, existing)
+			}
+			sourceWildcards[host.namespace] = key
+			if existing, ok := targetWildcards[tenant.namespace]; ok {
+				return fmt.Errorf("sync.fromHost.gateways.mappings.byName has duplicate wildcard target namespace %q already used by %s", tenant.namespace, existing)
+			}
+			targetWildcards[tenant.namespace] = key
+			continue
+		}
+
+		targetKey := tenant.namespace + "/" + tenant.name
+		if existing, ok := exactTargets[targetKey]; ok {
+			return fmt.Errorf("sync.fromHost.gateways.mappings.byName has duplicate tenant-facing target %q already used by %s", targetKey, existing)
+		}
+		exactTargets[targetKey] = key
+	}
+
+	for key, value := range mappings {
+		host, _ := parseGatewayMappingRef(key)
+		tenant, _ := parseGatewayMappingRef(value)
+		if !host.wildcard {
+			if wildcardKey, ok := sourceWildcards[host.namespace]; ok {
+				return fmt.Errorf("sync.fromHost.gateways.mappings.byName exact source %q overlaps wildcard source %q", key, wildcardKey)
+			}
+			if wildcardKey, ok := targetWildcards[tenant.namespace]; ok {
+				return fmt.Errorf("sync.fromHost.gateways.mappings.byName exact target %q is in wildcard target namespace from %q", value, wildcardKey)
+			}
+		}
+	}
+
+	return nil
+}
+
+func parseGatewayMappingRef(ref string) (gatewayMappingRef, error) {
+	if ref == "" {
+		return gatewayMappingRef{}, fmt.Errorf("explicit host namespace is required")
+	}
+	parts := strings.Split(ref, "/")
+	if len(parts) != 2 {
+		return gatewayMappingRef{}, fmt.Errorf("expected NAMESPACE_NAME/NAME or NAMESPACE_NAME/*")
+	}
+	if parts[0] == "" {
+		return gatewayMappingRef{}, fmt.Errorf("explicit host namespace is required")
+	}
+	if len(validation.ValidateNamespaceName(parts[0], false)) > 0 {
+		return gatewayMappingRef{}, fmt.Errorf("namespace %q is invalid", parts[0])
+	}
+	if parts[1] == "" {
+		return gatewayMappingRef{}, fmt.Errorf("name is required")
+	}
+	if strings.Contains(parts[0], "*") || (parts[1] != "*" && strings.Contains(parts[1], "*")) {
+		return gatewayMappingRef{}, fmt.Errorf("* is allowed only as the full object name segment")
+	}
+	if parts[1] != "*" && len(validation.NameIsDNSSubdomain(parts[1], false)) > 0 {
+		return gatewayMappingRef{}, fmt.Errorf("name %q is invalid", parts[1])
+	}
+	return gatewayMappingRef{namespace: parts[0], name: parts[1], wildcard: parts[1] == "*"}, nil
+}
+
+func gatewayMappingsCoverHost(mappings map[string]string, namespace, name string) bool {
+	if namespace == "" || name == "" {
+		return false
+	}
+	if _, ok := mappings[namespace+"/"+name]; ok {
+		return true
+	}
+	_, ok := mappings[namespace+"/*"]
+	return ok
 }
 
 func validateGatewayVirtualNamespacePolicy(path string, policy *config.GatewayVirtualNamespacePolicy) error {
