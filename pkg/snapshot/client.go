@@ -10,12 +10,12 @@ import (
 	"os"
 
 	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
+	"github.com/loft-sh/api/v4/pkg/snapshot/storage/types"
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/etcd"
 	"github.com/loft-sh/vcluster/pkg/pro"
-	"github.com/loft-sh/vcluster/pkg/snapshot/types"
 	"k8s.io/klog/v2"
 )
 

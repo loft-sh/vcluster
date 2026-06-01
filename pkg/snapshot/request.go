@@ -7,11 +7,11 @@ import (
 	"time"
 
 	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
+	"github.com/loft-sh/api/v4/pkg/snapshot/storage/azure"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/table"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/snapshot/azure"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/client-go/kubernetes"
