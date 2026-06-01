@@ -25,19 +25,10 @@ type Certificates struct {
 }
 
 func WaitForEtcd(parentCtx context.Context, certificates *Certificates, endpoints ...string) error {
-	// This polls etcd before it is necessarily reachable, so transient dial
-	// failures are expected. Silence the etcd client logger (we log our own
-	// retry message below) unless verbose logging is enabled, so we don't print
-	// misleading "retrying of unary invoker failed" warnings.
-	log := zap.NewNop()
-	if klog.V(1).Enabled() {
-		log = zap.L().Named("wait-for-etcd")
-	}
-
 	var err error
 	waitErr := wait.PollUntilContextTimeout(parentCtx, time.Second, waitForClientTimeout, true, func(ctx context.Context) (bool, error) {
 		var etcdClient *clientv3.Client
-		etcdClient, err = GetEtcdClient(ctx, log, certificates, endpoints...)
+		etcdClient, err = GetEtcdClient(ctx, certificates, endpoints...)
 		if err == nil {
 			defer func() {
 				_ = etcdClient.Close()
@@ -64,7 +55,16 @@ func WaitForEtcd(parentCtx context.Context, certificates *Certificates, endpoint
 // If the runtime config does not list any endpoints, the default endpoint is used.
 // The returned client should be closed when no longer needed, in order to avoid leaking GRPC
 // client goroutines.
-func GetEtcdClient(ctx context.Context, log *zap.Logger, certificates *Certificates, endpoints ...string) (*clientv3.Client, error) {
+func GetEtcdClient(ctx context.Context, certificates *Certificates, endpoints ...string) (*clientv3.Client, error) {
+	// etcd clients frequently connect before etcd is reachable (reachability
+	// probes, restore, startup), so the clientv3 retry interceptor logs
+	// misleading "retrying of unary invoker failed" warnings. Silence the client
+	// logger unless verbose logging is enabled.
+	log := zap.NewNop()
+	if klog.V(1).Enabled() {
+		log = zap.L().Named("etcd-client")
+	}
+
 	cfg, err := getClientConfig(ctx, log, certificates, endpoints...)
 	if err != nil {
 		return nil, err
