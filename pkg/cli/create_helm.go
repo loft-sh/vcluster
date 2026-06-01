@@ -403,7 +403,7 @@ func buildExtraValues(ctx context.Context, cmd *CreateOptions, log log.Logger) (
 	if len(cmd.Values) == 0 && len(cmd.SetValues) == 0 {
 		restoreValuesFile, err := getVClusterConfigFromSnapshot(ctx, cmd)
 		if err != nil {
-			log.Warnf("get vCluster config from snapshot: %w", err)
+			return nil, fmt.Errorf("get vCluster config from snapshot: %w", err)
 		} else if restoreValuesFile != "" {
 			filesToRemove = append(filesToRemove, restoreValuesFile)
 			log.Info("Using vCluster config from snapshot")
@@ -873,13 +873,16 @@ func getVClusterConfigFromSnapshot(ctx context.Context, cmd *CreateOptions) (str
 	// read the vCluster config
 	header, err := tarReader.Next()
 	if err != nil {
-		return "", err
+		if errors.Is(err, io.EOF) {
+			return "", fmt.Errorf("snapshot archive is empty or truncated")
+		}
+		return "", fmt.Errorf("read snapshot archive: %w", err)
 	}
 
 	buf := &bytes.Buffer{}
 	_, err = io.Copy(buf, tarReader)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("read snapshot entry: %w", err)
 	}
 
 	// no vCluster config in the snapshot
