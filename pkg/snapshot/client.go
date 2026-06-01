@@ -141,14 +141,14 @@ func (c *Client) writeEtcdSnapshot(ctx context.Context, etcdClient etcd.Client, 
 	}
 	defer res.Snapshot.Close()
 
-	dbPath, err := writeTempFile(res.Snapshot)
+	dbPath, err := writeTempFile(c.Options.SnapshotTempDir, res.Snapshot)
 	if err != nil {
 		return fmt.Errorf("failed to write snapshot to temp file: %w", err)
 	}
 	defer os.Remove(dbPath)
 
 	log.Info("Creating snapshot archive")
-	snapshotFileWrite, err := os.CreateTemp("", "snapshot-")
+	snapshotFileWrite, err := os.CreateTemp(c.Options.SnapshotTempDir, "snapshot-")
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %w", err)
 	}

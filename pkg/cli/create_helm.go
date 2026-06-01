@@ -77,6 +77,7 @@ type CreateOptions struct {
 	Expose               bool
 	ExposeLocal          bool
 	Restore              string
+	SnapshotTempDir      string
 	Connect              bool
 	Upgrade              bool
 
@@ -182,7 +183,7 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 				}
 
 				log.Infof("Restore vCluster %s...", vClusterName)
-				err = Restore(ctx, []string{vClusterName, cmd.Restore}, globalFlags, &snapshotapi.Options{}, &pod.Options{}, false, false, false, log)
+				err = Restore(ctx, []string{vClusterName, cmd.Restore}, globalFlags, &snapshotapi.Options{SnapshotTempDir: cmd.SnapshotTempDir}, &pod.Options{}, false, false, false, log)
 				if err != nil {
 					return fmt.Errorf("restore vCluster %s: %w", vClusterName, err)
 				}
@@ -649,7 +650,7 @@ func (cmd *createHelm) deployChart(ctx context.Context, vClusterName, chartValue
 	// now restore if wanted
 	if cmd.Restore != "" {
 		cmd.log.Infof("Restore vCluster %s...", vClusterName)
-		err = Restore(ctx, []string{vClusterName, cmd.Restore}, cmd.GlobalFlags, &snapshotapi.Options{}, &pod.Options{}, true, false, false, cmd.log)
+		err = Restore(ctx, []string{vClusterName, cmd.Restore}, cmd.GlobalFlags, &snapshotapi.Options{SnapshotTempDir: cmd.SnapshotTempDir}, &pod.Options{}, true, false, false, cmd.log)
 		if err != nil {
 			// delete the vcluster if the restore failed
 			deleteErr := helmClient.Delete(vClusterName, cmd.Namespace)
@@ -844,7 +845,7 @@ func getVClusterConfigFromSnapshot(ctx context.Context, cmd *CreateOptions) (str
 		return "", nil
 	}
 
-	snapshotOptions := &snapshotapi.Options{}
+	snapshotOptions := &snapshotapi.Options{SnapshotTempDir: cmd.SnapshotTempDir}
 	err := snapshot.Parse(cmd.Restore, snapshotOptions)
 	if err != nil {
 		return "", fmt.Errorf("parse snapshot: %w", err)

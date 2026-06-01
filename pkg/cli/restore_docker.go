@@ -24,12 +24,12 @@ import (
 // into memory. Tar entries are handled as they arrive: metadata is parsed first, volume
 // entries are piped directly to Docker, and config files are written directly to disk.
 // callerOpts may be nil (standalone restore) or the user's CreateOptions (create --restore).
-func RestoreDocker(ctx context.Context, globalFlags *flags.GlobalFlags, snapshotPath, targetName string, callerOpts *CreateOptions, log log.Logger) error {
+func RestoreDocker(ctx context.Context, globalFlags *flags.GlobalFlags, snapshotPath, targetName string, callerOpts *CreateOptions, tempDir string, log log.Logger) error {
 	// If the snapshot path is a remote URL, pull it to a temp file first.
 	localPath := snapshotPath
 	if isRemoteSnapshotURL(snapshotPath) {
 		log.Infof("Pulling snapshot from %s...", snapshotPath)
-		tmpFile, err := os.CreateTemp("", "vcluster-docker-restore-*.tar.gz")
+		tmpFile, err := os.CreateTemp(tempDir, "vcluster-docker-restore-*.tar.gz")
 		if err != nil {
 			return fmt.Errorf("failed to create temp file: %w", err)
 		}
@@ -199,7 +199,7 @@ func RestoreDocker(ctx context.Context, globalFlags *flags.GlobalFlags, snapshot
 	// If the snapshot contains a vcluster.yaml, pass it as a values file so that
 	// any custom configuration (including multi-node definitions) is preserved.
 	if metadata.VClusterYAML != "" {
-		tmpFile, err := os.CreateTemp("", "vcluster-restore-*.yaml")
+		tmpFile, err := os.CreateTemp(tempDir, "vcluster-restore-*.yaml")
 		if err != nil {
 			return fmt.Errorf("failed to create temp values file: %w", err)
 		}
