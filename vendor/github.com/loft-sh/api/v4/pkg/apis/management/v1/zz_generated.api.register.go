@@ -135,8 +135,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VirtualClusterInstance{},
 		&VirtualClusterInstanceList{},
 		&VirtualClusterAccessKey{},
+		&VirtualClusterControlPlanePods{},
 		&VirtualClusterInstanceDebugShell{},
-		&VirtualClusterInstanceDebugShellPods{},
 		&VirtualClusterExternalDatabase{},
 		&VirtualClusterInstanceJoinScript{},
 		&VirtualClusterInstanceKubeConfig{},
@@ -429,16 +429,16 @@ var (
 			management.NewVirtualClusterAccessKeyREST,
 		),
 		builders.NewApiResourceWithStorage(
+			management.InternalVirtualClusterControlPlanePodsREST,
+			func() runtime.Object { return &VirtualClusterControlPlanePods{} }, // Register versioned resource
+			nil,
+			management.NewVirtualClusterControlPlanePodsREST,
+		),
+		builders.NewApiResourceWithStorage(
 			management.InternalVirtualClusterInstanceDebugShellREST,
 			func() runtime.Object { return &VirtualClusterInstanceDebugShell{} }, // Register versioned resource
 			nil,
 			management.NewVirtualClusterInstanceDebugShellREST,
-		),
-		builders.NewApiResourceWithStorage(
-			management.InternalVirtualClusterInstanceDebugShellPodsREST,
-			func() runtime.Object { return &VirtualClusterInstanceDebugShellPods{} }, // Register versioned resource
-			nil,
-			management.NewVirtualClusterInstanceDebugShellPodsREST,
 		),
 		builders.NewApiResourceWithStorage(
 			management.InternalVirtualClusterExternalDatabaseREST,
@@ -1145,18 +1145,18 @@ type VirtualClusterAccessKeyList struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-type VirtualClusterInstanceDebugShellList struct {
+type VirtualClusterControlPlanePodsList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []VirtualClusterInstanceDebugShell `json:"items"`
+	Items           []VirtualClusterControlPlanePods `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-type VirtualClusterInstanceDebugShellPodsList struct {
+type VirtualClusterInstanceDebugShellList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []VirtualClusterInstanceDebugShellPods `json:"items"`
+	Items           []VirtualClusterInstanceDebugShell `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

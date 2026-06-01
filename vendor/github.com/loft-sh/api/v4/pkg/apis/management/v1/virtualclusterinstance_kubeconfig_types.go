@@ -4,7 +4,7 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// VirtualClusterInstanceKubeConfig holds kube config request and response data for virtual clusters
+// VirtualClusterInstanceKubeConfig holds kube config request and response data for tenant clusters
 // +subresource-request
 type VirtualClusterInstanceKubeConfig struct {
 	metav1.TypeMeta   `json:",inline"`

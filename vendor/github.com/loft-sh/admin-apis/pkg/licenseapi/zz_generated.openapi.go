@@ -26,6 +26,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		InstanceActivateInstanceInput{}.OpenAPIModelName():    schema_loft_sh_admin_apis_pkg_licenseapi_InstanceActivateInstanceInput(ref),
 		InstanceCreateInput{}.OpenAPIModelName():              schema_loft_sh_admin_apis_pkg_licenseapi_InstanceCreateInput(ref),
 		InstanceCreateOutput{}.OpenAPIModelName():             schema_loft_sh_admin_apis_pkg_licenseapi_InstanceCreateOutput(ref),
+		InstanceGetOutput{}.OpenAPIModelName():                schema_loft_sh_admin_apis_pkg_licenseapi_InstanceGetOutput(ref),
+		InstancePatchInput{}.OpenAPIModelName():               schema_loft_sh_admin_apis_pkg_licenseapi_InstancePatchInput(ref),
+		InstancePatchOutput{}.OpenAPIModelName():              schema_loft_sh_admin_apis_pkg_licenseapi_InstancePatchOutput(ref),
 		InstanceSendActivationEmailInput{}.OpenAPIModelName(): schema_loft_sh_admin_apis_pkg_licenseapi_InstanceSendActivationEmailInput(ref),
 		InstanceTokenAuth{}.OpenAPIModelName():                schema_loft_sh_admin_apis_pkg_licenseapi_InstanceTokenAuth(ref),
 		InstanceTokenClaims{}.OpenAPIModelName():              schema_loft_sh_admin_apis_pkg_licenseapi_InstanceTokenClaims(ref),
@@ -659,6 +662,116 @@ func schema_loft_sh_admin_apis_pkg_licenseapi_InstanceCreateOutput(ref common.Re
 		},
 		Dependencies: []string{
 			License{}.OpenAPIModelName()},
+	}
+}
+
+func schema_loft_sh_admin_apis_pkg_licenseapi_InstanceGetOutput(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "InstanceGetOutput is the response body for retrieving an instance by ID. This endpoint is restricted to API key callers (e.g., SAS) — instance tokens cannot read arbitrary instance records.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ID is the instance's unique identifier.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"stripeSubscriptionId": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StripeSubscriptionID is the Stripe subscription associated with this instance. Empty string if no subscription is linked.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"annotations": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Annotations stores arbitrary key-value metadata for the instance.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"id"},
+			},
+		},
+	}
+}
+
+func schema_loft_sh_admin_apis_pkg_licenseapi_InstancePatchInput(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "InstancePatchInput is the request body for patching an instance's fields. Only non-empty fields are applied. This endpoint is restricted to API key callers (e.g., SAS) — instance tokens cannot modify instance records.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"stripeSubscriptionId": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StripeSubscriptionID is the Stripe subscription to associate with this instance.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_loft_sh_admin_apis_pkg_licenseapi_InstancePatchOutput(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "InstancePatchOutput is the response body for PATCH operations on an instance. Returns the updated instance. Has the same structure as InstanceGetOutput.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ID is the instance's unique identifier.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"stripeSubscriptionId": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StripeSubscriptionID is the Stripe subscription associated with this instance. Empty string if no subscription is linked.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"annotations": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Annotations stores arbitrary key-value metadata for the instance.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"id"},
+			},
+		},
 	}
 }
 
@@ -1768,7 +1881,7 @@ func schema_loft_sh_admin_apis_pkg_licenseapi_UsageDataDetails(ref common.Refere
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "UsageDataDetails holds detailed information about the nodes and virtual cluster for an instance deployment of vCluster Platform",
+				Description: "UsageDataDetails holds detailed information about the nodes and tenant cluster for an instance deployment of vCluster Platform",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"nodes": {
@@ -1787,7 +1900,7 @@ func schema_loft_sh_admin_apis_pkg_licenseapi_UsageDataDetails(ref common.Refere
 					},
 					"vClusters": {
 						SchemaProps: spec.SchemaProps{
-							Description: "VClusters contains the details of the virtual clusters",
+							Description: "VClusters contains the details of the tenant clusters",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -1812,7 +1925,7 @@ func schema_loft_sh_admin_apis_pkg_licenseapi_VirtualClusterInfo(ref common.Refe
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VirtualClusterInfo holds information about a single virtual cluster",
+				Description: "VirtualClusterInfo holds information about a single tenant cluster",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"uid": {

@@ -79,7 +79,7 @@ type VirtualClusterInstanceSpec struct {
 	// +optional
 	DisplayName string `json:"displayName,omitempty"`
 
-	// Description describes a virtual cluster instance
+	// Description describes a tenant cluster instance
 	// +optional
 	Description string `json:"description,omitempty"`
 
@@ -87,17 +87,17 @@ type VirtualClusterInstanceSpec struct {
 	// +optional
 	Owner *UserOrTeam `json:"owner,omitempty"`
 
-	// TemplateRef holds the virtual cluster template reference
+	// TemplateRef holds the tenant cluster template reference
 	// +optional
 	TemplateRef *TemplateRef `json:"templateRef,omitempty"`
 
-	// Template is the inline template to use for virtual cluster creation. This is mutually
+	// Template is the inline template to use for tenant cluster creation. This is mutually
 	// exclusive with templateRef.
 	// +optional
 	Template *VirtualClusterTemplateDefinition `json:"template,omitempty"`
 
 	// ClusterRef is the reference to the connected cluster holding
-	// this virtual cluster
+	// this tenant cluster
 	// +optional
 	ClusterRef VirtualClusterClusterRef `json:"clusterRef,omitempty"`
 
@@ -106,12 +106,12 @@ type VirtualClusterInstanceSpec struct {
 	// +optional
 	Parameters string `json:"parameters,omitempty"`
 
-	// ExtraAccessRules defines extra rules which users and teams should have which access to the virtual
+	// ExtraAccessRules defines extra rules which users and teams should have which access to the tenant
 	// cluster.
 	// +optional
 	ExtraAccessRules []InstanceAccessRule `json:"extraAccessRules,omitempty"`
 
-	// Access to the virtual cluster object itself
+	// Access to the tenant cluster object itself
 	// +optional
 	Access []Access `json:"access,omitempty"`
 
@@ -119,17 +119,17 @@ type VirtualClusterInstanceSpec struct {
 	// +optional
 	NetworkPeer bool `json:"networkPeer,omitempty"`
 
-	// External specifies if the virtual cluster is managed by the platform agent or externally.
+	// External specifies if the tenant cluster is managed by the platform agent or externally.
 	// +optional
 	External bool `json:"external,omitempty"`
 
-	// Standalone specifies if the virtual cluster is standalone and not hosted in another Kubernetes cluster.
+	// Standalone specifies if the tenant cluster is standalone and not hosted in another Kubernetes cluster.
 	// +optional
 	Standalone bool `json:"standalone,omitempty"`
 }
 
 type VirtualClusterInstanceStatus struct {
-	// Phase describes the current phase the virtual cluster instance is in
+	// Phase describes the current phase the tenant cluster instance is in
 	// +optional
 	Phase InstancePhase `json:"phase,omitempty"`
 
@@ -143,11 +143,11 @@ type VirtualClusterInstanceStatus struct {
 	// +optional
 	Message string `json:"message,omitempty"`
 
-	// ServiceUID is the service uid of the virtual cluster to uniquely identify it.
+	// ServiceUID is the service uid of the tenant cluster to uniquely identify it.
 	// +optional
 	ServiceUID string `json:"serviceUID,omitempty"`
 
-	// KubernetesVersion is the Kubernetes version of the virtual cluster.
+	// KubernetesVersion is the Kubernetes version of the tenant cluster.
 	// +optional
 	KubernetesVersion string `json:"kubernetesVersion,omitempty"`
 
@@ -155,15 +155,15 @@ type VirtualClusterInstanceStatus struct {
 	// +optional
 	DeployHash string `json:"deployHash,omitempty"`
 
-	// Conditions holds several conditions the virtual cluster might be in
+	// Conditions holds several conditions the tenant cluster might be in
 	// +optional
 	Conditions agentstoragev1.Conditions `json:"conditions,omitempty"`
 
-	// VirtualClusterObjects are the objects that were applied within the virtual cluster itself
+	// VirtualClusterObjects are the objects that were applied within the tenant cluster itself
 	// +optional
 	VirtualClusterObjects *ObjectsStatus `json:"virtualClusterObjects,omitempty"`
 
-	// SpaceObjects are the objects that were applied within the virtual cluster space
+	// SpaceObjects are the objects that were applied within the tenant cluster space
 	// +optional
 	SpaceObjects *ObjectsStatus `json:"spaceObjects,omitempty"`
 
@@ -172,15 +172,15 @@ type VirtualClusterInstanceStatus struct {
 	VirtualCluster *VirtualClusterTemplateDefinition `json:"virtualCluster,omitempty"`
 
 	// IgnoreReconciliation tells the controller to ignore reconciliation for this instance -- this
-	// is primarily used when migrating virtual cluster instances from project to project; this
-	// prevents a situation where there are two virtual cluster instances representing the same
-	// virtual cluster which could cause issues with concurrent reconciliations of the same object.
-	// Once the virtual cluster instance has been cloned and placed into the new project, this
-	// (the "old") virtual cluster instance can safely be deleted.
+	// is primarily used when migrating tenant cluster instances from project to project; this
+	// prevents a situation where there are two tenant cluster instances representing the same
+	// tenant cluster which could cause issues with concurrent reconciliations of the same object.
+	// Once the tenant cluster instance has been cloned and placed into the new project, this
+	// (the "old") tenant cluster instance can safely be deleted.
 	IgnoreReconciliation bool `json:"ignoreReconciliation,omitempty"`
 }
 
-// VirtualClusterCommonSpec holds common attributes for virtual clusters and virtual cluster templates
+// VirtualClusterCommonSpec holds common attributes for tenant clusters and tenant cluster templates
 type VirtualClusterCommonSpec struct {
 	// Apps specifies the apps that should get deployed by this template
 	// +optional
@@ -190,23 +190,23 @@ type VirtualClusterCommonSpec struct {
 	// +optional
 	Charts []TemplateHelmChart `json:"charts,omitempty"`
 
-	// Objects are Kubernetes style YAMLs that should get deployed into the virtual cluster
+	// Objects are Kubernetes style YAMLs that should get deployed into the tenant cluster
 	// +optional
 	Objects string `json:"objects,omitempty"`
 
-	// Access defines the access of users and teams to the virtual cluster.
+	// Access defines the access of users and teams to the tenant cluster.
 	// +optional
 	Access *InstanceAccess `json:"access,omitempty"`
 
-	// Pro defines the pro settings for the virtual cluster
+	// Pro defines the pro settings for the tenant cluster
 	// +optional
 	Pro VirtualClusterProSpec `json:"pro,omitempty"`
 
-	// HelmRelease is the helm release configuration for the virtual cluster.
+	// HelmRelease is the helm release configuration for the tenant cluster.
 	// +optional
 	HelmRelease VirtualClusterHelmRelease `json:"helmRelease,omitempty"`
 
-	// AccessPoint defines settings to expose the virtual cluster directly via an ingress rather than
+	// AccessPoint defines settings to expose the tenant cluster directly via an ingress rather than
 	// through the (default) Loft proxy
 	// +optional
 	AccessPoint VirtualClusterAccessPoint `json:"accessPoint,omitempty"`
@@ -218,19 +218,19 @@ type VirtualClusterCommonSpec struct {
 }
 
 type VirtualClusterProSpec struct {
-	// Enabled defines if the virtual cluster is a pro cluster or not
+	// Enabled defines if the tenant cluster is a pro cluster or not
 	// +optional
 	Enabled bool `json:"enabled,omitempty"`
 }
 
 type VirtualClusterAccessPoint struct {
-	// Ingress defines virtual cluster access via ingress
+	// Ingress defines tenant cluster access via ingress
 	// +optional
 	Ingress VirtualClusterAccessPointIngressSpec `json:"ingress,omitempty"`
 }
 
 type VirtualClusterAccessPointIngressSpec struct {
-	// Enabled defines if the virtual cluster access point (via ingress) is enabled or not; requires
+	// Enabled defines if the tenant cluster access point (via ingress) is enabled or not; requires
 	// the connected cluster to have the `loft.sh/ingress-suffix` annotation set to define the domain
 	// name suffix used for the ingress.
 	Enabled bool `json:"enabled,omitempty"`
@@ -266,7 +266,7 @@ type InstanceAccess struct {
 	// +optional
 	DefaultClusterRole string `json:"defaultClusterRole,omitempty"`
 
-	// Rules defines which users and teams should have which access to the virtual
+	// Rules defines which users and teams should have which access to the tenant
 	// cluster. If no rule matches an authenticated incoming user, the user will get cluster admin
 	// access.
 	// +optional
@@ -351,7 +351,7 @@ type VirtualClusterHelmChart struct {
 }
 
 type PodSelector struct {
-	// A label selector to select the virtual cluster pod to route
+	// A label selector to select the tenant cluster pod to route
 	// incoming requests to.
 	// +optional
 	Selector metav1.LabelSelector `json:"podSelector,omitempty"`
@@ -361,9 +361,9 @@ type PodSelector struct {
 	Port *int `json:"port,omitempty"`
 }
 
-// VirtualClusterStatus holds the status of a virtual cluster
+// VirtualClusterStatus holds the status of a tenant cluster
 type VirtualClusterStatus struct {
-	// Phase describes the current phase the virtual cluster is in
+	// Phase describes the current phase the tenant cluster is in
 	// +optional
 	Phase VirtualClusterPhase `json:"phase,omitempty"`
 
@@ -377,11 +377,11 @@ type VirtualClusterStatus struct {
 	// +optional
 	Message string `json:"message,omitempty"`
 
-	// ControlPlaneReady defines if the virtual cluster control plane is ready.
+	// ControlPlaneReady defines if the tenant cluster control plane is ready.
 	// +optional
 	ControlPlaneReady bool `json:"controlPlaneReady,omitempty"`
 
-	// Conditions holds several conditions the virtual cluster might be in
+	// Conditions holds several conditions the tenant cluster might be in
 	// +optional
 	Conditions agentstoragev1.Conditions `json:"conditions,omitempty"`
 
@@ -389,7 +389,7 @@ type VirtualClusterStatus struct {
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
-	// VirtualClusterObjects are the objects that were applied within the virtual cluster itself
+	// VirtualClusterObjects are the objects that were applied within the tenant cluster itself
 	// +optional
 	VirtualClusterObjects *ObjectsStatus `json:"virtualClusterObjects,omitempty"`
 
@@ -397,11 +397,11 @@ type VirtualClusterStatus struct {
 	// +optional
 	DeployHash string `json:"deployHash,omitempty"`
 
-	// MultiNamespace indicates if this is a multinamespace enabled virtual cluster
+	// MultiNamespace indicates if this is a multinamespace enabled tenant cluster
 	MultiNamespace bool `json:"multiNamespace,omitempty"`
 
 	// DEPRECATED: do not use anymore
-	// the status of the helm release that was used to deploy the virtual cluster
+	// the status of the helm release that was used to deploy the tenant cluster
 	// +optional
 	HelmRelease *VirtualClusterHelmReleaseStatus `json:"helmRelease,omitempty"`
 }
@@ -452,7 +452,7 @@ type VirtualClusterHelmReleaseStatus struct {
 	Release VirtualClusterHelmRelease `json:"release,omitempty"`
 }
 
-// VirtualClusterPhase describes the phase of a virtual cluster
+// VirtualClusterPhase describes the phase of a tenant cluster
 type VirtualClusterPhase string
 
 // These are the valid admin account types

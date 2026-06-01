@@ -1621,13 +1621,53 @@ func (in VirtualClusterAccessKeyList) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in VirtualClusterDebugShellPodStatus) OpenAPIModelName() string {
-	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.VirtualClusterDebugShellPodStatus"
+func (in VirtualClusterControlPlaneContainerState) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.VirtualClusterControlPlaneContainerState"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in VirtualClusterDebugShellPodsStatus) OpenAPIModelName() string {
-	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.VirtualClusterDebugShellPodsStatus"
+func (in VirtualClusterControlPlaneContainerStateTerminated) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.VirtualClusterControlPlaneContainerStateTerminated"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in VirtualClusterControlPlaneContainerStateWaiting) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.VirtualClusterControlPlaneContainerStateWaiting"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in VirtualClusterControlPlaneContainerStatus) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.VirtualClusterControlPlaneContainerStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in VirtualClusterControlPlanePod) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.VirtualClusterControlPlanePod"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in VirtualClusterControlPlanePodObjectMeta) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.VirtualClusterControlPlanePodObjectMeta"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in VirtualClusterControlPlanePodStatus) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.VirtualClusterControlPlanePodStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in VirtualClusterControlPlanePods) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.VirtualClusterControlPlanePods"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in VirtualClusterControlPlanePodsList) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.VirtualClusterControlPlanePodsList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in VirtualClusterControlPlanePodsStatus) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.VirtualClusterControlPlanePodsStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
@@ -1673,16 +1713,6 @@ func (in VirtualClusterInstanceDebugShell) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in VirtualClusterInstanceDebugShellList) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.VirtualClusterInstanceDebugShellList"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in VirtualClusterInstanceDebugShellPods) OpenAPIModelName() string {
-	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.VirtualClusterInstanceDebugShellPods"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in VirtualClusterInstanceDebugShellPodsList) OpenAPIModelName() string {
-	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.VirtualClusterInstanceDebugShellPodsList"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.

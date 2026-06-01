@@ -129,7 +129,7 @@ type ProjectSpec struct {
 	// +optional
 	NamespaceTemplate *ProjectNamespaceTemplate `json:"namespaceTemplate,omitempty"`
 
-	// NamespacePattern specifies template patterns to use for creating each space or virtual cluster's namespace
+	// NamespacePattern specifies template patterns to use for creating each space or tenant cluster's namespace
 	// +optional
 	NamespacePattern *NamespacePattern `json:"namespacePattern,omitempty"`
 
@@ -169,7 +169,7 @@ type NamespacePattern struct {
 	// +optional
 	Space string `json:"space,omitempty"`
 
-	// VirtualCluster holds the namespace pattern to use for virtual cluster instances
+	// VirtualCluster holds the namespace pattern to use for tenant cluster instances
 	// +optional
 	VirtualCluster string `json:"virtualCluster,omitempty"`
 }
@@ -340,9 +340,9 @@ type ArgoIntegrationSpec struct {
 	// +optional
 	Cluster string `json:"cluster,omitempty"`
 
-	// VirtualClusterInstance defines the name of *virtual cluster* (instance) that ArgoCD is
+	// VirtualClusterInstance defines the name of *tenant cluster* (instance) that ArgoCD is
 	// deployed into. If provided, Cluster will be ignored and Loft will assume that ArgoCD is
-	// running in the specified virtual cluster.
+	// running in the specified tenant cluster.
 	// +optional
 	VirtualClusterInstance string `json:"virtualClusterInstance,omitempty"`
 

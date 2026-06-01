@@ -6,7 +6,7 @@ import (
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// VirtualClusterResourceUsage holds information about a virtual cluster's
+// VirtualClusterResourceUsage holds information about a tenant cluster's
 // usage of node resources.
 // +subresource-request
 type VirtualClusterResourceUsage struct {
@@ -17,12 +17,12 @@ type VirtualClusterResourceUsage struct {
 }
 
 type VirtualClusterResourceUsageStatus struct {
-	// ResourceUsage contains the aggregated result of the queries to the virtual cluster's nodes.
+	// ResourceUsage contains the aggregated result of the queries to the tenant cluster's nodes.
 	ResourceUsage VirtualClusterResourceUsageMap `json:"resourceUsage,omitempty"`
 }
 
 type VirtualClusterResourceUsageMap struct {
-	// Nodes is the total count of nodes attached to the virtual cluster.
+	// Nodes is the total count of nodes attached to the tenant cluster.
 	Nodes int `json:"nodes"`
 	// Capacity is a map of resources to their total amounts across all attached nodes.
 	Capacity map[string]int `json:"capacity,omitempty"`

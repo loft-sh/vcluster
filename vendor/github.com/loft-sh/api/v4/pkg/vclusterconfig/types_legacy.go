@@ -34,16 +34,16 @@ type LegacyPlatformConfig struct {
 //
 // Deprecated: Use top-level sleepMode instead.
 type LegacyPlatformAutoSleep struct {
-	// AfterInactivity specifies after how many seconds of inactivity the virtual cluster should sleep
+	// AfterInactivity specifies after how many seconds of inactivity the tenant cluster should sleep
 	// +optional
 	AfterInactivity int64 `json:"afterInactivity,omitempty" yaml:"afterInactivity,omitempty"`
 
-	// Schedule specifies scheduled virtual cluster sleep in Cron format, see https://en.wikipedia.org/wiki/Cron.
+	// Schedule specifies scheduled tenant cluster sleep in Cron format, see https://en.wikipedia.org/wiki/Cron.
 	// Note: timezone defined in the schedule string will be ignored. Use ".Timezone" field instead.
 	// +optional
 	Schedule string `json:"schedule,omitempty" yaml:"schedule,omitempty"`
 
-	// Timezone specifies time zone used for scheduled virtual cluster operations. Defaults to UTC.
+	// Timezone specifies time zone used for scheduled tenant cluster operations. Defaults to UTC.
 	// Accepts the same format as time.LoadLocation() in Go (https://pkg.go.dev/time#LoadLocation).
 	// The value should be a location name corresponding to a file in the IANA Time Zone database, such as "America/New_York".
 	// +optional
@@ -69,7 +69,7 @@ type LegacyPlatformAutoWakeup struct {
 //
 // Deprecated: Use top-level Deletion instead.
 type LegacyAutoDelete struct {
-	// AfterInactivity specifies after how many seconds of inactivity the virtual cluster be deleted
+	// AfterInactivity specifies after how many seconds of inactivity the tenant cluster be deleted
 	// +optional
 	AfterInactivity int64 `json:"afterInactivity,omitempty" yaml:"afterInactivity,omitempty"`
 }
@@ -78,17 +78,17 @@ type LegacyAutoDelete struct {
 //
 // Deprecated: Use top-level Snapshots instead.
 type LegacyAutoSnapshot struct {
-	// Enable defines whether auto snapshot is enabled for the virtual cluster
+	// Enable defines whether auto snapshot is enabled for the tenant cluster
 	// +optional
 	Enabled bool `json:"enabled,omitempty" yaml:"enabled,omitempty"`
 
-	// Timezone specifies time zone used for scheduled virtual cluster operations. Defaults to UTC.
+	// Timezone specifies time zone used for scheduled tenant cluster operations. Defaults to UTC.
 	// Accepts the same format as time.LoadLocation() in Go (https://pkg.go.dev/time#LoadLocation).
 	// The value should be a location name corresponding to a file in the IANA Time Zone database, such as "America/New_York".
 	// +optional
 	Timezone string `json:"timezone,omitempty" yaml:"timezone,omitempty"`
 
-	// Schedule specifies a scheduled time in Cron format, see https://en.wikipedia.org/wiki/Cron for a virtual cluster snapshot to be taken
+	// Schedule specifies a scheduled time in Cron format, see https://en.wikipedia.org/wiki/Cron for a tenant cluster snapshot to be taken
 	// +optional
 	Schedule string `json:"schedule,omitempty" yaml:"schedule,omitempty"`
 

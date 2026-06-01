@@ -411,8 +411,18 @@ func (in KindSecretRef) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in KubeVirtDeployment) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.KubeVirtDeployment"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in KubeVirtNodeTypeSpec) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.KubeVirtNodeTypeSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in KubeVirtProviderDeployment) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.KubeVirtProviderDeployment"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
