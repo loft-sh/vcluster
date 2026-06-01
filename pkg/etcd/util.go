@@ -25,10 +25,19 @@ type Certificates struct {
 }
 
 func WaitForEtcd(parentCtx context.Context, certificates *Certificates, endpoints ...string) error {
+	// This polls etcd before it is necessarily reachable, so transient dial
+	// failures are expected. Silence the etcd client logger (we log our own
+	// retry message below) unless verbose logging is enabled, so we don't print
+	// misleading "retrying of unary invoker failed" warnings.
+	log := zap.NewNop()
+	if klog.V(1).Enabled() {
+		log = zap.L().Named("wait-for-etcd")
+	}
+
 	var err error
 	waitErr := wait.PollUntilContextTimeout(parentCtx, time.Second, waitForClientTimeout, true, func(ctx context.Context) (bool, error) {
 		var etcdClient *clientv3.Client
-		etcdClient, err = GetEtcdClient(ctx, zap.L().Named("wait-for-etcd"), certificates, endpoints...)
+		etcdClient, err = GetEtcdClient(ctx, log, certificates, endpoints...)
 		if err == nil {
 			defer func() {
 				_ = etcdClient.Close()

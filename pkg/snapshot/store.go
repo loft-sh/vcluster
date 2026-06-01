@@ -64,11 +64,18 @@ func isEtcdReachable(ctx context.Context, endpoint string, certificates *etcd.Ce
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	if !klog.V(1).Enabled() {
+	// This probe runs before the backing store is started, so connection
+	// failures are expected and handled by the caller. Silence the etcd client
+	// logger unless verbose logging is enabled, so restore doesn't print
+	// misleading "retrying of unary invoker failed" warnings.
+	log := zap.NewNop()
+	if klog.V(1).Enabled() {
+		log = zap.L().Named("etcd-client")
+	} else {
 		// prevent etcd client messages from showing
 		grpclog.SetLoggerV2(grpclog.NewLoggerV2(io.Discard, io.Discard, io.Discard))
 	}
-	etcdClient, err := etcd.GetEtcdClient(ctx, zap.L().Named("etcd-client"), certificates, endpoint)
+	etcdClient, err := etcd.GetEtcdClient(ctx, log, certificates, endpoint)
 	if err == nil {
 		defer func() {
 			_ = etcdClient.Close()
