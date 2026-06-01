@@ -122,7 +122,7 @@ func (cmd *CreateCmd) Run(cobraCmd *cobra.Command, args []string) error {
 			if !cobraCmd.Flag("chart-version").Changed {
 				cmd.ChartVersion = ""
 			}
-			return cli.RestoreDocker(ctx, cmd.GlobalFlags, cmd.Restore, args[0], &cmd.CreateOptions, cmd.log)
+			return cli.RestoreDocker(ctx, cmd.GlobalFlags, cmd.Restore, args[0], &cmd.CreateOptions, cmd.CreateOptions.SnapshotTempDir, cmd.log)
 		}
 		return cli.CreateDocker(ctx, &cmd.CreateOptions, cmd.GlobalFlags, args[0], cmd.log)
 	}

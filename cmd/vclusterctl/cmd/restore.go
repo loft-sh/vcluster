@@ -81,7 +81,7 @@ vcluster restore my-new-name ./my-snapshot.tar.gz --driver docker
 				if len(args) < 2 {
 					return fmt.Errorf("usage: vcluster restore VCLUSTER_NAME SNAPSHOT_FILE --driver docker")
 				}
-				return cli.RestoreDocker(cobraCmd.Context(), cmd.GlobalFlags, args[1], args[0], nil, cmd.Log)
+				return cli.RestoreDocker(cobraCmd.Context(), cmd.GlobalFlags, args[1], args[0], nil, cmd.Snapshot.SnapshotTempDir, cmd.Log)
 			}
 			return cli.Restore(cobraCmd.Context(), args, cmd.GlobalFlags, &cmd.Snapshot, &cmd.Pod, false, cmd.RestoreVolumes, cmd.Standalone, cmd.Log)
 		},
