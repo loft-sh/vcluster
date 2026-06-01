@@ -62,17 +62,9 @@ func SnapshotExec(
 ) error {
 	// get target pod
 	var targetPod *corev1.Pod
-	for _, pod := range vCluster.Pods {
-		if vCluster.StatefulSet != nil && strings.HasSuffix(pod.Name, "-0") {
-			targetPod = &pod
-			break
-		} else if vCluster.Deployment != nil {
-			targetPod = &pod
-			break
-		}
-	}
-	if targetPod == nil {
-		return fmt.Errorf("couldn't find a running pod for vCluster %s", vCluster.Name)
+	targetPod, err := FindVClusterPod(vCluster)
+	if err != nil {
+		return err
 	}
 
 	// build env variables
@@ -606,4 +598,16 @@ func WaitForCompletedPod(ctx context.Context, kubeClient *kubernetes.Clientset, 
 	}
 
 	return exitCode, nil
+}
+
+func FindVClusterPod(vCluster *find.VCluster) (*corev1.Pod, error) {
+	for _, pod := range vCluster.Pods {
+		p := &pod
+		if vCluster.StatefulSet != nil && strings.HasSuffix(p.Name, "-0") {
+			return p, nil
+		} else if vCluster.Deployment != nil {
+			return p, nil
+		}
+	}
+	return nil, fmt.Errorf("couldn't find a running pod for vCluster %s", vCluster.Name)
 }

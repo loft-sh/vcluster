@@ -46,6 +46,8 @@ func NewRestore(globalFlags *flags.GlobalFlags) *cobra.Command {
 Restore a virtual cluster.
 
 Example:
+# Restore from a local file on this machine
+vcluster restore my-vcluster file:///home/user/my-snapshot.tar.gz
 # Restore from oci image
 vcluster restore my-vcluster oci://ghcr.io/my-user/my-repo:my-tag
 # Restore from s3 bucket

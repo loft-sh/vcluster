@@ -49,7 +49,7 @@ func Parse(snapshotURL string, snapshotOptions *snapshotapi.Options) error {
 		return fmt.Errorf("error parsing snapshotURL %s: %w", snapshotURL, err)
 	}
 
-	supportedSchemes := []string{"oci", "s3", "container", "https"}
+	supportedSchemes := []string{"oci", "s3", "container", "file", "https"}
 	if !slices.Contains(supportedSchemes, parsedURL.Scheme) {
 		return fmt.Errorf("scheme needs to be one of %s", strings.Join(supportedSchemes, ", "))
 	}
@@ -99,6 +99,12 @@ func Parse(snapshotURL string, snapshotOptions *snapshotapi.Options) error {
 		// Azure blob storage support
 		snapshotOptions.Type = "azure"
 		snapshotOptions.Azure.BlobURL = snapshotURL
+	case "file":
+		// file:///absolute/path — host is empty for absolute paths
+		if parsedURL.Path == "" {
+			return fmt.Errorf("path must be specified via file:///PATH")
+		}
+		snapshotOptions.File.Path = parsedURL.Path
 	}
 
 	return nil
@@ -145,8 +151,12 @@ func Validate(options *snapshotapi.Options, isList bool) error {
 		if options.Azure.BlobURL == "" {
 			return fmt.Errorf("blob URL must be specified")
 		}
+	} else if options.Type == "file" {
+		if options.File.Path == "" {
+			return fmt.Errorf("path must be specified via file:///PATH")
+		}
 	} else {
-		return fmt.Errorf("type must be either 'container', 'oci', 's3', or 'azure'")
+		return fmt.Errorf("type must be either 'container', 'file', 'oci', 's3', or 'azure'")
 	}
 
 	return nil

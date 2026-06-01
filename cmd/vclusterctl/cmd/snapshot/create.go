@@ -42,6 +42,8 @@ request, which will be processed asynchronously by a vCluster
 controller.
 
 Example:
+# Snapshot to a local file on this machine
+vcluster snapshot create my-vcluster file:///home/user/my-snapshot.tar.gz
 # Snapshot to oci image
 vcluster snapshot create my-vcluster oci://ghcr.io/my-user/my-repo:my-tag
 # Snapshot to s3 bucket

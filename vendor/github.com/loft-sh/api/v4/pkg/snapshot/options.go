@@ -7,6 +7,7 @@ type Options struct {
 	Container ContainerOptions `json:"container"`
 	OCI       OCIOptions       `json:"oci"`
 	Azure     AzureOptions     `json:"azure"`
+	File      FileOptions      `json:"file"`
 
 	Release        *HelmRelease `json:"release,omitempty"`
 	IncludeVolumes bool         `json:"include-volumes,omitempty"`
@@ -30,6 +31,8 @@ func (o *Options) GetURL() string {
 		return "oci://" + o.OCI.Repository
 	case "azure":
 		return o.Azure.BlobURL
+	case "file":
+		return "file://" + o.File.Path
 	default:
 		return ""
 	}
@@ -114,4 +117,8 @@ type AzureOptions struct {
 
 	// ClientSecret is the client secret for service principal auth.
 	ClientSecret string `json:"client-secret,omitempty"`
+}
+
+type FileOptions struct {
+	Path string `json:"path,omitempty"`
 }

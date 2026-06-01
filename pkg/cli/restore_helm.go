@@ -39,7 +39,7 @@ func Restore(ctx context.Context, args []string, globalFlags *flags.GlobalFlags,
 	return restoreVCluster(ctx, kubeClient, restConfig, vCluster, snapshotOpts, podOpts, newVCluster, restoreVolumes, log)
 }
 
-func restoreVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, restConfig *rest.Config, vCluster *find.VCluster, snapshotOpts *snapshotapi.Options, podOptions *pod.Options, newVCluster bool, restoreVolumes bool, log log.Logger) error {
+func restoreVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, restConfig *rest.Config, vCluster *find.VCluster, snapshotOpts *snapshotapi.Options, podOpts *pod.Options, newVCluster bool, restoreVolumes bool, log log.Logger) error {
 	cmdArgs := []string{"restore"}
 	if newVCluster {
 		cmdArgs = append(cmdArgs, "--new-vcluster")
@@ -48,10 +48,20 @@ func restoreVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, rest
 		cmdArgs = append(cmdArgs, "--restore-volumes")
 	}
 
-	if vCluster.IsStandalone {
-		return restoreStandaloneVCluster(ctx, vCluster, snapshotOpts, cmdArgs, log)
+	if snapshotOpts.Type == "file" {
+		return restoreFromLocalFile(ctx, vCluster, kubeClient, restConfig, snapshotOpts, podOpts, log, cmdArgs)
 	}
 
+	if vCluster.IsStandalone {
+		return restoreStandaloneVCluster(snapshotOpts, cmdArgs, log)
+	}
+
+	return runRestorePod(ctx, kubeClient, restConfig, vCluster, snapshotOpts, podOpts, log, cmdArgs)
+}
+
+// runRestorePod runs the restore pod with the given options. It pauses the vCluster before starting the restore and resumes it afterwards.
+// The restore pod will perform the restore and resume the vCluster when it's done.
+func runRestorePod(ctx context.Context, kubeClient *kubernetes.Clientset, restConfig *rest.Config, vCluster *find.VCluster, snapshotOpts *snapshotapi.Options, podOpts *pod.Options, log log.Logger, cmdArgs []string) error {
 	// pause vCluster
 	log.Infof("Pausing vCluster %s", vCluster.Name)
 	err := pauseVCluster(ctx, kubeClient, vCluster, log)
@@ -70,7 +80,7 @@ func restoreVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, rest
 
 	// set missing pod options and run snapshot restore pod
 	command := append([]string{"/vcluster"}, cmdArgs...)
-	return pod.RunSnapshotPod(ctx, restConfig, kubeClient, command, vCluster, podOptions, snapshotOpts, log)
+	return pod.RunSnapshotPod(ctx, restConfig, kubeClient, command, vCluster, podOpts, snapshotOpts, log)
 }
 
 // restoreStandaloneVCluster stops the standalone service, invokes the vcluster binary
@@ -78,7 +88,7 @@ func restoreVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, rest
 // before returning. If both the restore and restart fail, the returned error retains
 // both failures. The CLI must run on the same host as the standalone installation
 // because it needs filesystem access to the binary and config.
-func restoreStandaloneVCluster(ctx context.Context, vCluster *find.VCluster, snapshotOpts *snapshotapi.Options, cmdArgs []string, log log.Logger) (retErr error) {
+func restoreStandaloneVCluster(snapshotOpts *snapshotapi.Options, cmdArgs []string, log log.Logger) (retErr error) {
 	vClusterConfig, err := vclusterconfig.LoadStandaloneConfig("", nil)
 	if err != nil {
 		return fmt.Errorf("load standalone config: %w", err)
