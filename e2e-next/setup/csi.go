@@ -5,7 +5,13 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
+)
+
+const (
+	csiDriverHostPathVersion   = "v1.17.0"
+	externalSnapshotterVersion = "v8.4.0"
 )
 
 // InstallCSIHostpath returns a PreSetupFunc that installs the CSI hostpath
@@ -23,17 +29,18 @@ func InstallCSIHostpath(kubeContext string) func(ctx context.Context) error {
 		}
 
 		// Install snapshot CRDs
+		snapshotterBase := "https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/" + externalSnapshotterVersion
 		if err := kubectlApply(ctx, kubeContext,
-			"https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/master/client/config/crd/snapshot.storage.k8s.io_volumesnapshotclasses.yaml",
-			"https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/master/client/config/crd/snapshot.storage.k8s.io_volumesnapshotcontents.yaml",
-			"https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/master/client/config/crd/snapshot.storage.k8s.io_volumesnapshots.yaml",
+			snapshotterBase+"/client/config/crd/snapshot.storage.k8s.io_volumesnapshotclasses.yaml",
+			snapshotterBase+"/client/config/crd/snapshot.storage.k8s.io_volumesnapshotcontents.yaml",
+			snapshotterBase+"/client/config/crd/snapshot.storage.k8s.io_volumesnapshots.yaml",
 		); err != nil {
 			return fmt.Errorf("install snapshot CRDs: %w", err)
 		}
 
 		// Install snapshot-controller
 		if err := kubectlApplyKustomize(ctx, kubeContext,
-			"https://github.com/kubernetes-csi/external-snapshotter/deploy/kubernetes/snapshot-controller"); err != nil {
+			"https://github.com/kubernetes-csi/external-snapshotter/deploy/kubernetes/snapshot-controller?ref="+externalSnapshotterVersion); err != nil {
 			return fmt.Errorf("install snapshot-controller: %w", err)
 		}
 
@@ -44,11 +51,15 @@ func InstallCSIHostpath(kubeContext string) func(ctx context.Context) error {
 		}
 		defer os.RemoveAll(tmpDir)
 
-		cloneCmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1",
+		cloneCmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1", "--branch", csiDriverHostPathVersion,
 			"https://github.com/kubernetes-csi/csi-driver-host-path.git", tmpDir)
 		if out, err := cloneCmd.CombinedOutput(); err != nil {
-			return fmt.Errorf("clone csi-driver-host-path: %s: %w", string(out), err)
+			return fmt.Errorf("clone csi-driver-host-path@%s: %s: %w", csiDriverHostPathVersion, string(out), err)
 		}
+
+		// Remove the testing manifest (socat proxy) - it is only needed for
+		// csi-sanity/csc testing and its StatefulSet is flaky on Kind.
+		_ = os.Remove(filepath.Join(tmpDir, "deploy", "kubernetes-latest", "hostpath", "csi-hostpath-testing.yaml"))
 
 		// Set the kubectl context before running deploy.sh so the CSI driver
 		// is installed into the correct cluster even when multiple contexts exist.
