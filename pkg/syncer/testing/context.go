@@ -92,18 +92,10 @@ func NewFakeRegisterContext(vConfig *config.VirtualClusterConfig, pClient *testi
 	return registerCtx
 }
 
-// installFakeCRDHelpers replaces util.EnsureCRD and util.KindExists with no-op
-// fakes for the duration of a test setup, returning a restore function that
-// reinstalls the originals. Both util.EnsureCRD and util.KindExists are
-// process-wide vars, so this helper is NOT safe to use under t.Parallel():
-// concurrent install/restore can leave stale fakes installed for an unrelated
-// test. If parallel tests are introduced here, refactor those vars to be
-// per-context fields instead.
 func installFakeCRDHelpers() func() {
 	ensureCRD := util.EnsureCRD
 	kindExists := util.KindExists
 
-	// make sure we do not ensure any CRDs
 	util.EnsureCRD = func(_ context.Context, _ *rest.Config, _ []byte, _ schema.GroupVersionKind) error {
 		return nil
 	}

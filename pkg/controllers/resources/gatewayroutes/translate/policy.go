@@ -1,4 +1,4 @@
-package httproutes
+package translate
 
 import (
 	"fmt"
@@ -11,17 +11,21 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-func validateImportedGatewayHostnamePolicy(ctx *synccontext.SyncContext, route *gatewayv1.HTTPRoute) error {
-	if ctx == nil || ctx.Config == nil || route == nil {
+// ValidateImportedGatewayHostnamePolicy enforces allowed hostnames configured for imported Gateways.
+func ValidateImportedGatewayHostnamePolicy(ctx *synccontext.SyncContext, routeKind, routeNamespace string, parentRefs []gatewayv1.ParentReference, hostnames []gatewayv1.Hostname) error {
+	if ctx == nil || ctx.Config == nil {
 		return nil
 	}
 
-	for _, parent := range route.Spec.ParentRefs {
-		imp := importedGatewayForParent(ctx, route.Namespace, parent)
+	for _, parent := range parentRefs {
+		imp := importedGatewayForParent(ctx, routeNamespace, parent)
 		if imp == nil || len(imp.AllowedHostnames) == 0 {
 			continue
 		}
-		for _, hostname := range route.Spec.Hostnames {
+		if len(hostnames) == 0 {
+			return fmt.Errorf("%s with no hostnames is not permitted by imported Gateway %q hostname policy", routeKind, parent.Name)
+		}
+		for _, hostname := range hostnames {
 			if !hostnameAllowed(string(hostname), imp.AllowedHostnames) {
 				return fmt.Errorf("hostname %q is not permitted by imported Gateway %q hostname policy", hostname, parent.Name)
 			}

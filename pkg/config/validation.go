@@ -251,13 +251,6 @@ func validateGatewayAPIConfig(vConfig *VirtualClusterConfig) error {
 	if err := validateGatewayMappings(gateways.Mappings.ByName, vConfig.HostNamespace); err != nil {
 		return err
 	}
-	if !gateways.Sanitize.CertificateRefs {
-		gateways.Sanitize.CertificateRefs = true
-	}
-	if !gateways.Sanitize.Infrastructure {
-		gateways.Sanitize.Infrastructure = true
-	}
-
 	if err := validateGatewayVirtualNamespacePolicy("sync.fromHost.gateways.allowedRoutes.defaultVirtualNamespacePolicy", gateways.AllowedRoutes.DefaultVirtualNamespacePolicy); err != nil {
 		return err
 	}
@@ -396,16 +389,8 @@ func validateGatewayVirtualNamespacePolicy(path string, policy *config.GatewayVi
 
 func validGatewayHostnamePattern(hostname string) bool {
 	hostname = strings.TrimSpace(strings.ToLower(hostname))
-	if hostname == "" {
-		return false
-	}
 	if strings.HasPrefix(hostname, "*.") {
-		hostname = strings.TrimPrefix(hostname, "*.")
-		if hostname == "" || strings.Contains(hostname, "*") {
-			return false
-		}
-	} else if strings.Contains(hostname, "*") {
-		return false
+		return len(utilvalidation.IsWildcardDNS1123Subdomain(hostname)) == 0
 	}
 	return len(utilvalidation.IsDNS1123Subdomain(hostname)) == 0
 }
@@ -431,10 +416,10 @@ func ValidateAllSyncPatches(sync config.Sync) error {
 			{"sync.toHost.ingresses.patches", sync.ToHost.Ingresses.Patches},
 			{"sync.toHost.gatewayApi.patches", sync.ToHost.GatewayAPI.Patches},
 			{"sync.toHost.gatewayApi.gateways.patches", sync.ToHost.GatewayAPI.Gateways.Patches},
-			{"sync.toHost.gatewayApi.httpRoutePatches", sync.ToHost.GatewayAPI.HTTPRoutePatches},
-			{"sync.toHost.gatewayApi.tlsRoutePatches", sync.ToHost.GatewayAPI.TLSRoutePatches},
-			{"sync.toHost.gatewayApi.backendTLSPolicyPatches", sync.ToHost.GatewayAPI.BackendTLSPolicyPatches},
-			{"sync.toHost.gatewayApi.referenceGrantPatches", sync.ToHost.GatewayAPI.ReferenceGrantPatches},
+			{"sync.toHost.gatewayApi.httpRoutes.patches", sync.ToHost.GatewayAPI.HTTPRoutes.Patches},
+			{"sync.toHost.gatewayApi.tlsRoutes.patches", sync.ToHost.GatewayAPI.TLSRoutes.Patches},
+			{"sync.toHost.gatewayApi.backendTLSPolicies.patches", sync.ToHost.GatewayAPI.BackendTLSPolicies.Patches},
+			{"sync.toHost.gatewayApi.referenceGrants.patches", sync.ToHost.GatewayAPI.ReferenceGrants.Patches},
 			{"sync.toHost.namespaces.patches", sync.ToHost.Namespaces.Patches},
 			{"sync.toHost.networkPolicies.patches", sync.ToHost.NetworkPolicies.Patches},
 			{"sync.toHost.persistentVolumeClaims.patches", sync.ToHost.PersistentVolumeClaims.Patches},

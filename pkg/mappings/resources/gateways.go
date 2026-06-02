@@ -157,20 +157,6 @@ func GatewayTenantTargetMapped(ctx *synccontext.SyncContext, tenant types.Namesp
 	return ok
 }
 
-func GatewayMappedTenantNamespaces(ctx *synccontext.SyncContext) map[string]struct{} {
-	namespaces := map[string]struct{}{}
-	if ctx == nil || ctx.Config == nil {
-		return namespaces
-	}
-	for _, target := range ctx.Config.Sync.FromHost.Gateways.Mappings.ByName {
-		targetName, ok := ParseGatewayNamespacedName(target, "*")
-		if ok {
-			namespaces[targetName.Namespace] = struct{}{}
-		}
-	}
-	return namespaces
-}
-
 func ParseGatewayNamespacedName(value, wildcardName string) (types.NamespacedName, bool) {
 	parts := strings.Split(value, "/")
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {

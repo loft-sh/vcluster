@@ -60,14 +60,14 @@ func (s *referenceGrantSyncer) ModifyController(ctx *synccontext.RegisterContext
 }
 
 func (s *referenceGrantSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*gatewayv1.ReferenceGrant]) (ctrl.Result, error) {
-	return gatewaysync.CreateToHost(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.ReferenceGrantPatches, func() (*gatewayv1.ReferenceGrant, error) {
+	return gatewaysync.CreateToHost(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.ReferenceGrants.Patches, func() (*gatewayv1.ReferenceGrant, error) {
 		return s.translate(ctx, event.Virtual)
 	})
 }
 
 func (s *referenceGrantSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*gatewayv1.ReferenceGrant]) (ctrl.Result, error) {
 	var hSpec *gatewayv1.ReferenceGrantSpec
-	return gatewaysync.Sync(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.ReferenceGrantPatches,
+	return gatewaysync.Sync(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.ReferenceGrants.Patches,
 		func() (err error) {
 			hSpec, err = specToHost(ctx, event.Virtual, false)
 			return err
@@ -80,7 +80,7 @@ func (s *referenceGrantSyncer) Sync(ctx *synccontext.SyncContext, event *synccon
 }
 
 func (s *referenceGrantSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*gatewayv1.ReferenceGrant]) (ctrl.Result, error) {
-	return gatewaysync.CreateToVirtual(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.ReferenceGrantPatches, func() *gatewayv1.ReferenceGrant {
+	return gatewaysync.CreateToVirtual(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.ReferenceGrants.Patches, func() *gatewayv1.ReferenceGrant {
 		return translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, event.Host))
 	})
 }

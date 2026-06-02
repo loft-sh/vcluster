@@ -748,6 +748,28 @@ func TestValidateAllSyncPatches(t *testing.T) {
 			},
 			expectedError: errors.New("sync.toHost.pods.patches[0] and sync.toHost.pods.patches[1] have the same path \"spec.containers[*].name\""),
 		},
+		{
+			name: "Invalid duplicated paths on nested Gateway API HTTPRoute patches",
+			configSync: config.Sync{
+				ToHost: config.SyncToHost{
+					GatewayAPI: config.GatewayAPIEnableSwitchWithPatches{
+						HTTPRoutes: config.EnableSwitchWithPatches{
+							Patches: []config.TranslatePatch{
+								{
+									Path:       patchesPath,
+									Expression: "\"my-prefix-\"+value",
+								},
+								{
+									Path:              patchesPath,
+									ReverseExpression: "value.slice(\"my-prefix\".length)",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedError: errors.New("sync.toHost.gatewayApi.httpRoutes.patches[0] and sync.toHost.gatewayApi.httpRoutes.patches[1] have the same path \"spec.containers[*].name\""),
+		},
 	}
 
 	for _, tc := range cases {

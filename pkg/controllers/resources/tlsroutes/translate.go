@@ -24,6 +24,10 @@ func (s *tlsRouteSyncer) translate(ctx *synccontext.SyncContext, vRoute *gateway
 }
 
 func specToHost(ctx *synccontext.SyncContext, vRoute *gatewayv1.TLSRoute, validateRefs bool) (*gatewayv1.TLSRouteSpec, error) {
+	if err := routetranslate.ValidateImportedGatewayHostnamePolicy(ctx, "TLSRoute", vRoute.Namespace, vRoute.Spec.ParentRefs, vRoute.Spec.Hostnames); err != nil {
+		return nil, err
+	}
+
 	retSpec := vRoute.Spec.DeepCopy()
 	for i := range retSpec.ParentRefs {
 		err := gatewayauthz.TLSRouteAttachment(ctx, vRoute.Namespace, &retSpec.ParentRefs[i])

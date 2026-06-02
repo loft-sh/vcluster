@@ -187,11 +187,10 @@ func (s *gatewaySyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syncc
 		return ctrl.Result{}, nil
 	}
 
-	if err := ensureVirtualNamespace(ctx); err != nil {
+	vObj := virtualGateway(ctx, s, event.Host)
+	if err := ensureVirtualNamespace(ctx, vObj.Namespace); err != nil {
 		return ctrl.Result{}, err
 	}
-
-	vObj := virtualGateway(ctx, s, event.Host)
 	if err := pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.Gateways.Patches, true); err != nil {
 		return ctrl.Result{}, fmt.Errorf("apply Gateway patches: %w", err)
 	}
@@ -323,16 +322,14 @@ func gatewaySelected(ctx *synccontext.SyncContext, gateway *gatewayv1.Gateway) (
 	return true, "", nil
 }
 
-func ensureVirtualNamespace(ctx *synccontext.SyncContext) error {
-	for nsName := range resources.GatewayMappedTenantNamespaces(ctx) {
-		ns := &corev1.Namespace{}
-		if err := ctx.VirtualClient.Get(ctx, types.NamespacedName{Name: nsName}, ns); err != nil {
-			if !kerrors.IsNotFound(err) {
-				return err
-			}
-			if err := ctx.VirtualClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nsName, Labels: map[string]string{ImportedGatewayLabel: "true"}}}); err != nil {
-				return err
-			}
+func ensureVirtualNamespace(ctx *synccontext.SyncContext, nsName string) error {
+	ns := &corev1.Namespace{}
+	if err := ctx.VirtualClient.Get(ctx, types.NamespacedName{Name: nsName}, ns); err != nil {
+		if !kerrors.IsNotFound(err) {
+			return err
+		}
+		if err := ctx.VirtualClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nsName, Labels: map[string]string{ImportedGatewayLabel: "true"}}}); err != nil {
+			return err
 		}
 	}
 	return nil

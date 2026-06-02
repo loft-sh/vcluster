@@ -64,14 +64,14 @@ func (s *httpRouteSyncer) ModifyController(ctx *synccontext.RegisterContext, bui
 }
 
 func (s *httpRouteSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*gatewayv1.HTTPRoute]) (ctrl.Result, error) {
-	return gatewaysync.CreateToHost(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.HTTPRoutePatches, func() (*gatewayv1.HTTPRoute, error) {
+	return gatewaysync.CreateToHost(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.HTTPRoutes.Patches, func() (*gatewayv1.HTTPRoute, error) {
 		return s.translate(ctx, event.Virtual)
 	})
 }
 
 func (s *httpRouteSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*gatewayv1.HTTPRoute]) (ctrl.Result, error) {
 	var hSpec *gatewayv1.HTTPRouteSpec
-	return gatewaysync.Sync(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.HTTPRoutePatches,
+	return gatewaysync.Sync(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.HTTPRoutes.Patches,
 		func() (err error) {
 			hSpec, err = specToHost(ctx, event.Virtual, false)
 			return err
@@ -101,7 +101,7 @@ func (s *httpRouteSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.
 }
 
 func (s *httpRouteSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*gatewayv1.HTTPRoute]) (ctrl.Result, error) {
-	return gatewaysync.CreateToVirtual(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.HTTPRoutePatches, func() *gatewayv1.HTTPRoute {
+	return gatewaysync.CreateToVirtual(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.HTTPRoutes.Patches, func() *gatewayv1.HTTPRoute {
 		return translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, event.Host))
 	})
 }

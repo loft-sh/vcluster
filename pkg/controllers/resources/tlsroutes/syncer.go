@@ -64,14 +64,14 @@ func (s *tlsRouteSyncer) ModifyController(ctx *synccontext.RegisterContext, buil
 }
 
 func (s *tlsRouteSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*gatewayv1.TLSRoute]) (ctrl.Result, error) {
-	return gatewaysync.CreateToHost(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.TLSRoutePatches, func() (*gatewayv1.TLSRoute, error) {
+	return gatewaysync.CreateToHost(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.TLSRoutes.Patches, func() (*gatewayv1.TLSRoute, error) {
 		return s.translate(ctx, event.Virtual)
 	})
 }
 
 func (s *tlsRouteSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*gatewayv1.TLSRoute]) (ctrl.Result, error) {
 	var hSpec *gatewayv1.TLSRouteSpec
-	return gatewaysync.Sync(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.TLSRoutePatches,
+	return gatewaysync.Sync(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.TLSRoutes.Patches,
 		func() (err error) {
 			hSpec, err = specToHost(ctx, event.Virtual, false)
 			return err
@@ -94,7 +94,7 @@ func (s *tlsRouteSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.S
 }
 
 func (s *tlsRouteSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*gatewayv1.TLSRoute]) (ctrl.Result, error) {
-	return gatewaysync.CreateToVirtual(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.TLSRoutePatches, func() *gatewayv1.TLSRoute {
+	return gatewaysync.CreateToVirtual(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.TLSRoutes.Patches, func() *gatewayv1.TLSRoute {
 		return translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, event.Host))
 	})
 }

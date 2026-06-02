@@ -1311,18 +1311,6 @@ type GatewayAPIEnableSwitchWithPatches struct {
 
 	// ReferenceGrants configures ReferenceGrant sync to the host cluster. Enabled may be "auto", "true", or "false".
 	ReferenceGrants EnableAutoSwitchWithPatches `json:"referenceGrants,omitempty"`
-
-	// HTTPRoutePatches patch HTTPRoute resources according to the provided specification.
-	HTTPRoutePatches []TranslatePatch `json:"httpRoutePatches,omitempty"`
-
-	// TLSRoutePatches patch TLSRoute resources according to the provided specification.
-	TLSRoutePatches []TranslatePatch `json:"tlsRoutePatches,omitempty"`
-
-	// BackendTLSPolicyPatches patch BackendTLSPolicy resources according to the provided specification.
-	BackendTLSPolicyPatches []TranslatePatch `json:"backendTLSPolicyPatches,omitempty"`
-
-	// ReferenceGrantPatches patch ReferenceGrant resources according to the provided specification.
-	ReferenceGrantPatches []TranslatePatch `json:"referenceGrantPatches,omitempty"`
 }
 
 type EnableSwitchWithResourcesMappings struct {

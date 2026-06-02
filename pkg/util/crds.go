@@ -16,9 +16,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-// EnsureCRD is exposed as a var so unit tests can swap it for a no-op via
-// pkg/syncer/testing.installFakeCRDHelpers. Production callers must not
-// reassign it; the global is process-wide and not safe under t.Parallel().
+// EnsureCRD should be replaceable by unit tests
 var EnsureCRD = func(ctx context.Context, config *rest.Config, manifest []byte, groupVersionKind schema.GroupVersionKind) error {
 	exists, err := KindExists(config, groupVersionKind)
 	if err != nil {
@@ -52,9 +50,8 @@ var EnsureCRD = func(ctx context.Context, config *rest.Config, manifest []byte, 
 	return nil
 }
 
-// KindExists checks if the given group/version kind is advertised by API discovery.
-// Like EnsureCRD, this is a var so tests can replace it; same caveats apply
-// (production must not reassign; not safe under t.Parallel()).
+// KindExists checks if the given group/version kind is advertised by API discovery and should be
+// replaceable by unit tests
 var KindExists = func(config *rest.Config, groupVersionKind schema.GroupVersionKind) (bool, error) {
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {

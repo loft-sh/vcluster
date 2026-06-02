@@ -2599,34 +2599,6 @@
         "referenceGrants": {
           "$ref": "#/$defs/EnableAutoSwitchWithPatches",
           "description": "ReferenceGrants configures ReferenceGrant sync to the host cluster. Enabled may be \"auto\", \"true\", or \"false\"."
-        },
-        "httpRoutePatches": {
-          "items": {
-            "$ref": "#/$defs/TranslatePatch"
-          },
-          "type": "array",
-          "description": "HTTPRoutePatches patch HTTPRoute resources according to the provided specification."
-        },
-        "tlsRoutePatches": {
-          "items": {
-            "$ref": "#/$defs/TranslatePatch"
-          },
-          "type": "array",
-          "description": "TLSRoutePatches patch TLSRoute resources according to the provided specification."
-        },
-        "backendTLSPolicyPatches": {
-          "items": {
-            "$ref": "#/$defs/TranslatePatch"
-          },
-          "type": "array",
-          "description": "BackendTLSPolicyPatches patch BackendTLSPolicy resources according to the provided specification."
-        },
-        "referenceGrantPatches": {
-          "items": {
-            "$ref": "#/$defs/TranslatePatch"
-          },
-          "type": "array",
-          "description": "ReferenceGrantPatches patch ReferenceGrant resources according to the provided specification."
         }
       },
       "additionalProperties": false,

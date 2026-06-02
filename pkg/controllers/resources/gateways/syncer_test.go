@@ -230,23 +230,16 @@ func TestTenantGatewaySyncDoesNotOverwriteUnmanagedHostGateway(t *testing.T) {
 	}
 }
 
-func TestEnsureVirtualNamespacesCreatesEveryMappedTenantNamespace(t *testing.T) {
-	vcConfig := &pkgconfig.VirtualClusterConfig{}
-	vcConfig.Sync.FromHost.Gateways.Mappings.ByName = map[string]string{
-		"platform/*":      "team-a-gateways/*",
-		"networking/edge": "shared-gateways/edge-public",
-	}
+func TestEnsureVirtualNamespaceCreatesRequestedTenantNamespace(t *testing.T) {
 	vClient := testingutil.NewFakeClient(scheme.Scheme)
-	ctx := &synccontext.SyncContext{Context: context.Background(), Config: vcConfig, VirtualClient: vClient}
+	ctx := &synccontext.SyncContext{Context: context.Background(), VirtualClient: vClient}
 
-	if err := ensureVirtualNamespace(ctx); err != nil {
-		t.Fatalf("ensure virtual namespaces: %v", err)
+	if err := ensureVirtualNamespace(ctx, "shared-gateways"); err != nil {
+		t.Fatalf("ensure virtual namespace: %v", err)
 	}
-	for _, ns := range []string{"team-a-gateways", "shared-gateways"} {
-		coreNS := &corev1.Namespace{}
-		if err := vClient.Get(context.Background(), types.NamespacedName{Name: ns}, coreNS); err != nil {
-			t.Fatalf("expected namespace %s to be created: %v", ns, err)
-		}
+	coreNS := &corev1.Namespace{}
+	if err := vClient.Get(context.Background(), types.NamespacedName{Name: "shared-gateways"}, coreNS); err != nil {
+		t.Fatalf("expected namespace to be created: %v", err)
 	}
 }
 

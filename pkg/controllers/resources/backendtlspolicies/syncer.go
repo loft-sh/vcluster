@@ -62,14 +62,14 @@ func (s *backendTLSPolicySyncer) ModifyController(ctx *synccontext.RegisterConte
 }
 
 func (s *backendTLSPolicySyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*gatewayv1.BackendTLSPolicy]) (ctrl.Result, error) {
-	return gatewaysync.CreateToHost(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.BackendTLSPolicyPatches, func() (*gatewayv1.BackendTLSPolicy, error) {
+	return gatewaysync.CreateToHost(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.BackendTLSPolicies.Patches, func() (*gatewayv1.BackendTLSPolicy, error) {
 		return s.translate(ctx, event.Virtual)
 	})
 }
 
 func (s *backendTLSPolicySyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*gatewayv1.BackendTLSPolicy]) (ctrl.Result, error) {
 	var hSpec *gatewayv1.BackendTLSPolicySpec
-	return gatewaysync.Sync(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.BackendTLSPolicyPatches,
+	return gatewaysync.Sync(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.BackendTLSPolicies.Patches,
 		func() (err error) {
 			hSpec, err = translateSpecToHost(ctx, event.Virtual, false)
 			return err
@@ -92,7 +92,7 @@ func (s *backendTLSPolicySyncer) Sync(ctx *synccontext.SyncContext, event *syncc
 }
 
 func (s *backendTLSPolicySyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*gatewayv1.BackendTLSPolicy]) (ctrl.Result, error) {
-	return gatewaysync.CreateToVirtual(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.BackendTLSPolicyPatches, func() *gatewayv1.BackendTLSPolicy {
+	return gatewaysync.CreateToVirtual(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.BackendTLSPolicies.Patches, func() *gatewayv1.BackendTLSPolicy {
 		return translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, event.Host))
 	})
 }

@@ -6,6 +6,7 @@ import (
 
 	rootconfig "github.com/loft-sh/vcluster/config"
 	pkgconfig "github.com/loft-sh/vcluster/pkg/config"
+	routetranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/gatewayroutes/translate"
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
@@ -30,8 +31,27 @@ func TestValidateImportedGatewayHostnamePolicyRejectsDisallowedHostnameThroughMa
 	route.Spec.ParentRefs = []gatewayv1.ParentReference{{Name: "edge", Namespace: &parentNamespace}}
 	route.Spec.Hostnames = []gatewayv1.Hostname{"admin.example.com"}
 
-	if err := validateImportedGatewayHostnamePolicy(ctx, route); err == nil {
+	if err := routetranslate.ValidateImportedGatewayHostnamePolicy(ctx, "HTTPRoute", route.Namespace, route.Spec.ParentRefs, route.Spec.Hostnames); err == nil {
 		t.Fatalf("expected disallowed hostname to be rejected")
+	}
+}
+
+func TestValidateImportedGatewayHostnamePolicyRejectsEmptyHostnamesWhenPolicyIsSet(t *testing.T) {
+	vcConfig := &pkgconfig.VirtualClusterConfig{}
+	vcConfig.Sync.FromHost.Gateways.Mappings.ByName = map[string]string{"networking/shared-edge": "tenant-gateways/edge"}
+	vcConfig.Sync.FromHost.Gateways.AllowedRoutes.Overrides = []rootconfig.GatewayAllowedRoutesPolicyOverride{{
+		HostNamespace:    "networking",
+		Name:             "shared-edge",
+		AllowedHostnames: []string{"*.team-a.example.com"},
+	}}
+	ctx := &synccontext.SyncContext{Context: context.Background(), Config: vcConfig}
+	parentNamespace := gatewayv1.Namespace("tenant-gateways")
+	route := &gatewayv1.HTTPRoute{}
+	route.Namespace = "demo"
+	route.Spec.ParentRefs = []gatewayv1.ParentReference{{Name: "edge", Namespace: &parentNamespace}}
+
+	if err := routetranslate.ValidateImportedGatewayHostnamePolicy(ctx, "HTTPRoute", route.Namespace, route.Spec.ParentRefs, route.Spec.Hostnames); err == nil {
+		t.Fatalf("expected empty hostnames to be rejected when imported Gateway hostname policy is set")
 	}
 }
 
@@ -50,7 +70,7 @@ func TestValidateImportedGatewayHostnamePolicyAllowsWildcardMatchThroughMapping(
 	route.Spec.ParentRefs = []gatewayv1.ParentReference{{Name: "edge", Namespace: &parentNamespace}}
 	route.Spec.Hostnames = []gatewayv1.Hostname{"api.team-a.example.com"}
 
-	if err := validateImportedGatewayHostnamePolicy(ctx, route); err != nil {
+	if err := routetranslate.ValidateImportedGatewayHostnamePolicy(ctx, "HTTPRoute", route.Namespace, route.Spec.ParentRefs, route.Spec.Hostnames); err != nil {
 		t.Fatalf("expected wildcard hostname to be allowed: %v", err)
 	}
 }
@@ -70,7 +90,7 @@ func TestValidateImportedGatewayHostnamePolicyIgnoresUnmappedParent(t *testing.T
 	route.Spec.ParentRefs = []gatewayv1.ParentReference{{Name: "tenant-gateway", Namespace: &parentNamespace}}
 	route.Spec.Hostnames = []gatewayv1.Hostname{"admin.example.com"}
 
-	if err := validateImportedGatewayHostnamePolicy(ctx, route); err != nil {
+	if err := routetranslate.ValidateImportedGatewayHostnamePolicy(ctx, "HTTPRoute", route.Namespace, route.Spec.ParentRefs, route.Spec.Hostnames); err != nil {
 		t.Fatalf("expected unmapped parent to ignore imported Gateway hostname policy: %v", err)
 	}
 }

@@ -26,7 +26,7 @@ func (s *httpRouteSyncer) translate(ctx *synccontext.SyncContext, vRoute *gatewa
 }
 
 func specToHost(ctx *synccontext.SyncContext, vRoute *gatewayv1.HTTPRoute, validateRefs bool) (*gatewayv1.HTTPRouteSpec, error) {
-	if err := validateImportedGatewayHostnamePolicy(ctx, vRoute); err != nil {
+	if err := routetranslate.ValidateImportedGatewayHostnamePolicy(ctx, "HTTPRoute", vRoute.Namespace, vRoute.Spec.ParentRefs, vRoute.Spec.Hostnames); err != nil {
 		return nil, err
 	}
 

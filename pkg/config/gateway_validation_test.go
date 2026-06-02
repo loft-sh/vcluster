@@ -18,11 +18,11 @@ func TestGatewayFromHostValidationAcceptsMappingShape(t *testing.T) {
 	if err := ValidateConfigAndSetDefaults(vcConfig); err != nil {
 		t.Fatalf("ValidateConfigAndSetDefaults() error = %v", err)
 	}
-	if !vcConfig.Sync.FromHost.Gateways.Sanitize.CertificateRefs {
-		t.Fatalf("expected certificate refs to be sanitized by default")
+	if vcConfig.Sync.FromHost.Gateways.Sanitize.CertificateRefs {
+		t.Fatalf("validation must not force certificate ref sanitization on when explicitly disabled")
 	}
-	if !vcConfig.Sync.FromHost.Gateways.Sanitize.Infrastructure {
-		t.Fatalf("expected infrastructure to be sanitized by default")
+	if vcConfig.Sync.FromHost.Gateways.Sanitize.Infrastructure {
+		t.Fatalf("validation must not force infrastructure sanitization on when explicitly disabled")
 	}
 	if vcConfig.Sync.ToHost.GatewayAPI.ReferenceGrants.Enabled != "auto" {
 		t.Fatalf("expected referenceGrants.enabled default auto, got %q", vcConfig.Sync.ToHost.GatewayAPI.ReferenceGrants.Enabled)
