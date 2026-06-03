@@ -215,8 +215,6 @@ func CoreDNSSpec() {
 					coreDNSDeployment, err := vClusterClient.AppsV1().Deployments("kube-system").Get(ctx, "coredns", metav1.GetOptions{})
 					Expect(err).To(Succeed())
 					Expect(coreDNSDeployment.Spec.Template.Spec.Containers).To(HaveLen(1))
-					// The default image is fully qualified with docker.io so it pulls on
-					// clusters that don't expand short (registry-less) image names.
 					expectedImage := coredns.DefaultImageRegistry + "/" + coredns.DefaultImage
 					Expect(coreDNSDeployment.Spec.Template.Spec.Containers[0].Image).To(Equal(expectedImage),
 						"CoreDNS image should match the pinned default image")

@@ -3,9 +3,8 @@ package coredns
 import (
 	"testing"
 
-	"k8s.io/apimachinery/pkg/version"
-
 	"gotest.tools/v3/assert"
+	"k8s.io/apimachinery/pkg/version"
 )
 
 func TestGetManifestVariablesImage(t *testing.T) {

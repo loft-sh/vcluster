@@ -62,11 +62,7 @@ func getManifestVariables(defaultImageRegistry string, serverVersion *version.In
 	if defaultImageRegistry != "" {
 		vars[VarImage] = strings.TrimSuffix(defaultImageRegistry, "/") + "/" + vars[VarImage].(string)
 	} else {
-		// Fully-qualify the image with the default registry so CoreDNS pulls
-		// work on clusters that don't expand short (registry-less) image names,
-		// e.g. Kubernetes v1.34+ with strict CRI/registry short-name resolution.
-		// This keeps the image identical to the previously short-named default
-		// (which container runtimes used to expand to docker.io). See ENGCP-588.
+		// No custom registry configured: default to docker.io (ENGCP-588).
 		vars[VarImage] = DefaultImageRegistry + "/" + vars[VarImage].(string)
 	}
 	vars[VarRunAsUser] = fmt.Sprintf("%v", GetUserID())
