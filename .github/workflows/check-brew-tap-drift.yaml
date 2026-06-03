@@ -69,7 +69,7 @@ jobs:
 
       - name: Notify eng-releases
         if: steps.compare.outputs.drifted == 'true'
-        uses: loft-sh/github-actions/.github/actions/ci-test-notify@85d7023c5749421d369f59430c7849f2d00ad694 # ci-test-notify/v1
+        uses: loft-sh/github-actions/.github/actions/ci-test-notify@b5a50da8a53ca1021b783290630061078bdb12cf # ci-test-notify/v1
         with:
           test-name: Homebrew Tap Drift
           status: failure
