@@ -70,7 +70,7 @@ vcluster restore my-new-name ./my-snapshot.tar.gz --driver docker
 		ValidArgsFunction: completion.NewValidVClusterNameFunc(globalFlags),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
 			if cmd.RestoreVolumes {
-				cmd.Log.Warnf("WARNING: --restore-volumes is deprecated and will be removed in an upcoming release.")
+				cmd.Log.Warnf("WARNING: --restore-volumes is now deprecated and slated for removal in an upcoming release.")
 			}
 			cfg := cmd.LoadedConfig(cmd.Log)
 			driverType, err := config.ParseDriverType(cmp.Or(cmd.Driver, string(cfg.Driver.Type)))
