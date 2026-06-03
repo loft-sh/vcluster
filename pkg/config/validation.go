@@ -380,7 +380,12 @@ func validateGatewayVirtualNamespacePolicy(path string, policy *config.GatewayVi
 		return nil
 	}
 	switch policy.From {
-	case "All", "Same", "Selector":
+	case "All", "Same":
+		return nil
+	case "Selector":
+		if len(policy.Selector.MatchLabels) == 0 && len(policy.Selector.MatchExpressions) == 0 {
+			return fmt.Errorf("%s.selector must not be empty when from is Selector", path)
+		}
 		return nil
 	default:
 		return fmt.Errorf("%s.from must be one of: All, Same, Selector", path)

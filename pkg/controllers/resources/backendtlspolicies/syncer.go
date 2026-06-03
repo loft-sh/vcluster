@@ -71,13 +71,13 @@ func (s *backendTLSPolicySyncer) Sync(ctx *synccontext.SyncContext, event *syncc
 	var hSpec *gatewayv1.BackendTLSPolicySpec
 	return gatewaysync.Sync(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.BackendTLSPolicies.Patches,
 		func() (err error) {
-			hSpec, err = translateSpecToHost(ctx, event.Virtual, false)
+			hSpec, err = specToHost(ctx, event.Virtual, false)
 			return err
 		},
 		func() error {
 			// Status translation is independent of spec sync; on failure keep applying
 			// the spec but surface the error so the policy is requeued and status retried.
-			vStatus, statusErr := translateStatusToVirtual(ctx, event.Host, event.Virtual.Namespace, event.Host.Status)
+			vStatus, statusErr := statusToVirtual(ctx, event.Host, event.Virtual.Namespace, event.Host.Status)
 			if statusErr == nil {
 				event.Virtual.Status = vStatus
 			}

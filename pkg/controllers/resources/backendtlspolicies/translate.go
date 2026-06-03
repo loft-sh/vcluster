@@ -13,7 +13,7 @@ import (
 func (s *backendTLSPolicySyncer) translate(ctx *synccontext.SyncContext, vPolicy *gatewayv1.BackendTLSPolicy) (*gatewayv1.BackendTLSPolicy, error) {
 	pPolicy := translate.HostMetadata(vPolicy, s.VirtualToHost(ctx, types.NamespacedName{Name: vPolicy.Name, Namespace: vPolicy.Namespace}, vPolicy))
 
-	spec, err := translateSpecToHost(ctx, vPolicy, true)
+	spec, err := specToHost(ctx, vPolicy, true)
 	if err != nil {
 		return nil, err
 	}
@@ -22,7 +22,7 @@ func (s *backendTLSPolicySyncer) translate(ctx *synccontext.SyncContext, vPolicy
 	return pPolicy, nil
 }
 
-func translateSpecToHost(ctx *synccontext.SyncContext, vPolicy *gatewayv1.BackendTLSPolicy, validateRefs bool) (*gatewayv1.BackendTLSPolicySpec, error) {
+func specToHost(ctx *synccontext.SyncContext, vPolicy *gatewayv1.BackendTLSPolicy, validateRefs bool) (*gatewayv1.BackendTLSPolicySpec, error) {
 	retSpec := vPolicy.Spec.DeepCopy()
 	for i := range retSpec.TargetRefs {
 		err := routetranslate.PolicyTargetRefToHost(ctx, vPolicy.Namespace, &retSpec.TargetRefs[i], routetranslate.WithValidateHostObject(validateRefs))
@@ -41,7 +41,7 @@ func translateSpecToHost(ctx *synccontext.SyncContext, vPolicy *gatewayv1.Backen
 	return retSpec, nil
 }
 
-func translateStatusToVirtual(ctx *synccontext.SyncContext, hostPolicy *gatewayv1.BackendTLSPolicy, virtualPolicyNamespace string, status gatewayv1.PolicyStatus) (gatewayv1.PolicyStatus, error) {
+func statusToVirtual(ctx *synccontext.SyncContext, hostPolicy *gatewayv1.BackendTLSPolicy, virtualPolicyNamespace string, status gatewayv1.PolicyStatus) (gatewayv1.PolicyStatus, error) {
 	retStatus := *status.DeepCopy()
 
 	for i := range retStatus.Ancestors {

@@ -150,6 +150,18 @@ func TestGatewayFromHostValidationRejectsInvalidAllowedRoutesPolicy(t *testing.T
 	}
 }
 
+func TestGatewayFromHostValidationRejectsEmptyAllowedRoutesSelectorPolicy(t *testing.T) {
+	vcConfig := &VirtualClusterConfig{}
+	vcConfig.Sync.FromHost.Gateways.Enabled = true
+	vcConfig.Sync.FromHost.Gateways.Mappings.ByName = map[string]string{"networking/edge": "tenant-gateways/edge"}
+	vcConfig.Sync.FromHost.Gateways.AllowedRoutes.DefaultVirtualNamespacePolicy = &rootconfig.GatewayVirtualNamespacePolicy{From: "Selector"}
+
+	err := ValidateConfigAndSetDefaults(vcConfig)
+	if err == nil || !strings.Contains(err.Error(), "allowedRoutes.defaultVirtualNamespacePolicy.selector") {
+		t.Fatalf("expected empty selector validation error, got %v", err)
+	}
+}
+
 func TestGatewayAllowedRoutesOverrideRejectsInvalidHostnamePattern(t *testing.T) {
 	vcConfig := &VirtualClusterConfig{}
 	vcConfig.Sync.FromHost.Gateways.Enabled = true

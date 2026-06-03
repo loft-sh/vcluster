@@ -1,7 +1,6 @@
 package generic
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/loft-sh/vcluster/pkg/scheme"
@@ -112,22 +111,6 @@ func (n *recorder) Migrate(ctx *synccontext.RegisterContext, mapper synccontext.
 }
 
 func listObjects(ctx *synccontext.RegisterContext, kubeClient client.Client, gvk schema.GroupVersionKind) ([]runtime.Object, error) {
-	items, err := listObjectsWithListGVK(ctx, kubeClient, gvk)
-	if isListKindRESTMappingError(err, gvk) {
-		return listObjectsWithItemGVK(ctx, kubeClient, gvk)
-	}
-
-	return items, err
-}
-
-func listObjectsWithItemGVK(ctx *synccontext.RegisterContext, kubeClient client.Client, gvk schema.GroupVersionKind) ([]runtime.Object, error) {
-	list := &unstructured.UnstructuredList{}
-	list.SetGroupVersionKind(gvk)
-
-	return listAndExtract(ctx, kubeClient, list, gvk)
-}
-
-func listObjectsWithListGVK(ctx *synccontext.RegisterContext, kubeClient client.Client, gvk schema.GroupVersionKind) ([]runtime.Object, error) {
 	listGVK := schema.GroupVersionKind{
 		Group:   gvk.Group,
 		Version: gvk.Version,
@@ -170,31 +153,6 @@ func listAndExtract(ctx *synccontext.RegisterContext, kubeClient client.Client, 
 	}
 
 	return items, nil
-}
-
-func isListKindRESTMappingError(err error, gvk schema.GroupVersionKind) bool {
-	if err == nil {
-		return false
-	}
-
-	noKindMatch := &meta.NoKindMatchError{}
-	if !errors.As(err, &noKindMatch) {
-		return false
-	}
-	if noKindMatch.GroupKind != (schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind + "List"}) {
-		return false
-	}
-	if len(noKindMatch.SearchedVersions) == 0 {
-		return true
-	}
-
-	for _, version := range noKindMatch.SearchedVersions {
-		if version == gvk.Version {
-			return true
-		}
-	}
-
-	return false
 }
 
 type virtualToHostLookup interface {

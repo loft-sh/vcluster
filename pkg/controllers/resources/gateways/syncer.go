@@ -2,7 +2,6 @@ package gateways
 
 import (
 	"fmt"
-	"maps"
 
 	rootconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/mappings/resources"
@@ -234,14 +233,12 @@ func (s *gatewaySyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccont
 
 func virtualGateway(ctx *synccontext.SyncContext, s *gatewaySyncer, host *gatewayv1.Gateway) *gatewayv1.Gateway {
 	vName := s.HostToVirtual(ctx, types.NamespacedName{Name: host.Name, Namespace: host.Namespace}, host)
-	vObj := translate.CopyObjectWithName(host, vName, false)
-	vObj.Labels = maps.Clone(host.Labels)
+	vObj := translate.VirtualMetadata(host, vName)
 	if vObj.Labels == nil {
 		vObj.Labels = map[string]string{}
 	}
 	vObj.Labels[ImportedGatewayLabel] = "true"
 
-	vObj.Annotations = maps.Clone(host.Annotations)
 	if vObj.Annotations == nil {
 		vObj.Annotations = map[string]string{}
 	}
