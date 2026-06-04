@@ -61,6 +61,7 @@ var resourceOrder = []string{
 	"nodeproviders",
 	"nodetypes",
 	"osimages",
+	"machineconfigtemplates",
 	"sshkeys",
 
 	// access
