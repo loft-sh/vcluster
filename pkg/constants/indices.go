@@ -6,6 +6,7 @@ const (
 	IndexByAssigned      = "IndexByAssigned"
 	IndexByIngressSecret = "IndexByIngressSecret"
 	IndexByPodSecret     = "IndexByPodSecret"
+	IndexByGatewayClass  = "IndexByGatewayClass"
 	// IndexByHostName is used to map rewritten hostnames(advertised as node addresses) to nodenames
 	IndexByHostName = "IndexByHostName"
 
