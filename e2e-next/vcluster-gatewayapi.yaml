@@ -21,3 +21,7 @@ sync:
         enabled: true
       referenceGrants:
         enabled: true
+      tlsRoutes:
+        enabled: true
+      backendTLSPolicies:
+        enabled: true

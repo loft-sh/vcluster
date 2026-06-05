@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
@@ -33,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 // NewLocalManager is used to create a new local manager
@@ -114,8 +116,10 @@ func NewControllerContext(ctx context.Context, options *config.VirtualClusterCon
 func getLocalCacheOptions(options *config.VirtualClusterConfig) cache.Options {
 	// is multi namespace mode?
 	defaultNamespaces := make(map[string]cache.Config)
+	gatewayNamespaces := map[string]cache.Config(nil)
 	if !options.Sync.ToHost.Namespaces.Enabled {
 		defaultNamespaces[options.HostNamespace] = cache.Config{}
+		gatewayNamespaces = fromHostGatewaySourceNamespaces(options)
 	}
 	// do we need access to another namespace to export the kubeconfig ?
 	// we will need access to all the objects that the vcluster usually has access to
@@ -126,11 +130,39 @@ func getLocalCacheOptions(options *config.VirtualClusterConfig) cache.Options {
 		}
 	}
 
-	if len(defaultNamespaces) == 0 {
+	if len(defaultNamespaces) == 0 && len(gatewayNamespaces) == 0 {
 		return cache.Options{DefaultNamespaces: nil}
 	}
 
-	return cache.Options{DefaultNamespaces: defaultNamespaces}
+	cacheOptions := cache.Options{DefaultNamespaces: defaultNamespaces}
+	if len(gatewayNamespaces) > 0 {
+		for namespace := range defaultNamespaces {
+			gatewayNamespaces[namespace] = cache.Config{}
+		}
+		cacheOptions.ByObject = map[client.Object]cache.ByObject{
+			&gatewayv1.Gateway{}: {Namespaces: gatewayNamespaces},
+		}
+	}
+
+	return cacheOptions
+}
+
+func fromHostGatewaySourceNamespaces(options *config.VirtualClusterConfig) map[string]cache.Config {
+	if !options.Sync.FromHost.Gateways.Enabled {
+		return nil
+	}
+
+	gatewayNamespaces := map[string]cache.Config{}
+	for hostName := range options.Sync.FromHost.Gateways.Mappings.ByName {
+		hostNamespace, _, hasName := strings.Cut(hostName, "/")
+		if !hasName || hostNamespace == "" {
+			continue
+		}
+
+		gatewayNamespaces[hostNamespace] = cache.Config{}
+	}
+
+	return gatewayNamespaces
 }
 
 func startPlugins(ctx context.Context, virtualConfig *rest.Config, virtualRawConfig *clientcmdapi.Config, options *config.VirtualClusterConfig) error {

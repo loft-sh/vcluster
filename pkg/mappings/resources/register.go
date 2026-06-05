@@ -106,5 +106,5 @@ func gatewayReferenceGrantsEnabled(ctx *synccontext.RegisterContext) bool {
 	if mode == "false" {
 		return false
 	}
-	return ctx.Config.Sync.ToHost.Namespaces.Enabled && (gatewayHTTPRoutesEnabled(ctx) || gatewayTLSRoutesEnabled(ctx) || gatewayBackendTLSPoliciesEnabled(ctx))
+	return gatewayHTTPRoutesEnabled(ctx) || gatewayTLSRoutesEnabled(ctx) || gatewayBackendTLSPoliciesEnabled(ctx)
 }

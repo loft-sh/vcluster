@@ -113,7 +113,9 @@ func GatewayAPISyncSpec() {
 
 			bad := tenantGateway(ns.Name, "bad-gw-"+suffix, hidden.Name)
 			Expect(vClusterClient.Create(ctx, bad)).To(Succeed())
-			DeferCleanup(func(ctx context.Context) { Expect(ctrlclient.IgnoreNotFound(vClusterClient.Delete(ctx, bad))).To(Succeed()) })
+			DeferCleanup(func(ctx context.Context) {
+				Expect(ctrlclient.IgnoreNotFound(vClusterClient.Delete(ctx, bad))).To(Succeed())
+			})
 			badHostName := translate.SafeConcatName(bad.Name, "x", ns.Name, "x", vClusterName)
 			Consistently(func(g Gomega) {
 				err := hostClient.Get(ctx, types.NamespacedName{Namespace: vClusterHostNS, Name: badHostName}, &gatewayv1.Gateway{})
@@ -122,7 +124,9 @@ func GatewayAPISyncSpec() {
 
 			good := tenantGateway(ns.Name, "good-gw-"+suffix, allowed.Name)
 			Expect(vClusterClient.Create(ctx, good)).To(Succeed())
-			DeferCleanup(func(ctx context.Context) { Expect(ctrlclient.IgnoreNotFound(vClusterClient.Delete(ctx, good))).To(Succeed()) })
+			DeferCleanup(func(ctx context.Context) {
+				Expect(ctrlclient.IgnoreNotFound(vClusterClient.Delete(ctx, good))).To(Succeed())
+			})
 			goodHostName := translate.SafeConcatName(good.Name, "x", ns.Name, "x", vClusterName)
 			Eventually(func(g Gomega) {
 				got := &gatewayv1.Gateway{}
@@ -133,11 +137,10 @@ func GatewayAPISyncSpec() {
 			Expect(vClusterClient.Get(ctx, ctrlclient.ObjectKeyFromObject(good), good)).To(Succeed())
 			good.Spec.GatewayClassName = gatewayv1.ObjectName(hidden.Name)
 			Expect(vClusterClient.Update(ctx, good)).To(Succeed())
-			Consistently(func(g Gomega) {
-				got := &gatewayv1.Gateway{}
-				g.Expect(hostClient.Get(ctx, types.NamespacedName{Namespace: vClusterHostNS, Name: goodHostName}, got)).To(Succeed())
-				g.Expect(got.Spec.GatewayClassName).To(Equal(gatewayv1.ObjectName(allowed.Name)))
-			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutShort).Should(Succeed())
+			Eventually(func(g Gomega) {
+				err := hostClient.Get(ctx, types.NamespacedName{Namespace: vClusterHostNS, Name: goodHostName}, &gatewayv1.Gateway{})
+				g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
+			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 		})
 
 		It("syncs Tenant Gateway and HTTPRoute to Host for an available GatewayClass", func(ctx context.Context) {
@@ -152,7 +155,9 @@ func GatewayAPISyncSpec() {
 			Expect(vClusterClient.Create(ctx, service)).To(Succeed())
 			gateway := tenantGateway(ns.Name, "gw-"+suffix, allowed.Name)
 			Expect(vClusterClient.Create(ctx, gateway)).To(Succeed())
-			DeferCleanup(func(ctx context.Context) { Expect(ctrlclient.IgnoreNotFound(vClusterClient.Delete(ctx, gateway))).To(Succeed()) })
+			DeferCleanup(func(ctx context.Context) {
+				Expect(ctrlclient.IgnoreNotFound(vClusterClient.Delete(ctx, gateway))).To(Succeed())
+			})
 
 			hostGatewayName := translate.SafeConcatName(gateway.Name, "x", ns.Name, "x", vClusterName)
 			Eventually(func(g Gomega) {
@@ -170,7 +175,9 @@ func GatewayAPISyncSpec() {
 
 			route := tenantHTTPRoute(ns.Name, "route-"+suffix, gateway.Name, service.Name)
 			Expect(vClusterClient.Create(ctx, route)).To(Succeed())
-			DeferCleanup(func(ctx context.Context) { Expect(ctrlclient.IgnoreNotFound(vClusterClient.Delete(ctx, route))).To(Succeed()) })
+			DeferCleanup(func(ctx context.Context) {
+				Expect(ctrlclient.IgnoreNotFound(vClusterClient.Delete(ctx, route))).To(Succeed())
+			})
 
 			hostRouteName := translate.SafeConcatName(route.Name, "x", ns.Name, "x", vClusterName)
 			Eventually(func(g Gomega) {
