@@ -107,7 +107,7 @@ func TestTenantGatewaySyncToHostCreatesGatewayWhenExplicitlyEnabled(t *testing.T
 	}
 }
 
-func TestTenantGatewaySyncRequiresVirtualGatewayClass(t *testing.T) {
+func TestTenantGatewaySyncSkipsUnavailableVirtualGatewayClass(t *testing.T) {
 	vcConfig := &pkgconfig.VirtualClusterConfig{}
 	vcConfig.Sync.ToHost.GatewayAPI.Gateways.Enabled = true
 	pClient := testingutil.NewFakeClient(scheme.Scheme)
@@ -119,7 +119,7 @@ func TestTenantGatewaySyncRequiresVirtualGatewayClass(t *testing.T) {
 	virtual := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "edge"}, Spec: gatewayv1.GatewaySpec{GatewayClassName: gatewayv1.ObjectName("missing")}}
 	_, err := syncer.SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(virtual))
 	if err != nil {
-		t.Fatalf("expected missing GatewayClass to be a warning/skip, not hard error: %v", err)
+		t.Fatalf("expected unavailable GatewayClass to skip without reconcile error, got %v", err)
 	}
 
 	expected := translate.Default.HostName(syncCtx, "edge", "team-a")
@@ -129,7 +129,7 @@ func TestTenantGatewaySyncRequiresVirtualGatewayClass(t *testing.T) {
 	}
 }
 
-func TestTenantGatewaySyncDeletesExistingHostWhenGatewayClassDisappears(t *testing.T) {
+func TestTenantGatewaySyncDeletesExistingHostWhenGatewayClassBecomesUnavailable(t *testing.T) {
 	vcConfig := &pkgconfig.VirtualClusterConfig{}
 	vcConfig.Sync.ToHost.GatewayAPI.Gateways.Enabled = true
 	hostName := types.NamespacedName{Namespace: testingutil.DefaultTestTargetNamespace, Name: "edge-x-team-a-x-suffix"}
@@ -143,12 +143,12 @@ func TestTenantGatewaySyncDeletesExistingHostWhenGatewayClassDisappears(t *testi
 	virtual := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "edge"}, Spec: gatewayv1.GatewaySpec{GatewayClassName: gatewayv1.ObjectName("missing")}}
 	_, err := syncer.Sync(syncCtx, synccontext.NewSyncEvent(host, virtual))
 	if err != nil {
-		t.Fatalf("expected missing GatewayClass to delete stale host Gateway without hard error: %v", err)
+		t.Fatalf("expected unavailable GatewayClass update to delete host without reconcile error, got %v", err)
 	}
 
 	got := &gatewayv1.Gateway{}
 	if err := pClient.Get(context.Background(), hostName, got); err == nil {
-		t.Fatalf("expected stale host Gateway to be deleted")
+		t.Fatalf("expected existing host Gateway to be deleted when GatewayClass becomes unavailable")
 	}
 }
 
