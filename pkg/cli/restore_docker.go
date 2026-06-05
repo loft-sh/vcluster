@@ -24,12 +24,12 @@ import (
 // into memory. Tar entries are handled as they arrive: metadata is parsed first, volume
 // entries are piped directly to Docker, and config files are written directly to disk.
 // callerOpts may be nil (standalone restore) or the user's CreateOptions (create --restore).
-func RestoreDocker(ctx context.Context, globalFlags *flags.GlobalFlags, snapshotPath, targetName string, callerOpts *CreateOptions, log log.Logger) error {
+func RestoreDocker(ctx context.Context, globalFlags *flags.GlobalFlags, snapshotPath, targetName string, callerOpts *CreateOptions, tempDir string, log log.Logger) error {
 	// If the snapshot path is a remote URL, pull it to a temp file first.
 	localPath := snapshotPath
 	if isRemoteSnapshotURL(snapshotPath) {
 		log.Infof("Pulling snapshot from %s...", snapshotPath)
-		tmpFile, err := os.CreateTemp("", "vcluster-docker-restore-*.tar.gz")
+		tmpFile, err := os.CreateTemp(tempDir, "vcluster-docker-restore-*.tar.gz")
 		if err != nil {
 			return fmt.Errorf("failed to create temp file: %w", err)
 		}
@@ -165,12 +165,24 @@ func RestoreDocker(ctx context.Context, globalFlags *flags.GlobalFlags, snapshot
 
 	// Use caller's CreateOptions if provided (from vcluster create --restore),
 	// otherwise build minimal options from snapshot metadata.
-	createOpts := callerOpts
-	if createOpts == nil {
+	var createOpts *CreateOptions
+	if callerOpts == nil {
 		createOpts = &CreateOptions{
 			Connect:       true,
 			UpdateCurrent: true,
 		}
+	} else {
+		// Copy so we don't mutate the caller's struct. Deep-copy Values to
+		// avoid sharing the backing array with the caller's slice on append.
+		// SetValues is intentionally left as a shallow copy: buildExtraValues
+		// and mergeAllValues only read it, never append to it.
+		// Clear Restore: the archive is already extracted; clearing it also
+		// prevents buildExtraValues from making a redundant (potentially
+		// failing) second fetch of the snapshot URL inside CreateDocker.
+		opts := *callerOpts
+		opts.Restore = ""
+		opts.Values = append([]string(nil), callerOpts.Values...)
+		createOpts = &opts
 	}
 	if createOpts.ChartVersion == "" || createOpts.ChartVersion == upgrade.DevelopmentVersion {
 		createOpts.ChartVersion = chartVersion
@@ -187,7 +199,7 @@ func RestoreDocker(ctx context.Context, globalFlags *flags.GlobalFlags, snapshot
 	// If the snapshot contains a vcluster.yaml, pass it as a values file so that
 	// any custom configuration (including multi-node definitions) is preserved.
 	if metadata.VClusterYAML != "" {
-		tmpFile, err := os.CreateTemp("", "vcluster-restore-*.yaml")
+		tmpFile, err := os.CreateTemp(tempDir, "vcluster-restore-*.yaml")
 		if err != nil {
 			return fmt.Errorf("failed to create temp values file: %w", err)
 		}

@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	pkgruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	pkgtypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apiserver/pkg/registry/generic"
 	"k8s.io/apiserver/pkg/registry/rest"
 )
@@ -1322,7 +1323,15 @@ var (
 	NewVirtualClusterAccessKeyREST = func(getter generic.RESTOptionsGetter) rest.Storage {
 		return NewVirtualClusterAccessKeyRESTFunc(Factory)
 	}
-	NewVirtualClusterAccessKeyRESTFunc           NewRESTFunc
+	NewVirtualClusterAccessKeyRESTFunc         NewRESTFunc
+	InternalVirtualClusterControlPlanePodsREST = builders.NewInternalSubresource(
+		"virtualclusterinstances", "VirtualClusterControlPlanePods", "controlplanepods",
+		func() runtime.Object { return &VirtualClusterControlPlanePods{} },
+	)
+	NewVirtualClusterControlPlanePodsREST = func(getter generic.RESTOptionsGetter) rest.Storage {
+		return NewVirtualClusterControlPlanePodsRESTFunc(Factory)
+	}
+	NewVirtualClusterControlPlanePodsRESTFunc    NewRESTFunc
 	InternalVirtualClusterInstanceDebugShellREST = builders.NewInternalSubresource(
 		"virtualclusterinstances", "VirtualClusterInstanceDebugShell", "debug-shell",
 		func() runtime.Object { return &VirtualClusterInstanceDebugShell{} },
@@ -1330,16 +1339,8 @@ var (
 	NewVirtualClusterInstanceDebugShellREST = func(getter generic.RESTOptionsGetter) rest.Storage {
 		return NewVirtualClusterInstanceDebugShellRESTFunc(Factory)
 	}
-	NewVirtualClusterInstanceDebugShellRESTFunc      NewRESTFunc
-	InternalVirtualClusterInstanceDebugShellPodsREST = builders.NewInternalSubresource(
-		"virtualclusterinstances", "VirtualClusterInstanceDebugShellPods", "debug-shell-pods",
-		func() runtime.Object { return &VirtualClusterInstanceDebugShellPods{} },
-	)
-	NewVirtualClusterInstanceDebugShellPodsREST = func(getter generic.RESTOptionsGetter) rest.Storage {
-		return NewVirtualClusterInstanceDebugShellPodsRESTFunc(Factory)
-	}
-	NewVirtualClusterInstanceDebugShellPodsRESTFunc NewRESTFunc
-	InternalVirtualClusterExternalDatabaseREST      = builders.NewInternalSubresource(
+	NewVirtualClusterInstanceDebugShellRESTFunc NewRESTFunc
+	InternalVirtualClusterExternalDatabaseREST  = builders.NewInternalSubresource(
 		"virtualclusterinstances", "VirtualClusterExternalDatabase", "externaldatabase",
 		func() runtime.Object { return &VirtualClusterExternalDatabase{} },
 	)
@@ -1559,8 +1560,8 @@ var (
 		InternalVirtualClusterInstance,
 		InternalVirtualClusterInstanceStatus,
 		InternalVirtualClusterAccessKeyREST,
+		InternalVirtualClusterControlPlanePodsREST,
 		InternalVirtualClusterInstanceDebugShellREST,
-		InternalVirtualClusterInstanceDebugShellPodsREST,
 		InternalVirtualClusterExternalDatabaseREST,
 		InternalVirtualClusterInstanceJoinScriptREST,
 		InternalVirtualClusterInstanceKubeConfigREST,
@@ -1605,6 +1606,7 @@ type RequestTarget string
 type SnapshotRequestPhase string
 type SnapshotTakenStatus string
 type Stage string
+type UID string
 
 type AgentAnalyticsSpec struct {
 	AnalyticsEndpoint string `json:"analyticsEndpoint,omitempty"`
@@ -3287,15 +3289,58 @@ type VirtualClusterAccessKey struct {
 	AccessKey         string `json:"accessKey,omitempty"`
 }
 
-type VirtualClusterDebugShellPodStatus struct {
-	Name      string `json:"name,omitempty"`
-	Namespace string `json:"namespace,omitempty"`
-	Phase     string `json:"phase,omitempty"`
-	Ready     bool   `json:"ready,omitempty"`
+type VirtualClusterControlPlaneContainerState struct {
+	Waiting    *VirtualClusterControlPlaneContainerStateWaiting    `json:"waiting,omitempty"`
+	Terminated *VirtualClusterControlPlaneContainerStateTerminated `json:"terminated,omitempty"`
 }
 
-type VirtualClusterDebugShellPodsStatus struct {
-	Pods []VirtualClusterDebugShellPodStatus `json:"pods,omitempty"`
+type VirtualClusterControlPlaneContainerStateTerminated struct {
+	Reason   string `json:"reason,omitempty"`
+	Message  string `json:"message,omitempty"`
+	ExitCode int32  `json:"exitCode"`
+}
+
+type VirtualClusterControlPlaneContainerStateWaiting struct {
+	Reason  string `json:"reason,omitempty"`
+	Message string `json:"message,omitempty"`
+}
+
+type VirtualClusterControlPlaneContainerStatus struct {
+	Name    string                                   `json:"name,omitempty"`
+	Ready   bool                                     `json:"ready,omitempty"`
+	Started *bool                                    `json:"started,omitempty"`
+	State   VirtualClusterControlPlaneContainerState `json:"state,omitempty"`
+}
+
+type VirtualClusterControlPlanePod struct {
+	Metadata VirtualClusterControlPlanePodObjectMeta `json:"metadata,omitempty"`
+	Status   VirtualClusterControlPlanePodStatus     `json:"status,omitempty"`
+}
+
+type VirtualClusterControlPlanePodObjectMeta struct {
+	Name              string       `json:"name,omitempty"`
+	UID               pkgtypes.UID `json:"uid,omitempty"`
+	DeletionTimestamp *metav1.Time `json:"deletionTimestamp,omitempty"`
+}
+
+type VirtualClusterControlPlanePodStatus struct {
+	Phase                 string                                      `json:"phase,omitempty"`
+	Ready                 bool                                        `json:"ready,omitempty"`
+	Reason                string                                      `json:"reason,omitempty"`
+	ContainerStatuses     []VirtualClusterControlPlaneContainerStatus `json:"containerStatuses,omitempty"`
+	InitContainerStatuses []VirtualClusterControlPlaneContainerStatus `json:"initContainerStatuses,omitempty"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type VirtualClusterControlPlanePods struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Status            VirtualClusterControlPlanePodsStatus `json:"status,omitempty"`
+}
+
+type VirtualClusterControlPlanePodsStatus struct {
+	Pods []VirtualClusterControlPlanePod `json:"pods,omitempty"`
 }
 
 type VirtualClusterDebugShellSpec struct {
@@ -3325,6 +3370,7 @@ type VirtualClusterExternalDatabaseSpec struct {
 type VirtualClusterExternalDatabaseStatus struct {
 	DataSource       string `json:"dataSource,omitempty"`
 	IdentityProvider string `json:"identityProvider,omitempty"`
+	CaCert           string `json:"caCert,omitempty"`
 }
 
 // +genclient
@@ -3345,14 +3391,6 @@ type VirtualClusterInstanceDebugShell struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	Spec              VirtualClusterDebugShellSpec   `json:"spec,omitempty"`
 	Status            VirtualClusterDebugShellStatus `json:"status,omitempty"`
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type VirtualClusterInstanceDebugShellPods struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Status            VirtualClusterDebugShellPodsStatus `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -9057,18 +9095,18 @@ type VirtualClusterAccessKeyList struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-type VirtualClusterInstanceDebugShellList struct {
+type VirtualClusterControlPlanePodsList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []VirtualClusterInstanceDebugShell `json:"items"`
+	Items           []VirtualClusterControlPlanePods `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-type VirtualClusterInstanceDebugShellPodsList struct {
+type VirtualClusterInstanceDebugShellList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []VirtualClusterInstanceDebugShellPods `json:"items"`
+	Items           []VirtualClusterInstanceDebugShell `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

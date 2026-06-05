@@ -3,6 +3,7 @@ package resources
 import (
 	"fmt"
 
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/backendtlspolicies"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/configmaps"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/csidrivers"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/csinodes"
@@ -10,6 +11,9 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/endpoints"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/endpointslices"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/events"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/gatewayclasses"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/gateways"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/httproutes"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingressclasses"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/ingresses"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/namespaces"
@@ -20,11 +24,13 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/poddisruptionbudgets"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/pods"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/priorityclasses"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/referencegrants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/runtimeclasses"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/secrets"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/serviceaccounts"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/services"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/storageclasses"
+	"github.com/loft-sh/vcluster/pkg/controllers/resources/tlsroutes"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshotclasses"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshotcontents"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots"
@@ -54,7 +60,14 @@ func getSyncers(ctx *synccontext.RegisterContext) []BuildController {
 		isEnabled(ctx.Config.Sync.FromHost.Events.Enabled, events.New),
 		isEnabled(ctx.Config.Sync.ToHost.PersistentVolumeClaims.Enabled, persistentvolumeclaims.New),
 		isEnabled(ctx.Config.Sync.ToHost.Ingresses.Enabled, ingresses.New),
+		isEnabled(ctx.Config.Sync.FromHost.Gateways.Enabled, gateways.New),
+		isEnabled(gatewayGatewaysEnabled(ctx), gateways.NewToHost),
+		isEnabled(gatewayHTTPRoutesEnabled(ctx), httproutes.New),
+		isEnabled(gatewayTLSRoutesEnabled(ctx), tlsroutes.New),
+		isEnabled(gatewayBackendTLSPoliciesEnabled(ctx), backendtlspolicies.New),
+		isEnabled(gatewayReferenceGrantsEnabled(ctx), referencegrants.New),
 		isEnabled(ctx.Config.Sync.FromHost.IngressClasses.Enabled, ingressclasses.New),
+		isEnabled(gatewayClassesEnabled(ctx), gatewayclasses.New),
 		isEnabled(ctx.Config.Sync.FromHost.RuntimeClasses.Enabled, runtimeclasses.New),
 		isEnabled(ctx.Config.Sync.ToHost.StorageClasses.Enabled, storageclasses.New),
 		isEnabled(ctx.Config.Sync.FromHost.StorageClasses.Enabled == "true", storageclasses.NewHostStorageClassSyncer),
@@ -117,4 +130,35 @@ func isEnabled[T any](enabled bool, fn T) T {
 	}
 	var ret T
 	return ret
+}
+
+func gatewayClassesEnabled(ctx *synccontext.RegisterContext) bool {
+	return ctx.Config.Sync.FromHost.GatewayClasses.Enabled || ctx.Config.Sync.FromHost.Gateways.Enabled
+}
+
+func gatewayGatewaysEnabled(ctx *synccontext.RegisterContext) bool {
+	return ctx.Config.Sync.ToHost.GatewayAPI.Gateways.Enabled
+}
+
+func gatewayHTTPRoutesEnabled(ctx *synccontext.RegisterContext) bool {
+	return ctx.Config.Sync.ToHost.GatewayAPI.HTTPRoutes.Enabled || ctx.Config.Sync.ToHost.GatewayAPI.Enabled
+}
+
+func gatewayTLSRoutesEnabled(ctx *synccontext.RegisterContext) bool {
+	return ctx.Config.Sync.ToHost.GatewayAPI.TLSRoutes.Enabled
+}
+
+func gatewayBackendTLSPoliciesEnabled(ctx *synccontext.RegisterContext) bool {
+	return ctx.Config.Sync.ToHost.GatewayAPI.BackendTLSPolicies.Enabled
+}
+
+func gatewayReferenceGrantsEnabled(ctx *synccontext.RegisterContext) bool {
+	mode := ctx.Config.Sync.ToHost.GatewayAPI.ReferenceGrants.Enabled
+	if mode == "true" {
+		return true
+	}
+	if mode == "false" {
+		return false
+	}
+	return ctx.Config.Sync.ToHost.Namespaces.Enabled && (gatewayHTTPRoutesEnabled(ctx) || gatewayTLSRoutesEnabled(ctx) || gatewayBackendTLSPoliciesEnabled(ctx))
 }

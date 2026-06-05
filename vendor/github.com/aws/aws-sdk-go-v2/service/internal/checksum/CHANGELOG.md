@@ -1,3 +1,149 @@
+# v1.9.13 (2026-03-26)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.9.12 (2026-03-13)
+
+* **Bug Fix**: Replace usages of the old ioutil/ package throughout the SDK.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.9.11 (2026-03-03)
+
+* **Bug Fix**: Modernize non codegen files with go fix
+* **Dependency Update**: Bump minimum Go version to 1.24
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.9.10 (2026-02-26)
+
+* **Bug Fix**: Allow sending unkown checksum values if the value is precalculated on the input request
+
+# v1.9.9 (2026-02-23)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.9.8 (2026-01-09)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.9.7 (2025-12-08)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.9.6 (2025-12-02)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+* **Dependency Update**: Upgrade to smithy-go v1.24.0. Notably this version of the library reduces the allocation footprint of the middleware system. We observe a ~10% reduction in allocations per SDK call with this change.
+
+# v1.9.5 (2025-11-19.2)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.9.4 (2025-11-04)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+* **Dependency Update**: Upgrade to smithy-go v1.23.2 which should convey some passive reduction of overall allocations, especially when not using the metrics system.
+
+# v1.9.3 (2025-10-30)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.9.2 (2025-10-23)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.9.1 (2025-10-16)
+
+* **Dependency Update**: Bump minimum Go version to 1.23.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.9.0 (2025-10-07)
+
+* **Feature**: Cache first calculated checksum and reuse it in retry, this feature avoids checksum re-calculation and enables request payload consistency check among attempts.
+
+# v1.8.9 (2025-09-26)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.8.8 (2025-09-23)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.8.7 (2025-09-08)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.8.6 (2025-08-29)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.8.5 (2025-08-27)
+
+* **Dependency Update**: Update to smithy-go v1.23.0.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.8.4 (2025-08-21)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.8.3 (2025-08-11)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.8.2 (2025-08-04)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.8.1 (2025-07-30)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.8.0 (2025-07-28)
+
+* **Feature**: Add support for HTTP interceptors.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.7.5 (2025-07-19)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.7.4 (2025-06-17)
+
+* **Dependency Update**: Update to smithy-go v1.22.4.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.7.3 (2025-06-10)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.7.2 (2025-05-22)
+
+* **Bug Fix**: Handle checksum for unseekable body with 0 content length
+
+# v1.7.1 (2025-04-28)
+
+* **Bug Fix**: Don't emit warnings about lack of checksum validation for non-200 responses.
+
+# v1.7.0 (2025-03-11)
+
+* **Feature**: Add extra check during output checksum validation so the validation skip warning would not be logged if object is not fetched from s3
+
+# v1.6.2 (2025-02-27)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.6.1 (2025-02-18)
+
+* **Bug Fix**: Bump go version to 1.22
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.6.0 (2025-02-10)
+
+* **Feature**: Support CRC64NVME flex checksums.
+
+# v1.5.6 (2025-02-05)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.5.5 (2025-01-31)
 
 * **Dependency Update**: Updated to the latest SDK module versions

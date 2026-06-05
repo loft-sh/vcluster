@@ -2,7 +2,13 @@ package licenseapi
 
 import "net/http"
 
-const InstanceCreateRoute = "/instance"
+// InstanceRouteBase is the base path for all instance-related endpoints.
+const InstanceRouteBase = "/instance"
+
+// InstanceCreateRoute is the path for instance registration.
+const InstanceCreateRoute = InstanceRouteBase
+
+// InstanceCreateMethod is the HTTP method for instance registration.
 const InstanceCreateMethod = http.MethodPost
 
 // InstanceCreateInput is the required input data for "instance create" operations, that is, the

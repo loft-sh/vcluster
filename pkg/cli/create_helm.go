@@ -77,6 +77,7 @@ type CreateOptions struct {
 	Expose               bool
 	ExposeLocal          bool
 	Restore              string
+	SnapshotTempDir      string
 	Connect              bool
 	Upgrade              bool
 
@@ -182,7 +183,7 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 				}
 
 				log.Infof("Restore vCluster %s...", vClusterName)
-				err = Restore(ctx, []string{vClusterName, cmd.Restore}, globalFlags, &snapshotapi.Options{}, &pod.Options{}, false, false, false, log)
+				err = Restore(ctx, []string{vClusterName, cmd.Restore}, globalFlags, &snapshotapi.Options{SnapshotTempDir: cmd.SnapshotTempDir}, &pod.Options{}, false, false, false, log)
 				if err != nil {
 					return fmt.Errorf("restore vCluster %s: %w", vClusterName, err)
 				}
@@ -403,7 +404,7 @@ func buildExtraValues(ctx context.Context, cmd *CreateOptions, log log.Logger) (
 	if len(cmd.Values) == 0 && len(cmd.SetValues) == 0 {
 		restoreValuesFile, err := getVClusterConfigFromSnapshot(ctx, cmd)
 		if err != nil {
-			log.Warnf("get vCluster config from snapshot: %w", err)
+			return nil, fmt.Errorf("get vCluster config from snapshot: %w", err)
 		} else if restoreValuesFile != "" {
 			filesToRemove = append(filesToRemove, restoreValuesFile)
 			log.Info("Using vCluster config from snapshot")
@@ -649,7 +650,7 @@ func (cmd *createHelm) deployChart(ctx context.Context, vClusterName, chartValue
 	// now restore if wanted
 	if cmd.Restore != "" {
 		cmd.log.Infof("Restore vCluster %s...", vClusterName)
-		err = Restore(ctx, []string{vClusterName, cmd.Restore}, cmd.GlobalFlags, &snapshotapi.Options{}, &pod.Options{}, true, false, false, cmd.log)
+		err = Restore(ctx, []string{vClusterName, cmd.Restore}, cmd.GlobalFlags, &snapshotapi.Options{SnapshotTempDir: cmd.SnapshotTempDir}, &pod.Options{}, true, false, false, cmd.log)
 		if err != nil {
 			// delete the vcluster if the restore failed
 			deleteErr := helmClient.Delete(vClusterName, cmd.Namespace)
@@ -844,7 +845,7 @@ func getVClusterConfigFromSnapshot(ctx context.Context, cmd *CreateOptions) (str
 		return "", nil
 	}
 
-	snapshotOptions := &snapshotapi.Options{}
+	snapshotOptions := &snapshotapi.Options{SnapshotTempDir: cmd.SnapshotTempDir}
 	err := snapshot.Parse(cmd.Restore, snapshotOptions)
 	if err != nil {
 		return "", fmt.Errorf("parse snapshot: %w", err)
@@ -873,13 +874,16 @@ func getVClusterConfigFromSnapshot(ctx context.Context, cmd *CreateOptions) (str
 	// read the vCluster config
 	header, err := tarReader.Next()
 	if err != nil {
-		return "", err
+		if errors.Is(err, io.EOF) {
+			return "", fmt.Errorf("snapshot archive is empty or truncated")
+		}
+		return "", fmt.Errorf("read snapshot archive: %w", err)
 	}
 
 	buf := &bytes.Buffer{}
 	_, err = io.Copy(buf, tarReader)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("read snapshot entry: %w", err)
 	}
 
 	// no vCluster config in the snapshot

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/config"
 	setupconfig "github.com/loft-sh/vcluster/pkg/setup/config"
 	"k8s.io/client-go/kubernetes"
@@ -27,6 +28,10 @@ func NewCreateCmd() *cobra.Command {
 			envOptions, err := snapshot.ParseOptionsFromEnv()
 			if err != nil {
 				return fmt.Errorf("failed to parse options from environment: %w", err)
+			}
+
+			if envOptions.IncludeVolumes {
+				log.GetInstance().Warnf("WARNING: --include-volumes is now deprecated and slated for removal in an upcoming release.")
 			}
 
 			restClient, vClusterNamespace, err := setupconfig.InitClientConfig()

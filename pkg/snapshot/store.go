@@ -15,7 +15,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/pro"
 	setupconfig "github.com/loft-sh/vcluster/pkg/setup/config"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/grpclog"
 	"k8s.io/klog/v2"
 )
@@ -68,7 +67,7 @@ func isEtcdReachable(ctx context.Context, endpoint string, certificates *etcd.Ce
 		// prevent etcd client messages from showing
 		grpclog.SetLoggerV2(grpclog.NewLoggerV2(io.Discard, io.Discard, io.Discard))
 	}
-	etcdClient, err := etcd.GetEtcdClient(ctx, zap.L().Named("etcd-client"), certificates, endpoint)
+	etcdClient, err := etcd.GetEtcdClient(ctx, certificates, endpoint)
 	if err == nil {
 		defer func() {
 			_ = etcdClient.Close()

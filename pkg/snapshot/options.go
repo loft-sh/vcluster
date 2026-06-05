@@ -157,6 +157,7 @@ func AddFlags(flags *pflag.FlagSet, options *snapshotapi.Options) {
 	flags.StringVarP(&options.S3.KmsKeyID, "kms-key-id", "", "", "AWS KMS key ID that is configured for given S3 bucket. If set, aws-kms SSE will be used")
 	flags.StringVarP(&options.S3.CustomerKeyEncryptionFile, "customer-key-encryption-file", "", "", "AWS customer key encryption file used for SSE-C. Mutually exclusive with kms-key-id")
 	flags.StringVarP(&options.S3.ServerSideEncryption, "server-side-encryption", "", "", "AWS Server-Side encryption algorithm")
-	flags.BoolVarP(&options.IncludeVolumes, "include-volumes", "", false, "Create CSI volume snapshots (shared and private nodes only)")
+	flags.BoolVarP(&options.IncludeVolumes, "include-volumes", "", false, "Create CSI volume snapshots (shared and private nodes only). Deprecated: volume snapshot and restore will be removed in an upcoming release.")
+	flags.StringVarP(&options.SnapshotTempDir, "snapshot-temp-dir", "", "", "Temporary directory for snapshot operations. If set to empty string, the OS default directory for temporary files will be used")
 	azure.AddFlags(flags, &options.Azure)
 }

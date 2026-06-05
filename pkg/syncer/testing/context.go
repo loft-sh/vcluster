@@ -24,6 +24,9 @@ import (
 )
 
 func FakeStartSyncer(t *testing.T, ctx *synccontext.RegisterContext, create func(ctx *synccontext.RegisterContext) (syncer.Object, error)) (*synccontext.SyncContext, syncer.Object) {
+	restoreCRDHelpers := installFakeCRDHelpers()
+	defer restoreCRDHelpers()
+
 	object, err := create(ctx)
 	assert.NilError(t, err)
 	if object == nil {
@@ -74,10 +77,8 @@ func NewFakeRegisterContext(vConfig *config.VirtualClusterConfig, pClient *testi
 	mappingsStore, _ := store.NewStoreWithVerifyMapping(ctx, vClient, pClient, store.NewMemoryBackend(), verify.NewVerifyMapping(registerCtx.ToSyncContext("verify-mapping")))
 	registerCtx.Mappings = mappings.NewMappingsRegistry(mappingsStore)
 
-	// make sure we do not ensure any CRDs
-	util.EnsureCRD = func(_ context.Context, _ *rest.Config, _ []byte, _ schema.GroupVersionKind) error {
-		return nil
-	}
+	restoreCRDHelpers := installFakeCRDHelpers()
+	defer restoreCRDHelpers()
 
 	// register & migrate mappers
 	resources.MustRegisterMappings(registerCtx)
@@ -89,4 +90,21 @@ func NewFakeRegisterContext(vConfig *config.VirtualClusterConfig, pClient *testi
 	}
 
 	return registerCtx
+}
+
+func installFakeCRDHelpers() func() {
+	ensureCRD := util.EnsureCRD
+	kindExists := util.KindExists
+
+	util.EnsureCRD = func(_ context.Context, _ *rest.Config, _ []byte, _ schema.GroupVersionKind) error {
+		return nil
+	}
+	util.KindExists = func(_ *rest.Config, _ schema.GroupVersionKind) (bool, error) {
+		return true, nil
+	}
+
+	return func() {
+		util.EnsureCRD = ensureCRD
+		util.KindExists = kindExists
+	}
 }

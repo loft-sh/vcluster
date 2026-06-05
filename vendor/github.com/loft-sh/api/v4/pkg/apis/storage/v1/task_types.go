@@ -146,7 +146,7 @@ type TaskStatus struct {
 	// +optional
 	Started bool `json:"started,omitempty"`
 
-	// Conditions holds several conditions the virtual cluster might be in
+	// Conditions holds several conditions the tenant cluster might be in
 	// +optional
 	Conditions agentstoragev1.Conditions `json:"conditions,omitempty"`
 
@@ -166,7 +166,7 @@ type TaskStatus struct {
 
 // Common ConditionTypes used by Cluster API objects.
 const (
-	// TaskStartedCondition defines the task started condition type that summarizes the operational state of the virtual cluster API object.
+	// TaskStartedCondition defines the task started condition type that summarizes the operational state of the tenant cluster API object.
 	TaskStartedCondition agentstoragev1.ConditionType = "TaskStarted"
 )
 
@@ -186,7 +186,7 @@ type Target struct {
 	// +optional
 	SpaceInstance *TargetInstance `json:"spaceInstance,omitempty"`
 
-	// VirtualClusterInstance defines a virtual cluster instance as target
+	// VirtualClusterInstance defines a tenant cluster instance as target
 	// +optional
 	VirtualClusterInstance *TargetInstance `json:"virtualClusterInstance,omitempty"`
 
@@ -216,15 +216,15 @@ type TargetCluster struct {
 }
 
 type TargetVirtualCluster struct {
-	// Cluster is the cluster where the virtual cluster lies
+	// Cluster is the cluster where the tenant cluster lies
 	// +optional
 	Cluster string `json:"cluster,omitempty"`
 
-	// Namespace is the namespace where the virtual cluster is located
+	// Namespace is the namespace where the tenant cluster is located
 	// +optional
 	Namespace string `json:"namespace,omitempty"`
 
-	// Name of the virtual cluster
+	// Name of the tenant cluster
 	// +optional
 	Name string `json:"name,omitempty"`
 }

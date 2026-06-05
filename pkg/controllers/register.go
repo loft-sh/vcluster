@@ -271,6 +271,7 @@ func registerSnapshotController(registerContext *synccontext.RegisterContext) er
 
 	config := registerContext.Config
 	if config.PrivateNodes.Enabled && config.Deploy.VolumeSnapshotController.Enabled {
+		klog.Warning("WARNING: volume snapshot and restore is deprecated and will be removed in an upcoming release.")
 		err = csiVolumeSnapshots.Deploy(registerContext)
 		if err != nil {
 			return fmt.Errorf("unable to deploy required CSI volume snapshot compoments: %w", err)

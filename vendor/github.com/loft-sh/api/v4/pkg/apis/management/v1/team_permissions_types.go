@@ -22,6 +22,6 @@ type TeamPermissions struct {
 	// ClustersAccessRoles gives information about the team's assigned cluster roles and the clusters they apply to
 	ClusterAccessRoles []ClusterAccessRole `json:"clusterAccessRoles,omitempty"`
 
-	// VirtualClusterRoles give information about the team's cluster role within the virtual cluster
+	// VirtualClusterRoles give information about the team's cluster role within the tenant cluster
 	VirtualClusterRoles []VirtualClusterRole `json:"virtualClusterRoles,omitempty"`
 }

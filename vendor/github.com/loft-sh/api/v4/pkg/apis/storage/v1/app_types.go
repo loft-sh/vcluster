@@ -243,7 +243,7 @@ const (
 	RecommendedAppCluster RecommendedApp = "cluster"
 	// RecommendedAppSpace indicates that an app should be displayed as recommended app in the space view
 	RecommendedAppSpace RecommendedApp = "space"
-	// RecommendedAppVirtualCluster indicates that an app should be displayed as recommended app in the virtual cluster view
+	// RecommendedAppVirtualCluster indicates that an app should be displayed as recommended app in the tenant cluster view
 	RecommendedAppVirtualCluster RecommendedApp = "virtualcluster"
 )
 

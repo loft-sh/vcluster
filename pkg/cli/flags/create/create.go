@@ -57,6 +57,7 @@ func AddHelmFlags(cmd *cobra.Command, options *cli.CreateOptions) {
 	cmd.Flags().BoolVar(&options.CreateNamespace, "create-namespace", true, "If true the namespace will be created if it does not exist")
 	cmd.Flags().StringVar(&options.LocalChartDir, "local-chart-dir", "", "The virtual cluster local chart dir to use")
 	cmd.Flags().StringVar(&options.Restore, "restore", "", "Restore the virtual cluster from a backup. E.g. --restore oci://ghcr.io/my-user/my-repo:my-tag")
+	cmd.Flags().StringVarP(&options.SnapshotTempDir, "snapshot-temp-dir", "", "", "Temporary directory for snapshot operations. If set to empty string, the OS default directory for temporary files will be used")
 	cmd.Flags().BoolVar(&options.ExposeLocal, "expose-local", true, "If true and a local Kubernetes distro is detected, will deploy vcluster with a NodePort service. Will be set to false and the passed value will be ignored if --expose is set to true.")
 	cmd.Flags().BoolVar(&options.BackgroundProxy, "background-proxy", true, "Try to use a background-proxy to access the vCluster. Only works if docker is installed and reachable")
 	cmd.Flags().StringVar(&options.BackgroundProxyImage, "background-proxy-image", constants.DefaultBackgroundProxyImage(upgrade.GetVersion()), "The image to use for the background proxy. Only used if --background-proxy is enabled.")

@@ -1246,7 +1246,7 @@
       "properties": {
         "afterInactivity": {
           "type": "string",
-          "description": "AfterInactivity specifies after how long of inactivity the virtual cluster will be deleted.\nUses Go duration format (e.g., \"720h\" for 30 days).\n+optional"
+          "description": "AfterInactivity specifies after how long of inactivity the tenant cluster will be deleted.\nUses Go duration format (e.g., \"720h\" for 30 days).\n+optional"
         }
       },
       "additionalProperties": false,
@@ -2513,6 +2513,47 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "FromHostGateways": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if this option should be enabled."
+        },
+        "patches": {
+          "items": {
+            "$ref": "#/$defs/TranslatePatch"
+          },
+          "type": "array",
+          "description": "Patches patch the resource according to the provided specification."
+        },
+        "selector": {
+          "$ref": "#/$defs/StandardLabelSelector",
+          "description": "Selector defines the selector to use for the resource. If not set, all resources of that type will be synced."
+        },
+        "mappings": {
+          "$ref": "#/$defs/FromHostMappings",
+          "description": "Mappings define Host Gateway namespace/name to tenant-facing namespace/name placement."
+        },
+        "allowedRoutes": {
+          "$ref": "#/$defs/GatewayAllowedRoutesConfig",
+          "description": "AllowedRoutes configures the tenant-facing allowedRoutes policy shown on imported Gateways and enforced for Routes."
+        },
+        "status": {
+          "$ref": "#/$defs/GatewayImportStatus",
+          "description": "Status configures how Gateway status is mirrored."
+        },
+        "metadata": {
+          "$ref": "#/$defs/GatewayImportMetadata",
+          "description": "Metadata configures imported Gateway metadata visibility."
+        },
+        "sanitize": {
+          "$ref": "#/$defs/GatewayImportSanitize",
+          "description": "Sanitize configures sensitive host field sanitization."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "FromHostMappings": {
       "properties": {
         "byName": {
@@ -2521,6 +2562,121 @@
           },
           "type": "object",
           "description": "ByName is a map of host-object-namespace/host-object-name: virtual-object-namespace/virtual-object-name.\nThere are several wildcards supported:\n1. To match all objects in host namespace and sync them to different namespace in vCluster:\nbyName:\n  \"foo/*\": \"foo-in-virtual/*\"\n2. To match specific object in the host namespace and sync it to the same namespace with the same name:\nbyName:\n  \"foo/my-object\": \"foo/my-object\"\n3. To match specific object in the host namespace and sync it to the same namespace with different name:\nbyName:\n  \"foo/my-object\": \"foo/my-virtual-object\"\n4. To match all objects in the vCluster host namespace and sync them to a different namespace in vCluster:\nbyName:\n  \"\": \"my-virtual-namespace/*\"\n5. To match specific objects in the vCluster host namespace and sync them to a different namespace in vCluster:\nbyName:\n  \"/my-object\": \"my-virtual-namespace/my-object\""
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "GatewayAPIEnableSwitchWithPatches": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if this option should be enabled."
+        },
+        "patches": {
+          "items": {
+            "$ref": "#/$defs/TranslatePatch"
+          },
+          "type": "array",
+          "description": "Patches patch the resource according to the provided specification."
+        },
+        "httpRoutes": {
+          "$ref": "#/$defs/EnableSwitchWithPatches",
+          "description": "HTTPRoutes configures HTTPRoute sync to the host cluster."
+        },
+        "gateways": {
+          "$ref": "#/$defs/EnableSwitchWithPatches",
+          "description": "Gateways configures tenant-created Gateway sync to the host cluster."
+        },
+        "tlsRoutes": {
+          "$ref": "#/$defs/EnableSwitchWithPatches",
+          "description": "TLSRoutes configures TLSRoute sync to the host cluster."
+        },
+        "backendTLSPolicies": {
+          "$ref": "#/$defs/EnableSwitchWithPatches",
+          "description": "BackendTLSPolicies configures BackendTLSPolicy sync to the host cluster."
+        },
+        "referenceGrants": {
+          "$ref": "#/$defs/EnableAutoSwitchWithPatches",
+          "description": "ReferenceGrants configures ReferenceGrant sync to the host cluster. Enabled may be \"auto\", \"true\", or \"false\"."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "GatewayAllowedRoutesConfig": {
+      "properties": {
+        "defaultVirtualNamespacePolicy": {
+          "$ref": "#/$defs/GatewayVirtualNamespacePolicy"
+        },
+        "overrides": {
+          "items": {
+            "$ref": "#/$defs/GatewayAllowedRoutesPolicyOverride"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "GatewayAllowedRoutesPolicyOverride": {
+      "properties": {
+        "hostNamespace": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "virtualNamespacePolicy": {
+          "$ref": "#/$defs/GatewayVirtualNamespacePolicy"
+        },
+        "allowedHostnames": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "GatewayImportMetadata": {
+      "properties": {
+        "exposeSourceGateway": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "GatewayImportSanitize": {
+      "properties": {
+        "certificateRefs": {
+          "type": "boolean"
+        },
+        "infrastructure": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "GatewayImportStatus": {
+      "properties": {
+        "exposeAddresses": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "GatewayVirtualNamespacePolicy": {
+      "properties": {
+        "from": {
+          "type": "string"
+        },
+        "selector": {
+          "$ref": "#/$defs/StandardLabelSelector"
         }
       },
       "additionalProperties": false,
@@ -4453,7 +4609,7 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "description": "Sleep holds configuration for automatically putting the virtual cluster to sleep."
+      "description": "Sleep holds configuration for automatically putting the tenant cluster to sleep."
     },
     "SleepAuto": {
       "properties": {
@@ -4668,7 +4824,7 @@
       "properties": {
         "schedule": {
           "type": "string",
-          "description": "Schedule specifies a scheduled time in Cron format, see https://en.wikipedia.org/wiki/Cron for a virtual cluster snapshot to be taken\n+optional"
+          "description": "Schedule specifies a scheduled time in Cron format, see https://en.wikipedia.org/wiki/Cron for a tenant cluster snapshot to be taken\n+optional"
         },
         "timezone": {
           "type": "string",
@@ -4917,6 +5073,14 @@
           "$ref": "#/$defs/EnableSwitchWithPatchesAndSelector",
           "description": "IngressClasses defines if ingress classes should get synced from the host cluster to the virtual cluster, but not back."
         },
+        "gatewayClasses": {
+          "$ref": "#/$defs/EnableSwitchWithPatchesAndSelector",
+          "description": "GatewayClasses defines if gateway classes should get synced from the host cluster to the virtual cluster, but not back."
+        },
+        "gateways": {
+          "$ref": "#/$defs/FromHostGateways",
+          "description": "Gateways defines if selected host Gateways should get synced from the host cluster to the virtual cluster, but not back."
+        },
         "runtimeClasses": {
           "$ref": "#/$defs/EnableSwitchWithPatchesAndSelector",
           "description": "RuntimeClasses defines if runtime classes should get synced from the host cluster to the virtual cluster, but not back."
@@ -5139,6 +5303,10 @@
         "ingresses": {
           "$ref": "#/$defs/EnableSwitchWithPatches",
           "description": "Ingresses defines if ingresses created within the virtual cluster should get synced to the host cluster."
+        },
+        "gatewayApi": {
+          "$ref": "#/$defs/GatewayAPIEnableSwitchWithPatches",
+          "description": "GatewayAPI defines Gateway API resources created within the virtual cluster that should get synced to the host cluster."
         },
         "services": {
           "$ref": "#/$defs/EnableSwitchWithPatches",

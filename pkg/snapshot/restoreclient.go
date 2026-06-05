@@ -189,7 +189,7 @@ func (o *RestoreClient) Run(ctx context.Context, vConfig *config.VirtualClusterC
 	}
 	defer snapshotReader.Close()
 
-	snapshotPath, err := writeTempFile(snapshotReader)
+	snapshotPath, err := writeTempFile(o.Snapshot.SnapshotTempDir, snapshotReader)
 	if err != nil {
 		return fmt.Errorf("failed to write snapshot to temp file: %w", err)
 	}
@@ -264,7 +264,7 @@ func (o *RestoreClient) restoreEtcdSnapshot(ctx context.Context, vConfig *config
 		}
 
 		if header.Name == DBStoreKey {
-			dbPath, err = writeTempFile(tarReader)
+			dbPath, err = writeTempFile(o.Snapshot.SnapshotTempDir, tarReader)
 			if err != nil {
 				return fmt.Errorf("failed to write snapshot to temp file: %w", err)
 			}
@@ -359,7 +359,7 @@ func (o *RestoreClient) postRestoreSnapshotDataMutation(ctx context.Context, vCo
 		return fmt.Errorf("failed to wait for embedded etcd: %w", err)
 	}
 
-	etcdClient, err := etcd.GetEtcdClient(ctx, zap.L().Named("etcd-client"), etcdCertificates, etcdEndpoint)
+	etcdClient, err := etcd.GetEtcdClient(ctx, etcdCertificates, etcdEndpoint)
 	if err != nil {
 		return fmt.Errorf("failed to get etcd client: %w", err)
 	}
@@ -1132,8 +1132,8 @@ func getTranslatedPVCName(pvcName string) string {
 	return hostName.Namespace + "/" + hostName.Name
 }
 
-func writeTempFile(reader io.Reader) (string, error) {
-	f, err := os.CreateTemp("", "snapshot-")
+func writeTempFile(dir string, reader io.Reader) (string, error) {
+	f, err := os.CreateTemp(dir, "snapshot-")
 	if err != nil {
 		return "", fmt.Errorf("create temp file: %w", err)
 	}

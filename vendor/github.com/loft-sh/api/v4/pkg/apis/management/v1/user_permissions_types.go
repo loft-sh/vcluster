@@ -33,7 +33,7 @@ type UserPermissions struct {
 	// ClustersAccessRoles gives information about the user's assigned cluster roles and the clusters they apply to
 	ClusterAccessRoles []ClusterAccessRole `json:"clusterAccessRoles,omitempty"`
 
-	// VirtualClusterRoles give information about the user's cluster role within the virtual cluster
+	// VirtualClusterRoles give information about the user's cluster role within the tenant cluster
 	VirtualClusterRoles []VirtualClusterRole `json:"virtualClusterRoles,omitempty"`
 }
 
@@ -114,10 +114,10 @@ type ClusterAccessRole struct {
 }
 
 type VirtualClusterRole struct {
-	// ObjectName describes the virtual cluster
+	// ObjectName describes the tenant cluster
 	ObjectName `json:",inline"`
 
-	// Role is the cluster role inside the virtual cluster. One of cluster-admin, admin, edit, or view
+	// Role is the cluster role inside the tenant cluster. One of cluster-admin, admin, edit, or view
 	Role string `json:"role,omitempty"`
 
 	// AssignedVia describes the resource that establishes the project membership

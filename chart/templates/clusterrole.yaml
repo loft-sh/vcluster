@@ -83,6 +83,16 @@ rules:
     resources: ["ingressclasses"]
     verbs: ["get", "watch", "list"]
   {{- end }}
+  {{- if or .Values.sync.fromHost.gatewayClasses.enabled .Values.sync.fromHost.gateways.enabled }}
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["gatewayclasses"]
+    verbs: ["get", "watch", "list"]
+  {{- end }}
+  {{- if .Values.sync.fromHost.gateways.enabled }}
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["gateways"]
+    verbs: ["get", "watch", "list"]
+  {{- end }}
   {{- if .Values.sync.fromHost.runtimeClasses.enabled }}
   - apiGroups: ["node.k8s.io"]
     resources: ["runtimeclasses"]
@@ -143,7 +153,7 @@ rules:
     resources: ["validatingwebhookconfigurations", "mutatingwebhookconfigurations"]
     verbs: ["get", "list", "watch"]
   {{- end }}
-  {{- if or .Values.integrations.kubeVirt.enabled .Values.integrations.externalSecrets.enabled .Values.integrations.certManager.enabled .Values.sync.toHost.customResources .Values.sync.fromHost.customResources .Values.integrations.istio.enabled }}
+  {{- if or .Values.integrations.kubeVirt.enabled .Values.integrations.externalSecrets.enabled .Values.integrations.certManager.enabled .Values.sync.toHost.customResources .Values.sync.fromHost.customResources .Values.integrations.istio.enabled .Values.sync.fromHost.gateways.enabled .Values.sync.fromHost.gatewayClasses.enabled .Values.sync.toHost.gatewayApi.enabled .Values.sync.toHost.gatewayApi.gateways.enabled .Values.sync.toHost.gatewayApi.httpRoutes.enabled .Values.sync.toHost.gatewayApi.tlsRoutes.enabled .Values.sync.toHost.gatewayApi.backendTLSPolicies.enabled }}
   - apiGroups: ["apiextensions.k8s.io"]
     resources: ["customresourcedefinitions"]
     verbs: ["get", "list", "watch"]

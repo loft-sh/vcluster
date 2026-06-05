@@ -8,7 +8,7 @@ import (
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// VirtualClusterSchema holds config request and response data for virtual clusters
+// VirtualClusterSchema holds config request and response data for tenant clusters
 // +k8s:openapi-gen=true
 // +resource:path=virtualclusterschemas,rest=VirtualClusterSchemaREST
 type VirtualClusterSchema struct {
@@ -21,15 +21,15 @@ type VirtualClusterSchema struct {
 
 // VirtualClusterSchemaSpec holds the specification
 type VirtualClusterSchemaSpec struct {
-	// Version is the version of the virtual cluster
+	// Version is the version of the tenant cluster
 	Version string `json:"version,omitempty"`
 }
 
 // VirtualClusterSchemaStatus holds the status
 type VirtualClusterSchemaStatus struct {
-	// Schema is the schema of the virtual cluster
+	// Schema is the schema of the tenant cluster
 	Schema string `json:"schema,omitempty"`
 
-	// DefaultValues are the default values of the virtual cluster
+	// DefaultValues are the default values of the tenant cluster
 	DefaultValues string `json:"defaultValues,omitempty"`
 }

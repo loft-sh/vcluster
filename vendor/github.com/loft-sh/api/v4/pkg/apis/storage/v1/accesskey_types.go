@@ -117,7 +117,7 @@ type AccessKeyScope struct {
 	// +optional
 	Spaces []AccessKeyScopeSpace `json:"spaces,omitempty"`
 
-	// VirtualClusters specifies the virtual clusters the access key is allowed to access.
+	// VirtualClusters specifies the tenant clusters the access key is allowed to access.
 	// +optional
 	VirtualClusters []AccessKeyScopeVirtualCluster `json:"virtualClusters,omitempty"`
 
@@ -195,7 +195,7 @@ type AccessKeyScopeRole struct {
 	// +optional
 	Projects []string `json:"projects,omitempty"`
 
-	// VirtualClusters specifies the virtual clusters the access key is allowed to access.
+	// VirtualClusters specifies the tenant clusters the access key is allowed to access.
 	// +optional
 	VirtualClusters []string `json:"virtualClusters,omitempty"`
 }
@@ -224,7 +224,7 @@ type AccessKeyScopeVirtualCluster struct {
 	// +optional
 	Project string `json:"project,omitempty"`
 
-	// VirtualCluster is the name of the virtual cluster to access. You can specify * to select all virtual clusters.
+	// VirtualCluster is the name of the tenant cluster to access. You can specify * to select all tenant clusters.
 	// +optional
 	VirtualCluster string `json:"virtualCluster,omitempty"`
 }
@@ -285,18 +285,18 @@ type AccessKeyScopeRule struct {
 	// +optional
 	Cluster string `json:"cluster,omitempty"`
 
-	// VirtualClusters that this rule matches. Only applies to virtual cluster requests.
+	// VirtualClusters that this rule matches. Only applies to tenant cluster requests.
 	// An empty list means no restrictions will apply.
 	// +optional
 	VirtualClusters []AccessKeyVirtualCluster `json:"virtualClusters,omitempty"`
 }
 
 type AccessKeyVirtualCluster struct {
-	// Name of the virtual cluster. Empty means all virtual clusters.
+	// Name of the tenant cluster. Empty means all tenant clusters.
 	// +optional
 	Name string `json:"name,omitempty"`
 
-	// Namespace of the virtual cluster. Empty means all namespaces.
+	// Namespace of the tenant cluster. Empty means all namespaces.
 	// +optional
 	Namespace string `json:"namespace,omitempty"`
 }

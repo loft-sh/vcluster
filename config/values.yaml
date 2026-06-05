@@ -43,6 +43,18 @@ sync:
               memory: 64Mi
     ingresses:
       enabled: false
+    gatewayApi:
+      enabled: false
+      httpRoutes:
+        enabled: false
+      gateways:
+        enabled: false
+      tlsRoutes:
+        enabled: false
+      backendTLSPolicies:
+        enabled: false
+      referenceGrants:
+        enabled: auto
     priorityClasses:
       enabled: false
     networkPolicies:
@@ -84,6 +96,23 @@ sync:
       enabled: auto
     ingressClasses:
       enabled: false
+    gatewayClasses:
+      enabled: false
+    gateways:
+      enabled: false
+      mappings:
+        byName: {}
+      selector: {}
+      allowedRoutes:
+        defaultVirtualNamespacePolicy: {}
+        overrides: []
+      status:
+        exposeAddresses: false
+      metadata:
+        exposeSourceGateway: false
+      sanitize:
+        certificateRefs: true
+        infrastructure: true
     runtimeClasses:
       enabled: false
     priorityClasses:

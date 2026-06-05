@@ -4,7 +4,7 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// VirtualClusterExternalDatabase holds kube config request and response data for virtual clusters
+// VirtualClusterExternalDatabase holds kube config request and response data for tenant clusters
 // +subresource-request
 type VirtualClusterExternalDatabase struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -23,6 +23,10 @@ type VirtualClusterExternalDatabaseSpec struct {
 	// password - the password for the database username
 	// port - the port to be used in conjunction with the endpoint to connect to the databse server. This is commonly
 	// 3306
+	// The following field is optional:
+	// caCert - PEM-encoded CA bundle used by the tenant cluster to verify the database server's TLS
+	// certificate. When set, the value is returned on status so the tenant cluster can write it to
+	// disk and enable sslmode=verify-full.
 	// +optional
 	Connector string `json:"connector,omitempty"`
 }
@@ -35,4 +39,11 @@ type VirtualClusterExternalDatabaseStatus struct {
 	// IdentityProvider is the kine identity provider to use when generating temporary authentication tokens for
 	// enhanced security.
 	IdentityProvider string `json:"identityProvider,omitempty"`
+
+	// CaCert is the PEM-encoded CA bundle the tenant cluster should use to verify the database
+	// server's TLS certificate, sourced from the connector secret's caCert field. When non-empty,
+	// the tenant cluster should write this to disk and configure Kine to verify the server against
+	// it (sslmode=verify-full).
+	// +optional
+	CaCert string `json:"caCert,omitempty"`
 }

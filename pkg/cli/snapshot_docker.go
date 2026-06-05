@@ -50,7 +50,7 @@ type SnapshotVolume struct {
 
 // SnapshotDocker creates a snapshot of a Docker-based vCluster by exporting its Docker volumes
 // and configuration directory into a single gzipped tar archive.
-func SnapshotDocker(ctx context.Context, globalFlags *flags.GlobalFlags, vClusterName, outputPath string, log log.Logger) error {
+func SnapshotDocker(ctx context.Context, globalFlags *flags.GlobalFlags, snapshotOpts *snapshotapi.Options, vClusterName, outputPath string, log log.Logger) error {
 	cpContainer := getControlPlaneContainerName(vClusterName)
 
 	// Verify the vCluster exists.
@@ -132,7 +132,7 @@ func SnapshotDocker(ctx context.Context, globalFlags *flags.GlobalFlags, vCluste
 	isRemote := isRemoteSnapshotURL(outputPath)
 	localPath := outputPath
 	if isRemote {
-		tmpFile, err := os.CreateTemp("", "vcluster-docker-snapshot-*.tar.gz")
+		tmpFile, err := os.CreateTemp(snapshotOpts.SnapshotTempDir, "vcluster-docker-snapshot-*.tar.gz")
 		if err != nil {
 			return fmt.Errorf("failed to create temp file: %w", err)
 		}
@@ -167,7 +167,7 @@ func SnapshotDocker(ctx context.Context, globalFlags *flags.GlobalFlags, vCluste
 	for _, vol := range volumes {
 		dockerVolumeName := resolveDockerVolumeName(vClusterName, vol.LogicalName)
 		log.Infof("Exporting volume %s...", vol.LogicalName)
-		if err := exportDockerVolumeToTar(ctx, tw, vol.ArchivePath, dockerVolumeName); err != nil {
+		if err := exportDockerVolumeToTar(ctx, tw, vol.ArchivePath, dockerVolumeName, snapshotOpts.SnapshotTempDir); err != nil {
 			return fmt.Errorf("failed to export volume %s: %w", vol.LogicalName, err)
 		}
 	}
@@ -251,9 +251,9 @@ func resolveDockerVolumeName(vClusterName, logicalName string) string {
 
 // exportDockerVolumeToTar exports a Docker volume directly into a tar writer by streaming
 // through a temporary file. This avoids holding multi-GB volume data in memory.
-func exportDockerVolumeToTar(ctx context.Context, tw *tar.Writer, archivePath, volumeName string) error {
+func exportDockerVolumeToTar(ctx context.Context, tw *tar.Writer, archivePath, volumeName string, tempDir string) error {
 	// Write docker output to a temp file (uses disk, not RAM).
-	tmpFile, err := os.CreateTemp("", "vcluster-vol-export-*.tar")
+	tmpFile, err := os.CreateTemp(tempDir, "vcluster-vol-export-*.tar")
 	if err != nil {
 		return fmt.Errorf("create temp file: %w", err)
 	}

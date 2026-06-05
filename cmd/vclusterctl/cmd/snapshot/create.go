@@ -18,11 +18,10 @@ import (
 
 type CreateCmd struct {
 	*flags.GlobalFlags
-	Snapshot       snapshotapi.Options
-	Driver         string
-	IncludeVolumes bool
-	Standalone     bool
-	Log            log.Logger
+	Snapshot   snapshotapi.Options
+	Driver     string
+	Standalone bool
+	Log        log.Logger
 }
 
 func NewCreateCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
@@ -74,6 +73,10 @@ vcluster snapshot create my-vcluster --driver docker
 			if cmd.Standalone && driverType == config.DockerDriver {
 				return fmt.Errorf("--standalone cannot be used with --driver docker")
 			}
+
+			if cmd.Snapshot.IncludeVolumes {
+				cmd.Log.Warn("WARNING: --include-volumes is now deprecated and slated for removal in an upcoming release.")
+			}
 			if driverType == config.DockerDriver {
 				vClusterName := args[0]
 				outputPath := ""
@@ -82,7 +85,7 @@ vcluster snapshot create my-vcluster --driver docker
 				} else {
 					outputPath = fmt.Sprintf("%s-snapshot-%s.tar.gz", vClusterName, time.Now().Format("2006-01-02T15-04-05"))
 				}
-				return cli.SnapshotDocker(cobraCmd.Context(), cmd.GlobalFlags, vClusterName, outputPath, cmd.Log)
+				return cli.SnapshotDocker(cobraCmd.Context(), cmd.GlobalFlags, &cmd.Snapshot, vClusterName, outputPath, cmd.Log)
 			}
 			return cli.CreateSnapshot(cobraCmd.Context(), args, cmd.GlobalFlags, &cmd.Snapshot, nil, cmd.Log, true, cmd.Standalone)
 		},

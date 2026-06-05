@@ -114,7 +114,7 @@ type UserSpacesOptions struct {
 type UserVirtualClustersOptions struct {
 	metav1.TypeMeta `json:",inline"`
 
-	// Cluster where to retrieve virtual clusters from
+	// Cluster where to retrieve tenant clusters from
 	// +optional
 	Cluster []string `json:"cluster,omitempty"`
 }

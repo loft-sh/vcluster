@@ -21,6 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	conversion "k8s.io/apimachinery/pkg/conversion"
 	runtime "k8s.io/apimachinery/pkg/runtime"
+	types "k8s.io/apimachinery/pkg/types"
 )
 
 func init() {
@@ -3230,23 +3231,103 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*VirtualClusterDebugShellPodStatus)(nil), (*management.VirtualClusterDebugShellPodStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1_VirtualClusterDebugShellPodStatus_To_management_VirtualClusterDebugShellPodStatus(a.(*VirtualClusterDebugShellPodStatus), b.(*management.VirtualClusterDebugShellPodStatus), scope)
+	if err := s.AddGeneratedConversionFunc((*VirtualClusterControlPlaneContainerState)(nil), (*management.VirtualClusterControlPlaneContainerState)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_VirtualClusterControlPlaneContainerState_To_management_VirtualClusterControlPlaneContainerState(a.(*VirtualClusterControlPlaneContainerState), b.(*management.VirtualClusterControlPlaneContainerState), scope)
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*management.VirtualClusterDebugShellPodStatus)(nil), (*VirtualClusterDebugShellPodStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_management_VirtualClusterDebugShellPodStatus_To_v1_VirtualClusterDebugShellPodStatus(a.(*management.VirtualClusterDebugShellPodStatus), b.(*VirtualClusterDebugShellPodStatus), scope)
+	if err := s.AddGeneratedConversionFunc((*management.VirtualClusterControlPlaneContainerState)(nil), (*VirtualClusterControlPlaneContainerState)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_management_VirtualClusterControlPlaneContainerState_To_v1_VirtualClusterControlPlaneContainerState(a.(*management.VirtualClusterControlPlaneContainerState), b.(*VirtualClusterControlPlaneContainerState), scope)
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*VirtualClusterDebugShellPodsStatus)(nil), (*management.VirtualClusterDebugShellPodsStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1_VirtualClusterDebugShellPodsStatus_To_management_VirtualClusterDebugShellPodsStatus(a.(*VirtualClusterDebugShellPodsStatus), b.(*management.VirtualClusterDebugShellPodsStatus), scope)
+	if err := s.AddGeneratedConversionFunc((*VirtualClusterControlPlaneContainerStateTerminated)(nil), (*management.VirtualClusterControlPlaneContainerStateTerminated)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_VirtualClusterControlPlaneContainerStateTerminated_To_management_VirtualClusterControlPlaneContainerStateTerminated(a.(*VirtualClusterControlPlaneContainerStateTerminated), b.(*management.VirtualClusterControlPlaneContainerStateTerminated), scope)
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*management.VirtualClusterDebugShellPodsStatus)(nil), (*VirtualClusterDebugShellPodsStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_management_VirtualClusterDebugShellPodsStatus_To_v1_VirtualClusterDebugShellPodsStatus(a.(*management.VirtualClusterDebugShellPodsStatus), b.(*VirtualClusterDebugShellPodsStatus), scope)
+	if err := s.AddGeneratedConversionFunc((*management.VirtualClusterControlPlaneContainerStateTerminated)(nil), (*VirtualClusterControlPlaneContainerStateTerminated)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_management_VirtualClusterControlPlaneContainerStateTerminated_To_v1_VirtualClusterControlPlaneContainerStateTerminated(a.(*management.VirtualClusterControlPlaneContainerStateTerminated), b.(*VirtualClusterControlPlaneContainerStateTerminated), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*VirtualClusterControlPlaneContainerStateWaiting)(nil), (*management.VirtualClusterControlPlaneContainerStateWaiting)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_VirtualClusterControlPlaneContainerStateWaiting_To_management_VirtualClusterControlPlaneContainerStateWaiting(a.(*VirtualClusterControlPlaneContainerStateWaiting), b.(*management.VirtualClusterControlPlaneContainerStateWaiting), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*management.VirtualClusterControlPlaneContainerStateWaiting)(nil), (*VirtualClusterControlPlaneContainerStateWaiting)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_management_VirtualClusterControlPlaneContainerStateWaiting_To_v1_VirtualClusterControlPlaneContainerStateWaiting(a.(*management.VirtualClusterControlPlaneContainerStateWaiting), b.(*VirtualClusterControlPlaneContainerStateWaiting), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*VirtualClusterControlPlaneContainerStatus)(nil), (*management.VirtualClusterControlPlaneContainerStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_VirtualClusterControlPlaneContainerStatus_To_management_VirtualClusterControlPlaneContainerStatus(a.(*VirtualClusterControlPlaneContainerStatus), b.(*management.VirtualClusterControlPlaneContainerStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*management.VirtualClusterControlPlaneContainerStatus)(nil), (*VirtualClusterControlPlaneContainerStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_management_VirtualClusterControlPlaneContainerStatus_To_v1_VirtualClusterControlPlaneContainerStatus(a.(*management.VirtualClusterControlPlaneContainerStatus), b.(*VirtualClusterControlPlaneContainerStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*VirtualClusterControlPlanePod)(nil), (*management.VirtualClusterControlPlanePod)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_VirtualClusterControlPlanePod_To_management_VirtualClusterControlPlanePod(a.(*VirtualClusterControlPlanePod), b.(*management.VirtualClusterControlPlanePod), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*management.VirtualClusterControlPlanePod)(nil), (*VirtualClusterControlPlanePod)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_management_VirtualClusterControlPlanePod_To_v1_VirtualClusterControlPlanePod(a.(*management.VirtualClusterControlPlanePod), b.(*VirtualClusterControlPlanePod), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*VirtualClusterControlPlanePodObjectMeta)(nil), (*management.VirtualClusterControlPlanePodObjectMeta)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_VirtualClusterControlPlanePodObjectMeta_To_management_VirtualClusterControlPlanePodObjectMeta(a.(*VirtualClusterControlPlanePodObjectMeta), b.(*management.VirtualClusterControlPlanePodObjectMeta), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*management.VirtualClusterControlPlanePodObjectMeta)(nil), (*VirtualClusterControlPlanePodObjectMeta)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_management_VirtualClusterControlPlanePodObjectMeta_To_v1_VirtualClusterControlPlanePodObjectMeta(a.(*management.VirtualClusterControlPlanePodObjectMeta), b.(*VirtualClusterControlPlanePodObjectMeta), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*VirtualClusterControlPlanePodStatus)(nil), (*management.VirtualClusterControlPlanePodStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_VirtualClusterControlPlanePodStatus_To_management_VirtualClusterControlPlanePodStatus(a.(*VirtualClusterControlPlanePodStatus), b.(*management.VirtualClusterControlPlanePodStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*management.VirtualClusterControlPlanePodStatus)(nil), (*VirtualClusterControlPlanePodStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_management_VirtualClusterControlPlanePodStatus_To_v1_VirtualClusterControlPlanePodStatus(a.(*management.VirtualClusterControlPlanePodStatus), b.(*VirtualClusterControlPlanePodStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*VirtualClusterControlPlanePods)(nil), (*management.VirtualClusterControlPlanePods)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_VirtualClusterControlPlanePods_To_management_VirtualClusterControlPlanePods(a.(*VirtualClusterControlPlanePods), b.(*management.VirtualClusterControlPlanePods), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*management.VirtualClusterControlPlanePods)(nil), (*VirtualClusterControlPlanePods)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_management_VirtualClusterControlPlanePods_To_v1_VirtualClusterControlPlanePods(a.(*management.VirtualClusterControlPlanePods), b.(*VirtualClusterControlPlanePods), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*VirtualClusterControlPlanePodsList)(nil), (*management.VirtualClusterControlPlanePodsList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_VirtualClusterControlPlanePodsList_To_management_VirtualClusterControlPlanePodsList(a.(*VirtualClusterControlPlanePodsList), b.(*management.VirtualClusterControlPlanePodsList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*management.VirtualClusterControlPlanePodsList)(nil), (*VirtualClusterControlPlanePodsList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_management_VirtualClusterControlPlanePodsList_To_v1_VirtualClusterControlPlanePodsList(a.(*management.VirtualClusterControlPlanePodsList), b.(*VirtualClusterControlPlanePodsList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*VirtualClusterControlPlanePodsStatus)(nil), (*management.VirtualClusterControlPlanePodsStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_VirtualClusterControlPlanePodsStatus_To_management_VirtualClusterControlPlanePodsStatus(a.(*VirtualClusterControlPlanePodsStatus), b.(*management.VirtualClusterControlPlanePodsStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*management.VirtualClusterControlPlanePodsStatus)(nil), (*VirtualClusterControlPlanePodsStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_management_VirtualClusterControlPlanePodsStatus_To_v1_VirtualClusterControlPlanePodsStatus(a.(*management.VirtualClusterControlPlanePodsStatus), b.(*VirtualClusterControlPlanePodsStatus), scope)
 	}); err != nil {
 		return err
 	}
@@ -3337,26 +3418,6 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*management.VirtualClusterInstanceDebugShellList)(nil), (*VirtualClusterInstanceDebugShellList)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_management_VirtualClusterInstanceDebugShellList_To_v1_VirtualClusterInstanceDebugShellList(a.(*management.VirtualClusterInstanceDebugShellList), b.(*VirtualClusterInstanceDebugShellList), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*VirtualClusterInstanceDebugShellPods)(nil), (*management.VirtualClusterInstanceDebugShellPods)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1_VirtualClusterInstanceDebugShellPods_To_management_VirtualClusterInstanceDebugShellPods(a.(*VirtualClusterInstanceDebugShellPods), b.(*management.VirtualClusterInstanceDebugShellPods), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*management.VirtualClusterInstanceDebugShellPods)(nil), (*VirtualClusterInstanceDebugShellPods)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_management_VirtualClusterInstanceDebugShellPods_To_v1_VirtualClusterInstanceDebugShellPods(a.(*management.VirtualClusterInstanceDebugShellPods), b.(*VirtualClusterInstanceDebugShellPods), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*VirtualClusterInstanceDebugShellPodsList)(nil), (*management.VirtualClusterInstanceDebugShellPodsList)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1_VirtualClusterInstanceDebugShellPodsList_To_management_VirtualClusterInstanceDebugShellPodsList(a.(*VirtualClusterInstanceDebugShellPodsList), b.(*management.VirtualClusterInstanceDebugShellPodsList), scope)
-	}); err != nil {
-		return err
-	}
-	if err := s.AddGeneratedConversionFunc((*management.VirtualClusterInstanceDebugShellPodsList)(nil), (*VirtualClusterInstanceDebugShellPodsList)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_management_VirtualClusterInstanceDebugShellPodsList_To_v1_VirtualClusterInstanceDebugShellPodsList(a.(*management.VirtualClusterInstanceDebugShellPodsList), b.(*VirtualClusterInstanceDebugShellPodsList), scope)
 	}); err != nil {
 		return err
 	}
@@ -11966,50 +12027,252 @@ func Convert_management_VirtualClusterAccessKeyList_To_v1_VirtualClusterAccessKe
 	return autoConvert_management_VirtualClusterAccessKeyList_To_v1_VirtualClusterAccessKeyList(in, out, s)
 }
 
-func autoConvert_v1_VirtualClusterDebugShellPodStatus_To_management_VirtualClusterDebugShellPodStatus(in *VirtualClusterDebugShellPodStatus, out *management.VirtualClusterDebugShellPodStatus, s conversion.Scope) error {
+func autoConvert_v1_VirtualClusterControlPlaneContainerState_To_management_VirtualClusterControlPlaneContainerState(in *VirtualClusterControlPlaneContainerState, out *management.VirtualClusterControlPlaneContainerState, s conversion.Scope) error {
+	out.Waiting = (*management.VirtualClusterControlPlaneContainerStateWaiting)(unsafe.Pointer(in.Waiting))
+	out.Terminated = (*management.VirtualClusterControlPlaneContainerStateTerminated)(unsafe.Pointer(in.Terminated))
+	return nil
+}
+
+// Convert_v1_VirtualClusterControlPlaneContainerState_To_management_VirtualClusterControlPlaneContainerState is an autogenerated conversion function.
+func Convert_v1_VirtualClusterControlPlaneContainerState_To_management_VirtualClusterControlPlaneContainerState(in *VirtualClusterControlPlaneContainerState, out *management.VirtualClusterControlPlaneContainerState, s conversion.Scope) error {
+	return autoConvert_v1_VirtualClusterControlPlaneContainerState_To_management_VirtualClusterControlPlaneContainerState(in, out, s)
+}
+
+func autoConvert_management_VirtualClusterControlPlaneContainerState_To_v1_VirtualClusterControlPlaneContainerState(in *management.VirtualClusterControlPlaneContainerState, out *VirtualClusterControlPlaneContainerState, s conversion.Scope) error {
+	out.Waiting = (*VirtualClusterControlPlaneContainerStateWaiting)(unsafe.Pointer(in.Waiting))
+	out.Terminated = (*VirtualClusterControlPlaneContainerStateTerminated)(unsafe.Pointer(in.Terminated))
+	return nil
+}
+
+// Convert_management_VirtualClusterControlPlaneContainerState_To_v1_VirtualClusterControlPlaneContainerState is an autogenerated conversion function.
+func Convert_management_VirtualClusterControlPlaneContainerState_To_v1_VirtualClusterControlPlaneContainerState(in *management.VirtualClusterControlPlaneContainerState, out *VirtualClusterControlPlaneContainerState, s conversion.Scope) error {
+	return autoConvert_management_VirtualClusterControlPlaneContainerState_To_v1_VirtualClusterControlPlaneContainerState(in, out, s)
+}
+
+func autoConvert_v1_VirtualClusterControlPlaneContainerStateTerminated_To_management_VirtualClusterControlPlaneContainerStateTerminated(in *VirtualClusterControlPlaneContainerStateTerminated, out *management.VirtualClusterControlPlaneContainerStateTerminated, s conversion.Scope) error {
+	out.Reason = in.Reason
+	out.Message = in.Message
+	out.ExitCode = in.ExitCode
+	return nil
+}
+
+// Convert_v1_VirtualClusterControlPlaneContainerStateTerminated_To_management_VirtualClusterControlPlaneContainerStateTerminated is an autogenerated conversion function.
+func Convert_v1_VirtualClusterControlPlaneContainerStateTerminated_To_management_VirtualClusterControlPlaneContainerStateTerminated(in *VirtualClusterControlPlaneContainerStateTerminated, out *management.VirtualClusterControlPlaneContainerStateTerminated, s conversion.Scope) error {
+	return autoConvert_v1_VirtualClusterControlPlaneContainerStateTerminated_To_management_VirtualClusterControlPlaneContainerStateTerminated(in, out, s)
+}
+
+func autoConvert_management_VirtualClusterControlPlaneContainerStateTerminated_To_v1_VirtualClusterControlPlaneContainerStateTerminated(in *management.VirtualClusterControlPlaneContainerStateTerminated, out *VirtualClusterControlPlaneContainerStateTerminated, s conversion.Scope) error {
+	out.Reason = in.Reason
+	out.Message = in.Message
+	out.ExitCode = in.ExitCode
+	return nil
+}
+
+// Convert_management_VirtualClusterControlPlaneContainerStateTerminated_To_v1_VirtualClusterControlPlaneContainerStateTerminated is an autogenerated conversion function.
+func Convert_management_VirtualClusterControlPlaneContainerStateTerminated_To_v1_VirtualClusterControlPlaneContainerStateTerminated(in *management.VirtualClusterControlPlaneContainerStateTerminated, out *VirtualClusterControlPlaneContainerStateTerminated, s conversion.Scope) error {
+	return autoConvert_management_VirtualClusterControlPlaneContainerStateTerminated_To_v1_VirtualClusterControlPlaneContainerStateTerminated(in, out, s)
+}
+
+func autoConvert_v1_VirtualClusterControlPlaneContainerStateWaiting_To_management_VirtualClusterControlPlaneContainerStateWaiting(in *VirtualClusterControlPlaneContainerStateWaiting, out *management.VirtualClusterControlPlaneContainerStateWaiting, s conversion.Scope) error {
+	out.Reason = in.Reason
+	out.Message = in.Message
+	return nil
+}
+
+// Convert_v1_VirtualClusterControlPlaneContainerStateWaiting_To_management_VirtualClusterControlPlaneContainerStateWaiting is an autogenerated conversion function.
+func Convert_v1_VirtualClusterControlPlaneContainerStateWaiting_To_management_VirtualClusterControlPlaneContainerStateWaiting(in *VirtualClusterControlPlaneContainerStateWaiting, out *management.VirtualClusterControlPlaneContainerStateWaiting, s conversion.Scope) error {
+	return autoConvert_v1_VirtualClusterControlPlaneContainerStateWaiting_To_management_VirtualClusterControlPlaneContainerStateWaiting(in, out, s)
+}
+
+func autoConvert_management_VirtualClusterControlPlaneContainerStateWaiting_To_v1_VirtualClusterControlPlaneContainerStateWaiting(in *management.VirtualClusterControlPlaneContainerStateWaiting, out *VirtualClusterControlPlaneContainerStateWaiting, s conversion.Scope) error {
+	out.Reason = in.Reason
+	out.Message = in.Message
+	return nil
+}
+
+// Convert_management_VirtualClusterControlPlaneContainerStateWaiting_To_v1_VirtualClusterControlPlaneContainerStateWaiting is an autogenerated conversion function.
+func Convert_management_VirtualClusterControlPlaneContainerStateWaiting_To_v1_VirtualClusterControlPlaneContainerStateWaiting(in *management.VirtualClusterControlPlaneContainerStateWaiting, out *VirtualClusterControlPlaneContainerStateWaiting, s conversion.Scope) error {
+	return autoConvert_management_VirtualClusterControlPlaneContainerStateWaiting_To_v1_VirtualClusterControlPlaneContainerStateWaiting(in, out, s)
+}
+
+func autoConvert_v1_VirtualClusterControlPlaneContainerStatus_To_management_VirtualClusterControlPlaneContainerStatus(in *VirtualClusterControlPlaneContainerStatus, out *management.VirtualClusterControlPlaneContainerStatus, s conversion.Scope) error {
 	out.Name = in.Name
-	out.Namespace = in.Namespace
+	out.Ready = in.Ready
+	out.Started = (*bool)(unsafe.Pointer(in.Started))
+	if err := Convert_v1_VirtualClusterControlPlaneContainerState_To_management_VirtualClusterControlPlaneContainerState(&in.State, &out.State, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1_VirtualClusterControlPlaneContainerStatus_To_management_VirtualClusterControlPlaneContainerStatus is an autogenerated conversion function.
+func Convert_v1_VirtualClusterControlPlaneContainerStatus_To_management_VirtualClusterControlPlaneContainerStatus(in *VirtualClusterControlPlaneContainerStatus, out *management.VirtualClusterControlPlaneContainerStatus, s conversion.Scope) error {
+	return autoConvert_v1_VirtualClusterControlPlaneContainerStatus_To_management_VirtualClusterControlPlaneContainerStatus(in, out, s)
+}
+
+func autoConvert_management_VirtualClusterControlPlaneContainerStatus_To_v1_VirtualClusterControlPlaneContainerStatus(in *management.VirtualClusterControlPlaneContainerStatus, out *VirtualClusterControlPlaneContainerStatus, s conversion.Scope) error {
+	out.Name = in.Name
+	out.Ready = in.Ready
+	out.Started = (*bool)(unsafe.Pointer(in.Started))
+	if err := Convert_management_VirtualClusterControlPlaneContainerState_To_v1_VirtualClusterControlPlaneContainerState(&in.State, &out.State, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_management_VirtualClusterControlPlaneContainerStatus_To_v1_VirtualClusterControlPlaneContainerStatus is an autogenerated conversion function.
+func Convert_management_VirtualClusterControlPlaneContainerStatus_To_v1_VirtualClusterControlPlaneContainerStatus(in *management.VirtualClusterControlPlaneContainerStatus, out *VirtualClusterControlPlaneContainerStatus, s conversion.Scope) error {
+	return autoConvert_management_VirtualClusterControlPlaneContainerStatus_To_v1_VirtualClusterControlPlaneContainerStatus(in, out, s)
+}
+
+func autoConvert_v1_VirtualClusterControlPlanePod_To_management_VirtualClusterControlPlanePod(in *VirtualClusterControlPlanePod, out *management.VirtualClusterControlPlanePod, s conversion.Scope) error {
+	if err := Convert_v1_VirtualClusterControlPlanePodObjectMeta_To_management_VirtualClusterControlPlanePodObjectMeta(&in.Metadata, &out.Metadata, s); err != nil {
+		return err
+	}
+	if err := Convert_v1_VirtualClusterControlPlanePodStatus_To_management_VirtualClusterControlPlanePodStatus(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1_VirtualClusterControlPlanePod_To_management_VirtualClusterControlPlanePod is an autogenerated conversion function.
+func Convert_v1_VirtualClusterControlPlanePod_To_management_VirtualClusterControlPlanePod(in *VirtualClusterControlPlanePod, out *management.VirtualClusterControlPlanePod, s conversion.Scope) error {
+	return autoConvert_v1_VirtualClusterControlPlanePod_To_management_VirtualClusterControlPlanePod(in, out, s)
+}
+
+func autoConvert_management_VirtualClusterControlPlanePod_To_v1_VirtualClusterControlPlanePod(in *management.VirtualClusterControlPlanePod, out *VirtualClusterControlPlanePod, s conversion.Scope) error {
+	if err := Convert_management_VirtualClusterControlPlanePodObjectMeta_To_v1_VirtualClusterControlPlanePodObjectMeta(&in.Metadata, &out.Metadata, s); err != nil {
+		return err
+	}
+	if err := Convert_management_VirtualClusterControlPlanePodStatus_To_v1_VirtualClusterControlPlanePodStatus(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_management_VirtualClusterControlPlanePod_To_v1_VirtualClusterControlPlanePod is an autogenerated conversion function.
+func Convert_management_VirtualClusterControlPlanePod_To_v1_VirtualClusterControlPlanePod(in *management.VirtualClusterControlPlanePod, out *VirtualClusterControlPlanePod, s conversion.Scope) error {
+	return autoConvert_management_VirtualClusterControlPlanePod_To_v1_VirtualClusterControlPlanePod(in, out, s)
+}
+
+func autoConvert_v1_VirtualClusterControlPlanePodObjectMeta_To_management_VirtualClusterControlPlanePodObjectMeta(in *VirtualClusterControlPlanePodObjectMeta, out *management.VirtualClusterControlPlanePodObjectMeta, s conversion.Scope) error {
+	out.Name = in.Name
+	out.UID = types.UID(in.UID)
+	out.DeletionTimestamp = (*metav1.Time)(unsafe.Pointer(in.DeletionTimestamp))
+	return nil
+}
+
+// Convert_v1_VirtualClusterControlPlanePodObjectMeta_To_management_VirtualClusterControlPlanePodObjectMeta is an autogenerated conversion function.
+func Convert_v1_VirtualClusterControlPlanePodObjectMeta_To_management_VirtualClusterControlPlanePodObjectMeta(in *VirtualClusterControlPlanePodObjectMeta, out *management.VirtualClusterControlPlanePodObjectMeta, s conversion.Scope) error {
+	return autoConvert_v1_VirtualClusterControlPlanePodObjectMeta_To_management_VirtualClusterControlPlanePodObjectMeta(in, out, s)
+}
+
+func autoConvert_management_VirtualClusterControlPlanePodObjectMeta_To_v1_VirtualClusterControlPlanePodObjectMeta(in *management.VirtualClusterControlPlanePodObjectMeta, out *VirtualClusterControlPlanePodObjectMeta, s conversion.Scope) error {
+	out.Name = in.Name
+	out.UID = types.UID(in.UID)
+	out.DeletionTimestamp = (*metav1.Time)(unsafe.Pointer(in.DeletionTimestamp))
+	return nil
+}
+
+// Convert_management_VirtualClusterControlPlanePodObjectMeta_To_v1_VirtualClusterControlPlanePodObjectMeta is an autogenerated conversion function.
+func Convert_management_VirtualClusterControlPlanePodObjectMeta_To_v1_VirtualClusterControlPlanePodObjectMeta(in *management.VirtualClusterControlPlanePodObjectMeta, out *VirtualClusterControlPlanePodObjectMeta, s conversion.Scope) error {
+	return autoConvert_management_VirtualClusterControlPlanePodObjectMeta_To_v1_VirtualClusterControlPlanePodObjectMeta(in, out, s)
+}
+
+func autoConvert_v1_VirtualClusterControlPlanePodStatus_To_management_VirtualClusterControlPlanePodStatus(in *VirtualClusterControlPlanePodStatus, out *management.VirtualClusterControlPlanePodStatus, s conversion.Scope) error {
 	out.Phase = in.Phase
 	out.Ready = in.Ready
+	out.Reason = in.Reason
+	out.ContainerStatuses = *(*[]management.VirtualClusterControlPlaneContainerStatus)(unsafe.Pointer(&in.ContainerStatuses))
+	out.InitContainerStatuses = *(*[]management.VirtualClusterControlPlaneContainerStatus)(unsafe.Pointer(&in.InitContainerStatuses))
 	return nil
 }
 
-// Convert_v1_VirtualClusterDebugShellPodStatus_To_management_VirtualClusterDebugShellPodStatus is an autogenerated conversion function.
-func Convert_v1_VirtualClusterDebugShellPodStatus_To_management_VirtualClusterDebugShellPodStatus(in *VirtualClusterDebugShellPodStatus, out *management.VirtualClusterDebugShellPodStatus, s conversion.Scope) error {
-	return autoConvert_v1_VirtualClusterDebugShellPodStatus_To_management_VirtualClusterDebugShellPodStatus(in, out, s)
+// Convert_v1_VirtualClusterControlPlanePodStatus_To_management_VirtualClusterControlPlanePodStatus is an autogenerated conversion function.
+func Convert_v1_VirtualClusterControlPlanePodStatus_To_management_VirtualClusterControlPlanePodStatus(in *VirtualClusterControlPlanePodStatus, out *management.VirtualClusterControlPlanePodStatus, s conversion.Scope) error {
+	return autoConvert_v1_VirtualClusterControlPlanePodStatus_To_management_VirtualClusterControlPlanePodStatus(in, out, s)
 }
 
-func autoConvert_management_VirtualClusterDebugShellPodStatus_To_v1_VirtualClusterDebugShellPodStatus(in *management.VirtualClusterDebugShellPodStatus, out *VirtualClusterDebugShellPodStatus, s conversion.Scope) error {
-	out.Name = in.Name
-	out.Namespace = in.Namespace
+func autoConvert_management_VirtualClusterControlPlanePodStatus_To_v1_VirtualClusterControlPlanePodStatus(in *management.VirtualClusterControlPlanePodStatus, out *VirtualClusterControlPlanePodStatus, s conversion.Scope) error {
 	out.Phase = in.Phase
 	out.Ready = in.Ready
+	out.Reason = in.Reason
+	out.ContainerStatuses = *(*[]VirtualClusterControlPlaneContainerStatus)(unsafe.Pointer(&in.ContainerStatuses))
+	out.InitContainerStatuses = *(*[]VirtualClusterControlPlaneContainerStatus)(unsafe.Pointer(&in.InitContainerStatuses))
 	return nil
 }
 
-// Convert_management_VirtualClusterDebugShellPodStatus_To_v1_VirtualClusterDebugShellPodStatus is an autogenerated conversion function.
-func Convert_management_VirtualClusterDebugShellPodStatus_To_v1_VirtualClusterDebugShellPodStatus(in *management.VirtualClusterDebugShellPodStatus, out *VirtualClusterDebugShellPodStatus, s conversion.Scope) error {
-	return autoConvert_management_VirtualClusterDebugShellPodStatus_To_v1_VirtualClusterDebugShellPodStatus(in, out, s)
+// Convert_management_VirtualClusterControlPlanePodStatus_To_v1_VirtualClusterControlPlanePodStatus is an autogenerated conversion function.
+func Convert_management_VirtualClusterControlPlanePodStatus_To_v1_VirtualClusterControlPlanePodStatus(in *management.VirtualClusterControlPlanePodStatus, out *VirtualClusterControlPlanePodStatus, s conversion.Scope) error {
+	return autoConvert_management_VirtualClusterControlPlanePodStatus_To_v1_VirtualClusterControlPlanePodStatus(in, out, s)
 }
 
-func autoConvert_v1_VirtualClusterDebugShellPodsStatus_To_management_VirtualClusterDebugShellPodsStatus(in *VirtualClusterDebugShellPodsStatus, out *management.VirtualClusterDebugShellPodsStatus, s conversion.Scope) error {
-	out.Pods = *(*[]management.VirtualClusterDebugShellPodStatus)(unsafe.Pointer(&in.Pods))
+func autoConvert_v1_VirtualClusterControlPlanePods_To_management_VirtualClusterControlPlanePods(in *VirtualClusterControlPlanePods, out *management.VirtualClusterControlPlanePods, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_v1_VirtualClusterControlPlanePodsStatus_To_management_VirtualClusterControlPlanePodsStatus(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
 	return nil
 }
 
-// Convert_v1_VirtualClusterDebugShellPodsStatus_To_management_VirtualClusterDebugShellPodsStatus is an autogenerated conversion function.
-func Convert_v1_VirtualClusterDebugShellPodsStatus_To_management_VirtualClusterDebugShellPodsStatus(in *VirtualClusterDebugShellPodsStatus, out *management.VirtualClusterDebugShellPodsStatus, s conversion.Scope) error {
-	return autoConvert_v1_VirtualClusterDebugShellPodsStatus_To_management_VirtualClusterDebugShellPodsStatus(in, out, s)
+// Convert_v1_VirtualClusterControlPlanePods_To_management_VirtualClusterControlPlanePods is an autogenerated conversion function.
+func Convert_v1_VirtualClusterControlPlanePods_To_management_VirtualClusterControlPlanePods(in *VirtualClusterControlPlanePods, out *management.VirtualClusterControlPlanePods, s conversion.Scope) error {
+	return autoConvert_v1_VirtualClusterControlPlanePods_To_management_VirtualClusterControlPlanePods(in, out, s)
 }
 
-func autoConvert_management_VirtualClusterDebugShellPodsStatus_To_v1_VirtualClusterDebugShellPodsStatus(in *management.VirtualClusterDebugShellPodsStatus, out *VirtualClusterDebugShellPodsStatus, s conversion.Scope) error {
-	out.Pods = *(*[]VirtualClusterDebugShellPodStatus)(unsafe.Pointer(&in.Pods))
+func autoConvert_management_VirtualClusterControlPlanePods_To_v1_VirtualClusterControlPlanePods(in *management.VirtualClusterControlPlanePods, out *VirtualClusterControlPlanePods, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_management_VirtualClusterControlPlanePodsStatus_To_v1_VirtualClusterControlPlanePodsStatus(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
 	return nil
 }
 
-// Convert_management_VirtualClusterDebugShellPodsStatus_To_v1_VirtualClusterDebugShellPodsStatus is an autogenerated conversion function.
-func Convert_management_VirtualClusterDebugShellPodsStatus_To_v1_VirtualClusterDebugShellPodsStatus(in *management.VirtualClusterDebugShellPodsStatus, out *VirtualClusterDebugShellPodsStatus, s conversion.Scope) error {
-	return autoConvert_management_VirtualClusterDebugShellPodsStatus_To_v1_VirtualClusterDebugShellPodsStatus(in, out, s)
+// Convert_management_VirtualClusterControlPlanePods_To_v1_VirtualClusterControlPlanePods is an autogenerated conversion function.
+func Convert_management_VirtualClusterControlPlanePods_To_v1_VirtualClusterControlPlanePods(in *management.VirtualClusterControlPlanePods, out *VirtualClusterControlPlanePods, s conversion.Scope) error {
+	return autoConvert_management_VirtualClusterControlPlanePods_To_v1_VirtualClusterControlPlanePods(in, out, s)
+}
+
+func autoConvert_v1_VirtualClusterControlPlanePodsList_To_management_VirtualClusterControlPlanePodsList(in *VirtualClusterControlPlanePodsList, out *management.VirtualClusterControlPlanePodsList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]management.VirtualClusterControlPlanePods)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_v1_VirtualClusterControlPlanePodsList_To_management_VirtualClusterControlPlanePodsList is an autogenerated conversion function.
+func Convert_v1_VirtualClusterControlPlanePodsList_To_management_VirtualClusterControlPlanePodsList(in *VirtualClusterControlPlanePodsList, out *management.VirtualClusterControlPlanePodsList, s conversion.Scope) error {
+	return autoConvert_v1_VirtualClusterControlPlanePodsList_To_management_VirtualClusterControlPlanePodsList(in, out, s)
+}
+
+func autoConvert_management_VirtualClusterControlPlanePodsList_To_v1_VirtualClusterControlPlanePodsList(in *management.VirtualClusterControlPlanePodsList, out *VirtualClusterControlPlanePodsList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]VirtualClusterControlPlanePods)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_management_VirtualClusterControlPlanePodsList_To_v1_VirtualClusterControlPlanePodsList is an autogenerated conversion function.
+func Convert_management_VirtualClusterControlPlanePodsList_To_v1_VirtualClusterControlPlanePodsList(in *management.VirtualClusterControlPlanePodsList, out *VirtualClusterControlPlanePodsList, s conversion.Scope) error {
+	return autoConvert_management_VirtualClusterControlPlanePodsList_To_v1_VirtualClusterControlPlanePodsList(in, out, s)
+}
+
+func autoConvert_v1_VirtualClusterControlPlanePodsStatus_To_management_VirtualClusterControlPlanePodsStatus(in *VirtualClusterControlPlanePodsStatus, out *management.VirtualClusterControlPlanePodsStatus, s conversion.Scope) error {
+	out.Pods = *(*[]management.VirtualClusterControlPlanePod)(unsafe.Pointer(&in.Pods))
+	return nil
+}
+
+// Convert_v1_VirtualClusterControlPlanePodsStatus_To_management_VirtualClusterControlPlanePodsStatus is an autogenerated conversion function.
+func Convert_v1_VirtualClusterControlPlanePodsStatus_To_management_VirtualClusterControlPlanePodsStatus(in *VirtualClusterControlPlanePodsStatus, out *management.VirtualClusterControlPlanePodsStatus, s conversion.Scope) error {
+	return autoConvert_v1_VirtualClusterControlPlanePodsStatus_To_management_VirtualClusterControlPlanePodsStatus(in, out, s)
+}
+
+func autoConvert_management_VirtualClusterControlPlanePodsStatus_To_v1_VirtualClusterControlPlanePodsStatus(in *management.VirtualClusterControlPlanePodsStatus, out *VirtualClusterControlPlanePodsStatus, s conversion.Scope) error {
+	out.Pods = *(*[]VirtualClusterControlPlanePod)(unsafe.Pointer(&in.Pods))
+	return nil
+}
+
+// Convert_management_VirtualClusterControlPlanePodsStatus_To_v1_VirtualClusterControlPlanePodsStatus is an autogenerated conversion function.
+func Convert_management_VirtualClusterControlPlanePodsStatus_To_v1_VirtualClusterControlPlanePodsStatus(in *management.VirtualClusterControlPlanePodsStatus, out *VirtualClusterControlPlanePodsStatus, s conversion.Scope) error {
+	return autoConvert_management_VirtualClusterControlPlanePodsStatus_To_v1_VirtualClusterControlPlanePodsStatus(in, out, s)
 }
 
 func autoConvert_v1_VirtualClusterDebugShellSpec_To_management_VirtualClusterDebugShellSpec(in *VirtualClusterDebugShellSpec, out *management.VirtualClusterDebugShellSpec, s conversion.Scope) error {
@@ -12135,6 +12398,7 @@ func Convert_management_VirtualClusterExternalDatabaseSpec_To_v1_VirtualClusterE
 func autoConvert_v1_VirtualClusterExternalDatabaseStatus_To_management_VirtualClusterExternalDatabaseStatus(in *VirtualClusterExternalDatabaseStatus, out *management.VirtualClusterExternalDatabaseStatus, s conversion.Scope) error {
 	out.DataSource = in.DataSource
 	out.IdentityProvider = in.IdentityProvider
+	out.CaCert = in.CaCert
 	return nil
 }
 
@@ -12146,6 +12410,7 @@ func Convert_v1_VirtualClusterExternalDatabaseStatus_To_management_VirtualCluste
 func autoConvert_management_VirtualClusterExternalDatabaseStatus_To_v1_VirtualClusterExternalDatabaseStatus(in *management.VirtualClusterExternalDatabaseStatus, out *VirtualClusterExternalDatabaseStatus, s conversion.Scope) error {
 	out.DataSource = in.DataSource
 	out.IdentityProvider = in.IdentityProvider
+	out.CaCert = in.CaCert
 	return nil
 }
 
@@ -12238,54 +12503,6 @@ func autoConvert_management_VirtualClusterInstanceDebugShellList_To_v1_VirtualCl
 // Convert_management_VirtualClusterInstanceDebugShellList_To_v1_VirtualClusterInstanceDebugShellList is an autogenerated conversion function.
 func Convert_management_VirtualClusterInstanceDebugShellList_To_v1_VirtualClusterInstanceDebugShellList(in *management.VirtualClusterInstanceDebugShellList, out *VirtualClusterInstanceDebugShellList, s conversion.Scope) error {
 	return autoConvert_management_VirtualClusterInstanceDebugShellList_To_v1_VirtualClusterInstanceDebugShellList(in, out, s)
-}
-
-func autoConvert_v1_VirtualClusterInstanceDebugShellPods_To_management_VirtualClusterInstanceDebugShellPods(in *VirtualClusterInstanceDebugShellPods, out *management.VirtualClusterInstanceDebugShellPods, s conversion.Scope) error {
-	out.ObjectMeta = in.ObjectMeta
-	if err := Convert_v1_VirtualClusterDebugShellPodsStatus_To_management_VirtualClusterDebugShellPodsStatus(&in.Status, &out.Status, s); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Convert_v1_VirtualClusterInstanceDebugShellPods_To_management_VirtualClusterInstanceDebugShellPods is an autogenerated conversion function.
-func Convert_v1_VirtualClusterInstanceDebugShellPods_To_management_VirtualClusterInstanceDebugShellPods(in *VirtualClusterInstanceDebugShellPods, out *management.VirtualClusterInstanceDebugShellPods, s conversion.Scope) error {
-	return autoConvert_v1_VirtualClusterInstanceDebugShellPods_To_management_VirtualClusterInstanceDebugShellPods(in, out, s)
-}
-
-func autoConvert_management_VirtualClusterInstanceDebugShellPods_To_v1_VirtualClusterInstanceDebugShellPods(in *management.VirtualClusterInstanceDebugShellPods, out *VirtualClusterInstanceDebugShellPods, s conversion.Scope) error {
-	out.ObjectMeta = in.ObjectMeta
-	if err := Convert_management_VirtualClusterDebugShellPodsStatus_To_v1_VirtualClusterDebugShellPodsStatus(&in.Status, &out.Status, s); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Convert_management_VirtualClusterInstanceDebugShellPods_To_v1_VirtualClusterInstanceDebugShellPods is an autogenerated conversion function.
-func Convert_management_VirtualClusterInstanceDebugShellPods_To_v1_VirtualClusterInstanceDebugShellPods(in *management.VirtualClusterInstanceDebugShellPods, out *VirtualClusterInstanceDebugShellPods, s conversion.Scope) error {
-	return autoConvert_management_VirtualClusterInstanceDebugShellPods_To_v1_VirtualClusterInstanceDebugShellPods(in, out, s)
-}
-
-func autoConvert_v1_VirtualClusterInstanceDebugShellPodsList_To_management_VirtualClusterInstanceDebugShellPodsList(in *VirtualClusterInstanceDebugShellPodsList, out *management.VirtualClusterInstanceDebugShellPodsList, s conversion.Scope) error {
-	out.ListMeta = in.ListMeta
-	out.Items = *(*[]management.VirtualClusterInstanceDebugShellPods)(unsafe.Pointer(&in.Items))
-	return nil
-}
-
-// Convert_v1_VirtualClusterInstanceDebugShellPodsList_To_management_VirtualClusterInstanceDebugShellPodsList is an autogenerated conversion function.
-func Convert_v1_VirtualClusterInstanceDebugShellPodsList_To_management_VirtualClusterInstanceDebugShellPodsList(in *VirtualClusterInstanceDebugShellPodsList, out *management.VirtualClusterInstanceDebugShellPodsList, s conversion.Scope) error {
-	return autoConvert_v1_VirtualClusterInstanceDebugShellPodsList_To_management_VirtualClusterInstanceDebugShellPodsList(in, out, s)
-}
-
-func autoConvert_management_VirtualClusterInstanceDebugShellPodsList_To_v1_VirtualClusterInstanceDebugShellPodsList(in *management.VirtualClusterInstanceDebugShellPodsList, out *VirtualClusterInstanceDebugShellPodsList, s conversion.Scope) error {
-	out.ListMeta = in.ListMeta
-	out.Items = *(*[]VirtualClusterInstanceDebugShellPods)(unsafe.Pointer(&in.Items))
-	return nil
-}
-
-// Convert_management_VirtualClusterInstanceDebugShellPodsList_To_v1_VirtualClusterInstanceDebugShellPodsList is an autogenerated conversion function.
-func Convert_management_VirtualClusterInstanceDebugShellPodsList_To_v1_VirtualClusterInstanceDebugShellPodsList(in *management.VirtualClusterInstanceDebugShellPodsList, out *VirtualClusterInstanceDebugShellPodsList, s conversion.Scope) error {
-	return autoConvert_management_VirtualClusterInstanceDebugShellPodsList_To_v1_VirtualClusterInstanceDebugShellPodsList(in, out, s)
 }
 
 func autoConvert_v1_VirtualClusterInstanceJoinScript_To_management_VirtualClusterInstanceJoinScript(in *VirtualClusterInstanceJoinScript, out *management.VirtualClusterInstanceJoinScript, s conversion.Scope) error {
