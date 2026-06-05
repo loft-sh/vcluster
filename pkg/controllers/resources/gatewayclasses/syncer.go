@@ -2,6 +2,7 @@ package gatewayclasses
 
 import (
 	"fmt"
+	"maps"
 
 	"github.com/loft-sh/vcluster/pkg/mappings/generic"
 	mapperresources "github.com/loft-sh/vcluster/pkg/mappings/resources"
@@ -61,12 +62,13 @@ func (g *gatewayClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *
 	}
 
 	vObj := translate.CopyObjectWithName(event.Host, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, false)
-	vObj.Spec = gatewayClassSpecToVirtual(event.Host.Spec)
+	vObj.Spec = *event.Host.Spec.DeepCopy()
 
 	err = pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.GatewayClasses.Patches, true)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
 	}
+	vObj.Spec = gatewayClassSpecToVirtual(vObj.Spec)
 
 	ctx.Log.Infof("create GatewayClass %s, because it does not exist in virtual cluster", vObj.Name)
 	return patcher.CreateVirtualObject(ctx, event.Host, vObj, g.EventRecorder(), true)
@@ -83,7 +85,7 @@ func (g *gatewayClassSyncer) Sync(ctx *synccontext.SyncContext, event *syncconte
 		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.Host, reason)
 	}
 
-	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.FromHost.GatewayClasses.Patches, true))
+	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
 	}
@@ -94,9 +96,13 @@ func (g *gatewayClassSyncer) Sync(ctx *synccontext.SyncContext, event *syncconte
 	}()
 
 	// GatewayClasses are mirrored from the host cluster, so host metadata wins.
-	event.Virtual.Annotations = event.Host.Annotations
-	event.Virtual.Labels = event.Host.Labels
-	event.Virtual.Spec = gatewayClassSpecToVirtual(event.Host.Spec)
+	event.Virtual.Annotations = maps.Clone(event.Host.Annotations)
+	event.Virtual.Labels = maps.Clone(event.Host.Labels)
+	event.Virtual.Spec = *event.Host.Spec.DeepCopy()
+	if err := pro.ApplyPatchesVirtualObject(ctx, nil, event.Virtual, event.Host, ctx.Config.Sync.FromHost.GatewayClasses.Patches, true); err != nil {
+		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
+	}
+	event.Virtual.Spec = gatewayClassSpecToVirtual(event.Virtual.Spec)
 	event.Virtual.Status = event.Host.Status
 	return ctrl.Result{}, nil
 }
@@ -122,12 +128,8 @@ func (g *gatewayClassSyncer) recordDeleteWarning(gwClass *gatewayv1.GatewayClass
 
 func gatewayClassSpecToVirtual(hostSpec gatewayv1.GatewayClassSpec) gatewayv1.GatewayClassSpec {
 	virtualSpec := *hostSpec.DeepCopy()
-	if virtualSpec.ParametersRef != nil {
-		virtualSpec.ParametersRef = virtualSpec.ParametersRef.DeepCopy()
-		// GatewayClasses are cluster-scoped mirrors. Keep host topology details out
-		// of the tenant view when the parameters object lives in a host namespace.
-		virtualSpec.ParametersRef.Namespace = nil
-	}
+	// Tenant-visible GatewayClasses must not expose Host parametersRef topology.
+	virtualSpec.ParametersRef = nil
 
 	return virtualSpec
 }

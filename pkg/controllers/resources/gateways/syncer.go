@@ -71,7 +71,7 @@ func NewToHostSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, erro
 	}
 
 	return &tenantGatewaySyncer{
-		GenericTranslator: translator.NewGenericTranslator(ctx, "gateway", &gatewayv1.Gateway{}, mapper),
+		GenericTranslator: translator.NewGenericTranslator(ctx, "tenant-gateway", &gatewayv1.Gateway{}, mapper),
 	}, nil
 }
 
@@ -168,7 +168,7 @@ func tenantGatewayEligible(ctx *synccontext.SyncContext, s *tenantGatewaySyncer,
 	gatewayClass := &gatewayv1.GatewayClass{}
 	err := ctx.VirtualClient.Get(ctx, types.NamespacedName{Name: string(gateway.Spec.GatewayClassName)}, gatewayClass)
 	if kerrors.IsNotFound(err) {
-		s.EventRecorder().Eventf(gateway, nil, "Warning", "SyncWarning", "SyncGateway", "GatewayClass %q is not visible in the virtual cluster", gateway.Spec.GatewayClassName)
+		s.EventRecorder().Eventf(gateway, nil, "Warning", "SyncWarning", "SyncGateway", "GatewayClass %q is not available in this virtual cluster", gateway.Spec.GatewayClassName)
 		return false, nil
 	} else if err != nil {
 		return false, fmt.Errorf("get virtual GatewayClass %q: %w", gateway.Spec.GatewayClassName, err)

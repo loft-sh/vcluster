@@ -24,6 +24,8 @@ var (
 	RuntimeClasses  = Label("runtimeclasses")
 	StorageClasses  = Label("storageclasses")
 	IngressClasses  = Label("ingressclasses")
+	GatewayAPI      = Label("gatewayapi")
+	GatewayClasses  = Label("gatewayclasses")
 	ConfigMaps      = Label("configmaps")
 	Secrets         = Label("secrets")
 	NetworkPolicies = Label("networkpolicies")
