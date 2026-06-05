@@ -27,10 +27,12 @@ func GatewayAPIPreSetup() func(ctx context.Context) error {
 			"pkg/mappings/resources/gateways.crd.yaml",
 			"pkg/mappings/resources/httproutes.crd.yaml",
 			"pkg/mappings/resources/referencegrants.crd.yaml",
+			"pkg/mappings/resources/tlsroutes.crd.yaml",
+			"pkg/mappings/resources/backendtlspolicies.crd.yaml",
 		}
 		for _, crd := range crds {
 			abs := filepath.Join(repoRoot, crd)
-			cmd := exec.CommandContext(ctx, "kubectl", "apply", "--context", kubeContext, "-f", abs)
+			cmd := exec.CommandContext(ctx, "kubectl", "apply", "--server-side", "--force-conflicts", "--context", kubeContext, "-f", abs)
 			if out, err := cmd.CombinedOutput(); err != nil {
 				return fmt.Errorf("apply Gateway API CRD %s: %s: %w", crd, string(out), err)
 			}

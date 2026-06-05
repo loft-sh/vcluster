@@ -24,24 +24,94 @@ func TestGatewaySpecToVirtualSanitizesTLSInfrastructureAndAppliesVirtualAllowedR
 	vcConfig.Sync.FromHost.Gateways.AllowedRoutes.DefaultVirtualNamespacePolicy = &rootconfig.GatewayVirtualNamespacePolicy{From: string(gatewayv1.NamespacesFromAll)}
 	ctx := &synccontext.SyncContext{Context: context.Background(), Config: vcConfig}
 	vcConfig.Sync.FromHost.Gateways.Sanitize.Infrastructure = true
+	terminate := gatewayv1.TLSModeTerminate
 	host := &gatewayv1.Gateway{Spec: gatewayv1.GatewaySpec{Infrastructure: &gatewayv1.GatewayInfrastructure{}, Listeners: []gatewayv1.Listener{{
 		Name:     "https",
 		Protocol: gatewayv1.HTTPSProtocolType,
 		Port:     443,
-		TLS: &gatewayv1.ListenerTLSConfig{CertificateRefs: []gatewayv1.SecretObjectReference{{
-			Name: "edge-cert",
-		}}},
+		TLS: &gatewayv1.ListenerTLSConfig{
+			Mode: &terminate,
+			CertificateRefs: []gatewayv1.SecretObjectReference{{
+				Name: "edge-cert",
+			}},
+		},
 	}}}}
 
 	spec := gatewaySpecToVirtual(ctx, host)
-	if spec.Listeners[0].TLS != nil {
-		t.Fatalf("expected TLS config to be sanitized")
+	if spec.Listeners[0].TLS == nil {
+		t.Fatalf("expected TLS config to preserve mode while sanitizing certificateRefs")
+	}
+	if spec.Listeners[0].TLS.Mode == nil || *spec.Listeners[0].TLS.Mode != gatewayv1.TLSModeTerminate {
+		t.Fatalf("expected TLS mode to be preserved, got %#v", spec.Listeners[0].TLS.Mode)
+	}
+	if len(spec.Listeners[0].TLS.CertificateRefs) != 0 {
+		t.Fatalf("expected TLS certificateRefs to be sanitized, got %#v", spec.Listeners[0].TLS.CertificateRefs)
 	}
 	if spec.Infrastructure != nil {
 		t.Fatalf("expected infrastructure to be sanitized")
 	}
 	if spec.Listeners[0].AllowedRoutes == nil || spec.Listeners[0].AllowedRoutes.Namespaces == nil || *spec.Listeners[0].AllowedRoutes.Namespaces.From != gatewayv1.NamespacesFromAll {
 		t.Fatalf("expected tenant-facing allowedRoutes from All, got %#v", spec.Listeners[0].AllowedRoutes)
+	}
+}
+
+func TestGatewaySpecToVirtualAllowedHostnameOverrideInheritsDefaultNamespacePolicy(t *testing.T) {
+	vcConfig := &pkgconfig.VirtualClusterConfig{}
+	vcConfig.Sync.FromHost.Gateways.AllowedRoutes.DefaultVirtualNamespacePolicy = &rootconfig.GatewayVirtualNamespacePolicy{From: string(gatewayv1.NamespacesFromAll)}
+	vcConfig.Sync.FromHost.Gateways.AllowedRoutes.Overrides = []rootconfig.GatewayAllowedRoutesPolicyOverride{{
+		HostNamespace:    "networking",
+		Name:             "shared-edge",
+		AllowedHostnames: []string{"*.apps.example.com"},
+	}}
+	ctx := &synccontext.SyncContext{Context: context.Background(), Config: vcConfig}
+	host := &gatewayv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "networking", Name: "shared-edge"},
+		Spec: gatewayv1.GatewaySpec{Listeners: []gatewayv1.Listener{{
+			Name:     "http",
+			Protocol: gatewayv1.HTTPProtocolType,
+			Port:     80,
+		}}},
+	}
+
+	spec := gatewaySpecToVirtual(ctx, host)
+	if spec.Listeners[0].AllowedRoutes == nil || spec.Listeners[0].AllowedRoutes.Namespaces == nil || spec.Listeners[0].AllowedRoutes.Namespaces.From == nil {
+		t.Fatalf("expected hostname-only override to inherit default tenant-facing allowedRoutes, got %#v", spec.Listeners[0].AllowedRoutes)
+	}
+	if *spec.Listeners[0].AllowedRoutes.Namespaces.From != gatewayv1.NamespacesFromAll {
+		t.Fatalf("expected hostname-only override to inherit default namespace policy from All, got %#v", spec.Listeners[0].AllowedRoutes)
+	}
+}
+
+func TestGatewaySpecToVirtualExplicitOverrideReplacesDefaultNamespacePolicy(t *testing.T) {
+	vcConfig := &pkgconfig.VirtualClusterConfig{}
+	vcConfig.Sync.FromHost.Gateways.AllowedRoutes.DefaultVirtualNamespacePolicy = &rootconfig.GatewayVirtualNamespacePolicy{From: string(gatewayv1.NamespacesFromAll)}
+	vcConfig.Sync.FromHost.Gateways.AllowedRoutes.Overrides = []rootconfig.GatewayAllowedRoutesPolicyOverride{{
+		HostNamespace: "networking",
+		Name:          "shared-edge",
+		VirtualNamespacePolicy: rootconfig.GatewayVirtualNamespacePolicy{
+			From: string(gatewayv1.NamespacesFromSelector),
+			Selector: rootconfig.StandardLabelSelector{
+				MatchLabels: map[string]string{"team": "apps"},
+			},
+		},
+	}}
+	ctx := &synccontext.SyncContext{Context: context.Background(), Config: vcConfig}
+	host := &gatewayv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "networking", Name: "shared-edge"},
+		Spec: gatewayv1.GatewaySpec{Listeners: []gatewayv1.Listener{{
+			Name:     "http",
+			Protocol: gatewayv1.HTTPProtocolType,
+			Port:     80,
+		}}},
+	}
+
+	spec := gatewaySpecToVirtual(ctx, host)
+	got := spec.Listeners[0].AllowedRoutes
+	if got == nil || got.Namespaces == nil || got.Namespaces.From == nil || *got.Namespaces.From != gatewayv1.NamespacesFromSelector {
+		t.Fatalf("expected explicit override selector policy, got %#v", got)
+	}
+	if got.Namespaces.Selector == nil || got.Namespaces.Selector.MatchLabels["team"] != "apps" {
+		t.Fatalf("expected explicit override selector labels, got %#v", got.Namespaces.Selector)
 	}
 }
 

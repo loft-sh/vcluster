@@ -1,6 +1,6 @@
-// Suite: gatewayapi-vcluster
-// vCluster: Gateway API sync coverage for GatewayClass visibility, Tenant
-// Gateway authorization, and Gateway/HTTPRoute sync.
+// Suite: gatewayapi-import-vcluster
+// vCluster: fromHost imported Gateway coverage (mirroring, allowedRoutes policy,
+// hostname allowlist, deletion recovery, read-only behavior, status sanitization).
 // Run:      just run-e2e 'pr && gatewayapi'
 package e2e_next
 
@@ -17,27 +17,26 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 )
 
-//go:embed vcluster-gatewayapi.yaml
-var gatewayAPIVClusterYAML string
+//go:embed vcluster-gatewayapi-import.yaml
+var gatewayAPIImportVClusterYAML string
 
-const gatewayAPIVClusterName = "gatewayapi-vcluster"
+const gatewayAPIImportVClusterName = "gatewayapi-import-vcluster"
 
-func init() { suiteGatewayAPIVCluster() }
+func init() { suiteGatewayAPIImportVCluster() }
 
-func suiteGatewayAPIVCluster() {
-	Describe("gatewayapi-vcluster", labels.PR, labels.GatewayAPI, labels.GatewayClasses, Ordered,
+func suiteGatewayAPIImportVCluster() {
+	Describe("gatewayapi-import-vcluster", labels.PR, labels.GatewayAPI, labels.GatewayClasses, Ordered,
 		cluster.Use(clusters.HostCluster),
 		func() {
 			BeforeAll(func(ctx context.Context) context.Context {
 				return lazyvcluster.LazyVCluster(ctx,
-					gatewayAPIVClusterName,
-					gatewayAPIVClusterYAML,
+					gatewayAPIImportVClusterName,
+					gatewayAPIImportVClusterYAML,
 					lazyvcluster.WithPreSetup(setup.GatewayAPIPreSetup()),
 				)
 			})
 
-			test_gatewayapi.GatewayAPISyncSpec()
-			test_gatewayapi.GatewayAPIToHostSpec()
+			test_gatewayapi.GatewayAPIImportSpec()
 		},
 	)
 }

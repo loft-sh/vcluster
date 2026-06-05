@@ -48,3 +48,13 @@ func TestReferenceGrantAutoDoesNotFollowGatewaySyncAlone(t *testing.T) {
 		t.Fatalf("referenceGrants=auto should not be enabled by Gateway sync alone")
 	}
 }
+
+func TestReferenceGrantAutoFollowsHTTPRouteSyncWithoutNamespaceSync(t *testing.T) {
+	ctx := &synccontext.RegisterContext{Config: &pkgconfig.VirtualClusterConfig{}}
+	ctx.Config.Sync.ToHost.GatewayAPI.ReferenceGrants.Enabled = "auto"
+	ctx.Config.Sync.ToHost.GatewayAPI.HTTPRoutes.Enabled = true
+
+	if !gatewayReferenceGrantsEnabled(ctx) {
+		t.Fatalf("referenceGrants=auto should install the tenant CRD when HTTPRoute sync watches ReferenceGrant")
+	}
+}

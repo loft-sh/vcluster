@@ -261,8 +261,8 @@ func gatewaySpecToVirtual(ctx *synccontext.SyncContext, host *gatewayv1.Gateway)
 	}
 	policy := virtualNamespacePolicyFor(ctx, host)
 	for i := range spec.Listeners {
-		if ctx.Config.Sync.FromHost.Gateways.Sanitize.CertificateRefs {
-			spec.Listeners[i].TLS = nil
+		if ctx.Config.Sync.FromHost.Gateways.Sanitize.CertificateRefs && spec.Listeners[i].TLS != nil {
+			spec.Listeners[i].TLS.CertificateRefs = nil
 		}
 		if policy != nil {
 			spec.Listeners[i].AllowedRoutes = toGatewayAllowedRoutes(policy)
@@ -281,7 +281,7 @@ func gatewayStatusToVirtual(ctx *synccontext.SyncContext, status gatewayv1.Gatew
 
 func virtualNamespacePolicyFor(ctx *synccontext.SyncContext, host *gatewayv1.Gateway) *rootconfig.GatewayVirtualNamespacePolicy {
 	for _, override := range ctx.Config.Sync.FromHost.Gateways.AllowedRoutes.Overrides {
-		if override.HostNamespace == host.Namespace && override.Name == host.Name {
+		if override.HostNamespace == host.Namespace && override.Name == host.Name && override.VirtualNamespacePolicy.From != "" {
 			return &override.VirtualNamespacePolicy
 		}
 	}
