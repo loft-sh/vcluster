@@ -19,6 +19,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 var errNotPermitted = errors.New("virtual reference not permitted")
@@ -138,7 +140,7 @@ func referenceGrant(ctx *synccontext.SyncContext, fromGroup, fromKind, fromNames
 }
 
 func ensureReferenceGrantAllows(ctx *synccontext.SyncContext, fromGroup, fromKind, fromNamespace string, target referenceTarget) error {
-	grants := &gatewayv1.ReferenceGrantList{}
+	grants := &gatewayv1beta1.ReferenceGrantList{}
 	err := ctx.VirtualClient.List(ctx, grants, client.InNamespace(target.namespace))
 	if err != nil {
 		return fmt.Errorf("list ReferenceGrants in namespace %q: %w", target.namespace, err)
@@ -153,7 +155,7 @@ func ensureReferenceGrantAllows(ctx *synccontext.SyncContext, fromGroup, fromKin
 	return notPermittedf("no matching virtual ReferenceGrant in namespace %q permits %s in namespace %q to reference %s %q in namespace %q", target.namespace, fromKind, fromNamespace, target.kind, target.name, target.namespace)
 }
 
-func referenceGrantAllows(grant gatewayv1.ReferenceGrant, fromGroup, fromKind, fromNamespace string, target referenceTarget) bool {
+func referenceGrantAllows(grant gatewayv1beta1.ReferenceGrant, fromGroup, fromKind, fromNamespace string, target referenceTarget) bool {
 	fromAllowed := false
 	for _, from := range grant.Spec.From {
 		if string(from.Group) == fromGroup &&
@@ -325,14 +327,14 @@ func RegisterTLSRouteWatches(ctx *synccontext.RegisterContext, builder *builder.
 
 // RegisterGatewayWatches requeues Gateways when virtual ReferenceGrants change.
 func RegisterGatewayWatches(ctx *synccontext.RegisterContext, builder *builder.Builder) *builder.Builder {
-	return builder.WatchesRawSource(source.Kind(ctx.VirtualManager.GetCache(), &gatewayv1.ReferenceGrant{}, handler.TypedEnqueueRequestsFromMapFunc(func(mapCtx context.Context, _ *gatewayv1.ReferenceGrant) []reconcile.Request {
+	return builder.WatchesRawSource(source.Kind(ctx.VirtualManager.GetCache(), &gatewayv1beta1.ReferenceGrant{}, handler.TypedEnqueueRequestsFromMapFunc(func(mapCtx context.Context, _ *gatewayv1beta1.ReferenceGrant) []reconcile.Request {
 		return listGatewayRequests(mapCtx, ctx.VirtualManager.GetClient())
 	})))
 }
 
 func registerRouteWatches(ctx *synccontext.RegisterContext, builder *builder.Builder, listRequests func(context.Context, client.Client) []reconcile.Request) *builder.Builder {
 	return builder.
-		WatchesRawSource(source.Kind(ctx.VirtualManager.GetCache(), &gatewayv1.ReferenceGrant{}, handler.TypedEnqueueRequestsFromMapFunc(func(mapCtx context.Context, _ *gatewayv1.ReferenceGrant) []reconcile.Request {
+		WatchesRawSource(source.Kind(ctx.VirtualManager.GetCache(), &gatewayv1beta1.ReferenceGrant{}, handler.TypedEnqueueRequestsFromMapFunc(func(mapCtx context.Context, _ *gatewayv1beta1.ReferenceGrant) []reconcile.Request {
 			return listRequests(mapCtx, ctx.VirtualManager.GetClient())
 		}))).
 		WatchesRawSource(source.Kind(ctx.VirtualManager.GetCache(), &gatewayv1.Gateway{}, handler.TypedEnqueueRequestsFromMapFunc(func(mapCtx context.Context, _ *gatewayv1.Gateway) []reconcile.Request {
@@ -357,7 +359,7 @@ func listHTTPRouteRequests(ctx context.Context, c client.Client) []reconcile.Req
 }
 
 func listTLSRouteRequests(ctx context.Context, c client.Client) []reconcile.Request {
-	list := &gatewayv1.TLSRouteList{}
+	list := &gatewayv1alpha2.TLSRouteList{}
 	if err := c.List(ctx, list); err != nil {
 		return nil
 	}

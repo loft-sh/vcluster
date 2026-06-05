@@ -17,7 +17,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 type tlsRouteSyncer struct {
@@ -43,13 +43,13 @@ func NewSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	}
 
 	return &tlsRouteSyncer{
-		GenericTranslator: translator.NewGenericTranslator(ctx, "tlsroute", &gatewayv1.TLSRoute{}, mapper),
+		GenericTranslator: translator.NewGenericTranslator(ctx, "tlsroute", &gatewayv1alpha2.TLSRoute{}, mapper),
 		Importer:          pro.NewImporter(mapper),
 	}, nil
 }
 
 func (s *tlsRouteSyncer) Syncer() syncertypes.Sync[client.Object] {
-	return syncer.ToGenericSyncer[*gatewayv1.TLSRoute](s)
+	return syncer.ToGenericSyncer[*gatewayv1alpha2.TLSRoute](s)
 }
 
 func (s *tlsRouteSyncer) Options() *syncertypes.Options {
@@ -63,14 +63,14 @@ func (s *tlsRouteSyncer) ModifyController(ctx *synccontext.RegisterContext, buil
 	return routetranslate.RegisterReferencedWatches(ctx, builder, s.GroupVersionKind(), mappings.Gateways(), mappings.Services())
 }
 
-func (s *tlsRouteSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*gatewayv1.TLSRoute]) (ctrl.Result, error) {
-	return gatewaysync.CreateToHost(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.TLSRoutes.Patches, func() (*gatewayv1.TLSRoute, error) {
+func (s *tlsRouteSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*gatewayv1alpha2.TLSRoute]) (ctrl.Result, error) {
+	return gatewaysync.CreateToHost(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.TLSRoutes.Patches, func() (*gatewayv1alpha2.TLSRoute, error) {
 		return s.translate(ctx, event.Virtual)
 	})
 }
 
-func (s *tlsRouteSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*gatewayv1.TLSRoute]) (ctrl.Result, error) {
-	var hSpec *gatewayv1.TLSRouteSpec
+func (s *tlsRouteSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*gatewayv1alpha2.TLSRoute]) (ctrl.Result, error) {
+	var hSpec *gatewayv1alpha2.TLSRouteSpec
 	return gatewaysync.Sync(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.TLSRoutes.Patches,
 		func() (err error) {
 			hSpec, err = specToHost(ctx, event.Virtual, false)
@@ -93,8 +93,8 @@ func (s *tlsRouteSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.S
 	)
 }
 
-func (s *tlsRouteSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*gatewayv1.TLSRoute]) (ctrl.Result, error) {
-	return gatewaysync.CreateToVirtual(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.TLSRoutes.Patches, func() *gatewayv1.TLSRoute {
+func (s *tlsRouteSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*gatewayv1alpha2.TLSRoute]) (ctrl.Result, error) {
+	return gatewaysync.CreateToVirtual(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.TLSRoutes.Patches, func() *gatewayv1alpha2.TLSRoute {
 		return translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, event.Host))
 	})
 }

@@ -15,6 +15,9 @@ import (
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gatewayv1alpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
+	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 var Scheme = runtime.NewScheme()
@@ -38,6 +41,9 @@ func init() {
 
 	// Register GatewayAPI CRDs
 	_ = gatewayv1.Install(Scheme)
+	_ = gatewayv1alpha2.Install(Scheme)
+	_ = gatewayv1alpha3.Install(Scheme)
+	_ = gatewayv1beta1.Install(Scheme)
 
 	// Register Loft CRDs
 	_ = agentstoragev1.AddToScheme(Scheme)

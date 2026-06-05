@@ -244,11 +244,19 @@ func validateGatewayAPIConfig(vConfig *VirtualClusterConfig) error {
 		return fmt.Errorf("sync.toHost.gatewayApi.referenceGrants.enabled must be one of: auto, true, false")
 	}
 
-	gateways := &vConfig.Sync.FromHost.Gateways
+	return ValidateFromHostGateways(vConfig.Sync.FromHost.Gateways, vConfig.HostNamespace)
+}
+
+// ValidateFromHostGateways validates the sync.fromHost.gateways mapping and
+// allowedRoutes configuration. It is enforcement-only (no defaulting) so it can
+// be invoked both at syncer startup and at CLI deploy time. hostNamespace is the
+// control-plane (host) namespace; it may be empty when unknown, in which case
+// the reserved-target-namespace check is skipped.
+func ValidateFromHostGateways(gateways config.FromHostGateways, hostNamespace string) error {
 	if !gateways.Enabled {
 		return nil
 	}
-	if err := validateGatewayMappings(gateways.Mappings.ByName, vConfig.HostNamespace); err != nil {
+	if err := validateGatewayMappings(gateways.Mappings.ByName, hostNamespace); err != nil {
 		return err
 	}
 	if err := validateGatewayVirtualNamespacePolicy("sync.fromHost.gateways.allowedRoutes.defaultVirtualNamespacePolicy", gateways.AllowedRoutes.DefaultVirtualNamespacePolicy); err != nil {
