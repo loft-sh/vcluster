@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 func TestHTTPRouteAttachmentRespectsAllowedRouteNamespaces(t *testing.T) {
@@ -80,7 +81,7 @@ func TestHTTPRouteBackendRequiresReferenceGrantForCrossNamespaceRefsInSingleName
 		t.Fatalf("expected cross-namespace backend reference without ReferenceGrant to be denied, got %v", err)
 	}
 
-	grant := &gatewayv1.ReferenceGrant{
+	grant := &gatewayv1beta1.ReferenceGrant{
 		ObjectMeta: metav1.ObjectMeta{Namespace: "backends", Name: "allow-routes"},
 		Spec: gatewayv1.ReferenceGrantSpec{
 			From: []gatewayv1.ReferenceGrantFrom{{Group: gatewayv1.Group(gatewayv1.GroupVersion.Group), Kind: gatewayv1.Kind("HTTPRoute"), Namespace: gatewayv1.Namespace("routes")}},
@@ -137,7 +138,7 @@ func TestReferenceGrantNameOmittedAllowsAnyTargetName(t *testing.T) {
 	restore := setDefaultTranslator(utiltranslate.NewSingleNamespaceTranslator("vcluster-host"))
 	defer restore()
 
-	grant := &gatewayv1.ReferenceGrant{
+	grant := &gatewayv1beta1.ReferenceGrant{
 		ObjectMeta: metav1.ObjectMeta{Namespace: "backends", Name: "allow-any-service"},
 		Spec: gatewayv1.ReferenceGrantSpec{
 			From: []gatewayv1.ReferenceGrantFrom{{Group: gatewayv1.Group(gatewayv1.GroupVersion.Group), Kind: gatewayv1.Kind("HTTPRoute"), Namespace: gatewayv1.Namespace("routes")}},
@@ -178,7 +179,7 @@ func TestReferenceGrantRequiresMatchingFromNamespace(t *testing.T) {
 	restore := setDefaultTranslator(utiltranslate.NewSingleNamespaceTranslator("vcluster-host"))
 	defer restore()
 
-	grant := &gatewayv1.ReferenceGrant{
+	grant := &gatewayv1beta1.ReferenceGrant{
 		ObjectMeta: metav1.ObjectMeta{Namespace: "backends", Name: "allow-other"},
 		Spec: gatewayv1.ReferenceGrantSpec{
 			From: []gatewayv1.ReferenceGrantFrom{{Group: gatewayv1.Group(gatewayv1.GroupVersion.Group), Kind: gatewayv1.Kind("HTTPRoute"), Namespace: gatewayv1.Namespace("other-routes")}},

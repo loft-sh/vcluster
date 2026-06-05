@@ -18,7 +18,7 @@ func ensureHostGatewayAPIKind(ctx *synccontext.RegisterContext, gvk schema.Group
 		return fmt.Errorf("check host cluster for Gateway API resource %s: %w", gvk.String(), err)
 	}
 	if !exists {
-		return fmt.Errorf("host cluster does not advertise Gateway API resource %s; install the standard-channel v1 Gateway API CRDs on the host cluster (experimental v1alpha* CRDs alone are not supported) or disable %s", gvk.String(), configPath)
+		return fmt.Errorf("host cluster does not advertise Gateway API resource %s; install Gateway API CRDs that serve this version on the host cluster or disable %s", gvk.String(), configPath)
 	}
 
 	return nil

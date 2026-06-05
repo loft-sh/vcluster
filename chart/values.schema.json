@@ -2532,7 +2532,7 @@
         },
         "mappings": {
           "$ref": "#/$defs/FromHostMappings",
-          "description": "Mappings define Host Gateway namespace/name to tenant-facing namespace/name placement."
+          "description": "Mappings define control plane Gateway namespace/name to tenant-facing namespace/name placement."
         },
         "allowedRoutes": {
           "$ref": "#/$defs/GatewayAllowedRoutesConfig",
@@ -2548,7 +2548,7 @@
         },
         "sanitize": {
           "$ref": "#/$defs/GatewayImportSanitize",
-          "description": "Sanitize configures sensitive host field sanitization."
+          "description": "Sanitize configures sensitive control plane field sanitization."
         }
       },
       "additionalProperties": false,
@@ -2561,7 +2561,7 @@
             "type": "string"
           },
           "type": "object",
-          "description": "ByName is a map of host-object-namespace/host-object-name: virtual-object-namespace/virtual-object-name.\nThere are several wildcards supported:\n1. To match all objects in host namespace and sync them to different namespace in vCluster:\nbyName:\n  \"foo/*\": \"foo-in-virtual/*\"\n2. To match specific object in the host namespace and sync it to the same namespace with the same name:\nbyName:\n  \"foo/my-object\": \"foo/my-object\"\n3. To match specific object in the host namespace and sync it to the same namespace with different name:\nbyName:\n  \"foo/my-object\": \"foo/my-virtual-object\"\n4. To match all objects in the vCluster host namespace and sync them to a different namespace in vCluster:\nbyName:\n  \"\": \"my-virtual-namespace/*\"\n5. To match specific objects in the vCluster host namespace and sync them to a different namespace in vCluster:\nbyName:\n  \"/my-object\": \"my-virtual-namespace/my-object\""
+          "description": "ByName is a map of control-plane-object-namespace/control-plane-object-name: tenant-object-namespace/tenant-object-name.\nThere are several wildcards supported:\n1. To match all objects in a control plane namespace and sync them to a different namespace in the tenant cluster:\nbyName:\n  \"foo/*\": \"foo-in-virtual/*\"\n2. To match a specific object in the control plane namespace and sync it to the same namespace with the same name:\nbyName:\n  \"foo/my-object\": \"foo/my-object\"\n3. To match a specific object in the control plane namespace and sync it to the same namespace with a different name:\nbyName:\n  \"foo/my-object\": \"foo/my-virtual-object\"\n4. To match all objects in the vCluster namespace and sync them to a different namespace in the tenant cluster:\nbyName:\n  \"\": \"my-virtual-namespace/*\"\n5. To match specific objects in the vCluster namespace and sync them to a different namespace in the tenant cluster:\nbyName:\n  \"/my-object\": \"my-virtual-namespace/my-object\""
         }
       },
       "additionalProperties": false,
@@ -2582,23 +2582,23 @@
         },
         "httpRoutes": {
           "$ref": "#/$defs/EnableSwitchWithPatches",
-          "description": "HTTPRoutes configures HTTPRoute sync to the host cluster."
+          "description": "HTTPRoutes configures HTTPRoute sync to the control plane cluster."
         },
         "gateways": {
           "$ref": "#/$defs/EnableSwitchWithPatches",
-          "description": "Gateways configures tenant-created Gateway sync to the host cluster."
+          "description": "Gateways configures tenant-created Gateway sync to the control plane cluster."
         },
         "tlsRoutes": {
           "$ref": "#/$defs/EnableSwitchWithPatches",
-          "description": "TLSRoutes configures TLSRoute sync to the host cluster."
+          "description": "TLSRoutes configures TLSRoute sync to the control plane cluster."
         },
         "backendTLSPolicies": {
           "$ref": "#/$defs/EnableSwitchWithPatches",
-          "description": "BackendTLSPolicies configures BackendTLSPolicy sync to the host cluster."
+          "description": "BackendTLSPolicies configures BackendTLSPolicy sync to the control plane cluster."
         },
         "referenceGrants": {
           "$ref": "#/$defs/EnableAutoSwitchWithPatches",
-          "description": "ReferenceGrants configures ReferenceGrant sync to the host cluster. Enabled may be \"auto\", \"true\", or \"false\"."
+          "description": "ReferenceGrants configures ReferenceGrant sync to the control plane cluster. Enabled may be \"auto\", \"true\", or \"false\"."
         }
       },
       "additionalProperties": false,
@@ -5075,11 +5075,11 @@
         },
         "gatewayClasses": {
           "$ref": "#/$defs/EnableSwitchWithPatchesAndSelector",
-          "description": "GatewayClasses defines if gateway classes should get synced from the host cluster to the virtual cluster, but not back."
+          "description": "GatewayClasses defines if gateway classes should get synced from the control plane cluster to the tenant cluster, but not back."
         },
         "gateways": {
           "$ref": "#/$defs/FromHostGateways",
-          "description": "Gateways defines if selected host Gateways should get synced from the host cluster to the virtual cluster, but not back."
+          "description": "Gateways defines if selected control plane Gateways should get synced from the control plane cluster to the tenant cluster, but not back."
         },
         "runtimeClasses": {
           "$ref": "#/$defs/EnableSwitchWithPatchesAndSelector",
@@ -5306,7 +5306,7 @@
         },
         "gatewayApi": {
           "$ref": "#/$defs/GatewayAPIEnableSwitchWithPatches",
-          "description": "GatewayAPI defines Gateway API resources created within the virtual cluster that should get synced to the host cluster."
+          "description": "GatewayAPI defines Gateway API resources created within the tenant cluster that should get synced to the control plane cluster."
         },
         "services": {
           "$ref": "#/$defs/EnableSwitchWithPatches",

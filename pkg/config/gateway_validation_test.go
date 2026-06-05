@@ -110,6 +110,43 @@ func TestGatewayFromHostValidationRejectsInvalidMappings(t *testing.T) {
 	}
 }
 
+func TestValidateFromHostGatewaysEnforcesAtDeployTime(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		mappings map[string]string
+		want     string
+	}{
+		// imports enabled but mappings empty.
+		{name: "empty mappings", mappings: nil, want: "are empty"},
+		{name: "empty mappings map", mappings: map[string]string{}, want: "are empty"},
+		// invalid keys.
+		{name: "empty key", mappings: map[string]string{"": "tenant-gateways/edge"}, want: "explicit host namespace is required"},
+		{name: "slash-wildcard key", mappings: map[string]string{"/*": "tenant-gateways/*"}, want: "explicit host namespace is required"},
+		{name: "slash-name key", mappings: map[string]string{"/edge": "tenant-gateways/edge"}, want: "explicit host namespace is required"},
+		// wildcard mismatch.
+		{name: "wildcard source exact target", mappings: map[string]string{"host-ns/*": "tenant-ns/edge"}, want: "must map to"},
+		{name: "exact source wildcard target", mappings: map[string]string{"host-ns/edge": "tenant-ns/*"}, want: "must map to"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			gateways := rootconfig.FromHostGateways{}
+			gateways.Enabled = true
+			gateways.Mappings.ByName = tt.mappings
+			err := ValidateFromHostGateways(gateways, "vcluster")
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("expected error containing %q, got %v", tt.want, err)
+			}
+		})
+	}
+}
+
+func TestValidateFromHostGatewaysSkippedWhenDisabled(t *testing.T) {
+	gateways := rootconfig.FromHostGateways{}
+	gateways.Enabled = false
+	if err := ValidateFromHostGateways(gateways, "vcluster"); err != nil {
+		t.Fatalf("disabled gateways must not validate mappings, got %v", err)
+	}
+}
+
 func TestGatewayFromHostValidationRejectsUnmappedAllowedRoutesOverride(t *testing.T) {
 	vcConfig := &VirtualClusterConfig{}
 	vcConfig.Sync.FromHost.Gateways.Enabled = true

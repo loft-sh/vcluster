@@ -1233,7 +1233,7 @@ type SyncToHost struct {
 	// Ingresses defines if ingresses created within the virtual cluster should get synced to the host cluster.
 	Ingresses EnableSwitchWithPatches `json:"ingresses,omitempty"`
 
-	// GatewayAPI defines Gateway API resources created within the virtual cluster that should get synced to the host cluster.
+	// GatewayAPI defines Gateway API resources created within the tenant cluster that should get synced to the control plane cluster.
 	GatewayAPI GatewayAPIEnableSwitchWithPatches `json:"gatewayApi,omitempty"`
 
 	// Services defines if services created within the virtual cluster should get synced to the host cluster.
@@ -1297,19 +1297,19 @@ type EnableSwitchWithPatches struct {
 type GatewayAPIEnableSwitchWithPatches struct {
 	EnableSwitchWithPatches
 
-	// HTTPRoutes configures HTTPRoute sync to the host cluster.
+	// HTTPRoutes configures HTTPRoute sync to the control plane cluster.
 	HTTPRoutes EnableSwitchWithPatches `json:"httpRoutes,omitempty"`
 
-	// Gateways configures tenant-created Gateway sync to the host cluster.
+	// Gateways configures tenant-created Gateway sync to the control plane cluster.
 	Gateways EnableSwitchWithPatches `json:"gateways,omitempty"`
 
-	// TLSRoutes configures TLSRoute sync to the host cluster.
+	// TLSRoutes configures TLSRoute sync to the control plane cluster.
 	TLSRoutes EnableSwitchWithPatches `json:"tlsRoutes,omitempty"`
 
-	// BackendTLSPolicies configures BackendTLSPolicy sync to the host cluster.
+	// BackendTLSPolicies configures BackendTLSPolicy sync to the control plane cluster.
 	BackendTLSPolicies EnableSwitchWithPatches `json:"backendTLSPolicies,omitempty"`
 
-	// ReferenceGrants configures ReferenceGrant sync to the host cluster. Enabled may be "auto", "true", or "false".
+	// ReferenceGrants configures ReferenceGrant sync to the control plane cluster. Enabled may be "auto", "true", or "false".
 	ReferenceGrants EnableAutoSwitchWithPatches `json:"referenceGrants,omitempty"`
 }
 
@@ -1325,21 +1325,21 @@ type EnableSwitchWithResourcesMappings struct {
 }
 
 type FromHostMappings struct {
-	// ByName is a map of host-object-namespace/host-object-name: virtual-object-namespace/virtual-object-name.
+	// ByName is a map of control-plane-object-namespace/control-plane-object-name: tenant-object-namespace/tenant-object-name.
 	// There are several wildcards supported:
-	// 1. To match all objects in host namespace and sync them to different namespace in vCluster:
+	// 1. To match all objects in a control plane namespace and sync them to a different namespace in the tenant cluster:
 	// byName:
 	//   "foo/*": "foo-in-virtual/*"
-	// 2. To match specific object in the host namespace and sync it to the same namespace with the same name:
+	// 2. To match a specific object in the control plane namespace and sync it to the same namespace with the same name:
 	// byName:
 	//   "foo/my-object": "foo/my-object"
-	// 3. To match specific object in the host namespace and sync it to the same namespace with different name:
+	// 3. To match a specific object in the control plane namespace and sync it to the same namespace with a different name:
 	// byName:
 	//   "foo/my-object": "foo/my-virtual-object"
-	// 4. To match all objects in the vCluster host namespace and sync them to a different namespace in vCluster:
+	// 4. To match all objects in the vCluster namespace and sync them to a different namespace in the tenant cluster:
 	// byName:
 	//   "": "my-virtual-namespace/*"
-	// 5. To match specific objects in the vCluster host namespace and sync them to a different namespace in vCluster:
+	// 5. To match specific objects in the vCluster namespace and sync them to a different namespace in the tenant cluster:
 	// byName:
 	//   "/my-object": "my-virtual-namespace/my-object"
 	ByName map[string]string `json:"byName,omitempty"`
@@ -1355,10 +1355,10 @@ type SyncFromHost struct {
 	// IngressClasses defines if ingress classes should get synced from the host cluster to the virtual cluster, but not back.
 	IngressClasses EnableSwitchWithPatchesAndSelector `json:"ingressClasses,omitempty"`
 
-	// GatewayClasses defines if gateway classes should get synced from the host cluster to the virtual cluster, but not back.
+	// GatewayClasses defines if gateway classes should get synced from the control plane cluster to the tenant cluster, but not back.
 	GatewayClasses EnableSwitchWithPatchesAndSelector `json:"gatewayClasses,omitempty"`
 
-	// Gateways defines if selected host Gateways should get synced from the host cluster to the virtual cluster, but not back.
+	// Gateways defines if selected control plane Gateways should get synced from the control plane cluster to the tenant cluster, but not back.
 	Gateways FromHostGateways `json:"gateways,omitempty"`
 
 	// RuntimeClasses defines if runtime classes should get synced from the host cluster to the virtual cluster, but not back.
@@ -1425,7 +1425,7 @@ type EnableSwitchWithPatchesAndSelector struct {
 type FromHostGateways struct {
 	EnableSwitchWithPatchesAndSelector
 
-	// Mappings define Host Gateway namespace/name to tenant-facing namespace/name placement.
+	// Mappings define control plane Gateway namespace/name to tenant-facing namespace/name placement.
 	Mappings FromHostMappings `json:"mappings,omitempty"`
 
 	// AllowedRoutes configures the tenant-facing allowedRoutes policy shown on imported Gateways and enforced for Routes.
@@ -1437,7 +1437,7 @@ type FromHostGateways struct {
 	// Metadata configures imported Gateway metadata visibility.
 	Metadata GatewayImportMetadata `json:"metadata,omitempty"`
 
-	// Sanitize configures sensitive host field sanitization.
+	// Sanitize configures sensitive control plane field sanitization.
 	Sanitize GatewayImportSanitize `json:"sanitize,omitempty"`
 }
 
