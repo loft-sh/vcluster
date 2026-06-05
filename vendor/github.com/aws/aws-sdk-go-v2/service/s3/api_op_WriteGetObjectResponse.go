@@ -63,6 +63,10 @@ import (
 // For information on how to view and use these functions, see [Using Amazon Web Services built Lambda functions] in the Amazon S3
 // User Guide.
 //
+// You must URL encode any signed header values that contain spaces. For example,
+// if your header value is my file.txt , containing two spaces after my , you must
+// URL encode this value to my%20%20file.txt .
+//
 // [Transforming objects with Object Lambda access points]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/transforming-objects.html
 // [Using Amazon Web Services built Lambda functions]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/olap-examples.html
 // [GetObject]: https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetObject.html
@@ -109,7 +113,7 @@ type WriteGetObjectResponseInput struct {
 
 	// This header can be used as a data integrity check to verify that the data
 	// received is the same data that was originally sent. This specifies the Base64
-	// encoded, 32-bit CRC-32 checksum of the object returned by the Object Lambda
+	// encoded, 32-bit CRC32 checksum of the object returned by the Object Lambda
 	// function. This may not match the checksum for the object stored in Amazon S3.
 	// Amazon S3 will perform validation of the checksum values only when the original
 	// GetObject request required checksum validation. For more information about
@@ -123,7 +127,7 @@ type WriteGetObjectResponseInput struct {
 
 	// This header can be used as a data integrity check to verify that the data
 	// received is the same data that was originally sent. This specifies the Base64
-	// encoded, 32-bit CRC-32C checksum of the object returned by the Object Lambda
+	// encoded, 32-bit CRC32C checksum of the object returned by the Object Lambda
 	// function. This may not match the checksum for the object stored in Amazon S3.
 	// Amazon S3 will perform validation of the checksum values only when the original
 	// GetObject request required checksum validation. For more information about
@@ -137,7 +141,7 @@ type WriteGetObjectResponseInput struct {
 
 	// This header can be used as a data integrity check to verify that the data
 	// received is the same data that was originally sent. This header specifies the
-	// Base64 encoded, 64-bit CRC-64NVME checksum of the part. For more information,
+	// Base64 encoded, 64-bit CRC64NVME checksum of the part. For more information,
 	// see [Checking object integrity]in the Amazon S3 User Guide.
 	//
 	// [Checking object integrity]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity.html
@@ -145,7 +149,7 @@ type WriteGetObjectResponseInput struct {
 
 	// This header can be used as a data integrity check to verify that the data
 	// received is the same data that was originally sent. This specifies the Base64
-	// encoded, 160-bit SHA-1 digest of the object returned by the Object Lambda
+	// encoded, 160-bit SHA1 digest of the object returned by the Object Lambda
 	// function. This may not match the checksum for the object stored in Amazon S3.
 	// Amazon S3 will perform validation of the checksum values only when the original
 	// GetObject request required checksum validation. For more information about
@@ -159,7 +163,7 @@ type WriteGetObjectResponseInput struct {
 
 	// This header can be used as a data integrity check to verify that the data
 	// received is the same data that was originally sent. This specifies the Base64
-	// encoded, 256-bit SHA-256 digest of the object returned by the Object Lambda
+	// encoded, 256-bit SHA256 digest of the object returned by the Object Lambda
 	// function. This may not match the checksum for the object stored in Amazon S3.
 	// Amazon S3 will perform validation of the checksum values only when the original
 	// GetObject request required checksum validation. For more information about
@@ -192,7 +196,9 @@ type WriteGetObjectResponseInput struct {
 	ContentType *string
 
 	// Specifies whether an object stored in Amazon S3 is ( true ) or is not ( false )
-	// a delete marker.
+	// a delete marker. To learn more about delete markers, see [Working with delete markers].
+	//
+	// [Working with delete markers]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/DeleteMarker.html
 	DeleteMarker *bool
 
 	// An opaque identifier assigned by a web server to a specific version of a
@@ -255,9 +261,12 @@ type WriteGetObjectResponseInput struct {
 	ReplicationStatus types.ReplicationStatus
 
 	// If present, indicates that the requester was successfully charged for the
-	// request.
+	// request. For more information, see [Using Requester Pays buckets for storage transfers and usage]in the Amazon Simple Storage Service user
+	// guide.
 	//
 	// This functionality is not supported for directory buckets.
+	//
+	// [Using Requester Pays buckets for storage transfers and usage]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/RequesterPaysBuckets.html
 	RequestCharged types.RequestCharged
 
 	// Provides information about object restoration operation and expiration time of
@@ -280,7 +289,10 @@ type WriteGetObjectResponseInput struct {
 	SSEKMSKeyId *string
 
 	//  The server-side encryption algorithm used when storing requested object in
-	// Amazon S3 (for example, AES256, aws:kms ).
+	// Amazon S3 or Amazon FSx.
+	//
+	// When accessing data stored in Amazon FSx file systems using S3 access points,
+	// the only valid server side encryption option is aws:fsx .
 	ServerSideEncryption types.ServerSideEncryption
 
 	// The integer status code for an HTTP response of a corresponding GetObject
@@ -381,7 +393,7 @@ func (c *Client) addOperationWriteGetObjectResponseMiddlewares(stack *middleware
 	if err = addContentSHA256Header(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRetry(stack, options, c); err != nil {
 		return err
 	}
 	if err = addRawResponseToMetadata(stack); err != nil {
@@ -408,13 +420,13 @@ func (c *Client) addOperationWriteGetObjectResponseMiddlewares(stack *middleware
 	if err = addPutBucketContextMiddleware(stack); err != nil {
 		return err
 	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
 	if err = addIsExpressUserAgent(stack); err != nil {
+		return err
+	}
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addEndpointPrefix_opWriteGetObjectResponseMiddleware(stack); err != nil {
@@ -453,16 +465,13 @@ func (c *Client) addOperationWriteGetObjectResponseMiddlewares(stack *middleware
 	if err = addSerializeImmutableHostnameBucketMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
