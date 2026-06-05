@@ -41,7 +41,7 @@ type UISettingsSpec struct {
 	// DefaultVClusterVersion is the default version of vClusters
 	DefaultVClusterVersion string `json:"defaultVClusterVersion,omitempty"`
 
-	// AvailableVClusterVersions lists all virtual cluster versions available to the platform instance
+	// AvailableVClusterVersions lists all tenant cluster versions available to the platform instance
 	// +optional
 	AvailableVClusterVersions []VClusterVersion `json:"availableVClusterVersions,omitempty"`
 

@@ -246,7 +246,7 @@ type LastActivityInfo struct {
 	// +optional
 	Name string `json:"name,omitempty"`
 
-	// VirtualCluster is the virtual cluster this activity happened in
+	// VirtualCluster is the tenant cluster this activity happened in
 	// +optional
 	VirtualCluster string `json:"virtualCluster,omitempty"`
 

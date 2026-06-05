@@ -54,7 +54,7 @@ type VirtualClusterTemplateSpec struct {
 	// +optional
 	DisplayName string `json:"displayName,omitempty"`
 
-	// Description describes the virtual cluster template
+	// Description describes the tenant cluster template
 	// +optional
 	Description string `json:"description,omitempty"`
 
@@ -62,7 +62,7 @@ type VirtualClusterTemplateSpec struct {
 	// +optional
 	Owner *UserOrTeam `json:"owner,omitempty"`
 
-	// Template holds the virtual cluster template
+	// Template holds the tenant cluster template
 	// +optional
 	Template VirtualClusterTemplateDefinition `json:"template,omitempty"`
 
@@ -82,7 +82,7 @@ type VirtualClusterTemplateSpec struct {
 	// DEPRECATED FIELDS BELOW
 	// =======================
 
-	// DEPRECATED: SpaceTemplate to use to create the virtual cluster space if it does not exist
+	// DEPRECATED: SpaceTemplate to use to create the tenant cluster space if it does not exist
 	// +optional
 	SpaceTemplateRef *VirtualClusterTemplateSpaceTemplateRef `json:"spaceTemplateRef,omitempty"`
 }
@@ -108,17 +108,17 @@ type VirtualClusterTemplateSpaceTemplateRef struct {
 }
 
 type VirtualClusterTemplateDefinition struct {
-	// The virtual cluster metadata
+	// The tenant cluster metadata
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +optional
 	TemplateMetadata `json:"metadata,omitempty"`
 
-	// InstanceTemplate holds the virtual cluster instance template
+	// InstanceTemplate holds the tenant cluster instance template
 	// +optional
 	InstanceTemplate VirtualClusterInstanceTemplateDefinition `json:"instanceTemplate,omitempty"`
 
-	// VirtualClusterCommonSpec defines virtual cluster spec that is common between the virtual
-	// cluster templates, and virtual cluster
+	// VirtualClusterCommonSpec defines tenant cluster spec that is common between the tenant
+	// cluster templates, and tenant cluster
 	VirtualClusterCommonSpec `json:",inline"`
 
 	// SpaceTemplate holds the space template
@@ -132,7 +132,7 @@ type VirtualClusterSpaceTemplateDefinition struct {
 	// +optional
 	TemplateMetadata `json:"metadata,omitempty"`
 
-	// Objects are Kubernetes style yamls that should get deployed into the virtual cluster namespace
+	// Objects are Kubernetes style yamls that should get deployed into the tenant cluster namespace
 	// +optional
 	Objects string `json:"objects,omitempty"`
 
@@ -145,9 +145,9 @@ type VirtualClusterSpaceTemplateDefinition struct {
 	Apps []AppReference `json:"apps,omitempty"`
 }
 
-// VirtualClusterInstanceTemplateDefinition holds the virtual cluster instance template
+// VirtualClusterInstanceTemplateDefinition holds the tenant cluster instance template
 type VirtualClusterInstanceTemplateDefinition struct {
-	// The virtual cluster instance metadata
+	// The tenant cluster instance metadata
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +optional
 	TemplateMetadata `json:"metadata,omitempty"`

@@ -7,7 +7,7 @@ import (
 
 // Common ConditionTypes used by Cluster API objects.
 const (
-	// ReadyCondition defines the Ready condition type that summarizes the operational state of the virtual cluster API object.
+	// ReadyCondition defines the Ready condition type that summarizes the operational state of the tenant cluster API object.
 	ReadyCondition ConditionType = "Ready"
 )
 

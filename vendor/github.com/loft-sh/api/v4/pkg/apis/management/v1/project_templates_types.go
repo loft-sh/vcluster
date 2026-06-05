@@ -14,7 +14,7 @@ type ProjectTemplates struct {
 	// DefaultVirtualClusterTemplate is the default template for the project
 	DefaultVirtualClusterTemplate string `json:"defaultVirtualClusterTemplate,omitempty"`
 
-	// VirtualClusterTemplates holds all the allowed virtual cluster templates
+	// VirtualClusterTemplates holds all the allowed tenant cluster templates
 	VirtualClusterTemplates []VirtualClusterTemplate `json:"virtualClusterTemplates,omitempty"`
 
 	// DefaultSpaceTemplate

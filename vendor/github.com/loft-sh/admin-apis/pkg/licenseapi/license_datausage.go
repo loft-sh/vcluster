@@ -14,7 +14,7 @@ type UsageData struct {
 	Details UsageDataDetails `json:"details"`
 }
 
-// UsageDataDetails holds detailed information about the nodes and virtual cluster for an instance deployment of
+// UsageDataDetails holds detailed information about the nodes and tenant cluster for an instance deployment of
 // vCluster Platform
 // +k8s:openapi-gen=true
 // +k8s:deepcopy-gen=true
@@ -22,7 +22,7 @@ type UsageDataDetails struct {
 	// Nodes contains the details of the nodes
 	Nodes []NodeInfo `json:"nodes"`
 
-	// VClusters contains the details of the virtual clusters
+	// VClusters contains the details of the tenant clusters
 	VClusters []VirtualClusterInfo `json:"vClusters"`
 }
 
@@ -43,7 +43,7 @@ type NodeInfo struct {
 	Capacity          map[string]string `json:"capacity"`
 }
 
-// VirtualClusterInfo holds information about a single virtual cluster
+// VirtualClusterInfo holds information about a single tenant cluster
 // +k8s:openapi-gen=true
 // +k8s:deepcopy-gen=true
 type VirtualClusterInfo struct {

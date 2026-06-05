@@ -1246,7 +1246,7 @@
       "properties": {
         "afterInactivity": {
           "type": "string",
-          "description": "AfterInactivity specifies after how long of inactivity the virtual cluster will be deleted.\nUses Go duration format (e.g., \"720h\" for 30 days).\n+optional"
+          "description": "AfterInactivity specifies after how long of inactivity the tenant cluster will be deleted.\nUses Go duration format (e.g., \"720h\" for 30 days).\n+optional"
         }
       },
       "additionalProperties": false,
@@ -4609,7 +4609,7 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "description": "Sleep holds configuration for automatically putting the virtual cluster to sleep."
+      "description": "Sleep holds configuration for automatically putting the tenant cluster to sleep."
     },
     "SleepAuto": {
       "properties": {
@@ -4824,7 +4824,7 @@
       "properties": {
         "schedule": {
           "type": "string",
-          "description": "Schedule specifies a scheduled time in Cron format, see https://en.wikipedia.org/wiki/Cron for a virtual cluster snapshot to be taken\n+optional"
+          "description": "Schedule specifies a scheduled time in Cron format, see https://en.wikipedia.org/wiki/Cron for a tenant cluster snapshot to be taken\n+optional"
         },
         "timezone": {
           "type": "string",

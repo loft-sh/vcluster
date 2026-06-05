@@ -76,6 +76,21 @@ func (in InstanceCreateOutput) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in InstanceGetOutput) OpenAPIModelName() string {
+	return "com.github.loft-sh.admin-apis.pkg.licenseapi.InstanceGetOutput"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in InstancePatchInput) OpenAPIModelName() string {
+	return "com.github.loft-sh.admin-apis.pkg.licenseapi.InstancePatchInput"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in InstancePatchOutput) OpenAPIModelName() string {
+	return "com.github.loft-sh.admin-apis.pkg.licenseapi.InstancePatchOutput"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in InstanceSendActivationEmailInput) OpenAPIModelName() string {
 	return "com.github.loft-sh.admin-apis.pkg.licenseapi.InstanceSendActivationEmailInput"
 }
