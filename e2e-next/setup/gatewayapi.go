@@ -3,7 +3,6 @@ package setup
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 
@@ -30,13 +29,9 @@ func GatewayAPIPreSetup() func(ctx context.Context) error {
 			"pkg/mappings/resources/tlsroutes.crd.yaml",
 			"pkg/mappings/resources/backendtlspolicies.crd.yaml",
 		}
-		for _, crd := range crds {
-			abs := filepath.Join(repoRoot, crd)
-			cmd := exec.CommandContext(ctx, "kubectl", "apply", "--server-side", "--force-conflicts", "--context", kubeContext, "-f", abs)
-			if out, err := cmd.CombinedOutput(); err != nil {
-				return fmt.Errorf("apply Gateway API CRD %s: %s: %w", crd, string(out), err)
-			}
+		for i, crd := range crds {
+			crds[i] = filepath.Join(repoRoot, crd)
 		}
-		return nil
+		return kubectlApplyWithOptions(ctx, kubeContext, []string{"--server-side", "--force-conflicts"}, crds...)
 	}
 }

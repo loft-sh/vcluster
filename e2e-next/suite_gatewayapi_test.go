@@ -25,6 +25,7 @@ const gatewayAPIVClusterName = "gatewayapi-vcluster"
 func init() { suiteGatewayAPIVCluster() }
 
 func suiteGatewayAPIVCluster() {
+	// Ordered so all specs share one lazyvcluster bring-up; specs are independent.
 	Describe("gatewayapi-vcluster", labels.PR, labels.GatewayAPI, labels.GatewayClasses, Ordered,
 		cluster.Use(clusters.HostCluster),
 		func() {

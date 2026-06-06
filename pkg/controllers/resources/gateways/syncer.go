@@ -80,6 +80,9 @@ func (s *tenantGatewaySyncer) Syncer() syncertypes.Sync[client.Object] {
 }
 
 func (s *tenantGatewaySyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*gatewayv1.Gateway]) (ctrl.Result, error) {
+	if isImportedGateway(event.Virtual) {
+		return ctrl.Result{}, nil
+	}
 	if event.HostOld != nil || event.Virtual.DeletionTimestamp != nil {
 		return patcher.DeleteHostObject(ctx, event.HostOld, event.Virtual, "virtual Gateway was deleted")
 	}
@@ -105,6 +108,9 @@ func (s *tenantGatewaySyncer) SyncToHost(ctx *synccontext.SyncContext, event *sy
 }
 
 func (s *tenantGatewaySyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*gatewayv1.Gateway]) (_ ctrl.Result, retErr error) {
+	if isImportedGateway(event.Virtual) {
+		return ctrl.Result{}, nil
+	}
 	eligible, err := tenantGatewayEligible(ctx, s, event.Virtual)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -133,8 +139,15 @@ func (s *tenantGatewaySyncer) Sync(ctx *synccontext.SyncContext, event *synccont
 }
 
 func (s *tenantGatewaySyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*gatewayv1.Gateway]) (ctrl.Result, error) {
+	if resources.GatewayHostCoveredByMapping(ctx, types.NamespacedName{Namespace: event.Host.Namespace, Name: event.Host.Name}) || isImportedGateway(event.VirtualOld) {
+		return ctrl.Result{}, nil
+	}
 	reason := fmt.Sprintf("host Gateway for tenant Gateway %s/%s is missing", event.Host.Namespace, event.Host.Name)
 	return patcher.DeleteHostObject(ctx, event.Host, event.VirtualOld, reason)
+}
+
+func isImportedGateway(gateway *gatewayv1.Gateway) bool {
+	return gateway != nil && gateway.Labels[ImportedGatewayLabel] == "true"
 }
 
 func tenantGatewayHostConflict(ctx *synccontext.SyncContext, s *tenantGatewaySyncer, gateway *gatewayv1.Gateway, hostName types.NamespacedName) (bool, error) {
@@ -198,6 +211,10 @@ func (s *gatewaySyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *syncc
 }
 
 func (s *gatewaySyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*gatewayv1.Gateway]) (_ ctrl.Result, retErr error) {
+	if !isImportedGateway(event.Virtual) {
+		return ctrl.Result{}, nil
+	}
+
 	selected, reason, err := gatewaySelected(ctx, event.Host)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -226,6 +243,10 @@ func (s *gatewaySyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 }
 
 func (s *gatewaySyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*gatewayv1.Gateway]) (ctrl.Result, error) {
+	if !isImportedGateway(event.Virtual) {
+		return ctrl.Result{}, nil
+	}
+
 	reason := fmt.Sprintf("host Gateway for imported mirror %s/%s is missing", event.Virtual.Namespace, event.Virtual.Name)
 	s.EventRecorder().Eventf(event.Virtual, nil, "Warning", "SyncWarning", "SyncGateway", "Deleting virtual Gateway: %s", reason)
 	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, event.Virtual)

@@ -2,18 +2,18 @@ package test_gatewayapi
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,17 +37,11 @@ func GatewayAPISyncSpec() {
 		)
 
 		BeforeEach(func(ctx context.Context) {
-			var err error
-			scheme := runtime.NewScheme()
-			Expect(corev1.AddToScheme(scheme)).To(Succeed())
-			Expect(gatewayv1.Install(scheme)).To(Succeed())
-
-			hostClient, err = ctrlclient.New(cluster.From(ctx, constants.GetHostClusterName()).KubernetesRestConfig(), ctrlclient.Options{Scheme: scheme})
-			Expect(err).To(Succeed())
-			vClusterClient, err = ctrlclient.New(cluster.CurrentClusterFrom(ctx).KubernetesRestConfig(), ctrlclient.Options{Scheme: scheme})
-			Expect(err).To(Succeed())
-			vClusterName = cluster.CurrentClusterNameFrom(ctx)
-			vClusterHostNS = "vcluster-" + vClusterName
+			clients := newGatewayAPIClients(ctx, false)
+			hostClient = clients.HostClient
+			vClusterClient = clients.VClusterClient
+			vClusterName = clients.VClusterName
+			vClusterHostNS = clients.VClusterHostNS
 
 			Eventually(func(g Gomega) {
 				g.Expect(vClusterClient.List(ctx, &gatewayv1.GatewayClassList{})).To(Succeed())
@@ -76,6 +70,25 @@ func GatewayAPISyncSpec() {
 					err := vClusterClient.Get(ctx, types.NamespacedName{Name: hidden.Name}, &gatewayv1.GatewayClass{})
 					g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
 				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutShort).Should(Succeed())
+			})
+
+			By("relabeling the hidden GatewayClass to matching and waiting for it to appear", func() {
+				Expect(hostClient.Get(ctx, types.NamespacedName{Name: hidden.Name}, hidden)).To(Succeed())
+				hidden.Labels[gatewayClassSelectorKey] = gatewayClassSelectorValue
+				Expect(hostClient.Update(ctx, hidden)).To(Succeed())
+				Eventually(func(g Gomega) {
+					g.Expect(vClusterClient.Get(ctx, types.NamespacedName{Name: hidden.Name}, &gatewayv1.GatewayClass{})).To(Succeed())
+				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+			})
+
+			By("delabeling the now-matching GatewayClass and waiting for it to disappear", func() {
+				Expect(hostClient.Get(ctx, types.NamespacedName{Name: hidden.Name}, hidden)).To(Succeed())
+				hidden.Labels[gatewayClassSelectorKey] = "other-" + suffix
+				Expect(hostClient.Update(ctx, hidden)).To(Succeed())
+				Eventually(func(g Gomega) {
+					err := vClusterClient.Get(ctx, types.NamespacedName{Name: hidden.Name}, &gatewayv1.GatewayClass{})
+					g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
+				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 			})
 
 			By("updating the Host GatewayClass and ensuring parametersRef remains sanitized", func() {
@@ -137,9 +150,19 @@ func GatewayAPISyncSpec() {
 			Expect(vClusterClient.Get(ctx, ctrlclient.ObjectKeyFromObject(good), good)).To(Succeed())
 			good.Spec.GatewayClassName = gatewayv1.ObjectName(hidden.Name)
 			Expect(vClusterClient.Update(ctx, good)).To(Succeed())
+			wantMsg := fmt.Sprintf("GatewayClass %q is not available in this virtual cluster", hidden.Name)
 			Eventually(func(g Gomega) {
 				err := hostClient.Get(ctx, types.NamespacedName{Namespace: vClusterHostNS, Name: goodHostName}, &gatewayv1.Gateway{})
 				g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
+
+				events := &corev1.EventList{}
+				g.Expect(vClusterClient.List(ctx, events, ctrlclient.InNamespace(ns.Name))).To(Succeed())
+				messages := lo.Map(lo.Filter(events.Items, func(e corev1.Event, _ int) bool {
+					return e.InvolvedObject.Name == good.Name && e.Reason == "SyncWarning"
+				}), func(e corev1.Event, _ int) string {
+					return e.Message
+				})
+				g.Expect(messages).To(ContainElement(wantMsg))
 			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 		})
 

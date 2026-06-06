@@ -153,6 +153,27 @@ func TestReferenceGrantNameOmittedAllowsAnyTargetName(t *testing.T) {
 	}
 }
 
+func TestDeletingReferenceGrantDoesNotAllowTargetName(t *testing.T) {
+	restore := setDefaultTranslator(utiltranslate.NewSingleNamespaceTranslator("vcluster-host"))
+	defer restore()
+
+	deletedAt := metav1.Now()
+	grant := &gatewayv1beta1.ReferenceGrant{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "backends", Name: "deleting", DeletionTimestamp: &deletedAt, Finalizers: []string{"sync.vcluster.loft.sh/finalizer"}},
+		Spec: gatewayv1.ReferenceGrantSpec{
+			From: []gatewayv1.ReferenceGrantFrom{{Group: gatewayv1.Group(gatewayv1.GroupVersion.Group), Kind: gatewayv1.Kind("HTTPRoute"), Namespace: gatewayv1.Namespace("routes")}},
+			To:   []gatewayv1.ReferenceGrantTo{{Group: gatewayv1.Group(corev1.GroupName), Kind: gatewayv1.Kind("Service")}},
+		},
+	}
+	ctx := &synccontext.SyncContext{Context: context.Background(), Config: &config.VirtualClusterConfig{}, VirtualClient: testingutil.NewFakeClient(scheme.Scheme, grant)}
+	backendNamespace := gatewayv1.Namespace("backends")
+
+	err := HTTPRouteBackend(ctx, "routes", &gatewayv1.BackendObjectReference{Name: "api", Namespace: &backendNamespace})
+	if !IsNotPermitted(err) {
+		t.Fatalf("expected deleting ReferenceGrant to deny reference, got %v", err)
+	}
+}
+
 func TestHTTPRouteAttachmentSectionAndPortMustSelectACompatibleListener(t *testing.T) {
 	gateway := &gatewayv1.Gateway{
 		ObjectMeta: metav1.ObjectMeta{Namespace: "gateways", Name: "edge"},

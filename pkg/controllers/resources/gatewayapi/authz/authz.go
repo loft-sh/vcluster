@@ -7,11 +7,15 @@ import (
 	"fmt"
 
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	"github.com/loft-sh/vcluster/pkg/util"
+	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	utiltranslate "github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -147,8 +151,10 @@ func ensureReferenceGrantAllows(ctx *synccontext.SyncContext, fromGroup, fromKin
 	}
 
 	for _, grant := range grants.Items {
-		if referenceGrantAllows(grant, fromGroup, fromKind, fromNamespace, target) {
-			return nil
+		if grant.DeletionTimestamp.IsZero() {
+			if referenceGrantAllows(grant, fromGroup, fromKind, fromNamespace, target) {
+				return nil
+			}
 		}
 	}
 
@@ -315,71 +321,99 @@ func namespaceSelectorMatches(ctx *synccontext.SyncContext, routeNamespace strin
 	return parsed.Matches(labels.Set(namespace.Labels)), nil
 }
 
-// RegisterHTTPRouteWatches requeues HTTPRoutes when virtual authz inputs change.
+// RegisterHTTPRouteWatches requeues HTTPRoutes when authz inputs change.
 func RegisterHTTPRouteWatches(ctx *synccontext.RegisterContext, builder *builder.Builder) *builder.Builder {
-	return registerRouteWatches(ctx, builder, listHTTPRouteRequests)
+	return registerRouteWatches(ctx, builder, httpRouteListObject)
 }
 
-// RegisterTLSRouteWatches requeues TLSRoutes when virtual authz inputs change.
+// RegisterTLSRouteWatches requeues TLSRoutes when authz inputs change.
 func RegisterTLSRouteWatches(ctx *synccontext.RegisterContext, builder *builder.Builder) *builder.Builder {
-	return registerRouteWatches(ctx, builder, listTLSRouteRequests)
+	return registerRouteWatches(ctx, builder, tlsRouteListObject)
 }
 
-// RegisterGatewayWatches requeues Gateways when virtual ReferenceGrants change.
-func RegisterGatewayWatches(ctx *synccontext.RegisterContext, builder *builder.Builder) *builder.Builder {
-	return builder.WatchesRawSource(source.Kind(ctx.VirtualManager.GetCache(), &gatewayv1beta1.ReferenceGrant{}, handler.TypedEnqueueRequestsFromMapFunc(func(mapCtx context.Context, _ *gatewayv1beta1.ReferenceGrant) []reconcile.Request {
-		return listGatewayRequests(mapCtx, ctx.VirtualManager.GetClient())
-	})))
+var (
+	referenceGrantWatchGVK = schema.GroupVersionKind{Group: gatewayv1.GroupVersion.Group, Version: gatewayv1beta1.GroupVersion.Version, Kind: "ReferenceGrant"}
+	httpRouteListGVK       = schema.GroupVersionKind{Group: gatewayv1.GroupVersion.Group, Version: gatewayv1.GroupVersion.Version, Kind: "HTTPRouteList"}
+	tlsRouteListGVK        = schema.GroupVersionKind{Group: gatewayv1.GroupVersion.Group, Version: gatewayv1alpha2.GroupVersion.Version, Kind: "TLSRouteList"}
+)
+
+func referenceGrantWatchObject() *unstructured.Unstructured {
+	return unstructuredObject(referenceGrantWatchGVK)
 }
 
-func registerRouteWatches(ctx *synccontext.RegisterContext, builder *builder.Builder, listRequests func(context.Context, client.Client) []reconcile.Request) *builder.Builder {
-	return builder.
-		WatchesRawSource(source.Kind(ctx.VirtualManager.GetCache(), &gatewayv1beta1.ReferenceGrant{}, handler.TypedEnqueueRequestsFromMapFunc(func(mapCtx context.Context, _ *gatewayv1beta1.ReferenceGrant) []reconcile.Request {
-			return listRequests(mapCtx, ctx.VirtualManager.GetClient())
+func httpRouteListObject() *unstructured.UnstructuredList {
+	return unstructuredList(httpRouteListGVK)
+}
+
+func tlsRouteListObject() *unstructured.UnstructuredList {
+	return unstructuredList(tlsRouteListGVK)
+}
+
+func registerRouteWatches(ctx *synccontext.RegisterContext, builder *builder.Builder, routeListObject func() *unstructured.UnstructuredList) *builder.Builder {
+	log := ctx.ToSyncContext("gateway-authz").Log
+	listRequests := func(mapCtx context.Context) []reconcile.Request {
+		return listRouteRequests(mapCtx, ctx.VirtualManager.GetClient(), routeListObject(), log)
+	}
+
+	builder = builder.
+		WatchesRawSource(source.Kind(ctx.VirtualManager.GetCache(), referenceGrantWatchObject(), handler.TypedEnqueueRequestsFromMapFunc(func(mapCtx context.Context, _ *unstructured.Unstructured) []reconcile.Request {
+			return listRequests(mapCtx)
 		}))).
 		WatchesRawSource(source.Kind(ctx.VirtualManager.GetCache(), &gatewayv1.Gateway{}, handler.TypedEnqueueRequestsFromMapFunc(func(mapCtx context.Context, _ *gatewayv1.Gateway) []reconcile.Request {
-			return listRequests(mapCtx, ctx.VirtualManager.GetClient())
+			return listRequests(mapCtx)
 		}))).
 		WatchesRawSource(source.Kind(ctx.VirtualManager.GetCache(), &corev1.Namespace{}, handler.TypedEnqueueRequestsFromMapFunc(func(mapCtx context.Context, _ *corev1.Namespace) []reconcile.Request {
-			return listRequests(mapCtx, ctx.VirtualManager.GetClient())
+			return listRequests(mapCtx)
 		})))
+
+	if hostReferenceGrantWatchEnabled(ctx, log) {
+		builder = builder.WatchesRawSource(source.Kind(ctx.HostManager.GetCache(), referenceGrantWatchObject(), handler.TypedEnqueueRequestsFromMapFunc(func(mapCtx context.Context, _ *unstructured.Unstructured) []reconcile.Request {
+			return listRequests(mapCtx)
+		})))
+	}
+
+	return builder
 }
 
-func listHTTPRouteRequests(ctx context.Context, c client.Client) []reconcile.Request {
-	list := &gatewayv1.HTTPRouteList{}
+func hostReferenceGrantWatchEnabled(ctx *synccontext.RegisterContext, log loghelper.Logger) bool {
+	if ctx.HostManager == nil || ctx.HostManager.GetConfig() == nil {
+		return false
+	}
+
+	exists, err := util.KindExists(ctx.HostManager.GetConfig(), referenceGrantWatchGVK)
+	if err != nil {
+		if log != nil {
+			log.Errorf("check host cluster for Gateway API resource %s: %v", referenceGrantWatchGVK.String(), err)
+		}
+		return false
+	}
+
+	return exists
+}
+
+func listRouteRequests(ctx context.Context, c client.Client, list *unstructured.UnstructuredList, log loghelper.Logger) []reconcile.Request {
 	if err := c.List(ctx, list); err != nil {
+		if log != nil {
+			log.Errorf("list Gateway API routes %s: %v", list.GroupVersionKind().String(), err)
+		}
 		return nil
 	}
 
 	requests := make([]reconcile.Request, 0, len(list.Items))
 	for _, item := range list.Items {
-		requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{Name: item.Name, Namespace: item.Namespace}})
+		requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{Name: item.GetName(), Namespace: item.GetNamespace()}})
 	}
 	return requests
 }
 
-func listTLSRouteRequests(ctx context.Context, c client.Client) []reconcile.Request {
-	list := &gatewayv1alpha2.TLSRouteList{}
-	if err := c.List(ctx, list); err != nil {
-		return nil
-	}
-
-	requests := make([]reconcile.Request, 0, len(list.Items))
-	for _, item := range list.Items {
-		requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{Name: item.Name, Namespace: item.Namespace}})
-	}
-	return requests
+func unstructuredObject(gvk schema.GroupVersionKind) *unstructured.Unstructured {
+	obj := &unstructured.Unstructured{}
+	obj.SetGroupVersionKind(gvk)
+	return obj
 }
 
-func listGatewayRequests(ctx context.Context, c client.Client) []reconcile.Request {
-	list := &gatewayv1.GatewayList{}
-	if err := c.List(ctx, list); err != nil {
-		return nil
-	}
-
-	requests := make([]reconcile.Request, 0, len(list.Items))
-	for _, item := range list.Items {
-		requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{Name: item.Name, Namespace: item.Namespace}})
-	}
-	return requests
+func unstructuredList(gvk schema.GroupVersionKind) *unstructured.UnstructuredList {
+	list := &unstructured.UnstructuredList{}
+	list.SetGroupVersionKind(gvk)
+	return list
 }

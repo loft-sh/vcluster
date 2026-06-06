@@ -133,8 +133,15 @@ func InstallCSIHostpath(kubeContext string) func(ctx context.Context) error {
 }
 
 func kubectlApply(ctx context.Context, kubeContext string, files ...string) error {
+	return kubectlApplyWithOptions(ctx, kubeContext, nil, files...)
+}
+
+func kubectlApplyWithOptions(ctx context.Context, kubeContext string, options []string, files ...string) error {
 	for _, f := range files {
-		cmd := exec.CommandContext(ctx, "kubectl", "apply", "-f", f, "--context", kubeContext)
+		args := []string{"apply"}
+		args = append(args, options...)
+		args = append(args, "-f", f, "--context", kubeContext)
+		cmd := exec.CommandContext(ctx, "kubectl", args...)
 		if out, err := cmd.CombinedOutput(); err != nil {
 			if !strings.Contains(string(out), "already exists") {
 				return fmt.Errorf("kubectl apply -f %s: %s: %w", f, string(out), err)

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
@@ -116,10 +115,10 @@ func NewControllerContext(ctx context.Context, options *config.VirtualClusterCon
 func getLocalCacheOptions(options *config.VirtualClusterConfig) cache.Options {
 	// is multi namespace mode?
 	defaultNamespaces := make(map[string]cache.Config)
-	gatewayNamespaces := map[string]cache.Config(nil)
+	gatewayNamespaces := make(map[string]cache.Config)
 	if !options.Sync.ToHost.Namespaces.Enabled {
 		defaultNamespaces[options.HostNamespace] = cache.Config{}
-		gatewayNamespaces = fromHostGatewaySourceNamespaces(options)
+		gatewayNamespaces = gatewaySourceNamespaces(options)
 	}
 	// do we need access to another namespace to export the kubeconfig ?
 	// we will need access to all the objects that the vcluster usually has access to
@@ -145,24 +144,6 @@ func getLocalCacheOptions(options *config.VirtualClusterConfig) cache.Options {
 	}
 
 	return cacheOptions
-}
-
-func fromHostGatewaySourceNamespaces(options *config.VirtualClusterConfig) map[string]cache.Config {
-	if !options.Sync.FromHost.Gateways.Enabled {
-		return nil
-	}
-
-	gatewayNamespaces := map[string]cache.Config{}
-	for hostName := range options.Sync.FromHost.Gateways.Mappings.ByName {
-		hostNamespace, _, hasName := strings.Cut(hostName, "/")
-		if !hasName || hostNamespace == "" {
-			continue
-		}
-
-		gatewayNamespaces[hostNamespace] = cache.Config{}
-	}
-
-	return gatewayNamespaces
 }
 
 func startPlugins(ctx context.Context, virtualConfig *rest.Config, virtualRawConfig *clientcmdapi.Config, options *config.VirtualClusterConfig) error {
