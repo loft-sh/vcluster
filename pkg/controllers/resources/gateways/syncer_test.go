@@ -161,7 +161,7 @@ func TestTenantGatewaySyncToHostCreatesGatewayWhenExplicitlyEnabled(t *testing.T
 	syncCtx, object := syncertesting.FakeStartSyncer(t, registerCtx, NewToHost)
 	syncer := object.(*tenantGatewaySyncer)
 
-	virtual := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "edge"}, Spec: gatewayv1.GatewaySpec{GatewayClassName: gatewayv1.ObjectName("tenant-class")}}
+	virtual := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "edge"}, Spec: gatewayv1.GatewaySpec{GatewayClassName: "tenant-class"}}
 	_, err := syncer.SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(virtual))
 	if err != nil {
 		t.Fatalf("sync tenant Gateway to host: %v", err)
@@ -172,8 +172,90 @@ func TestTenantGatewaySyncToHostCreatesGatewayWhenExplicitlyEnabled(t *testing.T
 	if err := pClient.Get(context.Background(), expected, host); err != nil {
 		t.Fatalf("expected host Gateway %s to be created: %v", expected.String(), err)
 	}
-	if host.Spec.GatewayClassName != gatewayv1.ObjectName("tenant-class") {
+	if host.Spec.GatewayClassName != "tenant-class" {
 		t.Fatalf("expected host GatewayClassName to be preserved, got %q", host.Spec.GatewayClassName)
+	}
+}
+
+func TestTenantGatewaySyncIgnoresImportedMirror(t *testing.T) {
+	vcConfig := &pkgconfig.VirtualClusterConfig{}
+	vcConfig.Sync.ToHost.GatewayAPI.Gateways.Enabled = true
+	pClient := testingutil.NewFakeClient(scheme.Scheme)
+	vClient := testingutil.NewFakeClient(scheme.Scheme,
+		&gatewayv1.GatewayClass{ObjectMeta: metav1.ObjectMeta{Name: "tenant-class"}},
+	)
+	registerCtx := syncertesting.NewFakeRegisterContext(vcConfig, pClient, vClient)
+	syncCtx, object := syncertesting.FakeStartSyncer(t, registerCtx, NewToHost)
+	syncer := object.(*tenantGatewaySyncer)
+
+	mirror := &gatewayv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "shared-gateways", Name: "edge", Labels: map[string]string{ImportedGatewayLabel: "true"}},
+		Spec:       gatewayv1.GatewaySpec{GatewayClassName: "tenant-class"},
+	}
+	_, err := syncer.SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(mirror))
+	if err != nil {
+		t.Fatalf("expected imported mirror to be ignored by tenant Gateway syncer: %v", err)
+	}
+
+	host := &gatewayv1.Gateway{}
+	if err := pClient.Get(context.Background(), translate.Default.HostName(syncCtx, "edge", "shared-gateways"), host); err == nil {
+		t.Fatalf("did not expect tenant Gateway syncer to create a host Gateway for imported mirror")
+	}
+}
+
+func TestTenantGatewaySyncUpdatesManagedHostGatewayWhenVirtualExists(t *testing.T) {
+	vcConfig := &pkgconfig.VirtualClusterConfig{}
+	vcConfig.Sync.ToHost.GatewayAPI.Gateways.Enabled = true
+	hostName := types.NamespacedName{Namespace: testingutil.DefaultTestTargetNamespace, Name: "edge-x-team-a-x-suffix"}
+	host := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{
+		Namespace: hostName.Namespace,
+		Name:      hostName.Name,
+		Labels:    map[string]string{translate.MarkerLabel: translate.VClusterName},
+		Annotations: map[string]string{
+			translate.NameAnnotation:      "edge",
+			translate.NamespaceAnnotation: "team-a",
+		},
+	}}
+	virtual := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "edge"}, Spec: gatewayv1.GatewaySpec{GatewayClassName: "tenant-class"}}
+	pClient := testingutil.NewFakeClient(scheme.Scheme, host)
+	vClient := testingutil.NewFakeClient(scheme.Scheme,
+		virtual,
+		&gatewayv1.GatewayClass{ObjectMeta: metav1.ObjectMeta{Name: "tenant-class"}},
+	)
+	registerCtx := syncertesting.NewFakeRegisterContext(vcConfig, pClient, vClient)
+	syncCtx, object := syncertesting.FakeStartSyncer(t, registerCtx, NewToHost)
+	syncer := object.(*tenantGatewaySyncer)
+
+	_, err := syncer.Sync(syncCtx, synccontext.NewSyncEvent(host, virtual))
+	if err != nil {
+		t.Fatalf("sync managed host Gateway with existing virtual Gateway: %v", err)
+	}
+	got := &gatewayv1.Gateway{}
+	if err := pClient.Get(context.Background(), hostName, got); err != nil {
+		t.Fatalf("expected managed host Gateway to remain: %v", err)
+	}
+	if got.Spec.GatewayClassName != "tenant-class" {
+		t.Fatalf("expected managed host Gateway to be updated, got class %q", got.Spec.GatewayClassName)
+	}
+}
+
+func TestTenantGatewaySyncToVirtualIgnoresImportedHostMapping(t *testing.T) {
+	vcConfig := &pkgconfig.VirtualClusterConfig{}
+	vcConfig.Sync.ToHost.GatewayAPI.Gateways.Enabled = true
+	vcConfig.Sync.FromHost.Gateways.Mappings.ByName = map[string]string{"platform/edge": "shared-gateways/edge"}
+	host := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "platform", Name: "edge"}}
+	pClient := testingutil.NewFakeClient(scheme.Scheme, host)
+	vClient := testingutil.NewFakeClient(scheme.Scheme)
+	registerCtx := syncertesting.NewFakeRegisterContext(vcConfig, pClient, vClient)
+	syncCtx, object := syncertesting.FakeStartSyncer(t, registerCtx, NewToHost)
+	syncer := object.(*tenantGatewaySyncer)
+
+	_, err := syncer.SyncToVirtual(syncCtx, synccontext.NewSyncToVirtualEvent(host))
+	if err != nil {
+		t.Fatalf("expected imported host mapping to be ignored by tenant Gateway syncer: %v", err)
+	}
+	if err := pClient.Get(context.Background(), types.NamespacedName{Namespace: "platform", Name: "edge"}, &gatewayv1.Gateway{}); err != nil {
+		t.Fatalf("expected imported host Gateway to remain: %v", err)
 	}
 }
 
@@ -186,7 +268,7 @@ func TestTenantGatewaySyncSkipsUnavailableVirtualGatewayClass(t *testing.T) {
 	syncCtx, object := syncertesting.FakeStartSyncer(t, registerCtx, NewToHost)
 	syncer := object.(*tenantGatewaySyncer)
 
-	virtual := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "edge"}, Spec: gatewayv1.GatewaySpec{GatewayClassName: gatewayv1.ObjectName("missing")}}
+	virtual := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "edge"}, Spec: gatewayv1.GatewaySpec{GatewayClassName: "missing"}}
 	_, err := syncer.SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(virtual))
 	if err != nil {
 		t.Fatalf("expected unavailable GatewayClass to skip without reconcile error, got %v", err)
@@ -210,7 +292,7 @@ func TestTenantGatewaySyncDeletesExistingHostWhenGatewayClassBecomesUnavailable(
 	syncCtx, object := syncertesting.FakeStartSyncer(t, registerCtx, NewToHost)
 	syncer := object.(*tenantGatewaySyncer)
 
-	virtual := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "edge"}, Spec: gatewayv1.GatewaySpec{GatewayClassName: gatewayv1.ObjectName("missing")}}
+	virtual := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "edge"}, Spec: gatewayv1.GatewaySpec{GatewayClassName: "missing"}}
 	_, err := syncer.Sync(syncCtx, synccontext.NewSyncEvent(host, virtual))
 	if err != nil {
 		t.Fatalf("expected unavailable GatewayClass update to delete host without reconcile error, got %v", err)
@@ -234,7 +316,7 @@ func TestTenantGatewaySyncSkipsMappedImportedTargetButAllowsSameNamespace(t *tes
 	syncCtx, object := syncertesting.FakeStartSyncer(t, registerCtx, NewToHost)
 	syncer := object.(*tenantGatewaySyncer)
 
-	mapped := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "edge"}, Spec: gatewayv1.GatewaySpec{GatewayClassName: gatewayv1.ObjectName("tenant-class")}}
+	mapped := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "edge"}, Spec: gatewayv1.GatewaySpec{GatewayClassName: "tenant-class"}}
 	_, err := syncer.SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(mapped))
 	if err != nil {
 		t.Fatalf("expected mapped imported target to be a warning/skip, not hard error: %v", err)
@@ -243,7 +325,7 @@ func TestTenantGatewaySyncSkipsMappedImportedTargetButAllowsSameNamespace(t *tes
 		t.Fatalf("did not expect mapped imported target Gateway to sync to host")
 	}
 
-	other := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "other"}, Spec: gatewayv1.GatewaySpec{GatewayClassName: gatewayv1.ObjectName("tenant-class")}}
+	other := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "other"}, Spec: gatewayv1.GatewaySpec{GatewayClassName: "tenant-class"}}
 	_, err = syncer.SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(other))
 	if err != nil {
 		t.Fatalf("expected non-mapped Gateway in same namespace to sync: %v", err)
@@ -263,7 +345,7 @@ func TestTenantGatewaySyncSkipsImportedHostNameConflict(t *testing.T) {
 	syncCtx, object := syncertesting.FakeStartSyncer(t, registerCtx, NewToHost)
 	syncer := object.(*tenantGatewaySyncer)
 
-	virtual := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "edge"}, Spec: gatewayv1.GatewaySpec{GatewayClassName: gatewayv1.ObjectName("tenant-class")}}
+	virtual := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "edge"}, Spec: gatewayv1.GatewaySpec{GatewayClassName: "tenant-class"}}
 	_, err := syncer.SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(virtual))
 	if err != nil {
 		t.Fatalf("expected imported host conflict to be a warning/skip, not hard error: %v", err)
@@ -278,14 +360,14 @@ func TestTenantGatewaySyncSkipsImportedHostNameConflict(t *testing.T) {
 func TestTenantGatewaySyncDoesNotOverwriteUnmanagedHostGateway(t *testing.T) {
 	vcConfig := &pkgconfig.VirtualClusterConfig{}
 	vcConfig.Sync.ToHost.GatewayAPI.Gateways.Enabled = true
-	existing := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: testingutil.DefaultTestTargetNamespace, Name: "edge-x-team-a-x-suffix"}, Spec: gatewayv1.GatewaySpec{GatewayClassName: gatewayv1.ObjectName("existing-class")}}
+	existing := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: testingutil.DefaultTestTargetNamespace, Name: "edge-x-team-a-x-suffix"}, Spec: gatewayv1.GatewaySpec{GatewayClassName: "existing-class"}}
 	pClient := testingutil.NewFakeClient(scheme.Scheme, existing)
 	vClient := testingutil.NewFakeClient(scheme.Scheme, &gatewayv1.GatewayClass{ObjectMeta: metav1.ObjectMeta{Name: "tenant-class"}})
 	registerCtx := syncertesting.NewFakeRegisterContext(vcConfig, pClient, vClient)
 	syncCtx, object := syncertesting.FakeStartSyncer(t, registerCtx, NewToHost)
 	syncer := object.(*tenantGatewaySyncer)
 
-	virtual := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "edge"}, Spec: gatewayv1.GatewaySpec{GatewayClassName: gatewayv1.ObjectName("tenant-class")}}
+	virtual := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "edge"}, Spec: gatewayv1.GatewaySpec{GatewayClassName: "tenant-class"}}
 	_, err := syncer.SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(virtual))
 	if err != nil {
 		t.Fatalf("expected unmanaged host conflict to be a warning/skip, not hard error: %v", err)
@@ -295,7 +377,7 @@ func TestTenantGatewaySyncDoesNotOverwriteUnmanagedHostGateway(t *testing.T) {
 	if err := pClient.Get(context.Background(), translate.Default.HostName(syncCtx, "edge", "team-a"), host); err != nil {
 		t.Fatalf("expected existing host Gateway to remain: %v", err)
 	}
-	if host.Spec.GatewayClassName != gatewayv1.ObjectName("existing-class") {
+	if host.Spec.GatewayClassName != "existing-class" {
 		t.Fatalf("expected unmanaged host Gateway to remain untouched, got class %q", host.Spec.GatewayClassName)
 	}
 }

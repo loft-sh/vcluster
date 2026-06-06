@@ -64,6 +64,8 @@ func (g *gatewayClassSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *
 	vObj := translate.CopyObjectWithName(event.Host, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, false)
 	vObj.Spec = *event.Host.Spec.DeepCopy()
 
+	// Apply patches first, then sanitize, so a patch cannot re-inject host
+	// parametersRef topology into the tenant-visible spec.
 	err = pro.ApplyPatchesVirtualObject(ctx, nil, vObj, event.Host, ctx.Config.Sync.FromHost.GatewayClasses.Patches, true)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
@@ -85,6 +87,9 @@ func (g *gatewayClassSyncer) Sync(ctx *synccontext.SyncContext, event *syncconte
 		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.Host, reason)
 	}
 
+	// Unlike sibling from-host syncers we do not pass patcher.TranslatePatches here.
+	// Patches must run before gatewayClassSpecToVirtual sanitization so a patch
+	// cannot re-inject host parametersRef topology into the tenant-visible spec.
 	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("new syncer patcher: %w", err)
@@ -99,6 +104,7 @@ func (g *gatewayClassSyncer) Sync(ctx *synccontext.SyncContext, event *syncconte
 	event.Virtual.Annotations = maps.Clone(event.Host.Annotations)
 	event.Virtual.Labels = maps.Clone(event.Host.Labels)
 	event.Virtual.Spec = *event.Host.Spec.DeepCopy()
+	// Apply patches first, then sanitize, so parametersRef topology stays hidden.
 	if err := pro.ApplyPatchesVirtualObject(ctx, nil, event.Virtual, event.Host, ctx.Config.Sync.FromHost.GatewayClasses.Patches, true); err != nil {
 		return ctrl.Result{}, fmt.Errorf("error applying patches: %w", err)
 	}

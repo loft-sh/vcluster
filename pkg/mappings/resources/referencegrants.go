@@ -18,14 +18,12 @@ import (
 var referenceGrantsCRD string
 
 func CreateReferenceGrantMapper(ctx *synccontext.RegisterContext) (synccontext.Mapper, error) {
-	if ctx.Config.Sync.ToHost.Namespaces.Enabled {
-		err := ensureHostGatewayAPIKind(ctx, mappings.ReferenceGrants(), "sync.toHost.gatewayApi.referenceGrants.enabled")
-		if err != nil {
-			return nil, err
-		}
+	err := ensureHostGatewayAPIKind(ctx, mappings.ReferenceGrants(), "sync.toHost.gatewayApi.referenceGrants.enabled")
+	if err != nil {
+		return nil, err
 	}
 
-	err := util.EnsureCRD(ctx.Context, ctx.VirtualManager.GetConfig(), []byte(referenceGrantsCRD), mappings.ReferenceGrants())
+	err = util.EnsureCRD(ctx.Context, ctx.VirtualManager.GetConfig(), []byte(referenceGrantsCRD), mappings.ReferenceGrants())
 	if err != nil {
 		return nil, err
 	}

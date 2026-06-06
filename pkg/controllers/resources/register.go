@@ -36,6 +36,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/volumesnapshots"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertypes "github.com/loft-sh/vcluster/pkg/syncer/types"
+	gatewayapiutil "github.com/loft-sh/vcluster/pkg/util/gatewayapi"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/pkg/errors"
 )
@@ -137,28 +138,21 @@ func gatewayClassesEnabled(ctx *synccontext.RegisterContext) bool {
 }
 
 func gatewayGatewaysEnabled(ctx *synccontext.RegisterContext) bool {
-	return ctx.Config.Sync.ToHost.GatewayAPI.Gateways.Enabled
+	return gatewayapiutil.GatewaysEnabled(ctx.Config)
 }
 
 func gatewayHTTPRoutesEnabled(ctx *synccontext.RegisterContext) bool {
-	return ctx.Config.Sync.ToHost.GatewayAPI.HTTPRoutes.Enabled || ctx.Config.Sync.ToHost.GatewayAPI.Enabled
+	return gatewayapiutil.HTTPRoutesEnabled(ctx.Config)
 }
 
 func gatewayTLSRoutesEnabled(ctx *synccontext.RegisterContext) bool {
-	return ctx.Config.Sync.ToHost.GatewayAPI.TLSRoutes.Enabled
+	return gatewayapiutil.TLSRoutesEnabled(ctx.Config)
 }
 
 func gatewayBackendTLSPoliciesEnabled(ctx *synccontext.RegisterContext) bool {
-	return ctx.Config.Sync.ToHost.GatewayAPI.BackendTLSPolicies.Enabled
+	return gatewayapiutil.BackendTLSPoliciesEnabled(ctx.Config)
 }
 
 func gatewayReferenceGrantsEnabled(ctx *synccontext.RegisterContext) bool {
-	mode := ctx.Config.Sync.ToHost.GatewayAPI.ReferenceGrants.Enabled
-	if mode == "true" {
-		return true
-	}
-	if mode == "false" {
-		return false
-	}
-	return gatewayHTTPRoutesEnabled(ctx) || gatewayTLSRoutesEnabled(ctx) || gatewayBackendTLSPoliciesEnabled(ctx)
+	return gatewayapiutil.ReferenceGrantsEnabled(ctx.Config)
 }
