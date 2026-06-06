@@ -34,6 +34,12 @@ func CreateSnapshot(ctx context.Context, args []string, globalFlags *flags.Globa
 		return err
 	}
 
+	// abort in case the virtual cluster has a non-running status
+	err = validateVClusterIsRunning(vCluster)
+	if err != nil {
+		return err
+	}
+
 	if !vCluster.IsStandalone {
 		// Standalone is not Helm-deployed; no release metadata to include in the snapshot.
 
@@ -207,6 +213,16 @@ func resolveSnapshotArgs(args []string, standalone bool) (string, string, error)
 	}
 
 	return args[0], args[1], nil
+}
+
+// validateVClusterIsRunning aborts snapshot creation if the virtual cluster is not
+// running: the async snapshot request would never be reconciled, and snapshotting a
+// paused, sleeping or otherwise unhealthy control plane is not supported.
+func validateVClusterIsRunning(vCluster *find.VCluster) error {
+	if vCluster.Status != find.StatusRunning {
+		return fmt.Errorf("cannot create snapshot because virtual cluster %q is in state %q, snapshots can only be taken when the virtual cluster is in state %q", vCluster.Name, vCluster.Status, find.StatusRunning)
+	}
+	return nil
 }
 
 func checkIfVClusterSupportsSnapshotRequests(vCluster *find.VCluster, log log.Logger) error {

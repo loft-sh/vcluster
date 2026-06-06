@@ -123,7 +123,7 @@ func PauseResumeSpec() {
 func PauseResumeScaledDownSpec() {
 	Describe("pause and resume a scaled-down tenant cluster", labels.PR, labels.Core, Ordered, func() {
 		// Ordered because each spec depends on the state from the prior spec:
-		// create → scale down → pause → resume.
+		// create → scale down → pause → snapshot refused while paused → resume.
 		var (
 			suffix      string
 			clusterName string
@@ -158,6 +158,19 @@ func PauseResumeScaledDownSpec() {
 					"StatefulSet %s/%s should have loft.sh/paused=true annotation", namespace, clusterName)
 				Expect(sts.Annotations).To(HaveKeyWithValue("loft.sh/paused-replicas", "1"),
 					"StatefulSet %s/%s should have loft.sh/paused-replicas=1 annotation", namespace, clusterName)
+			})
+		})
+
+		It("should refuse to create a snapshot while the tenant cluster is paused", func(ctx context.Context) {
+			By("Attempting to create a snapshot of the paused tenant cluster", func() {
+				out, err := runVClusterCmd(ctx, "snapshot", "create", clusterName,
+					"container:///data/paused-snapshot-"+suffix+".tar.gz", "-n", namespace)
+				Expect(err).To(HaveOccurred(),
+					"snapshot create should fail for a paused tenant cluster, output: %s", out)
+				Expect(out).To(ContainSubstring("cannot create snapshot"),
+					"error should explain that the snapshot was refused")
+				Expect(out).To(ContainSubstring(string(find.StatusPaused)),
+					"error should name the tenant cluster state")
 			})
 		})
 
