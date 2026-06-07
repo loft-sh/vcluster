@@ -59,10 +59,6 @@ sync:
       enabled: false
     networkPolicies:
       enabled: false
-    volumeSnapshots:
-      enabled: false
-    volumeSnapshotContents:
-      enabled: false
     podDisruptionBudgets:
       enabled: false
     serviceAccounts:
@@ -128,8 +124,6 @@ sync:
       enabled: false
       mappings:
         byName: {}
-    volumeSnapshotClasses:
-      enabled: false
     deviceClasses:
       enabled: false
 
@@ -518,8 +512,6 @@ deploy:
     defaultIngressClass: true
   metricsServer:
     enabled: false
-  volumeSnapshotController:
-    enabled: false
 
 integrations:
   metricsServer:
@@ -594,8 +586,6 @@ rbac:
     enabled: auto
     overwriteRules: []
     extraRules: []
-  enableVolumeSnapshotRules:
-    enabled: auto
 
 networking:
   podCIDR: "10.244.0.0/16"

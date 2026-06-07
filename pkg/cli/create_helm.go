@@ -262,11 +262,6 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 		return err
 	}
 
-	err = pkgconfig.ValidateVolumeSnapshotController(vClusterConfig.Deploy.VolumeSnapshotController, vClusterConfig.PrivateNodes)
-	if err != nil {
-		return err
-	}
-
 	err = pkgconfig.ValidateCustomResourceSyncProxyConflicts(
 		vClusterConfig.Sync.ToHost.CustomResources,
 		vClusterConfig.Sync.FromHost.CustomResources,
