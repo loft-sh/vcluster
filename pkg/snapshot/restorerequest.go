@@ -6,14 +6,13 @@ import (
 
 	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
-	RestoreRequestKey                                     = "restoreRequest"
-	RequestPhaseRestoringVolumes snapshotapi.RequestPhase = "RestoringVolumes"
+	RestoreRequestKey                                        = "restoreRequest"
+	RequestPhaseRestoringEtcdBackup snapshotapi.RequestPhase = "RestoringEtcdBackup"
 )
 
 // RestoreRequest specifies vCluster restore request.
@@ -34,16 +33,13 @@ func (r *RestoreRequest) GetPhase() snapshotapi.RequestPhase {
 }
 
 type RestoreRequestSpec struct {
-	URL            string                     `json:"url,omitempty"`
-	IncludeVolumes bool                       `json:"includeVolumes,omitempty"`
-	VolumesRestore volumes.RestoreRequestSpec `json:"volumesRestore,omitempty"`
-	Options        snapshotapi.Options        `json:"-"`
+	URL     string              `json:"url,omitempty"`
+	Options snapshotapi.Options `json:"-"`
 }
 
 type RestoreRequestStatus struct {
-	Phase          snapshotapi.RequestPhase     `json:"phase,omitempty"`
-	VolumesRestore volumes.RestoreRequestStatus `json:"volumesRestore,omitempty"`
-	Error          snapshotapi.SnapshotError    `json:"error,omitempty"`
+	Phase snapshotapi.RequestPhase  `json:"phase,omitempty"`
+	Error snapshotapi.SnapshotError `json:"error,omitempty"`
 }
 
 func NewRestoreRequest(snapshotRequest snapshotapi.Request) (RestoreRequest, error) {
@@ -52,50 +48,12 @@ func NewRestoreRequest(snapshotRequest snapshotapi.Request) (RestoreRequest, err
 			CreationTimestamp: metav1.Now(),
 		},
 		Spec: RestoreRequestSpec{
-			URL:            snapshotRequest.Spec.URL,
-			IncludeVolumes: true,
-			VolumesRestore: volumes.RestoreRequestSpec{
-				Requests: []volumes.RestoreRequest{},
-			},
+			URL: snapshotRequest.Spec.URL,
 		},
 		Status: RestoreRequestStatus{
 			Phase: snapshotapi.RequestPhaseNotStarted,
-			VolumesRestore: volumes.RestoreRequestStatus{
-				Phase:                  snapshotapi.VolumeSnapshotPhaseNotStarted,
-				PersistentVolumeClaims: map[string]volumes.RestoreStatus{},
-			},
 		},
 	}
-
-	for _, volumeSnapshotRequest := range snapshotRequest.Spec.VolumeSnapshots.Requests {
-		pvcName := fmt.Sprintf("%s/%s", volumeSnapshotRequest.PersistentVolumeClaim.Namespace, volumeSnapshotRequest.PersistentVolumeClaim.Name)
-		snapshotStatus, ok := snapshotRequest.Status.VolumeSnapshots.Snapshots[pvcName]
-		if !ok {
-			return RestoreRequest{}, fmt.Errorf("volume snapshot status for PVC %s is not set", pvcName)
-		}
-		if snapshotStatus.Phase != snapshotapi.VolumeSnapshotPhaseCompleted {
-			// Volume snapshot was not successfully created
-			continue
-		}
-		if snapshotStatus.SnapshotHandle == "" {
-			return RestoreRequest{}, fmt.Errorf("snapshot handle for PVC %s is not set in the snapshot request status", pvcName)
-		}
-
-		// add volume restore request
-		volumeRestoreRequest := volumes.RestoreRequest{
-			PersistentVolumeClaim:   volumeSnapshotRequest.PersistentVolumeClaim,
-			CSIDriver:               volumeSnapshotRequest.CSIDriver,
-			VolumeSnapshotClassName: volumeSnapshotRequest.VolumeSnapshotClassName,
-			SnapshotHandle:          snapshotStatus.SnapshotHandle,
-		}
-		restoreRequest.Spec.VolumesRestore.Requests = append(restoreRequest.Spec.VolumesRestore.Requests, volumeRestoreRequest)
-
-		// set volume restore status
-		restoreRequest.Status.VolumesRestore.PersistentVolumeClaims[pvcName] = volumes.RestoreStatus{
-			Phase: snapshotapi.VolumeSnapshotPhaseNotStarted,
-		}
-	}
-
 	return restoreRequest, nil
 }
 

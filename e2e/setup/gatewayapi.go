@@ -3,8 +3,10 @@ package setup
 import (
 	"context"
 	"fmt"
+	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/loft-sh/vcluster/e2e/constants"
 )
@@ -34,4 +36,19 @@ func GatewayAPIPreSetup() func(ctx context.Context) error {
 		}
 		return kubectlApplyWithOptions(ctx, kubeContext, []string{"--server-side", "--force-conflicts"}, crds...)
 	}
+}
+
+func kubectlApplyWithOptions(ctx context.Context, kubeContext string, options []string, files ...string) error {
+	for _, f := range files {
+		args := []string{"apply"}
+		args = append(args, options...)
+		args = append(args, "-f", f, "--context", kubeContext)
+		cmd := exec.CommandContext(ctx, "kubectl", args...)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			if !strings.Contains(string(out), "already exists") {
+				return fmt.Errorf("kubectl apply -f %s: %s: %w", f, string(out), err)
+			}
+		}
+	}
+	return nil
 }

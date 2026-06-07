@@ -18,32 +18,17 @@ func (c *Reconciler) reconcileDeleting(_ context.Context, configMap *corev1.Conf
 	}
 	c.logger.Debugf("Reconciling snapshot deletion request %s/%s", configMap.Namespace, configMap.Name)
 	defer c.logger.Debugf("Reconciled snapshot deletion request %s/%s, new phase is %s", configMap.Namespace, configMap.Name, snapshotRequest.Status.Phase)
-
-	if snapshotRequest.Spec.IncludeVolumes {
-		snapshotRequest.Status.Phase = snapshotapi.RequestPhaseDeletingVolumeSnapshots
-		c.eventRecorder.Eventf(
-			configMap,
-			nil,
-			corev1.EventTypeNormal,
-			"DeletingVolumeSnapshots",
-			"ReconcileSnapShotRequest",
-			"Started to delete volume snapshots for snapshot request %s/%s",
-			configMap.Namespace,
-			configMap.Name,
-		)
-	} else {
-		snapshotRequest.Status.Phase = snapshotapi.RequestPhaseDeletingEtcdBackup
-		c.eventRecorder.Eventf(
-			configMap,
-			nil,
-			corev1.EventTypeNormal,
-			"DeletingEtcdBackup",
-			"ReconcileSnapShotRequest",
-			"Started to delete etcd backup for snapshot request %s/%s",
-			configMap.Namespace,
-			configMap.Name,
-		)
-	}
+	snapshotRequest.Status.Phase = snapshotapi.RequestPhaseDeletingEtcdBackup
+	c.eventRecorder.Eventf(
+		configMap,
+		nil,
+		corev1.EventTypeNormal,
+		"DeletingEtcdBackup",
+		"ReconcileSnapShotRequest",
+		"Started to delete etcd backup for snapshot request %s/%s",
+		configMap.Namespace,
+		configMap.Name,
+	)
 	return nil
 }
 

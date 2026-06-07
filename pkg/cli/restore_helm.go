@@ -29,23 +29,20 @@ const (
 	RestoreResourceQuota = "vcluster-restore"
 )
 
-func Restore(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshotapi.Options, podOpts *pod.Options, newVCluster, restoreVolumes, standalone bool, log log.Logger) error {
+func Restore(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshotapi.Options, podOpts *pod.Options, newVCluster, standalone bool, log log.Logger) error {
 	// init kube client and vCluster
 	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log, true, standalone)
 	if err != nil {
 		return err
 	}
 
-	return restoreVCluster(ctx, kubeClient, restConfig, vCluster, snapshotOpts, podOpts, newVCluster, restoreVolumes, log)
+	return restoreVCluster(ctx, kubeClient, restConfig, vCluster, snapshotOpts, podOpts, newVCluster, log)
 }
 
-func restoreVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, restConfig *rest.Config, vCluster *find.VCluster, snapshotOpts *snapshotapi.Options, podOptions *pod.Options, newVCluster bool, restoreVolumes bool, log log.Logger) error {
+func restoreVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, restConfig *rest.Config, vCluster *find.VCluster, snapshotOpts *snapshotapi.Options, podOptions *pod.Options, newVCluster bool, log log.Logger) error {
 	cmdArgs := []string{"restore"}
 	if newVCluster {
 		cmdArgs = append(cmdArgs, "--new-vcluster")
-	}
-	if restoreVolumes {
-		cmdArgs = append(cmdArgs, "--restore-volumes")
 	}
 
 	if vCluster.IsStandalone {

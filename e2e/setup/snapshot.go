@@ -18,13 +18,6 @@ import (
 // vCluster's host namespace.
 func SnapshotPreSetup(vclusterName string) func(ctx context.Context) error {
 	return func(ctx context.Context) error {
-		kubeContext := "kind-" + constants.GetHostClusterName()
-
-		// Install CSI hostpath driver + snapshot CRDs + controller
-		if err := InstallCSIHostpath(kubeContext)(ctx); err != nil {
-			return fmt.Errorf("install CSI hostpath: %w", err)
-		}
-
 		// Create snapshot-data PVC
 		return createSnapshotDataPVC(vclusterName)(ctx)
 	}

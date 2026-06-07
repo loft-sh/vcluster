@@ -148,6 +148,10 @@ type SnapshotsAuto struct {
 	// Storage specifies where the snapshot will be stored
 	// +optional
 	Storage *SnapshotStorage `json:"storage,omitempty" yaml:"storage,omitempty"`
+
+	// Volumes specifies configuration for volume snapshots
+	// +optional
+	Volumes *SnapshotVolumes `json:"volumes,omitempty" yaml:"volumes,omitempty"`
 }
 
 // SnapshotStorage holds snapshot storage configuration
@@ -247,6 +251,13 @@ type SnapshotRetention struct {
 	// MaxSnapshots defines the number of snapshots that can be taken
 	// +optional
 	MaxSnapshots int `json:"maxSnapshots,omitempty"`
+}
+
+// SnapshotVolumes holds volume snapshot configuration
+type SnapshotVolumes struct {
+	// Enabled specifies whether a snapshot should also include volumes in the snapshot
+	// +optional
+	Enabled bool `json:"enabled,omitempty"`
 }
 
 // SnapshotSecretCredential holds secret reference for credentials

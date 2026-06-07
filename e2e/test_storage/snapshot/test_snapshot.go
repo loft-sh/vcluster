@@ -4,11 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
-	"github.com/ghodss/yaml"
-	snapshotsv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/clientset/versioned"
 	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	loftlog "github.com/loft-sh/log"
@@ -17,22 +14,18 @@ import (
 	"github.com/loft-sh/vcluster/e2e/labels"
 	"github.com/loft-sh/vcluster/pkg/cli"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
-	vclusterconfig "github.com/loft-sh/vcluster/pkg/config"
 	pkgconstants "github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/etcd"
-	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
 	appsv1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/utils/ptr"
 )
@@ -235,7 +228,7 @@ func describeSnapshotRestore(s *snapshotCtx) {
 		})
 
 		It("Creates the snapshot", func(ctx context.Context) {
-			createSnapshot(s.vClusterName, s.vClusterNS, s.kubeconfig, true, snapshotPath, false)
+			createSnapshot(s.vClusterName, s.vClusterNS, s.kubeconfig, true, snapshotPath)
 			waitForSnapshotToBeCreated(ctx, s.hostClient, s.vClusterNS)
 		})
 
@@ -263,7 +256,7 @@ func describeSnapshotRestore(s *snapshotCtx) {
 			})
 
 			By("Restoring the vCluster from snapshot", func() {
-				restoreVCluster(ctx, s.hostClient, s.vClusterName, s.vClusterNS, snapshotPath, s.kubeconfig, true, false)
+				restoreVCluster(ctx, s.hostClient, s.vClusterName, s.vClusterNS, snapshotPath, s.kubeconfig, true)
 				s.refreshClient(ctx)
 			})
 
@@ -315,105 +308,6 @@ func describeSnapshotRestore(s *snapshotCtx) {
 		})
 	})
 
-	// Ordered: create snapshot with volumes -> verify VolumeSnapshot cleanup -> delete PVC -> restore with volumes -> verify PVC bound + data.
-	// Each spec depends on snapshot/restore state from prior specs.
-	Describe("controller-based snapshot with volumes", Ordered, func() {
-		var (
-			testNS, snapshotPath, testFileName, pvcData string
-			pvcToRestoreName                            = "test-pvc-restore"
-		)
-
-		BeforeAll(func(ctx context.Context) {
-			testNS = "vol-snapshot-" + random.String(6)
-			snapshotPath = "container:///snapshot-data/" + testNS + ".tar.gz"
-			testFileName = testNS + ".txt"
-			pvcData = "Hello " + testNS
-			cleanupAllSnapshotArtifacts(ctx, s.hostClient, s.vClusterNS)
-
-			// Clean up any VolumeSnapshots left by prior Ordered groups (canceling, deletion)
-			// so this group starts with a clean slate.
-			hostRestConfig := cluster.From(ctx, constants.GetHostClusterName()).KubernetesRestConfig()
-			vsClient, err := snapshotsv1.NewForConfig(hostRestConfig)
-			Expect(err).To(Succeed())
-			err = vsClient.SnapshotV1().VolumeSnapshots(s.vClusterNS).DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
-			Expect(err).To(Succeed())
-			err = vsClient.SnapshotV1().VolumeSnapshotContents().DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
-			Expect(err).To(Succeed())
-			Eventually(func(g Gomega) {
-				vs, err := vsClient.SnapshotV1().VolumeSnapshots(s.vClusterNS).List(ctx, metav1.ListOptions{})
-				g.Expect(err).To(Succeed())
-				g.Expect(vs.Items).To(BeEmpty(), "waiting for VolumeSnapshots cleanup")
-			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
-
-			s.deployTestResources(ctx, testNS)
-			createPVCWithData(ctx, s.vClusterClient, testNS, pvcToRestoreName, testFileName, pvcData)
-		})
-
-		It("Creates the snapshot and verifies VolumeSnapshots are cleaned up", func(ctx context.Context) {
-			By("Creating the snapshot with volumes", func() {
-				createSnapshot(s.vClusterName, s.vClusterNS, s.kubeconfig, true, snapshotPath, true)
-				waitForSnapshotToBeCreated(ctx, s.hostClient, s.vClusterNS)
-			})
-
-			By("Verifying VolumeSnapshots are cleaned up after snapshot completes", func() {
-				vClusterRelease, err := helm.NewSecrets(s.hostClient).Get(ctx, s.vClusterName, s.vClusterNS)
-				Expect(err).To(Succeed())
-				vConfigValues, err := yaml.Marshal(vClusterRelease.Config)
-				Expect(err).To(Succeed())
-				vClusterConfig, err := vclusterconfig.ParseConfigBytes(vConfigValues, s.vClusterName, nil)
-				Expect(err).To(Succeed())
-
-				var restConfig *rest.Config
-				var vsNS string
-				if vClusterConfig.PrivateNodes.Enabled {
-					currentClusterName := cluster.CurrentClusterNameFrom(ctx)
-					restConfig = cluster.From(ctx, currentClusterName).KubernetesRestConfig()
-					vsNS = testNS
-				} else {
-					restConfig = cluster.From(ctx, constants.GetHostClusterName()).KubernetesRestConfig()
-					vsNS = s.vClusterNS
-				}
-				snapshotClient, err := snapshotsv1.NewForConfig(restConfig)
-				Expect(err).To(Succeed())
-
-				Eventually(func(g Gomega) {
-					vs, err := snapshotClient.SnapshotV1().VolumeSnapshots(vsNS).List(ctx, metav1.ListOptions{
-						LabelSelector: "vcluster.loft.sh/persistentvolumeclaim",
-					})
-					g.Expect(err).To(Succeed())
-					g.Expect(vs.Items).To(BeEmpty(), "VolumeSnapshots still exist: %d remaining", len(vs.Items))
-				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
-
-				Eventually(func(g Gomega) {
-					vsc, err := snapshotClient.SnapshotV1().VolumeSnapshotContents().List(ctx, metav1.ListOptions{})
-					g.Expect(err).To(Succeed())
-					g.Expect(vsc.Items).To(BeEmpty(), "VolumeSnapshotContents still exist: %d remaining", len(vsc.Items))
-				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
-			})
-		})
-
-		It("Restores vCluster with volumes and verifies PVC data", func(ctx context.Context) {
-			deletePVC(ctx, s.vClusterClient, s.hostClient, s.vClusterName, s.vClusterNS, testNS, pvcToRestoreName)
-			// PVC restored without data in previous specs; delete again for proper restore
-			deletePVC(ctx, s.vClusterClient, s.hostClient, s.vClusterName, s.vClusterNS, testNS, pvcToRestoreName)
-			restoreVCluster(ctx, s.hostClient, s.vClusterName, s.vClusterNS, snapshotPath, s.kubeconfig, true, true)
-			s.refreshClient(ctx)
-
-			Eventually(func(g Gomega) {
-				pvc, err := s.vClusterClient.CoreV1().PersistentVolumeClaims(testNS).Get(ctx, pvcToRestoreName, metav1.GetOptions{})
-				g.Expect(err).To(Succeed())
-				g.Expect(pvc.Status.Phase).To(Equal(corev1.ClaimBound))
-			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
-
-			checkPVCData(ctx, s.vClusterClient, testNS, pvcToRestoreName, testFileName, pvcData)
-		})
-
-		AfterAll(func(ctx context.Context) {
-			deletePVC(ctx, s.vClusterClient, s.hostClient, s.vClusterName, s.vClusterNS, testNS, pvcToRestoreName)
-			deleteSnapshotRequestConfigMaps(ctx, s.hostClient, s.vClusterNS)
-		})
-	})
-
 	// Ordered: create snapshot while running -> scale down -> restore -> verify resources.
 	// Tests that vcluster restore works when the tenant cluster control plane has zero pods.
 	Describe("restore a scaled-down tenant cluster", Ordered, func() {
@@ -451,7 +345,7 @@ func describeSnapshotRestore(s *snapshotCtx) {
 			})
 
 			By("Creating the snapshot", func() {
-				createSnapshot(s.vClusterName, s.vClusterNS, s.kubeconfig, true, snapshotPath, false)
+				createSnapshot(s.vClusterName, s.vClusterNS, s.kubeconfig, true, snapshotPath)
 				waitForSnapshotToBeCreated(ctx, s.hostClient, s.vClusterNS)
 			})
 		})
@@ -462,7 +356,7 @@ func describeSnapshotRestore(s *snapshotCtx) {
 			})
 
 			By("Restoring the tenant cluster from snapshot", func() {
-				restoreVCluster(ctx, s.hostClient, s.vClusterName, s.vClusterNS, snapshotPath, s.kubeconfig, true, false)
+				restoreVCluster(ctx, s.hostClient, s.vClusterName, s.vClusterNS, snapshotPath, s.kubeconfig, true)
 				s.refreshClient(ctx)
 			})
 		})
@@ -519,7 +413,7 @@ func describeSnapshotRestore(s *snapshotCtx) {
 		})
 
 		By("Taking a snapshot of the tenant cluster", func() {
-			createSnapshot(s.vClusterName, s.vClusterNS, s.kubeconfig, true, snapshotPath, false)
+			createSnapshot(s.vClusterName, s.vClusterNS, s.kubeconfig, true, snapshotPath)
 			waitForSnapshotToBeCreated(ctx, s.hostClient, s.vClusterNS)
 		})
 
@@ -534,7 +428,7 @@ func describeSnapshotRestore(s *snapshotCtx) {
 		})
 
 		By("Restoring the tenant cluster from snapshot", func() {
-			restoreVCluster(ctx, s.hostClient, s.vClusterName, s.vClusterNS, snapshotPath, s.kubeconfig, true, false)
+			restoreVCluster(ctx, s.hostClient, s.vClusterName, s.vClusterNS, snapshotPath, s.kubeconfig, true)
 			s.refreshClient(ctx)
 		})
 
@@ -581,12 +475,12 @@ func describeSnapshotCanceling(s *snapshotCtx) {
 				}
 			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 
-			createSnapshot(s.vClusterName, s.vClusterNS, s.kubeconfig, true, snapshotPath, true)
+			createSnapshot(s.vClusterName, s.vClusterNS, s.kubeconfig, true, snapshotPath)
 			// Brief pause to ensure the first snapshot request is registered before
 			// the second one arrives - tests the cancellation path where a new
 			// snapshot supersedes an in-progress one.
-			time.Sleep(2 * time.Second)
-			createSnapshot(s.vClusterName, s.vClusterNS, s.kubeconfig, true, snapshotPath, true)
+			time.Sleep(time.Second)
+			createSnapshot(s.vClusterName, s.vClusterNS, s.kubeconfig, true, snapshotPath)
 		})
 
 		It("Has 2 snapshot requests", func(ctx context.Context) {
@@ -600,37 +494,8 @@ func describeSnapshotCanceling(s *snapshotCtx) {
 		})
 
 		It("Canceled the previous snapshot request", func(ctx context.Context) {
-			vClusterRelease, err := helm.NewSecrets(s.hostClient).Get(ctx, s.vClusterName, s.vClusterNS)
-			Expect(err).To(Succeed())
-			vConfigValues, err := yaml.Marshal(vClusterRelease.Config)
-			Expect(err).To(Succeed())
-			vClusterConfig, err := vclusterconfig.ParseConfigBytes(vConfigValues, s.vClusterName, nil)
-			Expect(err).To(Succeed())
-
-			var restConfig *rest.Config
-			var vsNS string
-			if vClusterConfig.PrivateNodes.Enabled {
-				currentClusterName := cluster.CurrentClusterNameFrom(ctx)
-				restConfig = cluster.From(ctx, currentClusterName).KubernetesRestConfig()
-				vsNS = testNS
-			} else {
-				restConfig = cluster.From(ctx, constants.GetHostClusterName()).KubernetesRestConfig()
-				vsNS = s.vClusterNS
-			}
-			snapshotClient, err := snapshotsv1.NewForConfig(restConfig)
-			Expect(err).To(Succeed())
-
 			Eventually(func(g Gomega) {
 				previousReq, _ := getTwoSnapshotRequests(g, ctx, s.hostClient, s.vClusterNS)
-				for pvcName, vsStatus := range previousReq.Status.VolumeSnapshots.Snapshots {
-					pvcParts := strings.Split(pvcName, "/")
-					g.Expect(pvcParts).To(HaveLen(2))
-					vsName := fmt.Sprintf("%s-%s", pvcParts[1], previousReq.Name)
-					_, err := snapshotClient.SnapshotV1().VolumeSnapshots(vsNS).Get(ctx, vsName, metav1.GetOptions{})
-					g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
-					g.Expect(vsStatus.Phase).To(Equal(snapshotapi.VolumeSnapshotPhaseCanceled))
-				}
-				g.Expect(previousReq.Status.VolumeSnapshots.Phase).To(Equal(snapshotapi.VolumeSnapshotPhaseCanceled))
 				g.Expect(previousReq.Status.Phase).To(Equal(snapshotapi.RequestPhaseCanceled))
 			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
 		})
@@ -638,11 +503,6 @@ func describeSnapshotCanceling(s *snapshotCtx) {
 		It("Completed the new snapshot request", func(ctx context.Context) {
 			Eventually(func(g Gomega) {
 				_, newerReq := getTwoSnapshotRequests(g, ctx, s.hostClient, s.vClusterNS)
-				for pvcName, vs := range newerReq.Status.VolumeSnapshots.Snapshots {
-					g.Expect(vs.Phase).To(Equal(snapshotapi.VolumeSnapshotPhaseCompleted),
-						"volume snapshot for PVC %s not completed: %s", pvcName, toJSON(vs))
-				}
-				g.Expect(newerReq.Status.VolumeSnapshots.Phase).To(Equal(snapshotapi.VolumeSnapshotPhaseCompleted))
 				g.Expect(newerReq.Status.Phase).To(Equal(snapshotapi.RequestPhaseCompleted))
 			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
 		})
@@ -692,7 +552,7 @@ func describeSnapshotDeletion(s *snapshotCtx) {
 				}
 			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 
-			createSnapshot(s.vClusterName, s.vClusterNS, s.kubeconfig, true, snapshotPath, true)
+			createSnapshot(s.vClusterName, s.vClusterNS, s.kubeconfig, true, snapshotPath)
 		})
 
 		It("Creates snapshot deletion request", func(ctx context.Context) {
@@ -741,11 +601,6 @@ func describeSnapshotDeletion(s *snapshotCtx) {
 				req, err := snapshotapi.UnmarshalRequest(cm)
 				g.Expect(err).To(Succeed())
 				g.Expect(req.Status.Phase).To(Equal(snapshotapi.RequestPhaseDeleted))
-				g.Expect(req.Status.VolumeSnapshots.Phase).To(Equal(snapshotapi.VolumeSnapshotPhaseDeleted))
-				for pvcName, vs := range req.Status.VolumeSnapshots.Snapshots {
-					g.Expect(vs.Phase).To(Equal(snapshotapi.VolumeSnapshotPhaseDeleted),
-						"volume snapshot for PVC %s not deleted: %s", pvcName, toJSON(vs))
-				}
 			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
 		})
 
@@ -776,7 +631,7 @@ func createPVC(ctx context.Context, client kubernetes.Interface, namespace, name
 			Resources: corev1.VolumeResourceRequirements{
 				Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("1Gi")},
 			},
-			StorageClassName: ptr.To("csi-hostpath-sc"),
+			StorageClassName: ptr.To("standard"),
 		},
 	}, metav1.CreateOptions{})
 	Expect(err).To(Succeed())
@@ -806,77 +661,6 @@ func createDeploymentWithVolume(ctx context.Context, client kubernetes.Interface
 		},
 	}, metav1.CreateOptions{})
 	Expect(err).To(Succeed())
-}
-
-func createPVCWithData(ctx context.Context, client kubernetes.Interface, pvcNamespace, pvcName, testFileName, testData string) {
-	GinkgoHelper()
-	createPVC(ctx, client, pvcNamespace, pvcName)
-	deployJob(ctx, client, pvcNamespace, "write-test-data", pvcName,
-		fmt.Sprintf("echo '%s' > /data/%s", testData, testFileName), testFileName)
-}
-
-func checkPVCData(ctx context.Context, client kubernetes.Interface, pvcNamespace, pvcName, testFileName, testData string) {
-	GinkgoHelper()
-	script := fmt.Sprintf(`actual=$(cat "/data/%s"); expected=%q;
-if [ "$actual" = "$expected" ]; then echo "OK"; else echo "FAIL" >&2; exit 1; fi`, testFileName, testData)
-	deployJob(ctx, client, pvcNamespace, "check-test-data", pvcName, script, testFileName)
-}
-
-func deployJob(ctx context.Context, client kubernetes.Interface, jobNamespace, jobName, pvcName, command, testFile string) {
-	GinkgoHelper()
-	job := &batchv1.Job{
-		ObjectMeta: metav1.ObjectMeta{GenerateName: fmt.Sprintf("%s-", jobName), Namespace: jobNamespace},
-		Spec: batchv1.JobSpec{
-			BackoffLimit: ptr.To(int32(0)),
-			Template: corev1.PodTemplateSpec{
-				Spec: corev1.PodSpec{
-					RestartPolicy: corev1.RestartPolicyNever,
-					Containers: []corev1.Container{{
-						Name: "test-job", Image: "busybox:1.36",
-						Command:      []string{"sh", "-c", command},
-						VolumeMounts: []corev1.VolumeMount{{Name: "data", MountPath: "/data"}},
-						WorkingDir:   "/data",
-						ReadinessProbe: &corev1.Probe{
-							ProbeHandler:        corev1.ProbeHandler{Exec: &corev1.ExecAction{Command: []string{"sh", "-c", "test -f /data/" + testFile}}},
-							InitialDelaySeconds: 1, PeriodSeconds: 1, FailureThreshold: 10, TimeoutSeconds: 2,
-						},
-					}},
-					Volumes: []corev1.Volume{{
-						Name:         "data",
-						VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName}},
-					}},
-				},
-			},
-		},
-	}
-	job, err := client.BatchV1().Jobs(jobNamespace).Create(ctx, job, metav1.CreateOptions{})
-	Expect(err).To(Succeed())
-
-	Eventually(func(g Gomega) {
-		j, err := client.BatchV1().Jobs(jobNamespace).Get(ctx, job.Name, metav1.GetOptions{})
-		g.Expect(err).To(Succeed())
-		g.Expect(j.Status.Succeeded).To(Equal(int32(1)))
-	}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
-
-	err = client.BatchV1().Jobs(jobNamespace).Delete(ctx, job.Name, metav1.DeleteOptions{PropagationPolicy: ptr.To(metav1.DeletePropagationBackground)})
-	Expect(err).To(Succeed())
-	Eventually(func(g Gomega) {
-		_, err := client.BatchV1().Jobs(jobNamespace).Get(ctx, job.Name, metav1.GetOptions{})
-		g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
-	}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
-}
-
-func deletePVC(ctx context.Context, vClusterClient, _ kubernetes.Interface, _, _, pvcNamespace, pvcName string) {
-	GinkgoHelper()
-	err := vClusterClient.CoreV1().PersistentVolumeClaims(pvcNamespace).Delete(ctx, pvcName, metav1.DeleteOptions{})
-	if kerrors.IsNotFound(err) {
-		return
-	}
-	Expect(err).To(Succeed())
-	Eventually(func(g Gomega) {
-		_, err := vClusterClient.CoreV1().PersistentVolumeClaims(pvcNamespace).Get(ctx, pvcName, metav1.GetOptions{})
-		g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
-	}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 }
 
 func getTwoSnapshotRequests(g Gomega, ctx context.Context, hostClient kubernetes.Interface, vClusterNamespace string) (*snapshotapi.Request, *snapshotapi.Request) {
