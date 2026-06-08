@@ -1,0 +1,28 @@
+controlPlane:
+  statefulSet:
+    image:
+      registry: ""
+      repository: {{ .Repository }}
+      tag: {{ .Tag }}
+sync:
+  fromHost:
+    gatewayClasses:
+      enabled: true
+      selector:
+        matchLabels:
+          e2e.vcluster.loft.sh/gatewayclass: gatewayapi-fromhostboth
+    gateways:
+      enabled: true
+      mappings:
+        byName:
+          "gwapi-host-both/edge": "gwapi-import-both/edge"
+  toHost:
+    services:
+      enabled: true
+    gatewayApi:
+      gateways:
+        enabled: true
+      httpRoutes:
+        enabled: true
+      referenceGrants:
+        enabled: auto

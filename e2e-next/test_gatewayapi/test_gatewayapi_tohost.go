@@ -256,6 +256,49 @@ func GatewayAPIToHostSpec() {
 				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 			})
 		})
+
+		It("does not sync an HTTPRoute whose parentRef points at a non-existent Gateway and recovers when the parentRef is patched", func(ctx context.Context) {
+			suffix := random.String(6)
+			class := createGatewayClass(ctx, hostClient, "gc-noparent-"+suffix, gatewayClassSelectorValue, "no-parent class")
+			Eventually(func(g Gomega) {
+				g.Expect(vClusterClient.Get(ctx, types.NamespacedName{Name: class.Name}, &gatewayv1.GatewayClass{})).To(Succeed())
+			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+
+			ns := createTenantNamespace(ctx, vClusterClient, "noparent-"+suffix)
+			svc := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "backend-" + suffix, Namespace: ns.Name}, Spec: corev1.ServiceSpec{Ports: []corev1.ServicePort{{Port: 80}}}}
+			Expect(vClusterClient.Create(ctx, svc)).To(Succeed())
+
+			By("creating an HTTPRoute whose parentRef names a Gateway that does not exist", func() {
+				route := tenantHTTPRoute(ns.Name, "route-"+suffix, "ghost-"+suffix, svc.Name)
+				Expect(vClusterClient.Create(ctx, route)).To(Succeed())
+				DeferCleanup(func(ctx context.Context) {
+					Expect(ctrlclient.IgnoreNotFound(vClusterClient.Delete(ctx, route))).To(Succeed())
+				})
+
+				hostRouteName := translate.SafeConcatName(route.Name, "x", ns.Name, "x", vClusterName)
+				Consistently(func(g Gomega) {
+					err := hostClient.Get(ctx, types.NamespacedName{Namespace: vClusterHostNS, Name: hostRouteName}, &gatewayv1.HTTPRoute{})
+					g.Expect(kerrors.IsNotFound(err)).To(BeTrue(), "HTTPRoute must not sync when parent Gateway is missing")
+				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutShort).Should(Succeed())
+
+				By("creating the parent Gateway and patching the route to reference it", func() {
+					gw := tenantGateway(ns.Name, "real-gw-"+suffix, class.Name)
+					Expect(vClusterClient.Create(ctx, gw)).To(Succeed())
+					DeferCleanup(func(ctx context.Context) {
+						Expect(ctrlclient.IgnoreNotFound(vClusterClient.Delete(ctx, gw))).To(Succeed())
+					})
+
+					current := &gatewayv1.HTTPRoute{}
+					Expect(vClusterClient.Get(ctx, ctrlclient.ObjectKeyFromObject(route), current)).To(Succeed())
+					current.Spec.ParentRefs[0].Name = gatewayv1.ObjectName(gw.Name)
+					Expect(vClusterClient.Update(ctx, current)).To(Succeed())
+
+					Eventually(func(g Gomega) {
+						g.Expect(hostClient.Get(ctx, types.NamespacedName{Namespace: vClusterHostNS, Name: hostRouteName}, &gatewayv1.HTTPRoute{})).To(Succeed())
+					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+				})
+			})
+		})
 	})
 }
 
