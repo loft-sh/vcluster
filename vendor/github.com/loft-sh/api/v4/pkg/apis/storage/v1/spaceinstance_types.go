@@ -83,7 +83,7 @@ type SpaceInstanceSpec struct {
 	// +optional
 	Parameters string `json:"parameters,omitempty"`
 
-	// ExtraAccessRules defines extra rules which users and teams should have which access to the virtual
+	// ExtraAccessRules defines extra rules which users and teams should have which access to the tenant
 	// cluster.
 	// +optional
 	ExtraAccessRules []InstanceAccessRule `json:"extraAccessRules,omitempty"`
@@ -106,7 +106,7 @@ type ClusterRef struct {
 type VirtualClusterClusterRef struct {
 	ClusterRef `json:",inline"`
 
-	// VirtualCluster is the name of the virtual cluster inside the namespace
+	// VirtualCluster is the name of the tenant cluster inside the namespace
 	// +optional
 	VirtualCluster string `json:"virtualCluster,omitempty"`
 }
@@ -144,11 +144,11 @@ type SpaceInstanceStatus struct {
 	// +optional
 	Message string `json:"message,omitempty"`
 
-	// Conditions holds several conditions the virtual cluster might be in
+	// Conditions holds several conditions the tenant cluster might be in
 	// +optional
 	Conditions agentstoragev1.Conditions `json:"conditions,omitempty"`
 
-	// SpaceObjects are the objects that were applied within the virtual cluster space
+	// SpaceObjects are the objects that were applied within the tenant cluster space
 	// +optional
 	SpaceObjects *ObjectsStatus `json:"spaceObjects,omitempty"`
 
@@ -157,11 +157,11 @@ type SpaceInstanceStatus struct {
 	Space *SpaceTemplateDefinition `json:"space,omitempty"`
 
 	// IgnoreReconciliation tells the controller to ignore reconciliation for this instance -- this
-	// is primarily used when migrating virtual cluster instances from project to project; this
-	// prevents a situation where there are two virtual cluster instances representing the same
-	// virtual cluster which could cause issues with concurrent reconciliations of the same object.
-	// Once the virtual cluster instance has been cloned and placed into the new project, this
-	// (the "old") virtual cluster instance can safely be deleted.
+	// is primarily used when migrating tenant cluster instances from project to project; this
+	// prevents a situation where there are two tenant cluster instances representing the same
+	// tenant cluster which could cause issues with concurrent reconciliations of the same object.
+	// Once the tenant cluster instance has been cloned and placed into the new project, this
+	// (the "old") tenant cluster instance can safely be deleted.
 	IgnoreReconciliation bool `json:"ignoreReconciliation,omitempty"`
 }
 
@@ -171,7 +171,7 @@ type InstanceDeployedAppStatus struct {
 	Name string `json:"name,omitempty"`
 
 	// Namespace specifies in which target namespace the app should
-	// get deployed in. Only used for virtual cluster apps.
+	// get deployed in. Only used for tenant cluster apps.
 	// +optional
 	Namespace string `json:"namespace,omitempty"`
 

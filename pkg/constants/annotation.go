@@ -11,6 +11,12 @@ const (
 
 	HostClusterVSCAnnotation = "vcluster.loft.sh/host-volumesnapshotcontent"
 
+	// PreserveRequestMirrorFiltersAnnotation keeps host-added HTTPRoute RequestMirror filters.
+	PreserveRequestMirrorFiltersAnnotation = "vcluster.loft.sh/preserve-request-mirror-filters"
+
+	// PreserveHostRuleAnnotation names a host HTTPRoute rule that vCluster should preserve.
+	PreserveHostRuleAnnotation = "vcluster.loft.sh/preserve-host-rule"
+
 	// NodeSuffix is the dns suffix for our nodes
 	NodeSuffix = "nodes.vcluster.com"
 

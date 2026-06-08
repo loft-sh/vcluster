@@ -30,9 +30,6 @@ const (
 )
 
 func Restore(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshotapi.Options, podOpts *pod.Options, newVCluster, restoreVolumes, standalone bool, log log.Logger) error {
-	if restoreVolumes {
-		log.Warnf("WARNING: --restore-volumes is deprecated and will be removed in an upcoming release.")
-	}
 	// init kube client and vCluster; restore intentionally operates on a non-running
 	// virtual cluster (it pauses it), so the running-state guard must not be applied
 	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log, true, standalone, false)

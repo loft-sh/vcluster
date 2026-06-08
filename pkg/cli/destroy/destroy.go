@@ -61,6 +61,7 @@ var resourceOrder = []string{
 	"nodeproviders",
 	"nodetypes",
 	"osimages",
+	"machineconfigtemplates",
 	"sshkeys",
 
 	// access
@@ -155,8 +156,7 @@ func destroy(ctxWithoutTimeout context.Context, opts DeleteOptions) error {
 
 	unhandledResourceSet := clusterResourceSet.Difference(handledResourceSet)
 	if unhandledResourceSet.Len() != 0 {
-		opts.Log.Errorf("some storage.loft.sh resources are unhandled: %v. Try a newer cli version", unhandledResourceSet.UnsortedList())
-		return err
+		return fmt.Errorf("some storage.loft.sh resources are unhandled: %v, try a newer cli version", unhandledResourceSet.UnsortedList())
 	}
 
 	for _, resourceName := range resourceOrder {

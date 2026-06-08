@@ -88,6 +88,9 @@ type MethodSSO struct {
 
 	// LogoutEndpoint is the path the UI will request a logout url from
 	LogoutEndpoint string `json:"logoutEndpoint,omitempty"`
+
+	// TokenEndpoint is the path for RFC 8693 token exchange (non-interactive authentication)
+	TokenEndpoint string `json:"tokenEndpoint,omitempty"`
 }
 
 type MethodPassword struct {

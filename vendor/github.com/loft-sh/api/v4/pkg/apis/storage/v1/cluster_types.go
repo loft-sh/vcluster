@@ -105,7 +105,7 @@ type ClusterSpec struct {
 	// +optional
 	ManagementNamespace string `json:"managementNamespace,omitempty"`
 
-	// If unusable is true, no spaces or virtual clusters can be scheduled on this cluster.
+	// If unusable is true, no spaces or tenant clusters can be scheduled on this cluster.
 	// +optional
 	Unusable bool `json:"unusable,omitempty"`
 

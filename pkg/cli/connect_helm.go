@@ -193,6 +193,7 @@ func writeKubeConfig(kubeConfig *clientcmdapi.Config, vClusterName string, optio
 		if err != nil {
 			return err
 		}
+		fixFileOwnershipUnderSudo(clientcmd.NewDefaultClientConfigLoadingRules().GetDefaultFilename())
 
 		log.Donef("Switched active kube context to %s", options.KubeConfigContextName)
 		if !options.BackgroundProxy && portForwarding {
@@ -227,6 +228,7 @@ func writeKubeConfig(kubeConfig *clientcmdapi.Config, vClusterName string, optio
 		if err != nil {
 			return fmt.Errorf("write kube config: %w", err)
 		}
+		fixFileOwnershipUnderSudo(options.KubeConfig)
 
 		log.Donef("Virtual cluster kube config written to: %s", options.KubeConfig)
 		if options.Server == "" {

@@ -359,7 +359,7 @@ func (o *RestoreClient) postRestoreSnapshotDataMutation(ctx context.Context, vCo
 		return fmt.Errorf("failed to wait for embedded etcd: %w", err)
 	}
 
-	etcdClient, err := etcd.GetEtcdClient(ctx, zap.L().Named("etcd-client"), etcdCertificates, etcdEndpoint)
+	etcdClient, err := etcd.GetEtcdClient(ctx, etcdCertificates, etcdEndpoint)
 	if err != nil {
 		return fmt.Errorf("failed to get etcd client: %w", err)
 	}

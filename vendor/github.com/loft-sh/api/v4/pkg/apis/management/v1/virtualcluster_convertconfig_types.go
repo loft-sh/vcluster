@@ -8,7 +8,7 @@ import (
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// ConvertVirtualClusterConfig holds config request and response data for virtual clusters
+// ConvertVirtualClusterConfig holds config request and response data for tenant clusters
 // +k8s:openapi-gen=true
 // +resource:path=convertvirtualclusterconfig,rest=ConvertVirtualClusterConfigREST
 type ConvertVirtualClusterConfig struct {
@@ -21,7 +21,7 @@ type ConvertVirtualClusterConfig struct {
 
 // ConvertVirtualClusterConfigSpec holds the specification
 type ConvertVirtualClusterConfigSpec struct {
-	// Annotations are annotations on the virtual cluster
+	// Annotations are annotations on the tenant cluster
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
 
@@ -29,14 +29,14 @@ type ConvertVirtualClusterConfigSpec struct {
 	// +optional
 	Distro string `json:"distro,omitempty"`
 
-	// Values are the config values for the virtual cluster
+	// Values are the config values for the tenant cluster
 	// +optional
 	Values string `json:"values,omitempty"`
 }
 
 // ConvertVirtualClusterConfigStatus holds the status
 type ConvertVirtualClusterConfigStatus struct {
-	// Values are the converted config values for the virtual cluster
+	// Values are the converted config values for the tenant cluster
 	// +optional
 	Values string `json:"values,omitempty"`
 

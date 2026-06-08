@@ -18,6 +18,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gatewayv1alpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
+	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 func NewMappingsRegistry(store synccontext.MappingsStore) synccontext.MappingsRegistry {
@@ -141,6 +145,45 @@ func NetworkingPolicies() schema.GroupVersionKind {
 
 func Ingresses() schema.GroupVersionKind {
 	return networkingv1.SchemeGroupVersion.WithKind("Ingress")
+}
+
+// gatewayGVK builds a Gateway API GroupVersionKind. It does not use
+// gatewayv1.SchemeGroupVersion.WithKind because that symbol is deprecated; the
+// non-deprecated gatewayv1.GroupVersion is a metav1.GroupVersion without WithKind.
+func gatewayGVK(kind string) schema.GroupVersionKind {
+	return gatewayVersionGVK(gatewayv1.GroupVersion.Version, kind)
+}
+
+func gatewayVersionGVK(version, kind string) schema.GroupVersionKind {
+	return schema.GroupVersionKind{
+		Group:   gatewayv1.GroupName,
+		Version: version,
+		Kind:    kind,
+	}
+}
+
+func Gateways() schema.GroupVersionKind {
+	return gatewayGVK("Gateway")
+}
+
+func HTTPRoutes() schema.GroupVersionKind {
+	return gatewayGVK("HTTPRoute")
+}
+
+func TLSRoutes() schema.GroupVersionKind {
+	return gatewayVersionGVK(gatewayv1alpha2.GroupVersion.Version, "TLSRoute")
+}
+
+func BackendTLSPolicies() schema.GroupVersionKind {
+	return gatewayVersionGVK(gatewayv1alpha3.GroupVersion.Version, "BackendTLSPolicy")
+}
+
+func ReferenceGrants() schema.GroupVersionKind {
+	return gatewayVersionGVK(gatewayv1beta1.GroupVersion.Version, "ReferenceGrant")
+}
+
+func GatewayClasses() schema.GroupVersionKind {
+	return gatewayGVK("GatewayClass")
 }
 
 func PersistentVolumeClaims() schema.GroupVersionKind {

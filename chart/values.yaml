@@ -81,6 +81,30 @@ sync:
     ingresses:
       # Enabled defines if this option should be enabled.
       enabled: false
+    # GatewayAPI defines Gateway API resources created within the tenant cluster that should get synced to the control plane cluster.
+    gatewayApi:
+      # Enabled defines if this option should be enabled.
+      enabled: false
+      # HTTPRoutes configures HTTPRoute sync to the control plane cluster.
+      httpRoutes:
+        # Enabled defines if this option should be enabled.
+        enabled: false
+      # Gateways configures tenant-created Gateway sync to the control plane cluster.
+      gateways:
+        # Enabled defines if this option should be enabled.
+        enabled: false
+      # TLSRoutes configures TLSRoute sync to the control plane cluster.
+      tlsRoutes:
+        # Enabled defines if this option should be enabled.
+        enabled: false
+      # BackendTLSPolicies configures BackendTLSPolicy sync to the control plane cluster.
+      backendTLSPolicies:
+        # Enabled defines if this option should be enabled.
+        enabled: false
+      # ReferenceGrants configures ReferenceGrant sync to the control plane cluster. Enabled may be "auto", "true", or "false".
+      referenceGrants:
+        # Enabled defines if this option should be enabled.
+        enabled: auto
     # PriorityClasses defines if priority classes created within the virtual cluster should get synced to the host cluster.
     priorityClasses:
       # Enabled defines if this option should be enabled.
@@ -140,21 +164,21 @@ sync:
       enabled: false
       # Mappings for Namespace and Object
       mappings:
-        # ByName is a map of host-object-namespace/host-object-name: virtual-object-namespace/virtual-object-name.
+        # ByName is a map of control-plane-object-namespace/control-plane-object-name: tenant-object-namespace/tenant-object-name.
         # There are several wildcards supported:
-        # 1. To match all objects in host namespace and sync them to different namespace in vCluster:
+        # 1. To match all objects in a control plane namespace and sync them to a different namespace in the tenant cluster:
         # byName:
         #   "foo/*": "foo-in-virtual/*"
-        # 2. To match specific object in the host namespace and sync it to the same namespace with the same name:
+        # 2. To match a specific object in the control plane namespace and sync it to the same namespace with the same name:
         # byName:
         #   "foo/my-object": "foo/my-object"
-        # 3. To match specific object in the host namespace and sync it to the same namespace with different name:
+        # 3. To match a specific object in the control plane namespace and sync it to the same namespace with a different name:
         # byName:
         #   "foo/my-object": "foo/my-virtual-object"
-        # 4. To match all objects in the vCluster host namespace and sync them to a different namespace in vCluster:
+        # 4. To match all objects in the vCluster namespace and sync them to a different namespace in the tenant cluster:
         # byName:
         #   "": "my-virtual-namespace/*"
-        # 5. To match specific objects in the vCluster host namespace and sync them to a different namespace in vCluster:
+        # 5. To match specific objects in the vCluster namespace and sync them to a different namespace in the tenant cluster:
         # byName:
         #   "/my-object": "my-virtual-namespace/my-object"
         byName: {}
@@ -178,6 +202,50 @@ sync:
     ingressClasses:
       # Enabled defines if this option should be enabled.
       enabled: false
+    # GatewayClasses defines if gateway classes should get synced from the control plane cluster to the tenant cluster, but not back.
+    gatewayClasses:
+      # Enabled defines if this option should be enabled.
+      enabled: false
+    # Gateways defines if selected control plane Gateways should get synced from the control plane cluster to the tenant cluster, but not back.
+    gateways:
+      # Enabled defines if this option should be enabled.
+      enabled: false
+      # Mappings define control plane Gateway namespace/name to tenant-facing namespace/name placement.
+      mappings:
+        # ByName is a map of control-plane-object-namespace/control-plane-object-name: tenant-object-namespace/tenant-object-name.
+        # There are several wildcards supported:
+        # 1. To match all objects in a control plane namespace and sync them to a different namespace in the tenant cluster:
+        # byName:
+        #   "foo/*": "foo-in-virtual/*"
+        # 2. To match a specific object in the control plane namespace and sync it to the same namespace with the same name:
+        # byName:
+        #   "foo/my-object": "foo/my-object"
+        # 3. To match a specific object in the control plane namespace and sync it to the same namespace with a different name:
+        # byName:
+        #   "foo/my-object": "foo/my-virtual-object"
+        # 4. To match all objects in the vCluster namespace and sync them to a different namespace in the tenant cluster:
+        # byName:
+        #   "": "my-virtual-namespace/*"
+        # 5. To match specific objects in the vCluster namespace and sync them to a different namespace in the tenant cluster:
+        # byName:
+        #   "/my-object": "my-virtual-namespace/my-object"
+        byName: {}
+      # Selector defines the selector to use for the resource. If not set, all resources of that type will be synced.
+      selector: {}
+      # AllowedRoutes configures the tenant-facing allowedRoutes policy shown on imported Gateways and enforced for Routes.
+      allowedRoutes:
+        defaultVirtualNamespacePolicy: {}
+        overrides: []
+      # Status configures how Gateway status is mirrored.
+      status:
+        exposeAddresses: false
+      # Metadata configures imported Gateway metadata visibility.
+      metadata:
+        exposeSourceGateway: false
+      # Sanitize configures sensitive control plane field sanitization.
+      sanitize:
+        certificateRefs: true
+        infrastructure: true
     # RuntimeClasses defines if runtime classes should get synced from the host cluster to the virtual cluster, but not back.
     runtimeClasses:
       # Enabled defines if this option should be enabled.
@@ -205,21 +273,21 @@ sync:
       enabled: false
       # Mappings for Namespace and Object
       mappings:
-        # ByName is a map of host-object-namespace/host-object-name: virtual-object-namespace/virtual-object-name.
+        # ByName is a map of control-plane-object-namespace/control-plane-object-name: tenant-object-namespace/tenant-object-name.
         # There are several wildcards supported:
-        # 1. To match all objects in host namespace and sync them to different namespace in vCluster:
+        # 1. To match all objects in a control plane namespace and sync them to a different namespace in the tenant cluster:
         # byName:
         #   "foo/*": "foo-in-virtual/*"
-        # 2. To match specific object in the host namespace and sync it to the same namespace with the same name:
+        # 2. To match a specific object in the control plane namespace and sync it to the same namespace with the same name:
         # byName:
         #   "foo/my-object": "foo/my-object"
-        # 3. To match specific object in the host namespace and sync it to the same namespace with different name:
+        # 3. To match a specific object in the control plane namespace and sync it to the same namespace with a different name:
         # byName:
         #   "foo/my-object": "foo/my-virtual-object"
-        # 4. To match all objects in the vCluster host namespace and sync them to a different namespace in vCluster:
+        # 4. To match all objects in the vCluster namespace and sync them to a different namespace in the tenant cluster:
         # byName:
         #   "": "my-virtual-namespace/*"
-        # 5. To match specific objects in the vCluster host namespace and sync them to a different namespace in vCluster:
+        # 5. To match specific objects in the vCluster namespace and sync them to a different namespace in the tenant cluster:
         # byName:
         #   "/my-object": "my-virtual-namespace/my-object"
         byName: {}

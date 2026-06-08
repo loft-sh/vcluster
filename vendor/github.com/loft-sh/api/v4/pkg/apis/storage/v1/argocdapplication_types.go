@@ -90,7 +90,7 @@ type ArgoCDDestination struct {
 }
 
 type ArgoCDDestinationVirtualCluster struct {
-	// Name of the virtual cluster
+	// Name of the tenant cluster
 	// +optional
 	Name string `json:"name,omitempty"`
 
@@ -98,7 +98,7 @@ type ArgoCDDestinationVirtualCluster struct {
 	// +optional
 	Namespace string `json:"namespace,omitempty"`
 
-	// Target of the virtual cluster
+	// Target of the tenant cluster
 	// +optional
 	Target ArgoCDDestinationVirtualClusterTarget `json:"target,omitempty"`
 }
@@ -127,7 +127,7 @@ type ArgoCDApplicationTemplateRef struct {
 }
 
 type ArgoCDApplicationStatus struct {
-	// Conditions holds several conditions the virtual cluster might be in
+	// Conditions holds several conditions the tenant cluster might be in
 	// +optional
 	Conditions agentstoragev1.Conditions `json:"conditions,omitempty"`
 

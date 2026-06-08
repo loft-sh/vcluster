@@ -82,6 +82,41 @@ rules:
     resources: ["ingresses"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- end }}
+  {{- if or .Values.sync.toHost.gatewayApi.enabled .Values.sync.toHost.gatewayApi.gateways.enabled .Values.sync.toHost.gatewayApi.httpRoutes.enabled .Values.sync.toHost.gatewayApi.tlsRoutes.enabled .Values.sync.toHost.gatewayApi.backendTLSPolicies.enabled }}
+  # Gateway API /status subresources are intentionally omitted for this block:
+  # vCluster only mirrors host status to virtual resources.
+  {{- end }}
+  {{- if .Values.sync.toHost.gatewayApi.gateways.enabled }}
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["gateways"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- if or .Values.sync.toHost.gatewayApi.enabled .Values.sync.toHost.gatewayApi.httpRoutes.enabled }}
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["httproutes"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- if .Values.sync.toHost.gatewayApi.tlsRoutes.enabled }}
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["tlsroutes"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- if .Values.sync.toHost.gatewayApi.backendTLSPolicies.enabled }}
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["backendtlspolicies"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- end }}
+  {{- if or (and (or .Values.sync.toHost.gatewayApi.enabled .Values.sync.toHost.gatewayApi.httpRoutes.enabled .Values.sync.toHost.gatewayApi.tlsRoutes.enabled .Values.sync.toHost.gatewayApi.backendTLSPolicies.enabled) .Values.sync.toHost.namespaces.enabled) .Values.integrations.istio.enabled (eq (toString .Values.sync.toHost.gatewayApi.referenceGrants.enabled) "true") }}
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["referencegrants"]
+    verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
+  {{- else if or .Values.sync.toHost.gatewayApi.enabled .Values.sync.toHost.gatewayApi.httpRoutes.enabled .Values.sync.toHost.gatewayApi.tlsRoutes.enabled .Values.sync.toHost.gatewayApi.backendTLSPolicies.enabled }}
+  # Single-namespace Gateway API sync validates virtual ReferenceGrants but does
+  # not sync them to the host because all tenant namespaces collapse together.
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["referencegrants"]
+    verbs: ["get", "list", "watch"]
+  {{- end }}
   {{- if .Values.sync.toHost.networkPolicies.enabled }}
   - apiGroups: ["networking.k8s.io"]
     resources: ["networkpolicies"]
@@ -162,9 +197,6 @@ rules:
   {{- if .Values.integrations.istio.enabled }}
   - apiGroups: [ "networking.istio.io" ]
     resources: [ "destinationrules", "gateways", "serviceentries", "virtualservices" ]
-    verbs: [ "create", "delete", "patch", "update", "get", "list", "watch" ]
-  - apiGroups: [ "gateway.networking.k8s.io" ]
-    resources: [ "referencegrants" ]
     verbs: [ "create", "delete", "patch", "update", "get", "list", "watch" ]
   {{- end }}
   {{- if .Values.experimental.nodeMonitors }}

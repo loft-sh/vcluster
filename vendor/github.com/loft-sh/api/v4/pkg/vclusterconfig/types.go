@@ -36,7 +36,7 @@ type Image struct {
 	Tag string `json:"tag,omitempty"`
 }
 
-// Sleep holds configuration for automatically putting the virtual cluster to sleep.
+// Sleep holds configuration for automatically putting the tenant cluster to sleep.
 // This replaces sleepMode.
 type Sleep struct {
 	// Auto holds automatic sleep configuration
@@ -131,7 +131,7 @@ type Snapshots struct {
 
 // SnapshotsAuto holds automatic snapshot scheduling and retention configuration
 type SnapshotsAuto struct {
-	// Schedule specifies a scheduled time in Cron format, see https://en.wikipedia.org/wiki/Cron for a virtual cluster snapshot to be taken
+	// Schedule specifies a scheduled time in Cron format, see https://en.wikipedia.org/wiki/Cron for a tenant cluster snapshot to be taken
 	// +optional
 	Schedule string `json:"schedule,omitempty" yaml:"schedule,omitempty"`
 
@@ -285,7 +285,7 @@ type Deletion struct {
 
 // DeletionAuto holds automatic deletion configuration
 type DeletionAuto struct {
-	// AfterInactivity specifies after how long of inactivity the virtual cluster will be deleted.
+	// AfterInactivity specifies after how long of inactivity the tenant cluster will be deleted.
 	// Uses Go duration format (e.g., "720h" for 30 days).
 	// +optional
 	AfterInactivity Duration `json:"afterInactivity,omitempty" yaml:"afterInactivity,omitempty"`

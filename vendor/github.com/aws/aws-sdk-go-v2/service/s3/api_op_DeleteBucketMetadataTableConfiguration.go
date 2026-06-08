@@ -13,9 +13,26 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-//	Deletes a metadata table configuration from a general purpose bucket. For more
+//	We recommend that you delete your S3 Metadata configurations by using the V2 [DeleteBucketMetadataTableConfiguration]
 //
+// API operation. We no longer recommend using the V1
+// DeleteBucketMetadataTableConfiguration API operation.
+//
+// If you created your S3 Metadata configuration before July 15, 2025, we
+// recommend that you delete and re-create your configuration by using [CreateBucketMetadataConfiguration]so that you
+// can expire journal table records and create a live inventory table.
+//
+// Deletes a V1 S3 Metadata configuration from a general purpose bucket. For more
 // information, see [Accelerating data discovery with S3 Metadata]in the Amazon S3 User Guide.
+//
+// You can use the V2 DeleteBucketMetadataConfiguration API operation with V1 or
+// V2 metadata table configurations. However, if you try to use the V1
+// DeleteBucketMetadataTableConfiguration API operation with V2 configurations, you
+// will receive an HTTP 405 Method Not Allowed error.
+//
+// Make sure that you update your processes to use the new V2 API operations (
+// CreateBucketMetadataConfiguration , GetBucketMetadataConfiguration , and
+// DeleteBucketMetadataConfiguration ) instead of the V1 API operations.
 //
 // Permissions To use this operation, you must have the
 // s3:DeleteBucketMetadataTableConfiguration permission. For more information, see [Setting up permissions for configuring metadata tables]
@@ -27,10 +44,17 @@ import (
 //
 // [GetBucketMetadataTableConfiguration]
 //
+// You must URL encode any signed header values that contain spaces. For example,
+// if your header value is my file.txt , containing two spaces after my , you must
+// URL encode this value to my%20%20file.txt .
+//
 // [Setting up permissions for configuring metadata tables]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/metadata-tables-permissions.html
 // [GetBucketMetadataTableConfiguration]: https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetBucketMetadataTableConfiguration.html
 // [CreateBucketMetadataTableConfiguration]: https://docs.aws.amazon.com/AmazonS3/latest/API/API_CreateBucketMetadataTableConfiguration.html
+// [CreateBucketMetadataConfiguration]: https://docs.aws.amazon.com/AmazonS3/latest/API/API_CreateBucketMetadataConfiguration.html
 // [Accelerating data discovery with S3 Metadata]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/metadata-tables-overview.html
+//
+// [DeleteBucketMetadataTableConfiguration]: https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteBucketMetadataTableConfiguration.html
 func (c *Client) DeleteBucketMetadataTableConfiguration(ctx context.Context, params *DeleteBucketMetadataTableConfigurationInput, optFns ...func(*Options)) (*DeleteBucketMetadataTableConfigurationOutput, error) {
 	if params == nil {
 		params = &DeleteBucketMetadataTableConfigurationInput{}
@@ -108,7 +132,7 @@ func (c *Client) addOperationDeleteBucketMetadataTableConfigurationMiddlewares(s
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRetry(stack, options, c); err != nil {
 		return err
 	}
 	if err = addRawResponseToMetadata(stack); err != nil {
@@ -135,13 +159,13 @@ func (c *Client) addOperationDeleteBucketMetadataTableConfigurationMiddlewares(s
 	if err = addPutBucketContextMiddleware(stack); err != nil {
 		return err
 	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
 	if err = addIsExpressUserAgent(stack); err != nil {
+		return err
+	}
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addOpDeleteBucketMetadataTableConfigurationValidationMiddleware(stack); err != nil {
@@ -177,16 +201,13 @@ func (c *Client) addOperationDeleteBucketMetadataTableConfigurationMiddlewares(s
 	if err = addSerializeImmutableHostnameBucketMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil

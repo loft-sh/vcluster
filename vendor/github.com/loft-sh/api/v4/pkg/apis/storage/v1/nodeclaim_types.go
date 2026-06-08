@@ -17,6 +17,8 @@ const (
 	NodeClaimConditionTypeNotDrifted = "NotDrifted"
 	// NodeClaimConditionTypeDestroyed is the condition that indicates if the node claim has been successfully destroyed.
 	NodeClaimConditionTypeDestroyed = "Destroyed"
+	// NodeClaimConditionTypePreferredDeletion indicates the NodeClaim is a preferred candidate for deletion.
+	NodeClaimConditionTypePreferredDeletion = "PreferredDeletion"
 )
 
 var (

@@ -6,7 +6,7 @@ import (
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// VirtualClusterAccessKey holds the access key for the virtual cluster
+// VirtualClusterAccessKey holds the access key for the tenant cluster
 // +subresource-request
 type VirtualClusterAccessKey struct {
 	metav1.TypeMeta   `json:",inline"`

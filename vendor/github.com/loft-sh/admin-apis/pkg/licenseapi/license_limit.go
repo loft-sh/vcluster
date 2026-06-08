@@ -6,11 +6,11 @@ var Limits = map[ResourceName]*Limit{
 		Name:        string(ConnectedClusterLimit),
 	},
 	VirtualClusterInstanceLimit: {
-		DisplayName: "Virtual Clusters",
+		DisplayName: "Tenant Clusters",
 		Name:        string(VirtualClusterInstanceLimit),
 	},
 	VirtualClusterInstanceHALimit: {
-		DisplayName: "Virtual Clusters (HA)",
+		DisplayName: "Tenant Clusters (HA)",
 		Name:        string(VirtualClusterInstanceHALimit),
 	},
 	DevPodWorkspaceInstanceLimit: {

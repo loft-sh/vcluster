@@ -3,6 +3,7 @@ package checksum
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/aws/smithy-go"
@@ -77,6 +78,12 @@ func (m *validateOutputPayloadChecksum) HandleDeserialize(
 		}
 	}
 
+	// this runs BEFORE the deserializer, so we have to preemptively check for
+	// non-200, in which case there is no checksum to validate
+	if response.StatusCode != 200 {
+		return out, metadata, err
+	}
+
 	var expectedChecksum string
 	var algorithmToUse Algorithm
 	for _, algorithm := range m.Algorithms {
@@ -93,7 +100,7 @@ func (m *validateOutputPayloadChecksum) HandleDeserialize(
 
 	// Skip validation if no checksum algorithm or checksum is available.
 	if len(expectedChecksum) == 0 || len(algorithmToUse) == 0 {
-		if m.LogValidationSkipped {
+		if response.Body != http.NoBody && m.LogValidationSkipped {
 			// TODO this probably should have more information about the
 			// operation output that won't be validated.
 			logger.Logf(logging.Warn,

@@ -4,7 +4,7 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// VirtualClusterInstanceJoinScript holds join script request and response data for virtual cluster instances
+// VirtualClusterInstanceJoinScript holds join script request and response data for tenant cluster instances
 // +subresource-request
 type VirtualClusterInstanceJoinScript struct {
 	metav1.TypeMeta   `json:",inline"`

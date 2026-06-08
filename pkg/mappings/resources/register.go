@@ -20,6 +20,11 @@ func getMappers(ctx *synccontext.RegisterContext) []BuildMapper {
 		CreateEndpointSlicesMapper,
 		CreateEventsMapper,
 		isEnabled(ctx.Config.Sync.ToHost.Ingresses.Enabled, CreateIngressesMapper),
+		isEnabled(gatewayGatewaysEnabled(ctx) || ctx.Config.Sync.FromHost.Gateways.Enabled, CreateGatewayMapper),
+		isEnabled(gatewayHTTPRoutesEnabled(ctx), CreateHTTPRouteMapper),
+		isEnabled(gatewayTLSRoutesEnabled(ctx), CreateTLSRouteMapper),
+		isEnabled(gatewayBackendTLSPoliciesEnabled(ctx), CreateBackendTLSPolicyMapper),
+		isEnabled(gatewayReferenceGrantsEnabled(ctx), CreateReferenceGrantMapper),
 		CreateNamespacesMapper,
 		isEnabled(ctx.Config.Sync.ToHost.NetworkPolicies.Enabled, CreateNetworkPoliciesMapper),
 		CreateNodesMapper,
@@ -75,4 +80,31 @@ func isEnabled[T any](enabled bool, fn T) T {
 	}
 	var ret T
 	return ret
+}
+
+func gatewayGatewaysEnabled(ctx *synccontext.RegisterContext) bool {
+	return ctx.Config.Sync.ToHost.GatewayAPI.Gateways.Enabled
+}
+
+func gatewayHTTPRoutesEnabled(ctx *synccontext.RegisterContext) bool {
+	return ctx.Config.Sync.ToHost.GatewayAPI.HTTPRoutes.Enabled || ctx.Config.Sync.ToHost.GatewayAPI.Enabled
+}
+
+func gatewayTLSRoutesEnabled(ctx *synccontext.RegisterContext) bool {
+	return ctx.Config.Sync.ToHost.GatewayAPI.TLSRoutes.Enabled
+}
+
+func gatewayBackendTLSPoliciesEnabled(ctx *synccontext.RegisterContext) bool {
+	return ctx.Config.Sync.ToHost.GatewayAPI.BackendTLSPolicies.Enabled
+}
+
+func gatewayReferenceGrantsEnabled(ctx *synccontext.RegisterContext) bool {
+	mode := ctx.Config.Sync.ToHost.GatewayAPI.ReferenceGrants.Enabled
+	if mode == "true" {
+		return true
+	}
+	if mode == "false" {
+		return false
+	}
+	return ctx.Config.Sync.ToHost.Namespaces.Enabled && (gatewayHTTPRoutesEnabled(ctx) || gatewayTLSRoutesEnabled(ctx) || gatewayBackendTLSPoliciesEnabled(ctx))
 }

@@ -119,7 +119,7 @@ type NodeProviderSpec struct {
 type NodeProviderClusterAPI struct {
 	ClusterAPIObjects `json:",inline"`
 
-	// ClusterRef is a reference to connected host cluster in which KubeVirt operator is running
+	// ClusterRef is a reference to connected control plane cluster in which KubeVirt operator is running
 	ClusterRef NodeProviderClusterRef `json:"clusterRef,omitempty"`
 
 	// NodeTypes define NodeTypes that should be automatically created for this provider.
@@ -287,14 +287,33 @@ type KubeVirtNodeTypeSpec struct {
 
 // NodeProviderKubeVirt defines the configuration for a KubeVirt node provider.
 type NodeProviderKubeVirt struct {
-	// ClusterRef is a reference to connected host cluster in which KubeVirt operator is running
+	// ClusterRef is a reference to connected control plane cluster in which KubeVirt operator is running
 	ClusterRef NodeProviderClusterRef `json:"clusterRef,omitempty"`
+
+	// Deploy configures components deployed into the connected host cluster.
+	// +optional
+	Deploy KubeVirtProviderDeployment `json:"deploy,omitempty"`
 
 	// VirtualMachineTemplate is a KubeVirt VirtualMachine template to use by NodeTypes managed by this NodeProvider
 	VirtualMachineTemplate *runtime.RawExtension `json:"virtualMachineTemplate,omitempty"`
 
 	// NodeTypes define NodeTypes that should be automatically created for this provider.
 	NodeTypes []KubeVirtNodeTypeSpec `json:"nodeTypes"`
+}
+
+type KubeVirtProviderDeployment struct {
+	// KubeVirt configures the KubeVirt operator deployment.
+	// +optional
+	KubeVirt KubeVirtDeployment `json:"kubevirt,omitempty"`
+}
+
+type KubeVirtDeployment struct {
+	// Enabled controls whether the KubeVirt operator is deployed into the cluster.
+	Enabled bool `json:"enabled"`
+
+	// HelmValues is raw YAML that will be passed as values to the KubeVirt Helm chart.
+	// +optional
+	HelmValues string `json:"helmValues,omitempty"`
 }
 
 type NodeProviderClusterRef struct {
@@ -371,7 +390,7 @@ type Metal3ProviderDeployment struct {
 }
 
 type NodeProviderMetal3 struct {
-	// ClusterRef is a reference to connected host cluster in which KubeVirt operator is running
+	// ClusterRef is a reference to connected control plane cluster in which KubeVirt operator is running
 	ClusterRef NodeProviderClusterRef `json:"clusterRef,omitempty"`
 
 	Deploy Metal3ProviderDeployment `json:"deploy,omitempty"`

@@ -31,7 +31,7 @@ import (
 // +subresource:request=VirtualClusterInstanceSnapshot,path=snapshot,kind=VirtualClusterInstanceSnapshot,rest=VirtualClusterInstanceSnapshotREST
 // +subresource:request=VirtualClusterInstanceShell,path=shell,kind=VirtualClusterInstanceShell,rest=VirtualClusterInstanceShellREST
 // +subresource:request=VirtualClusterInstanceDebugShell,path=debug-shell,kind=VirtualClusterInstanceDebugShell,rest=VirtualClusterInstanceDebugShellREST
-// +subresource:request=VirtualClusterInstanceDebugShellPods,path=debug-shell-pods,kind=VirtualClusterInstanceDebugShellPods,rest=VirtualClusterInstanceDebugShellPodsREST
+// +subresource:request=VirtualClusterControlPlanePods,path=controlplanepods,kind=VirtualClusterControlPlanePods,rest=VirtualClusterControlPlanePodsREST
 // +subresource:request=VirtualClusterResourceUsage,path=resourceusage,kind=VirtualClusterResourceUsage,rest=VirtualClusterResourceUsageREST
 // +subresource:request=VirtualClusterInstanceJoinScript,path=joinscript,kind=VirtualClusterInstanceJoinScript,rest=VirtualClusterInstanceJoinScriptREST
 type VirtualClusterInstance struct {

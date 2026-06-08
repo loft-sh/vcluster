@@ -24,7 +24,7 @@ type ClusterAgentConfigCommon struct {
 	// +optional
 	Audit *AgentAuditConfig `json:"audit,omitempty"`
 
-	// DefaultImageRegistry defines if we should prefix the virtual cluster image
+	// DefaultImageRegistry is the image registry for control plane internal images.
 	// +optional
 	DefaultImageRegistry string `json:"defaultImageRegistry,omitempty"`
 

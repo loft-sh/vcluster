@@ -18,15 +18,19 @@ import (
 )
 
 const (
-	DefaultImage    = "coredns/coredns:1.14.2"
-	VarImage        = "IMAGE"
-	VarHostDNS      = "HOST_CLUSTER_DNS"
-	VarRunAsUser    = "RUN_AS_USER"
-	VarRunAsNonRoot = "RUN_AS_NON_ROOT"
-	VarRunAsGroup   = "RUN_AS_GROUP"
-	VarLogInDebug   = "LOG_IN_DEBUG"
-	defaultUID      = int64(1001)
-	defaultGID      = int64(1001)
+	DefaultImage = "coredns/coredns:1.14.2"
+	// DefaultImageRegistry is prepended to the CoreDNS image when no custom
+	// image registry is configured, so the rendered image is always fully
+	// qualified (registry-less names are not reliably resolved on all runtimes).
+	DefaultImageRegistry = "docker.io"
+	VarImage             = "IMAGE"
+	VarHostDNS           = "HOST_CLUSTER_DNS"
+	VarRunAsUser         = "RUN_AS_USER"
+	VarRunAsNonRoot      = "RUN_AS_NON_ROOT"
+	VarRunAsGroup        = "RUN_AS_GROUP"
+	VarLogInDebug        = "LOG_IN_DEBUG"
+	defaultUID           = int64(1001)
+	defaultGID           = int64(1001)
 )
 
 var ErrNoCoreDNSManifests = fmt.Errorf("no coredns manifests found")
@@ -48,15 +52,18 @@ func ApplyManifest(ctx context.Context, config *config.Config, defaultImageRegis
 	return applier.ApplyManifest(ctx, inClusterConfig, output)
 }
 
-func getManifestVariables(defaultImageRegistry string, serverVersion *version.Info) map[string]interface{} {
+func getManifestVariables(defaultImageRegistry string, serverVersion *version.Info) map[string]any {
 	var found bool
-	vars := make(map[string]interface{})
+	vars := make(map[string]any)
 	vars[VarImage], found = constants.CoreDNSVersionMap[fmt.Sprintf("%s.%s", serverVersion.Major, serverVersion.Minor)]
 	if !found {
 		vars[VarImage] = DefaultImage
 	}
 	if defaultImageRegistry != "" {
 		vars[VarImage] = strings.TrimSuffix(defaultImageRegistry, "/") + "/" + vars[VarImage].(string)
+	} else {
+		// No custom registry configured: default to docker.io (ENGCP-588).
+		vars[VarImage] = DefaultImageRegistry + "/" + vars[VarImage].(string)
 	}
 	vars[VarRunAsUser] = fmt.Sprintf("%v", GetUserID())
 	vars[VarRunAsGroup] = fmt.Sprintf("%v", GetGroupID())
