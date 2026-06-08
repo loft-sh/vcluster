@@ -33,11 +33,10 @@ func TestGetVClusterStatus(t *testing.T) {
 		ns      = "my-ns"
 	)
 
-	// Replicas is left nil by default (isScaledDown only triggers on an explicit 0),
-	// so only the scaled-down case sets it.
 	statefulSet := func(mutate func(sts *appsv1.StatefulSet)) *appsv1.StatefulSet {
 		sts := &appsv1.StatefulSet{
 			ObjectMeta: metav1.ObjectMeta{Name: release, Namespace: ns},
+			Spec:       appsv1.StatefulSetSpec{Replicas: new(int32(1))},
 		}
 		if mutate != nil {
 			mutate(sts)
@@ -93,7 +92,7 @@ func TestGetVClusterStatus(t *testing.T) {
 		},
 		{
 			name:   "scaled down when no pods and zero replicas",
-			object: statefulSet(func(sts *appsv1.StatefulSet) { sts.Spec.Replicas = new(int32) }),
+			object: statefulSet(func(sts *appsv1.StatefulSet) { sts.Spec.Replicas = new(int32(0)) }),
 			want:   StatusScaledDown,
 		},
 		{
