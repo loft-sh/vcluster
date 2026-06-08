@@ -27,18 +27,17 @@ type fakeKubeClient struct {
 func (fakeKubeClient) Loft() loftclient.Interface       { return nil }
 func (fakeKubeClient) Agent() agentloftclient.Interface { return nil }
 
-func int32Ptr(i int32) *int32 { return &i }
-
 func TestGetVClusterStatus(t *testing.T) {
 	const (
 		release = "my-vc"
 		ns      = "my-ns"
 	)
 
+	// Replicas is left nil by default (isScaledDown only triggers on an explicit 0),
+	// so only the scaled-down case sets it.
 	statefulSet := func(mutate func(sts *appsv1.StatefulSet)) *appsv1.StatefulSet {
 		sts := &appsv1.StatefulSet{
 			ObjectMeta: metav1.ObjectMeta{Name: release, Namespace: ns},
-			Spec:       appsv1.StatefulSetSpec{Replicas: int32Ptr(1)},
 		}
 		if mutate != nil {
 			mutate(sts)
@@ -94,7 +93,7 @@ func TestGetVClusterStatus(t *testing.T) {
 		},
 		{
 			name:   "scaled down when no pods and zero replicas",
-			object: statefulSet(func(sts *appsv1.StatefulSet) { sts.Spec.Replicas = int32Ptr(0) }),
+			object: statefulSet(func(sts *appsv1.StatefulSet) { sts.Spec.Replicas = new(int32) }),
 			want:   StatusScaledDown,
 		},
 		{
