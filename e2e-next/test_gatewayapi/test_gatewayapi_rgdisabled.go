@@ -47,6 +47,10 @@ func GatewayAPIReferenceGrantDisabledSpec() {
 			Expect(err).To(Succeed())
 			vClusterName = cluster.CurrentClusterNameFrom(ctx)
 			vClusterHostNS = "vcluster-" + vClusterName
+
+			// vCluster skips CRD install in the tenant when the sync sub-toggle is
+			// off; install ReferenceGrant ourselves so the tenant can create one.
+			installTenantGatewayAPICRDs(ctx, cluster.CurrentClusterFrom(ctx).GetKubeconfig(), tenantReferenceGrantCRD)
 		})
 
 		It("does not sync tenant-created ReferenceGrants when referenceGrants.enabled is false", func(ctx context.Context) {

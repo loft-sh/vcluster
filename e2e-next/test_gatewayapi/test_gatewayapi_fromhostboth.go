@@ -65,7 +65,11 @@ func GatewayAPIFromHostBothSpec() {
 			})
 
 			By("verifying the tenant cannot create a Gateway with the imported name in the mapped namespace", func() {
-				createTenantNamespace(ctx, vClusterClient, "gwapi-import-both")
+				// The import syncer auto-creates the mapped tenant namespace —
+				// wait for it instead of creating it ourselves.
+				Eventually(func(g Gomega) {
+					g.Expect(vClusterClient.Get(ctx, types.NamespacedName{Name: "gwapi-import-both"}, &corev1.Namespace{})).To(Succeed())
+				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 				colliding := tenantGateway("gwapi-import-both", "edge", class.Name)
 				err := vClusterClient.Create(ctx, colliding)
 				if err == nil {

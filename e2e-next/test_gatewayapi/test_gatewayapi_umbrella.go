@@ -47,6 +47,11 @@ func GatewayAPIUmbrellaSpec() {
 			Expect(err).To(Succeed())
 			vClusterName = cluster.CurrentClusterNameFrom(ctx)
 			vClusterHostNS = "vcluster-" + vClusterName
+
+			// The umbrella `gatewayApi.enabled: true` shorthand does not appear to
+			// register sub-resource CRDs in the tenant in CI — install them so the
+			// spec can create the resources whose sync behavior is under test.
+			installTenantGatewayAPICRDs(ctx, cluster.CurrentClusterFrom(ctx).GetKubeconfig(), tenantGatewayCRD, tenantHTTPRouteCRD, tenantReferenceGrantCRD)
 		})
 
 		It("syncs Gateway, HTTPRoute, and ReferenceGrant to the host when gatewayApi.enabled is true", labels.PR, func(ctx context.Context) {

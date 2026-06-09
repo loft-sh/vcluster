@@ -47,6 +47,11 @@ func GatewayAPISelectiveSpec() {
 			Expect(err).To(Succeed())
 			vClusterName = cluster.CurrentClusterNameFrom(ctx)
 			vClusterHostNS = "vcluster-" + vClusterName
+
+			// vCluster does not install HTTPRoute/ReferenceGrant CRDs in the tenant
+			// because their sync sub-toggles are off — install them so the tenant
+			// can attempt to create the resources we're verifying don't sync.
+			installTenantGatewayAPICRDs(ctx, cluster.CurrentClusterFrom(ctx).GetKubeconfig(), tenantHTTPRouteCRD, tenantReferenceGrantCRD)
 		})
 
 		It("syncs only Gateway when sub-toggles disable httpRoutes and referenceGrants", labels.PR, func(ctx context.Context) {
