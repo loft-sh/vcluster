@@ -172,7 +172,7 @@ jobs:
 
     steps:
       - name: Notify ci-tests-alerts
-        uses: loft-sh/github-actions/.github/actions/ci-test-notify@85d7023c5749421d369f59430c7849f2d00ad694 # ci-test-notify/v1
+        uses: loft-sh/github-actions/.github/actions/ci-test-notify@b5a50da8a53ca1021b783290630061078bdb12cf # ci-test-notify/v1
         with:
           test-name: "vCluster E2E Nightly"
           status: ${{ needs.e2e-tests.result }}
@@ -183,7 +183,7 @@ jobs:
 
       - name: Notify dev-vcluster
         if: always() && needs.e2e-tests.result != 'success'
-        uses: loft-sh/github-actions/.github/actions/ci-test-notify@85d7023c5749421d369f59430c7849f2d00ad694 # ci-test-notify/v1
+        uses: loft-sh/github-actions/.github/actions/ci-test-notify@b5a50da8a53ca1021b783290630061078bdb12cf # ci-test-notify/v1
         with:
           test-name: "vCluster E2E Nightly"
           status: ${{ needs.e2e-tests.result }}
