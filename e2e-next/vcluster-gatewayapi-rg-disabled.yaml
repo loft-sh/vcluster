@@ -20,4 +20,4 @@ sync:
       httpRoutes:
         enabled: true
       referenceGrants:
-        enabled: false
+        enabled: "false"
