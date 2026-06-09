@@ -38,6 +38,21 @@ func InstallCSIHostpath(kubeContext string) func(ctx context.Context) error {
 			return fmt.Errorf("install snapshot CRDs: %w", err)
 		}
 
+		// Wait for the snapshot CRDs to be Established before continuing. deploy.sh
+		// applies a VolumeSnapshotClass, which fails with "no matches for kind
+		// VolumeSnapshotClass" if the apiserver has not finished registering the
+		// CRD yet. Waiting here makes the CRDs discoverable for every caller,
+		// including parallel SnapshotPreSetup runs in other Ginkgo processes.
+		establishCmd := exec.CommandContext(ctx, "kubectl", "wait", "--for=condition=established",
+			"--timeout=60s", "--context", kubeContext, "crd",
+			"volumesnapshotclasses.snapshot.storage.k8s.io",
+			"volumesnapshotcontents.snapshot.storage.k8s.io",
+			"volumesnapshots.snapshot.storage.k8s.io",
+		)
+		if out, err := establishCmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("wait for snapshot CRDs to be established: %s: %w", string(out), err)
+		}
+
 		// Install snapshot-controller
 		if err := kubectlApplyKustomize(ctx, kubeContext,
 			"https://github.com/kubernetes-csi/external-snapshotter/deploy/kubernetes/snapshot-controller?ref="+externalSnapshotterVersion); err != nil {
@@ -61,15 +76,24 @@ func InstallCSIHostpath(kubeContext string) func(ctx context.Context) error {
 		// csi-sanity/csc testing and its StatefulSet is flaky on Kind.
 		_ = os.Remove(filepath.Join(tmpDir, "deploy", "kubernetes-latest", "hostpath", "csi-hostpath-testing.yaml"))
 
-		// Set the kubectl context before running deploy.sh so the CSI driver
-		// is installed into the correct cluster even when multiple contexts exist.
-		setCtxCmd := exec.CommandContext(ctx, "kubectl", "config", "use-context", kubeContext)
-		if out, err := setCtxCmd.CombinedOutput(); err != nil {
-			return fmt.Errorf("set kubectl context to %s: %s: %w", kubeContext, string(out), err)
+		// deploy.sh operates on the current kubeconfig context. Rather than mutate
+		// the shared ~/.kube/config with `kubectl config use-context` (which races
+		// when multiple installs run in parallel Ginkgo processes), write an
+		// isolated kubeconfig minified to the target context and point deploy.sh at
+		// it via KUBECONFIG. The temp dir is removed by the deferred cleanup above.
+		kubeconfigPath := filepath.Join(tmpDir, "kubeconfig")
+		viewCmd := exec.CommandContext(ctx, "kubectl", "config", "view", "--raw", "--minify", "--context", kubeContext)
+		kubeconfigData, err := viewCmd.Output()
+		if err != nil {
+			return fmt.Errorf("export kubeconfig for context %s: %w", kubeContext, err)
+		}
+		if err := os.WriteFile(kubeconfigPath, kubeconfigData, 0o600); err != nil {
+			return fmt.Errorf("write isolated kubeconfig: %w", err)
 		}
 
 		deployScript := tmpDir + "/deploy/kubernetes-latest/deploy.sh"
 		deployCmd := exec.CommandContext(ctx, "bash", deployScript)
+		deployCmd.Env = append(os.Environ(), "KUBECONFIG="+kubeconfigPath)
 		if out, err := deployCmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("deploy CSI hostpath driver: %s: %w", string(out), err)
 		}
