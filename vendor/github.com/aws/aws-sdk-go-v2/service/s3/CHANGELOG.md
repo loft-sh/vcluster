@@ -1,3 +1,271 @@
+# v1.97.3 (2026-03-26)
+
+* **Bug Fix**: Fix a bug where a recorded clock skew could persist on the client even if the client and server clock ended up realigning.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.97.2 (2026-03-23)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.97.1 (2026-03-13)
+
+* **Bug Fix**: Replace usages of the old ioutil/ package throughout the SDK.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.97.0 (2026-03-12)
+
+* **Feature**: Adds support for account regional namespaces for general purpose buckets. The account regional namespace is a reserved subdivision of the global bucket namespace where only your account can create general purpose buckets.
+
+# v1.96.4 (2026-03-05)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.96.3 (2026-03-03)
+
+* **Bug Fix**: Modernize non codegen files with go fix
+* **Dependency Update**: Bump minimum Go version to 1.24
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.96.2 (2026-02-26)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.96.1 (2026-02-23)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.96.0 (2026-01-28)
+
+* **Feature**: Adds support for the UpdateObjectEncryption API to change the server-side encryption type of objects in general purpose buckets.
+
+# v1.95.1 (2026-01-09)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.95.0 (2025-12-23)
+
+* **Feature**: Add additional validation to Outpost bucket names.
+
+# v1.94.0 (2025-12-15)
+
+* **Feature**: This release adds support for the new optional field 'LifecycleExpirationDate' in S3 Inventory configurations.
+
+# v1.93.2 (2025-12-09)
+
+* No change notes available for this release.
+
+# v1.93.1 (2025-12-08)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.93.0 (2025-12-02)
+
+* **Feature**: New S3 Storage Class FSX_ONTAP
+* **Dependency Update**: Updated to the latest SDK module versions
+* **Dependency Update**: Upgrade to smithy-go v1.24.0. Notably this version of the library reduces the allocation footprint of the middleware system. We observe a ~10% reduction in allocations per SDK call with this change.
+
+# v1.92.1 (2025-11-25)
+
+* **Bug Fix**: Add error check for endpoint param binding during auth scheme resolution to fix panic reported in #3234
+* **Bug Fix**: Fix missing error message when service returns a specific type of error.
+
+# v1.92.0 (2025-11-20)
+
+* **Feature**: Enable / Disable ABAC on a general purpose bucket.
+
+# v1.91.1 (2025-11-19.2)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.91.0 (2025-11-19)
+
+* **Feature**: Adds support for blocking SSE-C writes to general purpose buckets.
+
+# v1.90.2 (2025-11-12)
+
+* **Bug Fix**: Further reduce allocation overhead when the metrics system isn't in-use.
+* **Bug Fix**: Reduce allocation overhead when the client doesn't have any HTTP interceptors configured.
+* **Bug Fix**: Remove blank trace spans towards the beginning of the request that added no additional information. This conveys a slight reduction in overall allocations.
+
+# v1.90.1 (2025-11-11)
+
+* **Bug Fix**: Return validation error if input region is not a valid host label.
+
+# v1.90.0 (2025-11-05)
+
+* **Feature**: Launch IPv6 dual-stack support for S3 Express
+
+# v1.89.2 (2025-11-04)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+* **Dependency Update**: Upgrade to smithy-go v1.23.2 which should convey some passive reduction of overall allocations, especially when not using the metrics system.
+
+# v1.89.1 (2025-10-30)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.89.0 (2025-10-28)
+
+* **Feature**: Amazon Simple Storage Service / Features: Add conditional writes in CopyObject on destination key to prevent unintended object modifications.
+
+# v1.88.7 (2025-10-23)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.88.6 (2025-10-22)
+
+* No change notes available for this release.
+
+# v1.88.5 (2025-10-16)
+
+* **Dependency Update**: Bump minimum Go version to 1.23.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.88.4 (2025-10-07)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.88.3 (2025-09-26)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.88.2 (2025-09-23)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.88.1 (2025-09-10)
+
+* No change notes available for this release.
+
+# v1.88.0 (2025-09-08)
+
+* **Feature**: This release includes backward compatibility work on the "Expires" parameter.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.87.3 (2025-08-29)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.87.2 (2025-08-27)
+
+* **Dependency Update**: Update to smithy-go v1.23.0.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.87.1 (2025-08-21)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.87.0 (2025-08-11)
+
+* **Feature**: Add support for configuring per-service Options via callback on global config.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.86.0 (2025-08-04)
+
+* **Feature**: Support configurable auth scheme preferences in service clients via AWS_AUTH_SCHEME_PREFERENCE in the environment, auth_scheme_preference in the config file, and through in-code settings on LoadDefaultConfig and client constructor methods.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.85.1 (2025-07-30)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.85.0 (2025-07-28)
+
+* **Feature**: Add support for HTTP interceptors.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.84.1 (2025-07-19)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.84.0 (2025-07-15)
+
+* **Feature**: Amazon S3 Metadata live inventory tables provide a queryable inventory of all the objects in your general purpose bucket so that you can determine the latest state of your data. To help minimize your storage costs, use journal table record expiration to set a retention period for your records.
+
+# v1.83.0 (2025-07-02)
+
+* **Feature**: Added support for directory bucket creation with tags and bucket ARN retrieval in CreateBucket, ListDirectoryBuckets, and HeadBucket operations
+
+# v1.82.0 (2025-06-25)
+
+* **Feature**: Adds support for additional server-side encryption mode and storage class values for accessing Amazon FSx data from Amazon S3 using S3 Access Points
+
+# v1.81.0 (2025-06-18)
+
+* **Feature**: Added support for renaming objects within the same bucket using the new RenameObject API.
+
+# v1.80.3 (2025-06-17)
+
+* **Dependency Update**: Update to smithy-go v1.22.4.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.80.2 (2025-06-10)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.80.1 (2025-06-06)
+
+* No change notes available for this release.
+
+# v1.80.0 (2025-05-29)
+
+* **Feature**: Adding checksum support for S3 PutBucketOwnershipControls API.
+
+# v1.79.4 (2025-05-22)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.79.3 (2025-04-28)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.79.2 (2025-04-10)
+
+* No change notes available for this release.
+
+# v1.79.1 (2025-04-03)
+
+* No change notes available for this release.
+
+# v1.79.0 (2025-03-31)
+
+* **Feature**: Amazon S3 adds support for S3 Access Points for directory buckets in AWS Dedicated Local Zones
+
+# v1.78.2 (2025-03-11)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.78.1 (2025-03-04.2)
+
+* **Bug Fix**: Add assurance test for operation order.
+
+# v1.78.0 (2025-02-27)
+
+* **Feature**: Track credential providers via User-Agent Feature ids
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.77.1 (2025-02-18)
+
+* **Bug Fix**: Bump go version to 1.22
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.77.0 (2025-02-14)
+
+* **Feature**: Added support for Content-Range header in HeadObject response.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.76.1 (2025-02-10)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.76.0 (2025-02-06)
+
+* **Feature**: Updated list of the valid AWS Region values for the LocationConstraint parameter for general purpose buckets.
+
+# v1.75.4 (2025-02-05)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.75.3 (2025-02-04)
 
 * No change notes available for this release.
