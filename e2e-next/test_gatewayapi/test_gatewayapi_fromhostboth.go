@@ -3,16 +3,13 @@ package test_gatewayapi
 import (
 	"context"
 
-	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -30,17 +27,11 @@ func GatewayAPIFromHostBothSpec() {
 		)
 
 		BeforeEach(func(ctx context.Context) {
-			var err error
-			scheme := runtime.NewScheme()
-			Expect(corev1.AddToScheme(scheme)).To(Succeed())
-			Expect(gatewayv1.Install(scheme)).To(Succeed())
-
-			hostClient, err = ctrlclient.New(cluster.From(ctx, constants.GetHostClusterName()).KubernetesRestConfig(), ctrlclient.Options{Scheme: scheme})
-			Expect(err).To(Succeed())
-			vClusterClient, err = ctrlclient.New(cluster.CurrentClusterFrom(ctx).KubernetesRestConfig(), ctrlclient.Options{Scheme: scheme})
-			Expect(err).To(Succeed())
-			vClusterName = cluster.CurrentClusterNameFrom(ctx)
-			vClusterHostNS = "vcluster-" + vClusterName
+			c := newGatewayAPIClients(ctx, false)
+			hostClient = c.HostClient
+			vClusterClient = c.VClusterClient
+			vClusterName = c.VClusterName
+			vClusterHostNS = c.VClusterHostNS
 
 			ensureHostNamespace(ctx, hostClient, "gwapi-host-both")
 		})
