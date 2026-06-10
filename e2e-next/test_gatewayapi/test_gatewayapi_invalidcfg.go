@@ -13,7 +13,6 @@ import (
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	"github.com/loft-sh/vcluster/e2e-next/constants"
 	"github.com/loft-sh/vcluster/e2e-next/labels"
-	"github.com/loft-sh/vcluster/e2e-next/setup"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -164,8 +163,6 @@ func expectVClusterStartupError(ctx context.Context, slug, yaml, errSubstring st
 	suffix := random.String(6)
 	name := "gwapi-invalid-" + slug + "-" + suffix
 	namespace := "vcluster-" + name
-
-	Expect(setup.GatewayAPIPreSetup()(ctx)).To(Succeed(), "install Gateway API CRDs")
 
 	hostCluster := cluster.From(ctx, constants.GetHostClusterName())
 	Expect(hostCluster).NotTo(BeNil())

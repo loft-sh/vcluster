@@ -55,31 +55,21 @@ func GatewayAPIFromHostBothSpec() {
 		It("reserves the mapped tenant Gateway name and lets a non-overlapping tenant Gateway sync to host", func(ctx context.Context) {
 			suffix := random.String(6)
 			class := createGatewayClass(ctx, hostClient, "gc-both-"+suffix, fromHostBothGatewayClassSelectorValue, "fromHost+toHost class")
+			hostGWName := "edge-" + suffix
 
 			By("creating the host Gateway covered by mappings and waiting for the tenant mirror", func() {
-				hostGW := hostGateway("gwapi-host-both", "edge", class.Name)
+				hostGW := hostGateway("gwapi-host-both", hostGWName, class.Name)
 				createHostGateway(ctx, hostClient, hostGW)
 				Eventually(func(g Gomega) {
-					g.Expect(vClusterClient.Get(ctx, types.NamespacedName{Namespace: "gwapi-import-both", Name: "edge"}, &gatewayv1.Gateway{})).To(Succeed())
+					g.Expect(vClusterClient.Get(ctx, types.NamespacedName{Namespace: "gwapi-import-both", Name: hostGWName}, &gatewayv1.Gateway{})).To(Succeed())
 				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 			})
 
 			By("verifying the tenant cannot create a Gateway with the imported name in the mapped namespace", func() {
-				// The import syncer auto-creates the mapped tenant namespace —
-				// wait for it instead of creating it ourselves.
-				Eventually(func(g Gomega) {
-					g.Expect(vClusterClient.Get(ctx, types.NamespacedName{Name: "gwapi-import-both"}, &corev1.Namespace{})).To(Succeed())
-				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
-				colliding := tenantGateway("gwapi-import-both", "edge", class.Name)
+				colliding := tenantGateway("gwapi-import-both", hostGWName, class.Name)
 				err := vClusterClient.Create(ctx, colliding)
-				if err == nil {
-					DeferCleanup(func(ctx context.Context) {
-						Expect(ctrlclient.IgnoreNotFound(vClusterClient.Delete(ctx, colliding))).To(Succeed())
-					})
-				}
-				Expect(err).To(HaveOccurred(), "tenant must not be able to create a Gateway with the imported name")
-				Expect(kerrors.IsAlreadyExists(err) || kerrors.IsForbidden(err) || kerrors.IsInvalid(err)).To(BeTrue(),
-					"expected AlreadyExists/Forbidden/Invalid, got: %v", err)
+				Expect(kerrors.IsAlreadyExists(err)).To(BeTrue(),
+					"tenant must not be able to create a Gateway with the imported name; got: %v", err)
 			})
 
 			By("verifying the tenant can create a Gateway in a different namespace and it syncs to host", func() {

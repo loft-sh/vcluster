@@ -54,7 +54,7 @@ func GatewayAPISelectiveSpec() {
 			installTenantGatewayAPICRDs(ctx, cluster.CurrentClusterFrom(ctx).GetKubeconfig(), tenantHTTPRouteCRD, tenantReferenceGrantCRD)
 		})
 
-		It("syncs only Gateway when sub-toggles disable httpRoutes and referenceGrants", labels.PR, func(ctx context.Context) {
+		It("syncs only Gateway when sub-toggles disable httpRoutes and referenceGrants", func(ctx context.Context) {
 			suffix := random.String(6)
 			class := createGatewayClass(ctx, hostClient, "gc-selective-"+suffix, selectiveGatewayClassSelectorValue, "selective class")
 			Eventually(func(g Gomega) {
