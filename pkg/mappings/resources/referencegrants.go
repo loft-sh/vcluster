@@ -23,10 +23,14 @@ func CreateReferenceGrantMapper(ctx *synccontext.RegisterContext) (synccontext.M
 		return nil, err
 	}
 
-	err = util.EnsureCRD(ctx.Context, ctx.VirtualManager.GetConfig(), []byte(referenceGrantsCRD), mappings.ReferenceGrants())
+	err = EnsureReferenceGrantCRD(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	return generic.NewMapper(ctx, &gatewayv1.ReferenceGrant{}, translate.Default.HostName)
+}
+
+func EnsureReferenceGrantCRD(ctx *synccontext.RegisterContext) error {
+	return util.EnsureCRD(ctx.Context, ctx.VirtualManager.GetConfig(), []byte(referenceGrantsCRD), mappings.ReferenceGrants())
 }
