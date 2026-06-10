@@ -15,7 +15,7 @@ sync:
       enabled: true
       mappings:
         byName:
-          "gwapi-host-both/edge": "gwapi-import-both/edge"
+          "gwapi-host-both/*": "gwapi-import-both/*"
   toHost:
     services:
       enabled: true

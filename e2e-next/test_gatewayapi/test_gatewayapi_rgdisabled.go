@@ -32,6 +32,8 @@ func GatewayAPIReferenceGrantDisabledSpec() {
 		)
 
 		BeforeEach(func(ctx context.Context) {
+			installTenantGatewayAPICRDs(ctx, cluster.CurrentClusterFrom(ctx).GetKubeconfig(), tenantReferenceGrantCRD)
+
 			var err error
 			scheme := runtime.NewScheme()
 			Expect(corev1.AddToScheme(scheme)).To(Succeed())
@@ -44,8 +46,6 @@ func GatewayAPIReferenceGrantDisabledSpec() {
 			Expect(err).To(Succeed())
 			vClusterName = cluster.CurrentClusterNameFrom(ctx)
 			vClusterHostNS = "vcluster-" + vClusterName
-
-			installTenantGatewayAPICRDs(ctx, cluster.CurrentClusterFrom(ctx).GetKubeconfig(), tenantReferenceGrantCRD)
 		})
 
 		It("does not sync tenant-created ReferenceGrants when referenceGrants.enabled is false", func(ctx context.Context) {
