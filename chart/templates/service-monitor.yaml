@@ -35,6 +35,10 @@ spec:
     relabelings:
       - targetLabel: endpoint
         replacement: "apiserver"
+    {{- with .Values.controlPlane.serviceMonitor.metricRelabelings }}
+    metricRelabelings:
+{{ toYaml . | indent 6 }}
+    {{- end }}
     tlsConfig:
       ca:
         secret:
@@ -54,6 +58,10 @@ spec:
     relabelings:
       - targetLabel: endpoint
         replacement: "controller-manager"
+    {{- with .Values.controlPlane.serviceMonitor.metricRelabelings }}
+    metricRelabelings:
+{{ toYaml . | indent 6 }}
+    {{- end }}
     tlsConfig:
       ca:
         secret:
@@ -74,6 +82,10 @@ spec:
     relabelings:
       - targetLabel: endpoint
         replacement: "scheduler"
+    {{- with .Values.controlPlane.serviceMonitor.metricRelabelings }}
+    metricRelabelings:
+{{ toYaml . | indent 6 }}
+    {{- end }}
     tlsConfig:
       ca:
         secret:
@@ -95,6 +107,10 @@ spec:
     relabelings:
       - targetLabel: endpoint
         replacement: "etcd"
+    {{- with .Values.controlPlane.serviceMonitor.metricRelabelings }}
+    metricRelabelings:
+{{ toYaml . | indent 6 }}
+    {{- end }}
     tlsConfig:
       ca:
         secret:
@@ -116,6 +132,10 @@ spec:
     relabelings:
       - targetLabel: endpoint
         replacement: "kine"
+    {{- with .Values.controlPlane.serviceMonitor.metricRelabelings }}
+    metricRelabelings:
+{{ toYaml . | indent 6 }}
+    {{- end }}
     tlsConfig:
       ca:
         secret:
