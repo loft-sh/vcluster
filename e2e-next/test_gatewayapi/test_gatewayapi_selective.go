@@ -22,9 +22,6 @@ import (
 
 const selectiveGatewayClassSelectorValue = "gatewayapi-selective"
 
-// GatewayAPISelectiveSpec registers tests for the broken-out
-// toHost.gatewayApi sub-toggle form (TC-02a variant B). Only gateways are
-// enabled here; HTTPRoutes and ReferenceGrants must NOT sync to the host.
 func GatewayAPISelectiveSpec() {
 	Describe("Gateway API selective toHost", labels.GatewayAPI, func() {
 		var (
@@ -48,9 +45,6 @@ func GatewayAPISelectiveSpec() {
 			vClusterName = cluster.CurrentClusterNameFrom(ctx)
 			vClusterHostNS = "vcluster-" + vClusterName
 
-			// vCluster does not install HTTPRoute/ReferenceGrant CRDs in the tenant
-			// because their sync sub-toggles are off — install them so the tenant
-			// can attempt to create the resources we're verifying don't sync.
 			installTenantGatewayAPICRDs(ctx, cluster.CurrentClusterFrom(ctx).GetKubeconfig(), tenantHTTPRouteCRD, tenantReferenceGrantCRD)
 		})
 

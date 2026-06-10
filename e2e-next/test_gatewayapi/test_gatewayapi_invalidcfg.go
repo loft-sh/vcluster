@@ -3,7 +3,7 @@ package test_gatewayapi
 import (
 	"bytes"
 	"context"
-	"fmt"
+	_ "embed"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -18,145 +18,68 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// GatewayAPIInvalidConfigSpec registers config-validation specs covering
-// the fromHost.gateways mapping shape rules (TC-38/39/40/41). Each spec
-// shells out to `vcluster create` directly with an intentionally broken
-// vcluster.yaml and asserts the CLI exits non-zero with the expected
-// parsing error. These specs do NOT use lazyvcluster.LazyVCluster because
-// the lazy helper waits for the vCluster to reach Ready — these vClusters
-// must never reach Ready by design.
-//
-// All four specs target the expected post-fix behavior:
-//   - TC-38 / TC-39 / TC-41 — ENGNODE-554
-//   - TC-40                  — ENGNODE-555
-//
-// Until those land, these specs will fail in CI (today the bad YAML is
-// accepted by `vcluster create` and the syncer pod crashloops instead).
+//go:embed testdata/invalidcfg/tc38-empty-mappings.yaml
+var invalidCfgTC38EmptyMappingsYAML string
+
+//go:embed testdata/invalidcfg/tc39-empty-key.yaml
+var invalidCfgTC39EmptyKeyYAML string
+
+//go:embed testdata/invalidcfg/tc39-wildcard-key.yaml
+var invalidCfgTC39WildcardKeyYAML string
+
+//go:embed testdata/invalidcfg/tc39-missing-source-ns.yaml
+var invalidCfgTC39MissingSourceNSYAML string
+
+//go:embed testdata/invalidcfg/tc40-wildcard-src-fixed-dst.yaml
+var invalidCfgTC40WildcardSrcFixedDstYAML string
+
+//go:embed testdata/invalidcfg/tc40-fixed-src-wildcard-dst.yaml
+var invalidCfgTC40FixedSrcWildcardDstYAML string
+
+//go:embed testdata/invalidcfg/tc41-override-outside-mappings.yaml
+var invalidCfgTC41OverrideOutsideMappingsYAML string
+
 func GatewayAPIInvalidConfigSpec() {
 	Describe("Gateway API invalid fromHost.gateways config", labels.GatewayAPI, labels.GatewayClasses, func() {
 		It("rejects empty fromHost.gateways.mappings.byName at deploy time (TC-38)", func(ctx context.Context) {
-			yaml := `sync:
-  fromHost:
-    gatewayClasses:
-      enabled: true
-    gateways:
-      enabled: true
-  toHost:
-    gatewayApi:
-      gateways:
-        enabled: false
-      httpRoutes:
-        enabled: true
-      referenceGrants:
-        enabled: auto
-`
-			expectVClusterStartupError(ctx, "tc38", yaml, "sync.fromHost.gateways.mappings.byName")
+			expectVClusterStartupError(ctx, "tc38", invalidCfgTC38EmptyMappingsYAML, "sync.fromHost.gateways.mappings.byName")
 		})
 
 		It("rejects invalid mapping keys at deploy time (TC-39)", func(ctx context.Context) {
 			for _, variant := range []struct {
-				name string
-				key  string
-				val  string
+				slug string
+				yaml string
 			}{
-				{"empty-key", "\"\"", "shared-gateways/*"},
-				{"wildcard-key", "\"/*\"", "shared-gateways/*"},
-				{"missing-source-ns", "\"/edge\"", "shared-gateways/edge"},
+				{"tc39-empty-key", invalidCfgTC39EmptyKeyYAML},
+				{"tc39-wildcard-key", invalidCfgTC39WildcardKeyYAML},
+				{"tc39-missing-source-ns", invalidCfgTC39MissingSourceNSYAML},
 			} {
-				By("variant: "+variant.name, func() {
-					yaml := fmt.Sprintf(`sync:
-  fromHost:
-    gatewayClasses:
-      enabled: true
-    gateways:
-      enabled: true
-      mappings:
-        byName:
-          %s: %s
-  toHost:
-    gatewayApi:
-      gateways:
-        enabled: false
-      httpRoutes:
-        enabled: true
-      referenceGrants:
-        enabled: auto
-`, variant.key, variant.val)
-					expectVClusterStartupError(ctx, "tc39-"+variant.name, yaml, "sync.fromHost.gateways.mappings.byName")
+				By(variant.slug, func() {
+					expectVClusterStartupError(ctx, variant.slug, variant.yaml, "sync.fromHost.gateways.mappings.byName")
 				})
 			}
 		})
 
 		It("rejects wildcard mappings whose target is not a wildcard, and non-wildcard mappings whose target is a wildcard (TC-40)", func(ctx context.Context) {
 			for _, variant := range []struct {
-				name string
-				src  string
-				dst  string
+				slug string
+				yaml string
 			}{
-				{"wildcard-src-fixed-dst", "host-ns/*", "tenant-ns/edge"},
-				{"fixed-src-wildcard-dst", "host-ns/edge", "tenant-ns/*"},
+				{"tc40-wildcard-src-fixed-dst", invalidCfgTC40WildcardSrcFixedDstYAML},
+				{"tc40-fixed-src-wildcard-dst", invalidCfgTC40FixedSrcWildcardDstYAML},
 			} {
-				By("variant: "+variant.name, func() {
-					yaml := fmt.Sprintf(`sync:
-  fromHost:
-    gatewayClasses:
-      enabled: true
-    gateways:
-      enabled: true
-      mappings:
-        byName:
-          %q: %q
-  toHost:
-    gatewayApi:
-      gateways:
-        enabled: false
-      httpRoutes:
-        enabled: true
-      referenceGrants:
-        enabled: auto
-`, variant.src, variant.dst)
-					expectVClusterStartupError(ctx, "tc40-"+variant.name, yaml, "wildcard")
+				By(variant.slug, func() {
+					expectVClusterStartupError(ctx, variant.slug, variant.yaml, "wildcard")
 				})
 			}
 		})
 
 		It("rejects allowedRoutes.overrides referencing a host Gateway not covered by mappings.byName (TC-41)", func(ctx context.Context) {
-			yaml := `sync:
-  fromHost:
-    gatewayClasses:
-      enabled: true
-    gateways:
-      enabled: true
-      mappings:
-        byName:
-          "platform-gateways/public-web": "example-virtual-namespace/shared-web"
-      allowedRoutes:
-        overrides:
-          - hostNamespace: platform-gateways
-            name: private-api
-            allowedHostnames:
-              - "*.team-a.example.com"
-            virtualNamespacePolicy:
-              from: All
-  toHost:
-    gatewayApi:
-      gateways:
-        enabled: false
-      httpRoutes:
-        enabled: true
-      referenceGrants:
-        enabled: auto
-`
-			expectVClusterStartupError(ctx, "tc41", yaml, "sync.fromHost.gateways.allowedRoutes.overrides")
+			expectVClusterStartupError(ctx, "tc41", invalidCfgTC41OverrideOutsideMappingsYAML, "sync.fromHost.gateways.allowedRoutes.overrides")
 		})
 	})
 }
 
-// expectVClusterStartupError shell-outs to `vcluster create` with the given
-// vcluster.yaml string, asserts the CLI exits non-zero with errSubstring
-// somewhere in its combined output, and registers cleanup that runs
-// `vcluster delete` even if the create succeeded (in case the CLI accepted
-// the broken config — today's regression).
 func expectVClusterStartupError(ctx context.Context, slug, yaml, errSubstring string) {
 	GinkgoHelper()
 
@@ -213,7 +136,5 @@ func expectVClusterStartupError(ctx context.Context, slug, yaml, errSubstring st
 	Expect(strings.ToLower(out)).To(ContainSubstring(strings.ToLower(errSubstring)),
 		"expected output to mention %q.\nactual output:\n%s", errSubstring, out)
 
-	// Brief settle so the failed install registers in helm history before
-	// cleanup attempts a delete; avoids a race where delete races install.
 	time.Sleep(2 * time.Second)
 }

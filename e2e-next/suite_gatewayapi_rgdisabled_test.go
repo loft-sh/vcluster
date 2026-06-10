@@ -1,7 +1,3 @@
-// Suite: gatewayapi-rgdisabled-vcluster
-// vCluster: referenceGrants.enabled: false; verifies tenant-created
-// ReferenceGrants are not synced to the host (TC-04d).
-// Run:      just run-e2e 'pr && gatewayapi'
 package e2e_next
 
 import (

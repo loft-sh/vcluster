@@ -10,9 +10,6 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// CRD repo-relative paths reused by tests that need to install Gateway API
-// kinds into the tenant API server. Match the set installed on the host by
-// setup.GatewayAPIPreSetup.
 const (
 	tenantGatewayClassCRD   = "pkg/mappings/resources/gatewayclasses.crd.yaml"
 	tenantGatewayCRD        = "pkg/mappings/resources/gateways.crd.yaml"
@@ -20,11 +17,6 @@ const (
 	tenantReferenceGrantCRD = "pkg/mappings/resources/referencegrants.crd.yaml"
 )
 
-// installTenantGatewayAPICRDs kubectl-applies the given CRDs into the tenant
-// API server addressed by tenantKubeconfig. Use this in BeforeEach for specs
-// whose vCluster has a sync sub-toggle disabled — vCluster only installs the
-// CRD in the tenant when its sync sub-toggle is enabled, but TC-02a/04d
-// assume the tenant user has installed the CRD themselves.
 func installTenantGatewayAPICRDs(ctx context.Context, tenantKubeconfig string, crds ...string) {
 	GinkgoHelper()
 	_, file, _, ok := runtime.Caller(0)

@@ -22,9 +22,6 @@ import (
 
 const rgDisabledGatewayClassSelectorValue = "gatewayapi-rgdisabled"
 
-// GatewayAPIReferenceGrantDisabledSpec registers tests asserting that tenant
-// ReferenceGrants stay tenant-local when referenceGrants.enabled is false
-// (TC-04d).
 func GatewayAPIReferenceGrantDisabledSpec() {
 	Describe("Gateway API referenceGrants disabled", labels.GatewayAPI, func() {
 		var (
@@ -48,8 +45,6 @@ func GatewayAPIReferenceGrantDisabledSpec() {
 			vClusterName = cluster.CurrentClusterNameFrom(ctx)
 			vClusterHostNS = "vcluster-" + vClusterName
 
-			// vCluster skips CRD install in the tenant when the sync sub-toggle is
-			// off; install ReferenceGrant ourselves so the tenant can create one.
 			installTenantGatewayAPICRDs(ctx, cluster.CurrentClusterFrom(ctx).GetKubeconfig(), tenantReferenceGrantCRD)
 		})
 

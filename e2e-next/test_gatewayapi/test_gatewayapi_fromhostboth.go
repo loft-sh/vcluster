@@ -20,13 +20,6 @@ import (
 
 const fromHostBothGatewayClassSelectorValue = "gatewayapi-fromhostboth"
 
-// GatewayAPIFromHostBothSpec registers tests that exercise the case where
-// fromHost.gateways and toHost.gatewayApi.gateways are both enabled
-// (TC-34a/b). The imported Gateway's mapped tenant name must be reserved —
-// tenant users cannot create a Gateway with the same namespace/name — while
-// a tenant-created Gateway in a different namespace must still sync to the
-// host. Depends on ENGNODE-556; until that ships the vCluster won't start
-// and these specs will fail in BeforeAll.
 func GatewayAPIFromHostBothSpec() {
 	Describe("Gateway API fromHost+toHost gateways", labels.GatewayAPI, labels.GatewayClasses, func() {
 		var (

@@ -1,7 +1,3 @@
-// Suite: gatewayapi-selective-vcluster
-// vCluster: broken-out toHost.gatewayApi sub-toggles coverage (TC-02a variant B).
-// Only gateways are enabled; httpRoutes and referenceGrants are off.
-// Run:      just run-e2e 'pr && gatewayapi'
 package e2e_next
 
 import (

@@ -1,8 +1,3 @@
-// Suite: gatewayapi-fromhostboth-vcluster
-// vCluster: fromHost.gateways + toHost.gatewayApi.gateways enabled together
-// (TC-34a/b). Depends on ENGNODE-556 — until that ships the vCluster will
-// fail to start and these specs will fail to set up.
-// Run:      just run-e2e 'pr && gatewayapi'
 package e2e_next
 
 import (
