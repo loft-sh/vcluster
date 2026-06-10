@@ -30,5 +30,10 @@ func CreateTLSRouteMapper(ctx *synccontext.RegisterContext) (synccontext.Mapper,
 		return nil, err
 	}
 
+	err = EnsureReferenceGrantCRD(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	return generic.NewMapper(ctx, &gatewayv1alpha2.TLSRoute{}, translate.Default.HostName)
 }
