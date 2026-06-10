@@ -17,7 +17,17 @@ import (
 
 // Creates a copy of an object that is already stored in Amazon S3.
 //
-// You can store individual objects of up to 5 TB in Amazon S3. You create a copy
+// End of support notice: As of October 1, 2025, Amazon S3 has discontinued
+// support for Email Grantee Access Control Lists (ACLs). If you attempt to use an
+// Email Grantee ACL in a request after October 1, 2025, the request will receive
+// an HTTP 405 (Method Not Allowed) error.
+//
+// This change affects the following Amazon Web Services Regions: US East (N.
+// Virginia), US West (N. California), US West (Oregon), Asia Pacific (Singapore),
+// Asia Pacific (Sydney), Asia Pacific (Tokyo), Europe (Ireland), and South America
+// (São Paulo).
+//
+// You can store individual objects of up to 50 TB in Amazon S3. You create a copy
 // of your object up to 5 GB in size in a single atomic action using this API.
 // However, to copy an object greater than 5 GB, you must use the multipart upload
 // Upload Part - Copy (UploadPartCopy) API. For more information, see [Copy Object Using the REST Multipart Upload API].
@@ -31,10 +41,10 @@ import (
 //   - Directory buckets - For directory buckets, you must make requests for this
 //     API operation to the Zonal endpoint. These endpoints support
 //     virtual-hosted-style requests in the format
-//     https://bucket-name.s3express-zone-id.region-code.amazonaws.com/key-name .
-//     Path-style requests are not supported. For more information about endpoints in
-//     Availability Zones, see [Regional and Zonal endpoints for directory buckets in Availability Zones]in the Amazon S3 User Guide. For more information
-//     about endpoints in Local Zones, see [Available Local Zone for directory buckets]in the Amazon S3 User Guide.
+//     https://amzn-s3-demo-bucket.s3express-zone-id.region-code.amazonaws.com/key-name
+//     . Path-style requests are not supported. For more information about endpoints
+//     in Availability Zones, see [Regional and Zonal endpoints for directory buckets in Availability Zones]in the Amazon S3 User Guide. For more information
+//     about endpoints in Local Zones, see [Concepts for directory buckets in Local Zones]in the Amazon S3 User Guide.
 //
 //   - VPC endpoints don't support cross-Region requests (including copies). If
 //     you're using VPC endpoints, your source and destination buckets should be in the
@@ -80,9 +90,11 @@ import (
 //
 //   - If the source object that you want to copy is in a directory bucket, you
 //     must have the s3express:CreateSession permission in the Action element of a
-//     policy to read the object. By default, the session is in the ReadWrite mode.
-//     If you want to restrict the access, you can explicitly set the
-//     s3express:SessionMode condition key to ReadOnly on the copy source bucket.
+//     policy to read the object. If no session mode is specified, the session will be
+//     created with the maximum allowable privilege, attempting ReadWrite first, then
+//     ReadOnly if ReadWrite is not permitted. If you want to explicitly restrict the
+//     access to be read-only, you can set the s3express:SessionMode condition key to
+//     ReadOnly on the copy source bucket.
 //
 //   - If the copy destination is a directory bucket, you must have the
 //     s3express:CreateSession permission in the Action element of a policy to write
@@ -135,8 +147,16 @@ import (
 // retrieval. If the copy source is in a different region, the data transfer is
 // billed to the copy source account. For pricing information, see [Amazon S3 pricing].
 //
-// HTTP Host header syntax  Directory buckets - The HTTP Host header syntax is
-// Bucket-name.s3express-zone-id.region-code.amazonaws.com .
+// HTTP Host header syntax
+//
+//   - Directory buckets - The HTTP Host header syntax is
+//     Bucket-name.s3express-zone-id.region-code.amazonaws.com .
+//
+//   - Amazon S3 on Outposts - When you use this action with S3 on Outposts
+//     through the REST API, you must direct requests to the S3 on Outposts hostname.
+//     The S3 on Outposts hostname takes the form
+//     AccessPointName-AccountId.outpostID.s3-outposts.Region.amazonaws.com . The
+//     hostname isn't required when you use the Amazon Web Services CLI or SDKs.
 //
 // The following operations are related to CopyObject :
 //
@@ -144,6 +164,11 @@ import (
 //
 // [GetObject]
 //
+// You must URL encode any signed header values that contain spaces. For example,
+// if your header value is my file.txt , containing two spaces after my , you must
+// URL encode this value to my%20%20file.txt .
+//
+// [Concepts for directory buckets in Local Zones]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-lzs-for-directory-buckets.html
 // [Amazon Web Services Identity and Access Management (IAM) identity-based policies for S3 Express One Zone]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-express-security-iam-identity-policies.html
 // [Resolve the Error 200 response when copying objects to Amazon S3]: https://repost.aws/knowledge-center/s3-resolve-200-internalerror
 // [Copy Object Using the REST Multipart Upload API]: https://docs.aws.amazon.com/AmazonS3/latest/dev/CopyingObjctsUsingRESTMPUapi.html
@@ -153,8 +178,7 @@ import (
 // [Transfer Acceleration]: https://docs.aws.amazon.com/AmazonS3/latest/dev/transfer-acceleration.html
 // [PutObject]: https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html
 // [GetObject]: https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetObject.html
-// [Regional and Zonal endpoints for directory buckets in Availability Zones]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-express-Regions-and-Zones.html
-// [Available Local Zone for directory buckets]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-lzs-for-directory-buckets.html
+// [Regional and Zonal endpoints for directory buckets in Availability Zones]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/endpoint-directory-buckets-AZ.html
 // [Amazon S3 pricing]: http://aws.amazon.com/s3/pricing/
 func (c *Client) CopyObject(ctx context.Context, params *CopyObjectInput, optFns ...func(*Options)) (*CopyObjectOutput, error) {
 	if params == nil {
@@ -181,7 +205,7 @@ type CopyObjectInput struct {
 	// are not supported. Directory bucket names must be unique in the chosen Zone
 	// (Availability Zone or Local Zone). Bucket names must follow the format
 	// bucket-base-name--zone-id--x-s3 (for example,
-	// DOC-EXAMPLE-BUCKET--usw2-az1--x-s3 ). For information about bucket naming
+	// amzn-s3-demo-bucket--usw2-az1--x-s3 ). For information about bucket naming
 	// restrictions, see [Directory bucket naming rules]in the Amazon S3 User Guide.
 	//
 	// Copying objects across different Amazon Web Services Regions isn't supported
@@ -190,25 +214,29 @@ type CopyObjectInput struct {
 	// Region. Otherwise, you get an HTTP 400 Bad Request error with the error code
 	// InvalidRequest .
 	//
-	// Access points - When you use this action with an access point, you must provide
-	// the alias of the access point in place of the bucket name or specify the access
-	// point ARN. When using the access point ARN, you must direct requests to the
-	// access point hostname. The access point hostname takes the form
+	// Access points - When you use this action with an access point for general
+	// purpose buckets, you must provide the alias of the access point in place of the
+	// bucket name or specify the access point ARN. When you use this action with an
+	// access point for directory buckets, you must provide the access point name in
+	// place of the bucket name. When using the access point ARN, you must direct
+	// requests to the access point hostname. The access point hostname takes the form
 	// AccessPointName-AccountId.s3-accesspoint.Region.amazonaws.com. When using this
 	// action with an access point through the Amazon Web Services SDKs, you provide
 	// the access point ARN in place of the bucket name. For more information about
 	// access point ARNs, see [Using access points]in the Amazon S3 User Guide.
 	//
-	// Access points and Object Lambda access points are not supported by directory
-	// buckets.
+	// Object Lambda access points are not supported by directory buckets.
 	//
-	// S3 on Outposts - When you use this action with Amazon S3 on Outposts, you must
-	// direct requests to the S3 on Outposts hostname. The S3 on Outposts hostname
-	// takes the form
-	// AccessPointName-AccountId.outpostID.s3-outposts.Region.amazonaws.com . When you
-	// use this action with S3 on Outposts through the Amazon Web Services SDKs, you
-	// provide the Outposts access point ARN in place of the bucket name. For more
-	// information about S3 on Outposts ARNs, see [What is S3 on Outposts?]in the Amazon S3 User Guide.
+	// S3 on Outposts - When you use this action with S3 on Outposts, you must use the
+	// Outpost bucket access point ARN or the access point alias for the destination
+	// bucket. You can only copy objects within the same Outpost bucket. It's not
+	// supported to copy objects across different Amazon Web Services Outposts, between
+	// buckets on the same Outposts, or between Outposts buckets and any other bucket
+	// types. For more information about S3 on Outposts, see [What is S3 on Outposts?]in the S3 on Outposts
+	// guide. When you use this action with S3 on Outposts through the REST API, you
+	// must direct requests to the S3 on Outposts hostname, in the format
+	// AccessPointName-AccountId.outpostID.s3-outposts.Region.amazonaws.com . The
+	// hostname isn't required when you use the Amazon Web Services CLI or SDKs.
 	//
 	// [Directory bucket naming rules]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/directory-bucket-naming-rules.html
 	// [What is S3 on Outposts?]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/S3onOutposts.html
@@ -494,6 +522,32 @@ type CopyObjectInput struct {
 	//   - This functionality is not supported for Amazon S3 on Outposts.
 	GrantWriteACP *string
 
+	// Copies the object if the entity tag (ETag) of the destination object matches
+	// the specified tag. If the ETag values do not match, the operation returns a 412
+	// Precondition Failed error. If a concurrent operation occurs during the upload S3
+	// returns a 409 ConditionalRequestConflict response. On a 409 failure you should
+	// fetch the object's ETag and retry the upload.
+	//
+	// Expects the ETag value as a string.
+	//
+	// For more information about conditional requests, see [RFC 7232].
+	//
+	// [RFC 7232]: https://tools.ietf.org/html/rfc7232
+	IfMatch *string
+
+	// Copies the object only if the object key name at the destination does not
+	// already exist in the bucket specified. Otherwise, Amazon S3 returns a 412
+	// Precondition Failed error. If a concurrent operation occurs during the upload S3
+	// returns a 409 ConditionalRequestConflict response. On a 409 failure you should
+	// retry the upload.
+	//
+	// Expects the '*' (asterisk) character.
+	//
+	// For more information about conditional requests, see [RFC 7232].
+	//
+	// [RFC 7232]: https://tools.ietf.org/html/rfc7232
+	IfNoneMatch *string
+
 	// A map of metadata to store with the object in S3.
 	Metadata map[string]string
 
@@ -532,9 +586,8 @@ type CopyObjectInput struct {
 	// Confirms that the requester knows that they will be charged for the request.
 	// Bucket owners need not specify this parameter in their requests. If either the
 	// source or destination S3 bucket has Requester Pays enabled, the requester will
-	// pay for corresponding charges to copy the object. For information about
-	// downloading objects from Requester Pays buckets, see [Downloading Objects in Requester Pays Buckets]in the Amazon S3 User
-	// Guide.
+	// pay for the corresponding charges. For information about downloading objects
+	// from Requester Pays buckets, see [Downloading Objects in Requester Pays Buckets]in the Amazon S3 User Guide.
 	//
 	// This functionality is not supported for directory buckets.
 	//
@@ -596,17 +649,16 @@ type CopyObjectInput struct {
 	// of the officially supported Amazon Web Services SDKs and Amazon Web Services
 	// CLI, see [Specifying the Signature Version in Request Authentication]in the Amazon S3 User Guide.
 	//
-	// Directory buckets - If you specify x-amz-server-side-encryption with aws:kms ,
-	// the x-amz-server-side-encryption-aws-kms-key-id header is implicitly assigned
-	// the ID of the KMS symmetric encryption customer managed key that's configured
-	// for your directory bucket's default encryption setting. If you want to specify
-	// the x-amz-server-side-encryption-aws-kms-key-id header explicitly, you can only
-	// specify it with the ID (Key ID or Key ARN) of the KMS customer managed key
-	// that's configured for your directory bucket's default encryption setting.
-	// Otherwise, you get an HTTP 400 Bad Request error. Only use the key ID or key
-	// ARN. The key alias format of the KMS key isn't supported. Your SSE-KMS
-	// configuration can only support 1 [customer managed key]per directory bucket for the lifetime of the
-	// bucket. The [Amazon Web Services managed key]( aws/s3 ) isn't supported.
+	// Directory buckets - To encrypt data using SSE-KMS, it's recommended to specify
+	// the x-amz-server-side-encryption header to aws:kms . Then, the
+	// x-amz-server-side-encryption-aws-kms-key-id header implicitly uses the bucket's
+	// default KMS customer managed key ID. If you want to explicitly set the
+	// x-amz-server-side-encryption-aws-kms-key-id header, it must match the bucket's
+	// default customer managed key (using key ID or ARN, not alias). Your SSE-KMS
+	// configuration can only support 1 [customer managed key]per directory bucket's lifetime. The [Amazon Web Services managed key] ( aws/s3
+	// ) isn't supported.
+	//
+	// Incorrect key specification results in an HTTP 400 Bad Request error.
 	//
 	// [customer managed key]: https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#customer-cmk
 	// [Specifying the Signature Version in Request Authentication]: https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingAWSSDK.html#specify-signature-version
@@ -670,6 +722,13 @@ type CopyObjectInput struct {
 	//   the same customer managed key that you specified for the directory bucket's
 	//   default encryption configuration.
 	//
+	//   - S3 access points for Amazon FSx - When accessing data stored in Amazon FSx
+	//   file systems using S3 access points, the only valid server side encryption
+	//   option is aws:fsx . All Amazon FSx file systems have encryption configured by
+	//   default and are encrypted at rest. Data is automatically encrypted before being
+	//   written to the file system, and automatically decrypted as it is read. These
+	//   processes are handled transparently by Amazon FSx.
+	//
 	// [Using Server-Side Encryption]: https://docs.aws.amazon.com/AmazonS3/latest/dev/serv-side-encryption.html
 	// [Specifying server-side encryption with KMS for new object uploads]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-express-specifying-kms-encryption.html
 	// [customer managed key]: https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#customer-cmk
@@ -682,10 +741,11 @@ type CopyObjectInput struct {
 	// high durability and high availability. Depending on performance needs, you can
 	// specify a different Storage Class.
 	//
-	//   - Directory buckets - For directory buckets, only the S3 Express One Zone
-	//   storage class is supported to store newly created objects. Unsupported storage
-	//   class values won't write a destination object and will respond with the HTTP
-	//   status code 400 Bad Request .
+	//   - Directory buckets - Directory buckets only support EXPRESS_ONEZONE (the S3
+	//   Express One Zone storage class) in Availability Zones and ONEZONE_IA (the S3
+	//   One Zone-Infrequent Access storage class) in Dedicated Local Zones. Unsupported
+	//   storage class values won't write a destination object and will respond with the
+	//   HTTP status code 400 Bad Request .
 	//
 	//   - Amazon S3 on Outposts - S3 on Outposts only uses the OUTPOSTS Storage Class.
 	//
@@ -839,9 +899,12 @@ type CopyObjectOutput struct {
 	Expiration *string
 
 	// If present, indicates that the requester was successfully charged for the
-	// request.
+	// request. For more information, see [Using Requester Pays buckets for storage transfers and usage]in the Amazon Simple Storage Service user
+	// guide.
 	//
 	// This functionality is not supported for directory buckets.
+	//
+	// [Using Requester Pays buckets for storage transfers and usage]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/RequesterPaysBuckets.html
 	RequestCharged types.RequestCharged
 
 	// If server-side encryption with a customer-provided encryption key was
@@ -867,7 +930,10 @@ type CopyObjectOutput struct {
 	SSEKMSKeyId *string
 
 	// The server-side encryption algorithm used when you store this object in Amazon
-	// S3 (for example, AES256 , aws:kms , aws:kms:dsse ).
+	// S3 or Amazon FSx.
+	//
+	// When accessing data stored in Amazon FSx file systems using S3 access points,
+	// the only valid server side encryption option is aws:fsx .
 	ServerSideEncryption types.ServerSideEncryption
 
 	// Version ID of the newly created copy.
@@ -915,7 +981,7 @@ func (c *Client) addOperationCopyObjectMiddlewares(stack *middleware.Stack, opti
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRetry(stack, options, c); err != nil {
 		return err
 	}
 	if err = addRawResponseToMetadata(stack); err != nil {
@@ -942,13 +1008,13 @@ func (c *Client) addOperationCopyObjectMiddlewares(stack *middleware.Stack, opti
 	if err = addPutBucketContextMiddleware(stack); err != nil {
 		return err
 	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
 	if err = addIsExpressUserAgent(stack); err != nil {
+		return err
+	}
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addOpCopyObjectValidationMiddleware(stack); err != nil {
@@ -987,16 +1053,13 @@ func (c *Client) addOperationCopyObjectMiddlewares(stack *middleware.Stack, opti
 	if err = addSerializeImmutableHostnameBucketMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
