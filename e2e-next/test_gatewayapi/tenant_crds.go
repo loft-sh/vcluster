@@ -17,6 +17,13 @@ const (
 	tenantReferenceGrantCRD = "pkg/mappings/resources/referencegrants.crd.yaml"
 )
 
+var crdNameByPath = map[string]string{
+	tenantGatewayClassCRD:   "gatewayclasses.gateway.networking.k8s.io",
+	tenantGatewayCRD:        "gateways.gateway.networking.k8s.io",
+	tenantHTTPRouteCRD:      "httproutes.gateway.networking.k8s.io",
+	tenantReferenceGrantCRD: "referencegrants.gateway.networking.k8s.io",
+}
+
 func installTenantGatewayAPICRDs(ctx context.Context, tenantKubeconfig string, crds ...string) {
 	GinkgoHelper()
 	_, file, _, ok := runtime.Caller(0)
@@ -24,8 +31,14 @@ func installTenantGatewayAPICRDs(ctx context.Context, tenantKubeconfig string, c
 	repoRoot := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
 	for _, crd := range crds {
 		abs := filepath.Join(repoRoot, crd)
-		cmd := exec.CommandContext(ctx, "kubectl", "apply", "--server-side", "--force-conflicts", "--kubeconfig", tenantKubeconfig, "-f", abs)
-		out, err := cmd.CombinedOutput()
+		applyCmd := exec.CommandContext(ctx, "kubectl", "apply", "--server-side", "--force-conflicts", "--kubeconfig", tenantKubeconfig, "-f", abs)
+		out, err := applyCmd.CombinedOutput()
 		Expect(err).To(Succeed(), "apply tenant CRD %s: %s", crd, string(out))
+
+		crdName, found := crdNameByPath[crd]
+		Expect(found).To(BeTrue(), "unknown CRD path %s", crd)
+		waitCmd := exec.CommandContext(ctx, "kubectl", "wait", "--for=condition=Established", "--timeout=60s", "--kubeconfig", tenantKubeconfig, "crd/"+crdName)
+		out, err = waitCmd.CombinedOutput()
+		Expect(err).To(Succeed(), "wait for tenant CRD %s Established: %s", crdName, string(out))
 	}
 }
