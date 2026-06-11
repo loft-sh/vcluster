@@ -11,9 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gatewayv1alpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
-	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 type gatewayAPIClients struct {
@@ -23,17 +20,12 @@ type gatewayAPIClients struct {
 	VClusterHostNS string
 }
 
-func newGatewayAPIClients(ctx context.Context, installExtendedGatewaySchemes bool) gatewayAPIClients {
+func newGatewayAPIClients(ctx context.Context) gatewayAPIClients {
 	GinkgoHelper()
 
 	scheme := runtime.NewScheme()
 	Expect(corev1.AddToScheme(scheme)).To(Succeed())
 	Expect(gatewayv1.Install(scheme)).To(Succeed())
-	if installExtendedGatewaySchemes {
-		Expect(gatewayv1alpha2.Install(scheme)).To(Succeed())
-		Expect(gatewayv1alpha3.Install(scheme)).To(Succeed())
-		Expect(gatewayv1beta1.Install(scheme)).To(Succeed())
-	}
 
 	hostClient, err := ctrlclient.New(cluster.From(ctx, constants.GetHostClusterName()).KubernetesRestConfig(), ctrlclient.Options{Scheme: scheme})
 	Expect(err).To(Succeed())

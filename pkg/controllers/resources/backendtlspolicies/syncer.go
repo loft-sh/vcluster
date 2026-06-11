@@ -17,7 +17,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1alpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
 )
 
 type backendTLSPolicySyncer struct {
@@ -43,13 +42,13 @@ func NewSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	}
 
 	return &backendTLSPolicySyncer{
-		GenericTranslator: translator.NewGenericTranslator(ctx, "backendtlspolicy", &gatewayv1alpha3.BackendTLSPolicy{}, mapper),
+		GenericTranslator: translator.NewGenericTranslator(ctx, "backendtlspolicy", &gatewayv1.BackendTLSPolicy{}, mapper),
 		Importer:          pro.NewImporter(mapper),
 	}, nil
 }
 
 func (s *backendTLSPolicySyncer) Syncer() syncertypes.Sync[client.Object] {
-	return syncer.ToGenericSyncer[*gatewayv1alpha3.BackendTLSPolicy](s)
+	return syncer.ToGenericSyncer[*gatewayv1.BackendTLSPolicy](s)
 }
 
 func (s *backendTLSPolicySyncer) Options() *syncertypes.Options {
@@ -62,13 +61,13 @@ func (s *backendTLSPolicySyncer) ModifyController(ctx *synccontext.RegisterConte
 	return routetranslate.RegisterReferencedWatches(ctx, builder, s.GroupVersionKind(), mappings.Services(), mappings.ConfigMaps(), mappings.Secrets())
 }
 
-func (s *backendTLSPolicySyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*gatewayv1alpha3.BackendTLSPolicy]) (ctrl.Result, error) {
-	return gatewaysync.CreateToHost(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.BackendTLSPolicies.Patches, func() (*gatewayv1alpha3.BackendTLSPolicy, error) {
+func (s *backendTLSPolicySyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*gatewayv1.BackendTLSPolicy]) (ctrl.Result, error) {
+	return gatewaysync.CreateToHost(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.BackendTLSPolicies.Patches, func() (*gatewayv1.BackendTLSPolicy, error) {
 		return s.translate(ctx, event.Virtual)
 	})
 }
 
-func (s *backendTLSPolicySyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*gatewayv1alpha3.BackendTLSPolicy]) (ctrl.Result, error) {
+func (s *backendTLSPolicySyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*gatewayv1.BackendTLSPolicy]) (ctrl.Result, error) {
 	var hSpec *gatewayv1.BackendTLSPolicySpec
 	return gatewaysync.Sync(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.BackendTLSPolicies.Patches,
 		func() (err error) {
@@ -92,8 +91,8 @@ func (s *backendTLSPolicySyncer) Sync(ctx *synccontext.SyncContext, event *syncc
 	)
 }
 
-func (s *backendTLSPolicySyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*gatewayv1alpha3.BackendTLSPolicy]) (ctrl.Result, error) {
-	return gatewaysync.CreateToVirtual(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.BackendTLSPolicies.Patches, func() *gatewayv1alpha3.BackendTLSPolicy {
+func (s *backendTLSPolicySyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*gatewayv1.BackendTLSPolicy]) (ctrl.Result, error) {
+	return gatewaysync.CreateToVirtual(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.BackendTLSPolicies.Patches, func() *gatewayv1.BackendTLSPolicy {
 		return translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, event.Host))
 	})
 }

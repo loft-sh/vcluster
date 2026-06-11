@@ -10,7 +10,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	gatewayapiutil "github.com/loft-sh/vcluster/pkg/util/gatewayapi"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 func TestReferenceGrantAutoFollowsHTTPRouteMapperWithoutNamespaceSync(t *testing.T) {
@@ -40,14 +40,20 @@ func TestReferenceGrantMapperChecksHostCRDWithoutNamespaceSync(t *testing.T) {
 	ctx.Config.Sync.ToHost.GatewayAPI.HTTPRoutes.Enabled = true
 
 	_, err := CreateReferenceGrantMapper(ctx)
-	if err == nil || !strings.Contains(err.Error(), "cannot check host cluster for Gateway API resource gateway.networking.k8s.io/v1beta1, Kind=ReferenceGrant") {
+	if err == nil || !strings.Contains(err.Error(), "cannot check host cluster for Gateway API resource gateway.networking.k8s.io/v1, Kind=ReferenceGrant") {
 		t.Fatalf("expected ReferenceGrant host CRD check before tenant CRD install, got %v", err)
 	}
 }
 
-func TestTLSRouteMapperKeepsOlderServedVersionForCompatibility(t *testing.T) {
-	want := schema.GroupVersion{Group: gatewayv1alpha2.GroupVersion.Group, Version: gatewayv1alpha2.GroupVersion.Version}
+func TestGatewayMappersUseLatestVersions(t *testing.T) {
+	want := schema.GroupVersion(gatewayv1.GroupVersion)
 	if got := mappings.TLSRoutes().GroupVersion(); got != want {
-		t.Fatalf("expected TLSRoute mapper to keep older served version %s for Gateway API compatibility, got %s", want, got)
+		t.Fatalf("expected TLSRoute mapper to use the latest version %s, got %s", want, got)
+	}
+	if got := mappings.BackendTLSPolicies().GroupVersion(); got != want {
+		t.Fatalf("expected BackendTLSPolicy mapper to use the latest version %s, got %s", want, got)
+	}
+	if got := mappings.ReferenceGrants().GroupVersion(); got != want {
+		t.Fatalf("expected ReferenceGrant mapper to use the latest version %s, got %s", want, got)
 	}
 }

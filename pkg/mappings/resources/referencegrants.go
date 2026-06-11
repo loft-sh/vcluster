@@ -8,7 +8,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 // referenceGrantsCRD is extracted from Gateway API v1.5.1 standard-install.yaml:
@@ -28,5 +28,5 @@ func CreateReferenceGrantMapper(ctx *synccontext.RegisterContext) (synccontext.M
 		return nil, err
 	}
 
-	return generic.NewMapper(ctx, &gatewayv1beta1.ReferenceGrant{}, translate.Default.HostName)
+	return generic.NewMapper(ctx, &gatewayv1.ReferenceGrant{}, translate.Default.HostName)
 }

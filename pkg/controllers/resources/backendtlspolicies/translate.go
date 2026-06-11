@@ -8,10 +8,9 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1alpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
 )
 
-func (s *backendTLSPolicySyncer) translate(ctx *synccontext.SyncContext, vPolicy *gatewayv1alpha3.BackendTLSPolicy) (*gatewayv1alpha3.BackendTLSPolicy, error) {
+func (s *backendTLSPolicySyncer) translate(ctx *synccontext.SyncContext, vPolicy *gatewayv1.BackendTLSPolicy) (*gatewayv1.BackendTLSPolicy, error) {
 	pPolicy := translate.HostMetadata(vPolicy, s.VirtualToHost(ctx, types.NamespacedName{Name: vPolicy.Name, Namespace: vPolicy.Namespace}, vPolicy))
 
 	spec, err := specToHost(ctx, vPolicy, true)
@@ -23,7 +22,7 @@ func (s *backendTLSPolicySyncer) translate(ctx *synccontext.SyncContext, vPolicy
 	return pPolicy, nil
 }
 
-func specToHost(ctx *synccontext.SyncContext, vPolicy *gatewayv1alpha3.BackendTLSPolicy, validateRefs bool) (*gatewayv1.BackendTLSPolicySpec, error) {
+func specToHost(ctx *synccontext.SyncContext, vPolicy *gatewayv1.BackendTLSPolicy, validateRefs bool) (*gatewayv1.BackendTLSPolicySpec, error) {
 	retSpec := vPolicy.Spec.DeepCopy()
 	for i := range retSpec.TargetRefs {
 		err := routetranslate.PolicyTargetRefToHost(ctx, vPolicy.Namespace, &retSpec.TargetRefs[i], routetranslate.WithValidateHostObject(validateRefs))
@@ -42,7 +41,7 @@ func specToHost(ctx *synccontext.SyncContext, vPolicy *gatewayv1alpha3.BackendTL
 	return retSpec, nil
 }
 
-func statusToVirtual(ctx *synccontext.SyncContext, hostPolicy *gatewayv1alpha3.BackendTLSPolicy, virtualPolicyNamespace string, status gatewayv1.PolicyStatus) (gatewayv1.PolicyStatus, error) {
+func statusToVirtual(ctx *synccontext.SyncContext, hostPolicy *gatewayv1.BackendTLSPolicy, virtualPolicyNamespace string, status gatewayv1.PolicyStatus) (gatewayv1.PolicyStatus, error) {
 	retStatus := *status.DeepCopy()
 
 	for i := range retStatus.Ancestors {

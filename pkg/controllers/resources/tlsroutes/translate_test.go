@@ -12,7 +12,6 @@ import (
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 func TestTLSRouteSpecToHostRejectsDisallowedImportedGatewayHostname(t *testing.T) {
@@ -44,9 +43,9 @@ func TestTLSRouteSpecToHostRejectsDisallowedImportedGatewayHostname(t *testing.T
 	ctx := registerCtx.ToSyncContext("tlsroute-test")
 	ctx.Context = context.Background()
 
-	route := &gatewayv1alpha2.TLSRoute{
+	route := &gatewayv1.TLSRoute{
 		ObjectMeta: metav1.ObjectMeta{Namespace: "demo", Name: "app"},
-		Spec: gatewayv1alpha2.TLSRouteSpec{
+		Spec: gatewayv1.TLSRouteSpec{
 			CommonRouteSpec: gatewayv1.CommonRouteSpec{ParentRefs: []gatewayv1.ParentReference{{Name: "edge", Namespace: &parentNamespace}}},
 			Hostnames:       []gatewayv1.Hostname{"admin.example.com"},
 		},

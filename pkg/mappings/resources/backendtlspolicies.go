@@ -8,13 +8,13 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
-	gatewayv1alpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 // Source: https://github.com/kubernetes-sigs/gateway-api/raw/v1.5.1/config/crd/experimental/gateway.networking.k8s.io_backendtlspolicies.yaml
-// Experimental channel serves v1alpha3 alongside v1.
-// Use v1alpha3 for the mapper so hosts with older Gateway API CRDs that do
-// not advertise BackendTLSPolicy v1 can still sync the resource.
+// Serves v1 (storage) plus the deprecated v1alpha3. The syncer speaks v1
+// only; hosts whose CRDs do not serve v1 fail fast in
+// ensureHostGatewayAPIKind.
 //
 //go:embed backendtlspolicies.crd.yaml
 var backendTLSPoliciesCRD string
@@ -30,5 +30,5 @@ func CreateBackendTLSPolicyMapper(ctx *synccontext.RegisterContext) (synccontext
 		return nil, err
 	}
 
-	return generic.NewMapper(ctx, &gatewayv1alpha3.BackendTLSPolicy{}, translate.Default.HostName)
+	return generic.NewMapper(ctx, &gatewayv1.BackendTLSPolicy{}, translate.Default.HostName)
 }
