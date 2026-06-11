@@ -47,11 +47,94 @@ func TestGatewaySpecToVirtualSanitizesTLSInfrastructureAndAppliesVirtualAllowedR
 	if len(spec.Listeners[0].TLS.CertificateRefs) != 0 {
 		t.Fatalf("expected TLS certificateRefs to be sanitized, got %#v", spec.Listeners[0].TLS.CertificateRefs)
 	}
+	if spec.Listeners[0].TLS.Options[SanitizedCertificateRefsTLSOption] != "true" {
+		t.Fatalf("expected sanitize marker option on Terminate listener so the mirror stays CRD-valid, got %#v", spec.Listeners[0].TLS.Options)
+	}
 	if spec.Infrastructure != nil {
 		t.Fatalf("expected infrastructure to be sanitized")
 	}
 	if spec.Listeners[0].AllowedRoutes == nil || spec.Listeners[0].AllowedRoutes.Namespaces == nil || *spec.Listeners[0].AllowedRoutes.Namespaces.From != gatewayv1.NamespacesFromAll {
 		t.Fatalf("expected tenant-facing allowedRoutes from All, got %#v", spec.Listeners[0].AllowedRoutes)
+	}
+}
+
+func TestGatewaySpecToVirtualSanitizeKeepsTerminateListenerValid(t *testing.T) {
+	terminate := gatewayv1.TLSModeTerminate
+	passthrough := gatewayv1.TLSModePassthrough
+	certRefs := []gatewayv1.SecretObjectReference{{Name: "edge-cert"}}
+
+	tests := []struct {
+		name        string
+		sanitize    bool
+		tls         *gatewayv1.ListenerTLSConfig
+		wantRefs    int
+		wantOptions map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue
+	}{
+		{
+			name:        "terminate mode without options gets marker",
+			sanitize:    true,
+			tls:         &gatewayv1.ListenerTLSConfig{Mode: &terminate, CertificateRefs: certRefs},
+			wantRefs:    0,
+			wantOptions: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{SanitizedCertificateRefsTLSOption: "true"},
+		},
+		{
+			name:        "nil mode defaults to terminate and gets marker",
+			sanitize:    true,
+			tls:         &gatewayv1.ListenerTLSConfig{CertificateRefs: certRefs},
+			wantRefs:    0,
+			wantOptions: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{SanitizedCertificateRefsTLSOption: "true"},
+		},
+		{
+			name:        "existing host options are preserved without marker",
+			sanitize:    true,
+			tls:         &gatewayv1.ListenerTLSConfig{Mode: &terminate, CertificateRefs: certRefs, Options: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{"example.com/min-version": "TLSv1_2"}},
+			wantRefs:    0,
+			wantOptions: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{"example.com/min-version": "TLSv1_2"},
+		},
+		{
+			name:        "passthrough mode needs no marker",
+			sanitize:    true,
+			tls:         &gatewayv1.ListenerTLSConfig{Mode: &passthrough, CertificateRefs: certRefs},
+			wantRefs:    0,
+			wantOptions: nil,
+		},
+		{
+			name:        "sanitize disabled leaves refs and options untouched",
+			sanitize:    false,
+			tls:         &gatewayv1.ListenerTLSConfig{Mode: &terminate, CertificateRefs: certRefs},
+			wantRefs:    1,
+			wantOptions: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vcConfig := &pkgconfig.VirtualClusterConfig{}
+			vcConfig.Sync.FromHost.Gateways.Sanitize.CertificateRefs = tt.sanitize
+			ctx := &synccontext.SyncContext{Context: context.Background(), Config: vcConfig}
+			host := &gatewayv1.Gateway{Spec: gatewayv1.GatewaySpec{Listeners: []gatewayv1.Listener{{
+				Name:     "https",
+				Protocol: gatewayv1.HTTPSProtocolType,
+				Port:     443,
+				TLS:      tt.tls,
+			}}}}
+
+			spec := gatewaySpecToVirtual(ctx, host)
+			got := spec.Listeners[0].TLS
+			if got == nil {
+				t.Fatalf("expected TLS config to be preserved")
+			}
+			if len(got.CertificateRefs) != tt.wantRefs {
+				t.Fatalf("expected %d certificateRefs, got %#v", tt.wantRefs, got.CertificateRefs)
+			}
+			if len(got.Options) != len(tt.wantOptions) {
+				t.Fatalf("expected options %#v, got %#v", tt.wantOptions, got.Options)
+			}
+			for k, v := range tt.wantOptions {
+				if got.Options[k] != v {
+					t.Fatalf("expected option %q=%q, got %#v", k, v, got.Options)
+				}
+			}
+		})
 	}
 }
 
