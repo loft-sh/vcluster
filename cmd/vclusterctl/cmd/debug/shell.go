@@ -9,6 +9,7 @@ import (
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/completion"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	debugshellutil "github.com/loft-sh/vcluster/pkg/util/debugshell"
@@ -65,19 +66,30 @@ vcluster debug shell my-vcluster --pod=my-vcluster-pod-0 --target=syncer
 }
 
 func (cmd *DebugCmd) Run(ctx context.Context, args []string) error {
+	cfg := cmd.LoadedConfig(cmd.Log)
+	driver, err := config.ParseDriverType(string(cfg.Driver.Type))
+	if err != nil {
+		return fmt.Errorf("parse driver type: %w", err)
+	}
+
+	if driver != config.HelmDriver {
+		return fmt.Errorf("vcluster debug shell is only supported for helm driver")
+	}
+
 	if len(args) == 0 {
 		return fmt.Errorf("please specify a virtual cluster name")
 	}
 	vClusterName := args[0]
-	// Resolve target vCluster and pick the pod to attach an ephemeral debug container to.
-	client, err := find.CreateKubeClient(cmd.Context)
-	if err != nil {
-		return fmt.Errorf("cannot create Kubernetes client: %w", err)
-	}
 
+	// Resolve target vCluster and pick the pod to attach an ephemeral debug container to.
 	virtualCluster, err := find.GetVCluster(ctx, cmd.Context, vClusterName, cmd.Namespace, cmd.Log)
 	if err != nil {
 		return fmt.Errorf("cannot find virtual cluster: %w", err)
+	}
+
+	client, err := find.CreateKubeClient(virtualCluster.Context)
+	if err != nil {
+		return fmt.Errorf("cannot create Kubernetes client: %w", err)
 	}
 
 	pod, err := debugshellutil.SelectTargetPod(virtualCluster.Pods, cmd.VClusterPodName)
@@ -94,7 +106,7 @@ func (cmd *DebugCmd) Run(ctx context.Context, args []string) error {
 				return fmt.Errorf("error waiting for debug container: %w", err)
 			}
 		}
-		return executeCommand(debuggerName, pod.Name, pod.Namespace, cmd.Command, cmd.Log)
+		return executeCommand(virtualCluster.Context, debuggerName, pod.Name, pod.Namespace, cmd.Command, cmd.Log)
 	}
 
 	targetContainer := debugshellutil.FindTargetContainer(pod, cmd.Target)
@@ -145,7 +157,7 @@ func (cmd *DebugCmd) Run(ctx context.Context, args []string) error {
 	}
 
 	// Exec into the debug container and start a shell.
-	return executeCommand(debuggerName, pod.Name, pod.Namespace, cmd.Command, cmd.Log)
+	return executeCommand(virtualCluster.Context, debuggerName, pod.Name, pod.Namespace, cmd.Command, cmd.Log)
 }
 
 func (cmd *DebugCmd) waitForContainer(ctx context.Context, client kubernetes.Interface, namespace, podName, containerName string) error {
@@ -174,9 +186,9 @@ func (cmd *DebugCmd) waitForContainer(ctx context.Context, client kubernetes.Int
 	})
 }
 
-func executeCommand(containerName, pod, namespace string, command []string, log log.Logger) error {
+func executeCommand(contextName string, containerName, pod, namespace string, command []string, log log.Logger) error {
 	// Delegate to kubectl exec to get an interactive shell in the ephemeral container.
-	args := []string{"exec", "-n", namespace, pod, "-it", "-c", containerName, "--"}
+	args := []string{"exec", "--context", contextName, "-n", namespace, pod, "-it", "-c", containerName, "--"}
 	if len(command) > 0 {
 		args = append(args, command...)
 	} else {
