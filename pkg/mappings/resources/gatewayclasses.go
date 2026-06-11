@@ -16,5 +16,5 @@ func EnsureGatewayClassCRD(ctx *synccontext.RegisterContext) error {
 }
 
 func EnsureHostGatewayClassCRD(ctx *synccontext.RegisterContext) error {
-	return ensureHostGatewayAPIKind(ctx, mappings.GatewayClasses(), "sync.fromHost.gatewayClasses.enabled")
+	return ensureHostGatewayAPIKind(ctx, mappings.GatewayClasses(), "sync.fromHost.gatewayClasses.enabled, sync.fromHost.gateways.enabled or sync.toHost.gatewayApi.enabled")
 }

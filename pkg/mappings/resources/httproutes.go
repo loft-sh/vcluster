@@ -15,7 +15,7 @@ import (
 var httpRoutesCRD string
 
 func CreateHTTPRouteMapper(ctx *synccontext.RegisterContext) (synccontext.Mapper, error) {
-	err := ensureHostGatewayAPIKind(ctx, mappings.HTTPRoutes(), "sync.toHost.gatewayApi.enabled")
+	err := ensureHostGatewayAPIKind(ctx, mappings.HTTPRoutes(), "sync.toHost.gatewayApi.enabled or sync.toHost.gatewayApi.httpRoutes.enabled")
 	if err != nil {
 		return nil, err
 	}
@@ -26,6 +26,11 @@ func CreateHTTPRouteMapper(ctx *synccontext.RegisterContext) (synccontext.Mapper
 	}
 
 	err = EnsureReferenceGrantCRD(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	err = EnsureGatewayCRD(ctx)
 	if err != nil {
 		return nil, err
 	}
