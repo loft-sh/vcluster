@@ -69,6 +69,7 @@ func TestGatewaySpecToVirtualSanitizeKeepsTerminateListenerValid(t *testing.T) {
 		tls         *gatewayv1.ListenerTLSConfig
 		wantRefs    int
 		wantOptions map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue
+		wantMode    *gatewayv1.TLSModeType
 	}{
 		{
 			name:        "terminate mode without options gets marker",
@@ -76,6 +77,7 @@ func TestGatewaySpecToVirtualSanitizeKeepsTerminateListenerValid(t *testing.T) {
 			tls:         &gatewayv1.ListenerTLSConfig{Mode: &terminate, CertificateRefs: certRefs},
 			wantRefs:    0,
 			wantOptions: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{SanitizedCertificateRefsTLSOption: "true"},
+			wantMode:    &terminate,
 		},
 		{
 			name:        "nil mode defaults to terminate and gets marker",
@@ -83,6 +85,7 @@ func TestGatewaySpecToVirtualSanitizeKeepsTerminateListenerValid(t *testing.T) {
 			tls:         &gatewayv1.ListenerTLSConfig{CertificateRefs: certRefs},
 			wantRefs:    0,
 			wantOptions: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{SanitizedCertificateRefsTLSOption: "true"},
+			wantMode:    nil,
 		},
 		{
 			name:        "existing host options are preserved without marker",
@@ -90,6 +93,7 @@ func TestGatewaySpecToVirtualSanitizeKeepsTerminateListenerValid(t *testing.T) {
 			tls:         &gatewayv1.ListenerTLSConfig{Mode: &terminate, CertificateRefs: certRefs, Options: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{"example.com/min-version": "TLSv1_2"}},
 			wantRefs:    0,
 			wantOptions: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{"example.com/min-version": "TLSv1_2"},
+			wantMode:    &terminate,
 		},
 		{
 			name:        "passthrough mode needs no marker",
@@ -97,6 +101,7 @@ func TestGatewaySpecToVirtualSanitizeKeepsTerminateListenerValid(t *testing.T) {
 			tls:         &gatewayv1.ListenerTLSConfig{Mode: &passthrough, CertificateRefs: certRefs},
 			wantRefs:    0,
 			wantOptions: nil,
+			wantMode:    &passthrough,
 		},
 		{
 			name:        "sanitize disabled leaves refs and options untouched",
@@ -104,6 +109,7 @@ func TestGatewaySpecToVirtualSanitizeKeepsTerminateListenerValid(t *testing.T) {
 			tls:         &gatewayv1.ListenerTLSConfig{Mode: &terminate, CertificateRefs: certRefs},
 			wantRefs:    1,
 			wantOptions: nil,
+			wantMode:    &terminate,
 		},
 	}
 	for _, tt := range tests {
@@ -125,6 +131,13 @@ func TestGatewaySpecToVirtualSanitizeKeepsTerminateListenerValid(t *testing.T) {
 			}
 			if len(got.CertificateRefs) != tt.wantRefs {
 				t.Fatalf("expected %d certificateRefs, got %#v", tt.wantRefs, got.CertificateRefs)
+			}
+			if tt.wantMode == nil {
+				if got.Mode != nil {
+					t.Fatalf("expected nil TLS mode to stay nil, got %q", *got.Mode)
+				}
+			} else if got.Mode == nil || *got.Mode != *tt.wantMode {
+				t.Fatalf("expected TLS mode %q to be preserved, got %#v", *tt.wantMode, got.Mode)
 			}
 			if len(got.Options) != len(tt.wantOptions) {
 				t.Fatalf("expected options %#v, got %#v", tt.wantOptions, got.Options)

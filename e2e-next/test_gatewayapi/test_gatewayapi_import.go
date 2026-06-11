@@ -119,9 +119,25 @@ func GatewayAPIImportSpec() {
 						gatewayv1.AnnotationKey(gateways.SanitizedCertificateRefsTLSOption),
 						gatewayv1.AnnotationValue("true"),
 					), "sanitized Terminate listener needs the marker option to stay CRD-valid")
-					if listener.TLS.Mode != nil {
-						g.Expect(*listener.TLS.Mode).To(Equal(gatewayv1.TLSModeTerminate))
-					}
+					g.Expect(listener.TLS.Mode).NotTo(BeNil(), "sanitizing must preserve the TLS mode")
+					g.Expect(*listener.TLS.Mode).To(Equal(gatewayv1.TLSModeTerminate))
+				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+			})
+			By("attaching a tenant HTTPRoute to the sanitized Gateway and verifying it reaches the host", func() {
+				routeNS := createTenantNamespace(ctx, vClusterClient, "gwapi-tls-"+suffix)
+				svc := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "backend-" + suffix, Namespace: routeNS.Name}, Spec: corev1.ServiceSpec{Ports: []corev1.ServicePort{{Port: 80}}}}
+				Expect(vClusterClient.Create(ctx, svc)).To(Succeed())
+				route := importRoute(routeNS.Name, "route-"+suffix, "gwapi-import", hostGW.Name, svc.Name, "app.apps.example.com")
+				Expect(vClusterClient.Create(ctx, route)).To(Succeed())
+				DeferCleanup(func(ctx context.Context) {
+					Expect(ctrlclient.IgnoreNotFound(vClusterClient.Delete(ctx, route))).To(Succeed())
+				})
+				hostRouteName := translate.SafeConcatName(route.Name, "x", routeNS.Name, "x", vClusterName)
+				Eventually(func(g Gomega) {
+					got := &gatewayv1.HTTPRoute{}
+					g.Expect(hostClient.Get(ctx, types.NamespacedName{Namespace: vClusterHostNS, Name: hostRouteName}, got)).To(Succeed())
+					g.Expect(got.Spec.ParentRefs).To(HaveLen(1))
+					g.Expect(got.Spec.ParentRefs[0].Name).To(Equal(gatewayv1.ObjectName(hostGW.Name)))
 				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 			})
 		})
@@ -437,9 +453,8 @@ func hostTLSGateway(namespace, name, className, certName string) *gatewayv1.Gate
 				Name:     gatewayv1.SectionName("https"),
 				Protocol: gatewayv1.HTTPSProtocolType,
 				Port:     gatewayv1.PortNumber(443),
-				// Mode is omitted so the API server defaults it to Terminate,
-				// matching the shared-edge Gateway shape from the field report.
 				TLS: &gatewayv1.ListenerTLSConfig{
+					Mode:            ptr.To(gatewayv1.TLSModeTerminate),
 					CertificateRefs: []gatewayv1.SecretObjectReference{{Name: gatewayv1.ObjectName(certName)}},
 				},
 			}},
