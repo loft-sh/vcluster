@@ -35,6 +35,70 @@ func TestParentRefToHostTranslatesImportedGatewayAndValidatesHostObject(t *testi
 	}
 }
 
+func TestParentRefToHostSetsHostNamespaceForImplicitRefToImportedGateway(t *testing.T) {
+	vcConfig := &pkgconfig.VirtualClusterConfig{}
+	vcConfig.Sync.FromHost.Gateways.Enabled = true
+	vcConfig.Sync.FromHost.Gateways.Mappings.ByName = map[string]string{"networking/shared-edge": "routes/edge"}
+
+	hostGateway := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "networking", Name: "shared-edge"}}
+	pClient := testingutil.NewFakeClient(scheme.Scheme, hostGateway)
+	vClient := testingutil.NewFakeClient(scheme.Scheme)
+	syncCtx := syncertesting.NewFakeRegisterContext(vcConfig, pClient, vClient).ToSyncContext("gatewayroute-translate-test")
+
+	// the route lives in the import target namespace, so the tenant may omit
+	// the parentRef namespace; on the host the Gateway lives in its own
+	// namespace, so the host ref must carry it explicitly
+	ref := gatewayv1.ParentReference{Name: "edge"}
+	if err := ParentRefToHost(syncCtx, "routes", &ref); err != nil {
+		t.Fatalf("expected implicit same-namespace parentRef to imported Gateway to translate: %v", err)
+	}
+	if ref.Name != "shared-edge" || ref.Namespace == nil || *ref.Namespace != "networking" {
+		t.Fatalf("expected parentRef to translate to networking/shared-edge, got namespace=%v name=%q", ref.Namespace, ref.Name)
+	}
+}
+
+func TestParentRefToVirtualMirrorsImplicitVirtualSpecRefForImportedGateway(t *testing.T) {
+	vcConfig := &pkgconfig.VirtualClusterConfig{}
+	vcConfig.Sync.FromHost.Gateways.Enabled = true
+	vcConfig.Sync.FromHost.Gateways.Mappings.ByName = map[string]string{"networking/shared-edge": "routes/edge"}
+
+	syncCtx := syncertesting.NewFakeRegisterContext(vcConfig, testingutil.NewFakeClient(scheme.Scheme), testingutil.NewFakeClient(scheme.Scheme)).ToSyncContext("gatewayroute-translate-test")
+
+	// the host status ref carries the explicit host namespace the toHost
+	// translation set; the tenant spec omitted the namespace, so the virtual
+	// status ref must omit it too
+	ref := gatewayv1.ParentReference{Name: "shared-edge", Namespace: ptr.To(gatewayv1.Namespace("networking"))}
+	virtualSpecParentRefs := []gatewayv1.ParentReference{{Name: "edge"}}
+
+	if err := ParentRefToVirtual(syncCtx, "host-routes", "routes", &ref, virtualSpecParentRefs); err != nil {
+		t.Fatalf("expected host parentRef status to translate: %v", err)
+	}
+	if ref.Name != "edge" || ref.Namespace != nil {
+		t.Fatalf("expected implicit virtual spec ref to stay implicit in status, got namespace=%v name=%q", ref.Namespace, ref.Name)
+	}
+}
+
+func TestParentRefToVirtualMirrorsExplicitSameNamespaceVirtualSpecRefForImportedGateway(t *testing.T) {
+	vcConfig := &pkgconfig.VirtualClusterConfig{}
+	vcConfig.Sync.FromHost.Gateways.Enabled = true
+	vcConfig.Sync.FromHost.Gateways.Mappings.ByName = map[string]string{"networking/shared-edge": "routes/edge"}
+
+	syncCtx := syncertesting.NewFakeRegisterContext(vcConfig, testingutil.NewFakeClient(scheme.Scheme), testingutil.NewFakeClient(scheme.Scheme)).ToSyncContext("gatewayroute-translate-test")
+
+	// the tenant spec named its own namespace explicitly, so the virtual
+	// status ref keeps the explicit form even though it matches the route
+	// namespace
+	ref := gatewayv1.ParentReference{Name: "shared-edge", Namespace: ptr.To(gatewayv1.Namespace("networking"))}
+	virtualSpecParentRefs := []gatewayv1.ParentReference{{Name: "edge", Namespace: ptr.To(gatewayv1.Namespace("routes"))}}
+
+	if err := ParentRefToVirtual(syncCtx, "host-routes", "routes", &ref, virtualSpecParentRefs); err != nil {
+		t.Fatalf("expected host parentRef status to translate: %v", err)
+	}
+	if ref.Name != "edge" || ref.Namespace == nil || *ref.Namespace != "routes" {
+		t.Fatalf("expected explicit same-namespace virtual spec ref to stay explicit in status, got namespace=%v name=%q", ref.Namespace, ref.Name)
+	}
+}
+
 func TestParentRefToVirtualPreservesExplicitNamespaceFromSpecParentRef(t *testing.T) {
 	vcConfig := &pkgconfig.VirtualClusterConfig{}
 	vcConfig.Sync.FromHost.Gateways.Enabled = true
@@ -42,7 +106,7 @@ func TestParentRefToVirtualPreservesExplicitNamespaceFromSpecParentRef(t *testin
 
 	syncCtx := syncertesting.NewFakeRegisterContext(vcConfig, testingutil.NewFakeClient(scheme.Scheme), testingutil.NewFakeClient(scheme.Scheme)).ToSyncContext("gatewayroute-translate-test")
 	ref := gatewayv1.ParentReference{Name: "shared-edge", Namespace: ptr.To(gatewayv1.Namespace("networking"))}
-	specParentRefs := []gatewayv1.ParentReference{{Name: "shared-edge", Namespace: ptr.To(gatewayv1.Namespace("networking"))}}
+	specParentRefs := []gatewayv1.ParentReference{{Name: "edge", Namespace: ptr.To(gatewayv1.Namespace("tenant-gateways"))}}
 
 	if err := ParentRefToVirtual(syncCtx, "host-routes", "routes", &ref, specParentRefs); err != nil {
 		t.Fatalf("expected host parentRef status to translate: %v", err)

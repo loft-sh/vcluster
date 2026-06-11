@@ -53,12 +53,12 @@ func specToHost(ctx *synccontext.SyncContext, vRoute *gatewayv1.HTTPRoute, valid
 	return retSpec, nil
 }
 
-func statusToVirtual(ctx *synccontext.SyncContext, hostRoute *gatewayv1.HTTPRoute, virtualRouteNamespace string, status gatewayv1.HTTPRouteStatus) (gatewayv1.HTTPRouteStatus, error) {
+func statusToVirtual(ctx *synccontext.SyncContext, hostRoute, vRoute *gatewayv1.HTTPRoute, status gatewayv1.HTTPRouteStatus) (gatewayv1.HTTPRouteStatus, error) {
 	retStatus := *status.DeepCopy()
 
 	for i := range retStatus.Parents {
 		hostRouteNamespace := routetranslate.ParentStatusHostNamespace(hostRoute.Namespace, hostRoute.Spec.ParentRefs, retStatus.Parents[i].ParentRef)
-		err := routetranslate.ParentRefToVirtual(ctx, hostRouteNamespace, virtualRouteNamespace, &retStatus.Parents[i].ParentRef, hostRoute.Spec.ParentRefs)
+		err := routetranslate.ParentRefToVirtual(ctx, hostRouteNamespace, vRoute.Namespace, &retStatus.Parents[i].ParentRef, vRoute.Spec.ParentRefs)
 		if err != nil {
 			return gatewayv1.HTTPRouteStatus{}, fmt.Errorf("translate parents[%d].parentRef: %w", i, err)
 		}

@@ -86,6 +86,67 @@ func GatewayAPIImportSpec() {
 			})
 		})
 
+		It("syncs a same-namespace route attached to the imported Gateway without an explicit parentRef namespace", func(ctx context.Context) {
+			suffix := random.String(6)
+			class := createGatewayClass(ctx, hostClient, "gwc-samens-"+suffix, importClassSelectorValue, "same-namespace class")
+			hostGW := hostGateway("gwapi-host", "samens-edge-"+suffix, class.Name)
+			createHostGateway(ctx, hostClient, hostGW)
+			var route *gatewayv1.HTTPRoute
+			var hostRouteName string
+
+			By("verifying the tenant mirror exists in the import target namespace", func() {
+				Eventually(func(g Gomega) {
+					mirror := &gatewayv1.Gateway{}
+					g.Expect(vClusterClient.Get(ctx, types.NamespacedName{Namespace: "gwapi-import", Name: hostGW.Name}, mirror)).To(Succeed())
+					g.Expect(mirror.Labels).To(HaveKeyWithValue(gateways.ImportedGatewayLabel, "true"))
+				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+			})
+			By("creating a backend and a route next to the mirror with the parentRef namespace omitted", func() {
+				svc := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "backend-samens-" + suffix, Namespace: "gwapi-import"}, Spec: corev1.ServiceSpec{Ports: []corev1.ServicePort{{Port: 80}}}}
+				Expect(vClusterClient.Create(ctx, svc)).To(Succeed())
+				DeferCleanup(func(ctx context.Context) {
+					Expect(ctrlclient.IgnoreNotFound(vClusterClient.Delete(ctx, svc))).To(Succeed())
+				})
+				route = importRoute("gwapi-import", "route-samens-"+suffix, "", hostGW.Name, svc.Name, "app.apps.example.com")
+				route.Spec.ParentRefs[0].Namespace = nil
+				Expect(vClusterClient.Create(ctx, route)).To(Succeed())
+				DeferCleanup(func(ctx context.Context) {
+					Expect(ctrlclient.IgnoreNotFound(vClusterClient.Delete(ctx, route))).To(Succeed())
+				})
+			})
+			By("verifying the host route parentRef carries the host Gateway namespace", func() {
+				hostRouteName = translate.SafeConcatName(route.Name, "x", "gwapi-import", "x", vClusterName)
+				Eventually(func(g Gomega) {
+					got := &gatewayv1.HTTPRoute{}
+					g.Expect(hostClient.Get(ctx, types.NamespacedName{Namespace: vClusterHostNS, Name: hostRouteName}, got)).To(Succeed())
+					g.Expect(got.Spec.ParentRefs).To(HaveLen(1))
+					g.Expect(got.Spec.ParentRefs[0].Name).To(Equal(gatewayv1.ObjectName(hostGW.Name)))
+					g.Expect(got.Spec.ParentRefs[0].Namespace).NotTo(BeNil(), "implicit parentRef must be rewritten to the imported Gateway host namespace")
+					g.Expect(*got.Spec.ParentRefs[0].Namespace).To(Equal(gatewayv1.Namespace("gwapi-host")))
+				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+			})
+			By("writing host route status and verifying the tenant status ref stays implicit like the tenant spec", func() {
+				Eventually(func(g Gomega) {
+					hostRoute := &gatewayv1.HTTPRoute{}
+					g.Expect(hostClient.Get(ctx, types.NamespacedName{Namespace: vClusterHostNS, Name: hostRouteName}, hostRoute)).To(Succeed())
+					hostRoute.Status.Parents = []gatewayv1.RouteParentStatus{{
+						ParentRef:      *hostRoute.Spec.ParentRefs[0].DeepCopy(),
+						ControllerName: gatewayControllerName,
+						Conditions:     []metav1.Condition{{Type: "Accepted", Status: metav1.ConditionTrue, Reason: "Accepted", Message: "route accepted", LastTransitionTime: metav1.Now()}},
+					}}
+					g.Expect(hostClient.Status().Update(ctx, hostRoute)).To(Succeed())
+				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+
+				Eventually(func(g Gomega) {
+					got := &gatewayv1.HTTPRoute{}
+					g.Expect(vClusterClient.Get(ctx, ctrlclient.ObjectKeyFromObject(route), got)).To(Succeed())
+					g.Expect(got.Status.Parents).To(HaveLen(1))
+					g.Expect(got.Status.Parents[0].ParentRef.Name).To(Equal(gatewayv1.ObjectName(hostGW.Name)))
+					g.Expect(got.Status.Parents[0].ParentRef.Namespace).To(BeNil(), "tenant status ref must mirror the implicit tenant spec ref")
+				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+			})
+		})
+
 		It("mirrors the GatewayClass with controllerName preserved and parametersRef stripped", func(ctx context.Context) {
 			suffix := random.String(6)
 			class := createGatewayClass(ctx, hostClient, "gwc-sanitize-"+suffix, importClassSelectorValue, "sanitize class")
@@ -436,7 +497,7 @@ func hostGateway(namespace, name, className string) *gatewayv1.Gateway {
 		Spec: gatewayv1.GatewaySpec{
 			GatewayClassName: gatewayv1.ObjectName(className),
 			Listeners: []gatewayv1.Listener{{
-				Name:     gatewayv1.SectionName("http"),
+				Name:     "http",
 				Protocol: gatewayv1.HTTPProtocolType,
 				Port:     gatewayv1.PortNumber(80),
 			}},
@@ -450,7 +511,7 @@ func hostTLSGateway(namespace, name, className, certName string) *gatewayv1.Gate
 		Spec: gatewayv1.GatewaySpec{
 			GatewayClassName: gatewayv1.ObjectName(className),
 			Listeners: []gatewayv1.Listener{{
-				Name:     gatewayv1.SectionName("https"),
+				Name:     "https",
 				Protocol: gatewayv1.HTTPSProtocolType,
 				Port:     gatewayv1.PortNumber(443),
 				TLS: &gatewayv1.ListenerTLSConfig{
