@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/loft-sh/log"
+	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/cli/util"
@@ -139,6 +140,16 @@ vcluster debug collect
 }
 
 func (cmd *CollectCmd) Run(ctx context.Context, args []string) error {
+	cfg := cmd.LoadedConfig(cmd.log)
+	driver, err := config.ParseDriverType(string(cfg.Driver.Type))
+	if err != nil {
+		return fmt.Errorf("parse driver type: %w", err)
+	}
+
+	if driver != config.HelmDriver {
+		return fmt.Errorf("vcluster debug collect is only supported for helm driver")
+	}
+
 	// gather resources
 	cmd.HostResources = mergeResources(defaultHostResources, cmd.HostResources)
 	cmd.VirtualResources = mergeResources(defaultVirtualResources, cmd.VirtualResources)
