@@ -44,33 +44,24 @@ func GatewayAPIInvalidConfigSpec() {
 			expectVClusterStartupError(ctx, "tc38", invalidCfgTC38EmptyMappingsYAML, "sync.fromHost.gateways.mappings.byName")
 		})
 
-		It("rejects invalid mapping keys at deploy time (TC-39)", func(ctx context.Context) {
-			for _, variant := range []struct {
-				slug string
-				yaml string
-			}{
-				{"tc39-empty-key", invalidCfgTC39EmptyKeyYAML},
-				{"tc39-wildcard-key", invalidCfgTC39WildcardKeyYAML},
-				{"tc39-missing-source-ns", invalidCfgTC39MissingSourceNSYAML},
-			} {
-				By(variant.slug, func() {
-					expectVClusterStartupError(ctx, variant.slug, variant.yaml, "sync.fromHost.gateways.mappings.byName")
-				})
-			}
+		It("rejects empty mapping key at deploy time (TC-39 empty-key)", func(ctx context.Context) {
+			expectVClusterStartupError(ctx, "tc39-empty-key", invalidCfgTC39EmptyKeyYAML, "sync.fromHost.gateways.mappings.byName")
 		})
 
-		It("rejects wildcard mappings whose target is not a wildcard, and non-wildcard mappings whose target is a wildcard (TC-40)", func(ctx context.Context) {
-			for _, variant := range []struct {
-				slug string
-				yaml string
-			}{
-				{"tc40-wildcard-src-fixed-dst", invalidCfgTC40WildcardSrcFixedDstYAML},
-				{"tc40-fixed-src-wildcard-dst", invalidCfgTC40FixedSrcWildcardDstYAML},
-			} {
-				By(variant.slug, func() {
-					expectVClusterStartupError(ctx, variant.slug, variant.yaml, "wildcard")
-				})
-			}
+		It("rejects wildcard mapping key at deploy time (TC-39 wildcard-key)", func(ctx context.Context) {
+			expectVClusterStartupError(ctx, "tc39-wildcard-key", invalidCfgTC39WildcardKeyYAML, "sync.fromHost.gateways.mappings.byName")
+		})
+
+		It("rejects missing source namespace at deploy time (TC-39 missing-source-ns)", func(ctx context.Context) {
+			expectVClusterStartupError(ctx, "tc39-missing-source-ns", invalidCfgTC39MissingSourceNSYAML, "sync.fromHost.gateways.mappings.byName")
+		})
+
+		It("rejects wildcard mapping whose target is not a wildcard (TC-40 wildcard-src-fixed-dst)", func(ctx context.Context) {
+			expectVClusterStartupError(ctx, "tc40-wildcard-src-fixed-dst", invalidCfgTC40WildcardSrcFixedDstYAML, "wildcard")
+		})
+
+		It("rejects non-wildcard mapping whose target is a wildcard (TC-40 fixed-src-wildcard-dst)", func(ctx context.Context) {
+			expectVClusterStartupError(ctx, "tc40-fixed-src-wildcard-dst", invalidCfgTC40FixedSrcWildcardDstYAML, "wildcard")
 		})
 
 		It("rejects allowedRoutes.overrides referencing a host Gateway not covered by mappings.byName (TC-41)", func(ctx context.Context) {
