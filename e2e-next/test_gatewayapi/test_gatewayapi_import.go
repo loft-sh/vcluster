@@ -98,6 +98,50 @@ func GatewayAPIImportSpec() {
 			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 		})
 
+		It("imports a TLS-terminating host Gateway with certificateRefs sanitized and the mirror kept valid", func(ctx context.Context) {
+			suffix := random.String(6)
+			class := createGatewayClass(ctx, hostClient, "gwc-tls-"+suffix, importClassSelectorValue, "tls class")
+			hostGW := hostTLSGateway("gwapi-host", "tls-edge-"+suffix, class.Name, "edge-cert-"+suffix)
+
+			By("creating a TLS-terminating host Gateway in the wildcard-mapped source namespace", func() {
+				createHostGateway(ctx, hostClient, hostGW)
+			})
+			By("verifying the tenant mirror keeps the https listener with sanitized certificateRefs", func() {
+				Eventually(func(g Gomega) {
+					mirror := &gatewayv1.Gateway{}
+					g.Expect(vClusterClient.Get(ctx, types.NamespacedName{Namespace: "gwapi-import", Name: hostGW.Name}, mirror)).To(Succeed())
+					g.Expect(mirror.Spec.Listeners).To(HaveLen(1))
+					listener := mirror.Spec.Listeners[0]
+					g.Expect(listener.Protocol).To(Equal(gatewayv1.HTTPSProtocolType))
+					g.Expect(listener.TLS).NotTo(BeNil(), "sanitizing certificateRefs must not drop the TLS config")
+					g.Expect(listener.TLS.CertificateRefs).To(BeEmpty(), "host certificateRefs must not leak into the tenant mirror")
+					g.Expect(listener.TLS.Options).To(HaveKeyWithValue(
+						gatewayv1.AnnotationKey(gateways.SanitizedCertificateRefsTLSOption),
+						gatewayv1.AnnotationValue("true"),
+					), "sanitized Terminate listener needs the marker option to stay CRD-valid")
+					g.Expect(listener.TLS.Mode).NotTo(BeNil(), "sanitizing must preserve the TLS mode")
+					g.Expect(*listener.TLS.Mode).To(Equal(gatewayv1.TLSModeTerminate))
+				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+			})
+			By("attaching a tenant HTTPRoute to the sanitized Gateway and verifying it reaches the host", func() {
+				routeNS := createTenantNamespace(ctx, vClusterClient, "gwapi-tls-"+suffix)
+				svc := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "backend-" + suffix, Namespace: routeNS.Name}, Spec: corev1.ServiceSpec{Ports: []corev1.ServicePort{{Port: 80}}}}
+				Expect(vClusterClient.Create(ctx, svc)).To(Succeed())
+				route := importRoute(routeNS.Name, "route-"+suffix, "gwapi-import", hostGW.Name, svc.Name, "app.apps.example.com")
+				Expect(vClusterClient.Create(ctx, route)).To(Succeed())
+				DeferCleanup(func(ctx context.Context) {
+					Expect(ctrlclient.IgnoreNotFound(vClusterClient.Delete(ctx, route))).To(Succeed())
+				})
+				hostRouteName := translate.SafeConcatName(route.Name, "x", routeNS.Name, "x", vClusterName)
+				Eventually(func(g Gomega) {
+					got := &gatewayv1.HTTPRoute{}
+					g.Expect(hostClient.Get(ctx, types.NamespacedName{Namespace: vClusterHostNS, Name: hostRouteName}, got)).To(Succeed())
+					g.Expect(got.Spec.ParentRefs).To(HaveLen(1))
+					g.Expect(got.Spec.ParentRefs[0].Name).To(Equal(gatewayv1.ObjectName(hostGW.Name)))
+				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+			})
+		})
+
 		It("does not sync routes that attach to a tenant-local non-imported Gateway", func(ctx context.Context) {
 			suffix := random.String(6)
 			class := createGatewayClass(ctx, hostClient, "gwc-local-"+suffix, importClassSelectorValue, "local class")
@@ -395,6 +439,24 @@ func hostGateway(namespace, name, className string) *gatewayv1.Gateway {
 				Name:     gatewayv1.SectionName("http"),
 				Protocol: gatewayv1.HTTPProtocolType,
 				Port:     gatewayv1.PortNumber(80),
+			}},
+		},
+	}
+}
+
+func hostTLSGateway(namespace, name, className, certName string) *gatewayv1.Gateway {
+	return &gatewayv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+		Spec: gatewayv1.GatewaySpec{
+			GatewayClassName: gatewayv1.ObjectName(className),
+			Listeners: []gatewayv1.Listener{{
+				Name:     gatewayv1.SectionName("https"),
+				Protocol: gatewayv1.HTTPSProtocolType,
+				Port:     gatewayv1.PortNumber(443),
+				TLS: &gatewayv1.ListenerTLSConfig{
+					Mode:            ptr.To(gatewayv1.TLSModeTerminate),
+					CertificateRefs: []gatewayv1.SecretObjectReference{{Name: gatewayv1.ObjectName(certName)}},
+				},
 			}},
 		},
 	}
