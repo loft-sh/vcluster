@@ -25,5 +25,10 @@ func CreateHTTPRouteMapper(ctx *synccontext.RegisterContext) (synccontext.Mapper
 		return nil, err
 	}
 
+	err = EnsureReferenceGrantCRD(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	return generic.NewMapper(ctx, &gatewayv1.HTTPRoute{}, translate.Default.HostName)
 }
