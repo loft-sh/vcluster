@@ -308,8 +308,11 @@ func validateGatewayMappings(mappings map[string]string, controlPlaneNamespace s
 		if tenant.namespace == "kube-system" || tenant.namespace == "kube-public" || tenant.namespace == "kube-node-lease" || (controlPlaneNamespace != "" && tenant.namespace == controlPlaneNamespace) {
 			return fmt.Errorf("sync.fromHost.gateways.mappings.byName target namespace %q is reserved", tenant.namespace)
 		}
-		if host.wildcard != tenant.wildcard {
-			return fmt.Errorf("sync.fromHost.gateways.mappings.byName wildcard key %q must map to tenant namespace/*", key)
+		if host.wildcard && !tenant.wildcard {
+			return fmt.Errorf("sync.fromHost.gateways.mappings.byName wildcard key %q must map to a wildcard target NAMESPACE/*, but %q is concrete", key, value)
+		}
+		if !host.wildcard && tenant.wildcard {
+			return fmt.Errorf("sync.fromHost.gateways.mappings.byName target %q requires the source key to be a wildcard NAMESPACE/*, but %q is concrete", value, key)
 		}
 		if host.wildcard {
 			if existing, ok := sourceWildcards[host.namespace]; ok {

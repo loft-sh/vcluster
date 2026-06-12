@@ -61,24 +61,25 @@ func parentRefToHost(ctx *synccontext.SyncContext, routeNamespace string, ref *g
 }
 
 // ParentRefToVirtual rewrites a host-side ParentReference into the equivalent
-// virtual reference. specParentRefs is the route's spec-side ParentRefs slice
-// (or nil when no such slice exists, e.g. BackendTLSPolicy ancestors); when
-// non-nil, the matching spec ref's explicit-namespace choice is preserved on
-// the returned status ref so spec/status round-trip cleanly.
-func ParentRefToVirtual(ctx *synccontext.SyncContext, hostRouteNamespace, virtualRouteNamespace string, ref *gatewayv1.ParentReference, specParentRefs []gatewayv1.ParentReference) error {
+// virtual reference. virtualSpecParentRefs is the virtual route's spec-side
+// ParentRefs slice (or nil when no such slice exists, e.g. BackendTLSPolicy
+// ancestors); the returned status ref mirrors the matching virtual spec ref's
+// explicit-namespace choice so spec/status round-trip cleanly. The host spec
+// ref cannot stand in for that choice: an implicit tenant ref to an imported
+// Gateway is made explicit on the host.
+func ParentRefToVirtual(ctx *synccontext.SyncContext, hostRouteNamespace, virtualRouteNamespace string, ref *gatewayv1.ParentReference, virtualSpecParentRefs []gatewayv1.ParentReference) error {
 	gvk, err := parentReferenceGVK(ref)
 	if err != nil {
 		return err
 	}
 
-	preserveNamespace := parentRefHasExplicitNamespace(hostRouteNamespace, ref, specParentRefs)
 	virtualName, err := refToVirtual(ctx, hostRouteNamespace, ref.Name, ref.Namespace, gvk)
 	if err != nil {
 		return err
 	}
 
 	ref.Name = gatewayv1.ObjectName(virtualName.Name)
-	if preserveNamespace || virtualName.Namespace != virtualRouteNamespace {
+	if virtualName.Namespace != virtualRouteNamespace || virtualSpecRefHasExplicitNamespace(virtualRouteNamespace, *ref, virtualName, virtualSpecParentRefs) {
 		ref.Namespace = ptr.To(gatewayv1.Namespace(virtualName.Namespace))
 	} else {
 		ref.Namespace = nil
@@ -87,9 +88,11 @@ func ParentRefToVirtual(ctx *synccontext.SyncContext, hostRouteNamespace, virtua
 	return nil
 }
 
-func parentRefHasExplicitNamespace(hostRouteNamespace string, ref *gatewayv1.ParentReference, specParentRefs []gatewayv1.ParentReference) bool {
-	for _, specParentRef := range specParentRefs {
-		if parentRefMatchesWithNamespace(specParentRef, *ref, hostRouteNamespace) && specParentRef.Namespace != nil && *specParentRef.Namespace != "" {
+func virtualSpecRefHasExplicitNamespace(virtualRouteNamespace string, statusRef gatewayv1.ParentReference, virtualName types.NamespacedName, virtualSpecParentRefs []gatewayv1.ParentReference) bool {
+	statusRef.Name = gatewayv1.ObjectName(virtualName.Name)
+	statusRef.Namespace = ptr.To(gatewayv1.Namespace(virtualName.Namespace))
+	for _, specParentRef := range virtualSpecParentRefs {
+		if parentRefMatchesWithNamespace(specParentRef, statusRef, virtualRouteNamespace) && specParentRef.Namespace != nil && *specParentRef.Namespace != "" {
 			return true
 		}
 	}
@@ -187,7 +190,18 @@ func objectRefToHost(ctx *synccontext.SyncContext, localNamespace string, refNam
 	}
 
 	*refName = gatewayv1.ObjectName(hostName.Name)
-	if refNamespace != nil && *refNamespace != nil {
+	if refNamespace == nil {
+		return nil
+	}
+	if *refNamespace != nil {
+		*refNamespace = ptr.To(gatewayv1.Namespace(hostName.Namespace))
+		return nil
+	}
+	// an implicit reference defaults to the referencing object's host
+	// namespace; when the resolved host object lives elsewhere (e.g. an
+	// imported fromHost Gateway), the host reference must name that
+	// namespace explicitly
+	if hostName.Namespace != "" && hostName.Namespace != utiltranslate.Default.HostNamespace(ctx, localNamespace) {
 		*refNamespace = ptr.To(gatewayv1.Namespace(hostName.Namespace))
 	}
 

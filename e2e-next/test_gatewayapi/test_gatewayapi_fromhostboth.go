@@ -27,7 +27,7 @@ func GatewayAPIFromHostBothSpec() {
 		)
 
 		BeforeEach(func(ctx context.Context) {
-			c := newGatewayAPIClients(ctx, false)
+			c := newGatewayAPIClients(ctx)
 			hostClient = c.HostClient
 			vClusterClient = c.VClusterClient
 			vClusterName = c.VClusterName
