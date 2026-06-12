@@ -745,11 +745,8 @@ func GetStandaloneVCluster() (*VCluster, error) {
 	created := metav1.NewTime(fi.ModTime())
 
 	// Check if the systemd service is actually running.
-	status := StatusUnknown
 	out, err := exec.Command("systemctl", "is-active", constants.VClusterStandaloneSystemdServiceName).Output()
-	if err == nil && strings.TrimSpace(string(out)) == "active" {
-		status = StatusRunning
-	}
+	status := standaloneStatus(out, err)
 
 	return &VCluster{
 		Name:          vConfig.Name,
@@ -760,6 +757,16 @@ func GetStandaloneVCluster() (*VCluster, error) {
 		Status:        status,
 		IsStandalone:  true,
 	}, nil
+}
+
+// standaloneStatus maps the output of `systemctl is-active` for the standalone
+// vCluster service to a Status. Only an "active" service reports as running;
+// any other output or a failed command (e.g. systemctl unavailable) is Unknown.
+func standaloneStatus(systemctlOutput []byte, systemctlErr error) Status {
+	if systemctlErr == nil && strings.TrimSpace(string(systemctlOutput)) == "active" {
+		return StatusRunning
+	}
+	return StatusUnknown
 }
 
 // isVirtualClusterInstanceResourceAvailable checks if VirtualClusterInstance resources from storage.loft.sh/v1 exist

@@ -28,8 +28,9 @@ const (
 )
 
 func CreateSnapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshotapi.Options, podOptions *pod.Options, log log.Logger, delegateFromCLIToCluster, standalone bool) error {
-	// init kube client and vCluster
-	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log, delegateFromCLIToCluster, standalone)
+	// init kube client and vCluster; requireRunning aborts early if the virtual
+	// cluster is not running, before any storage credentials are filled
+	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log, delegateFromCLIToCluster, standalone, true)
 	if err != nil {
 		return err
 	}
@@ -81,8 +82,9 @@ func GetSnapshots(ctx context.Context, args []string, globalFlags *flags.GlobalF
 	// We run get command inside Pod only for snapshots stored in a container. In other cases the
 	// command runs on a local machine.
 	credentialsRequiredInCluster := parsedURL.Scheme == "container"
-	// init kube client and vCluster
-	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log, credentialsRequiredInCluster, standalone)
+	// init kube client and vCluster; listing snapshots must keep working for a
+	// non-running virtual cluster, so the running-state guard is not applied here
+	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log, credentialsRequiredInCluster, standalone, false)
 	if err != nil {
 		return fmt.Errorf("failed to init snapshot command: %w", err)
 	}
@@ -113,18 +115,16 @@ func initSnapshotCommand(
 	log log.Logger,
 	credentialsRequiredInCluster bool,
 	standalone bool,
+	requireRunning bool,
 ) (*find.VCluster, *kubernetes.Clientset, *rest.Config, error) {
 	vClusterName, snapshotURL, err := resolveSnapshotArgs(args, standalone)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	err = snapshot.SetURLAndFillCredentials(ctx, snapshotOptions, snapshotURL, credentialsRequiredInCluster)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to set snapshot url and fill credentials: %w", err)
-	}
-
-	// find the vCluster
+	// find the vCluster before parsing the URL or filling storage credentials, so
+	// snapshot creation can fail fast with a clear status error instead of, say, an
+	// Azure credential error, when the virtual cluster is not running
 	var vCluster *find.VCluster
 	if standalone {
 		vCluster, err = find.GetStandaloneVCluster()
@@ -139,6 +139,18 @@ func initSnapshotCommand(
 		if err != nil {
 			return nil, nil, nil, err
 		}
+	}
+
+	// abort in case the virtual cluster has a non-running status
+	if requireRunning {
+		if err := validateVClusterIsRunning(vCluster); err != nil {
+			return nil, nil, nil, err
+		}
+	}
+
+	err = snapshot.SetURLAndFillCredentials(ctx, snapshotOptions, snapshotURL, credentialsRequiredInCluster)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to set snapshot url and fill credentials: %w", err)
 	}
 
 	// check if snapshot is supported
@@ -207,6 +219,23 @@ func resolveSnapshotArgs(args []string, standalone bool) (string, string, error)
 	}
 
 	return args[0], args[1], nil
+}
+
+// validateVClusterIsRunning aborts snapshot creation if the virtual cluster is in
+// any non-running state (paused, scaled down, sleeping, unhealthy, etc.): the async
+// snapshot request would never be reconciled, and snapshotting a stopped control
+// plane is not supported.
+func validateVClusterIsRunning(vCluster *find.VCluster) error {
+	if vCluster.Status != find.StatusRunning {
+		status := vCluster.Status
+		if status == "" {
+			// the status is empty when the virtual cluster has no pods yet, e.g.
+			// right after creation or after its pod has been evicted
+			status = find.StatusUnknown
+		}
+		return fmt.Errorf("cannot create snapshot because virtual cluster %q is in state %q, snapshots can only be taken when the virtual cluster is in state %q", vCluster.Name, status, find.StatusRunning)
+	}
+	return nil
 }
 
 func checkIfVClusterSupportsSnapshotRequests(vCluster *find.VCluster, log log.Logger) error {
