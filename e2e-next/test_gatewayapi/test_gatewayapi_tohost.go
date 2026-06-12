@@ -16,9 +16,6 @@ import (
 	"k8s.io/utils/ptr"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gatewayv1alpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
-	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 // GatewayAPIToHostSpec registers tenant-authored route/policy sync tests.
@@ -32,7 +29,7 @@ func GatewayAPIToHostSpec() {
 		)
 
 		BeforeEach(func(ctx context.Context) {
-			clients := newGatewayAPIClients(ctx, true)
+			clients := newGatewayAPIClients(ctx)
 			hostClient = clients.HostClient
 			vClusterClient = clients.VClusterClient
 			vClusterName = clients.VClusterName
@@ -40,8 +37,8 @@ func GatewayAPIToHostSpec() {
 
 			Eventually(func(g Gomega) {
 				g.Expect(vClusterClient.List(ctx, &gatewayv1.HTTPRouteList{}, ctrlclient.InNamespace("default"))).To(Succeed())
-				g.Expect(vClusterClient.List(ctx, &gatewayv1alpha2.TLSRouteList{}, ctrlclient.InNamespace("default"))).To(Succeed())
-				g.Expect(vClusterClient.List(ctx, &gatewayv1alpha3.BackendTLSPolicyList{}, ctrlclient.InNamespace("default"))).To(Succeed())
+				g.Expect(vClusterClient.List(ctx, &gatewayv1.TLSRouteList{}, ctrlclient.InNamespace("default"))).To(Succeed())
+				g.Expect(vClusterClient.List(ctx, &gatewayv1.BackendTLSPolicyList{}, ctrlclient.InNamespace("default"))).To(Succeed())
 			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 		})
 
@@ -68,7 +65,7 @@ func GatewayAPIToHostSpec() {
 			Expect(vClusterClient.Create(ctx, svc)).To(Succeed())
 			var hostRouteName string
 			var route *gatewayv1.HTTPRoute
-			var grant *gatewayv1beta1.ReferenceGrant
+			var grant *gatewayv1.ReferenceGrant
 
 			By("creating a route whose backendRef crosses into another namespace", func() {
 				route = crossNamespaceRoute(frontend.Name, "route-"+suffix, gw.Name, backend.Name, svc.Name)
@@ -84,11 +81,11 @@ func GatewayAPIToHostSpec() {
 				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutShort).Should(Succeed())
 			})
 			By("creating a ReferenceGrant in the backend namespace and expecting the route to sync", func() {
-				grant = &gatewayv1beta1.ReferenceGrant{
+				grant = &gatewayv1.ReferenceGrant{
 					ObjectMeta: metav1.ObjectMeta{Name: "allow-" + suffix, Namespace: backend.Name},
-					Spec: gatewayv1beta1.ReferenceGrantSpec{
-						From: []gatewayv1beta1.ReferenceGrantFrom{{Group: gatewayv1.GroupName, Kind: "HTTPRoute", Namespace: gatewayv1.Namespace(frontend.Name)}},
-						To:   []gatewayv1beta1.ReferenceGrantTo{{Group: "", Kind: "Service"}},
+					Spec: gatewayv1.ReferenceGrantSpec{
+						From: []gatewayv1.ReferenceGrantFrom{{Group: gatewayv1.GroupName, Kind: "HTTPRoute", Namespace: gatewayv1.Namespace(frontend.Name)}},
+						To:   []gatewayv1.ReferenceGrantTo{{Group: "", Kind: "Service"}},
 					},
 				}
 				Expect(vClusterClient.Create(ctx, grant)).To(Succeed())
@@ -129,12 +126,12 @@ func GatewayAPIToHostSpec() {
 			svc := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "tls-backend-" + suffix, Namespace: ns.Name}, Spec: corev1.ServiceSpec{Ports: []corev1.ServicePort{{Port: 443}}}}
 			Expect(vClusterClient.Create(ctx, svc)).To(Succeed())
 
-			route := &gatewayv1alpha2.TLSRoute{
+			route := &gatewayv1.TLSRoute{
 				ObjectMeta: metav1.ObjectMeta{Name: "app-tls-" + suffix, Namespace: ns.Name},
-				Spec: gatewayv1alpha2.TLSRouteSpec{
+				Spec: gatewayv1.TLSRouteSpec{
 					CommonRouteSpec: gatewayv1.CommonRouteSpec{ParentRefs: []gatewayv1.ParentReference{{Name: gatewayv1.ObjectName(gw.Name), SectionName: ptr.To[gatewayv1.SectionName]("tls")}}},
 					Hostnames:       []gatewayv1.Hostname{"app.apps.example.com"},
-					Rules: []gatewayv1alpha2.TLSRouteRule{{BackendRefs: []gatewayv1.BackendRef{{
+					Rules: []gatewayv1.TLSRouteRule{{BackendRefs: []gatewayv1.BackendRef{{
 						BackendObjectReference: gatewayv1.BackendObjectReference{Name: gatewayv1.ObjectName(svc.Name), Port: ptr.To[gatewayv1.PortNumber](443)},
 					}}}},
 				},
@@ -146,9 +143,9 @@ func GatewayAPIToHostSpec() {
 
 			hostRouteName := translate.SafeConcatName(route.Name, "x", ns.Name, "x", vClusterName)
 			hostKey := types.NamespacedName{Namespace: vClusterHostNS, Name: hostRouteName}
-			var current *gatewayv1alpha2.TLSRoute
+			var current *gatewayv1.TLSRoute
 			Eventually(func(g Gomega) {
-				got := &gatewayv1alpha2.TLSRoute{}
+				got := &gatewayv1.TLSRoute{}
 				g.Expect(hostClient.Get(ctx, hostKey, got)).To(Succeed())
 				g.Expect(got.Spec.Hostnames).To(ContainElement(gatewayv1.Hostname("app.apps.example.com")))
 				g.Expect(got.Spec.ParentRefs).To(HaveLen(1))
@@ -156,12 +153,12 @@ func GatewayAPIToHostSpec() {
 			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 
 			By("patching the tenant TLSRoute hostname and expecting the host update", func() {
-				current = &gatewayv1alpha2.TLSRoute{}
+				current = &gatewayv1.TLSRoute{}
 				Expect(vClusterClient.Get(ctx, ctrlclient.ObjectKeyFromObject(route), current)).To(Succeed())
 				current.Spec.Hostnames = []gatewayv1.Hostname{"app-updated.apps.example.com"}
 				Expect(vClusterClient.Update(ctx, current)).To(Succeed())
 				Eventually(func(g Gomega) {
-					got := &gatewayv1alpha2.TLSRoute{}
+					got := &gatewayv1.TLSRoute{}
 					g.Expect(hostClient.Get(ctx, hostKey, got)).To(Succeed())
 					g.Expect(got.Spec.Hostnames).To(ContainElement(gatewayv1.Hostname("app-updated.apps.example.com")))
 				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
@@ -169,7 +166,7 @@ func GatewayAPIToHostSpec() {
 			By("deleting the tenant TLSRoute and expecting host deletion", func() {
 				Expect(ctrlclient.IgnoreNotFound(vClusterClient.Delete(ctx, current))).To(Succeed())
 				Eventually(func(g Gomega) {
-					err := hostClient.Get(ctx, hostKey, &gatewayv1alpha2.TLSRoute{})
+					err := hostClient.Get(ctx, hostKey, &gatewayv1.TLSRoute{})
 					g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
 				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 			})
@@ -181,12 +178,12 @@ func GatewayAPIToHostSpec() {
 			otherNS := createTenantNamespace(ctx, vClusterClient, "btls-other-"+suffix)
 			otherSvc := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "btls-other-backend-" + suffix, Namespace: otherNS.Name}, Spec: corev1.ServiceSpec{Ports: []corev1.ServicePort{{Port: 443}}}}
 			Expect(vClusterClient.Create(ctx, otherSvc)).To(Succeed())
-			var policy *gatewayv1alpha3.BackendTLSPolicy
+			var policy *gatewayv1.BackendTLSPolicy
 			var hostKey types.NamespacedName
-			var current *gatewayv1alpha3.BackendTLSPolicy
+			var current *gatewayv1.BackendTLSPolicy
 
 			By("creating a policy with an unresolvable local targetRef and expecting no host sync", func() {
-				unresolvedPolicy := &gatewayv1alpha3.BackendTLSPolicy{
+				unresolvedPolicy := &gatewayv1.BackendTLSPolicy{
 					ObjectMeta: metav1.ObjectMeta{Name: "btls-unresolved-target-" + suffix, Namespace: ns.Name},
 					Spec: gatewayv1.BackendTLSPolicySpec{
 						TargetRefs: []gatewayv1.LocalPolicyTargetReferenceWithSectionName{{
@@ -204,14 +201,14 @@ func GatewayAPIToHostSpec() {
 				})
 				unresolvedHostPolicyName := translate.SafeConcatName(unresolvedPolicy.Name, "x", ns.Name, "x", vClusterName)
 				Consistently(func(g Gomega) {
-					err := hostClient.Get(ctx, types.NamespacedName{Namespace: vClusterHostNS, Name: unresolvedHostPolicyName}, &gatewayv1alpha3.BackendTLSPolicy{})
+					err := hostClient.Get(ctx, types.NamespacedName{Namespace: vClusterHostNS, Name: unresolvedHostPolicyName}, &gatewayv1.BackendTLSPolicy{})
 					g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
 				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutShort).Should(Succeed())
 
 				svc := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "btls-backend-" + suffix, Namespace: ns.Name}, Spec: corev1.ServiceSpec{Ports: []corev1.ServicePort{{Port: 443}}}}
 				Expect(vClusterClient.Create(ctx, svc)).To(Succeed())
 
-				policy = &gatewayv1alpha3.BackendTLSPolicy{
+				policy = &gatewayv1.BackendTLSPolicy{
 					ObjectMeta: metav1.ObjectMeta{Name: "btls-" + suffix, Namespace: ns.Name},
 					Spec: gatewayv1.BackendTLSPolicySpec{
 						TargetRefs: []gatewayv1.LocalPolicyTargetReferenceWithSectionName{{
@@ -231,19 +228,19 @@ func GatewayAPIToHostSpec() {
 				hostPolicyName := translate.SafeConcatName(policy.Name, "x", ns.Name, "x", vClusterName)
 				hostKey = types.NamespacedName{Namespace: vClusterHostNS, Name: hostPolicyName}
 				Eventually(func(g Gomega) {
-					got := &gatewayv1alpha3.BackendTLSPolicy{}
+					got := &gatewayv1.BackendTLSPolicy{}
 					g.Expect(hostClient.Get(ctx, hostKey, got)).To(Succeed())
 					g.Expect(got.Spec.TargetRefs).To(HaveLen(1))
 					g.Expect(string(got.Spec.TargetRefs[0].Name)).To(Equal(translate.SafeConcatName(svc.Name, "x", ns.Name, "x", vClusterName)))
 				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 			})
 			By("updating the policy hostname and expecting the host update", func() {
-				current = &gatewayv1alpha3.BackendTLSPolicy{}
+				current = &gatewayv1.BackendTLSPolicy{}
 				Expect(vClusterClient.Get(ctx, ctrlclient.ObjectKeyFromObject(policy), current)).To(Succeed())
 				current.Spec.Validation.Hostname = "backend-updated.apps.example.com"
 				Expect(vClusterClient.Update(ctx, current)).To(Succeed())
 				Eventually(func(g Gomega) {
-					got := &gatewayv1alpha3.BackendTLSPolicy{}
+					got := &gatewayv1.BackendTLSPolicy{}
 					g.Expect(hostClient.Get(ctx, hostKey, got)).To(Succeed())
 					g.Expect(got.Spec.Validation.Hostname).To(Equal(gatewayv1.PreciseHostname("backend-updated.apps.example.com")))
 				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
@@ -251,7 +248,7 @@ func GatewayAPIToHostSpec() {
 			By("deleting the policy and expecting host deletion", func() {
 				Expect(ctrlclient.IgnoreNotFound(vClusterClient.Delete(ctx, current))).To(Succeed())
 				Eventually(func(g Gomega) {
-					err := hostClient.Get(ctx, hostKey, &gatewayv1alpha3.BackendTLSPolicy{})
+					err := hostClient.Get(ctx, hostKey, &gatewayv1.BackendTLSPolicy{})
 					g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
 				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 			})

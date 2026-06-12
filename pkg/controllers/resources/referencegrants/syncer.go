@@ -15,7 +15,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 type referenceGrantSyncer struct {
@@ -41,13 +40,13 @@ func NewSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	}
 
 	return &referenceGrantSyncer{
-		GenericTranslator: translator.NewGenericTranslator(ctx, "referencegrant", &gatewayv1beta1.ReferenceGrant{}, mapper),
+		GenericTranslator: translator.NewGenericTranslator(ctx, "referencegrant", &gatewayv1.ReferenceGrant{}, mapper),
 		Importer:          pro.NewImporter(mapper),
 	}, nil
 }
 
 func (s *referenceGrantSyncer) Syncer() syncertypes.Sync[client.Object] {
-	return syncer.ToGenericSyncer[*gatewayv1beta1.ReferenceGrant](s)
+	return syncer.ToGenericSyncer[*gatewayv1.ReferenceGrant](s)
 }
 
 func (s *referenceGrantSyncer) Options() *syncertypes.Options {
@@ -60,13 +59,13 @@ func (s *referenceGrantSyncer) ModifyController(ctx *synccontext.RegisterContext
 	return routetranslate.RegisterReferencedWatches(ctx, builder, s.GroupVersionKind(), mappings.Services(), mappings.Secrets(), mappings.ConfigMaps())
 }
 
-func (s *referenceGrantSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*gatewayv1beta1.ReferenceGrant]) (ctrl.Result, error) {
-	return gatewaysync.CreateToHost(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.ReferenceGrants.Patches, func() (*gatewayv1beta1.ReferenceGrant, error) {
+func (s *referenceGrantSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*gatewayv1.ReferenceGrant]) (ctrl.Result, error) {
+	return gatewaysync.CreateToHost(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.ReferenceGrants.Patches, func() (*gatewayv1.ReferenceGrant, error) {
 		return s.translate(ctx, event.Virtual)
 	})
 }
 
-func (s *referenceGrantSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*gatewayv1beta1.ReferenceGrant]) (ctrl.Result, error) {
+func (s *referenceGrantSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*gatewayv1.ReferenceGrant]) (ctrl.Result, error) {
 	var hSpec *gatewayv1.ReferenceGrantSpec
 	return gatewaysync.Sync(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.ReferenceGrants.Patches,
 		func() (err error) {
@@ -80,8 +79,8 @@ func (s *referenceGrantSyncer) Sync(ctx *synccontext.SyncContext, event *synccon
 	)
 }
 
-func (s *referenceGrantSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*gatewayv1beta1.ReferenceGrant]) (ctrl.Result, error) {
-	return gatewaysync.CreateToVirtual(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.ReferenceGrants.Patches, func() *gatewayv1beta1.ReferenceGrant {
+func (s *referenceGrantSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*gatewayv1.ReferenceGrant]) (ctrl.Result, error) {
+	return gatewaysync.CreateToVirtual(ctx, event, s.EventRecorder(), ctx.Config.Sync.ToHost.GatewayAPI.ReferenceGrants.Patches, func() *gatewayv1.ReferenceGrant {
 		return translate.VirtualMetadata(event.Host, s.HostToVirtual(ctx, types.NamespacedName{Name: event.Host.Name, Namespace: event.Host.Namespace}, event.Host))
 	})
 }

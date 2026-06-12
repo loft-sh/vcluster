@@ -8,10 +8,10 @@ import (
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/types"
-	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-func (s *tlsRouteSyncer) translate(ctx *synccontext.SyncContext, vRoute *gatewayv1alpha2.TLSRoute) (*gatewayv1alpha2.TLSRoute, error) {
+func (s *tlsRouteSyncer) translate(ctx *synccontext.SyncContext, vRoute *gatewayv1.TLSRoute) (*gatewayv1.TLSRoute, error) {
 	pRoute := translate.HostMetadata(vRoute, s.VirtualToHost(ctx, types.NamespacedName{Name: vRoute.Name, Namespace: vRoute.Namespace}, vRoute))
 
 	spec, err := specToHost(ctx, vRoute, true)
@@ -23,7 +23,7 @@ func (s *tlsRouteSyncer) translate(ctx *synccontext.SyncContext, vRoute *gateway
 	return pRoute, nil
 }
 
-func specToHost(ctx *synccontext.SyncContext, vRoute *gatewayv1alpha2.TLSRoute, validateRefs bool) (*gatewayv1alpha2.TLSRouteSpec, error) {
+func specToHost(ctx *synccontext.SyncContext, vRoute *gatewayv1.TLSRoute, validateRefs bool) (*gatewayv1.TLSRouteSpec, error) {
 	if err := routetranslate.ValidateImportedGatewayHostnamePolicy(ctx, "TLSRoute", vRoute.Namespace, vRoute.Spec.ParentRefs, vRoute.Spec.Hostnames); err != nil {
 		return nil, err
 	}
@@ -51,21 +51,21 @@ func specToHost(ctx *synccontext.SyncContext, vRoute *gatewayv1alpha2.TLSRoute, 
 	return retSpec, nil
 }
 
-func statusToVirtual(ctx *synccontext.SyncContext, hostRoute *gatewayv1alpha2.TLSRoute, virtualRouteNamespace string, status gatewayv1alpha2.TLSRouteStatus) (gatewayv1alpha2.TLSRouteStatus, error) {
+func statusToVirtual(ctx *synccontext.SyncContext, hostRoute *gatewayv1.TLSRoute, virtualRouteNamespace string, status gatewayv1.TLSRouteStatus) (gatewayv1.TLSRouteStatus, error) {
 	retStatus := *status.DeepCopy()
 
 	for i := range retStatus.Parents {
 		hostRouteNamespace := routetranslate.ParentStatusHostNamespace(hostRoute.Namespace, hostRoute.Spec.ParentRefs, retStatus.Parents[i].ParentRef)
 		err := routetranslate.ParentRefToVirtual(ctx, hostRouteNamespace, virtualRouteNamespace, &retStatus.Parents[i].ParentRef, hostRoute.Spec.ParentRefs)
 		if err != nil {
-			return gatewayv1alpha2.TLSRouteStatus{}, fmt.Errorf("translate parents[%d].parentRef: %w", i, err)
+			return gatewayv1.TLSRouteStatus{}, fmt.Errorf("translate parents[%d].parentRef: %w", i, err)
 		}
 	}
 
 	return retStatus, nil
 }
 
-func ruleToHost(ctx *synccontext.SyncContext, routeNamespace string, rule *gatewayv1alpha2.TLSRouteRule, translateOpts ...routetranslate.ToHostOption) error {
+func ruleToHost(ctx *synccontext.SyncContext, routeNamespace string, rule *gatewayv1.TLSRouteRule, translateOpts ...routetranslate.ToHostOption) error {
 	for i := range rule.BackendRefs {
 		err := gatewayauthz.TLSRouteBackend(ctx, routeNamespace, &rule.BackendRefs[i].BackendObjectReference)
 		if err != nil {

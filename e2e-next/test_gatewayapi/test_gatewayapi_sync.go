@@ -37,7 +37,7 @@ func GatewayAPISyncSpec() {
 		)
 
 		BeforeEach(func(ctx context.Context) {
-			clients := newGatewayAPIClients(ctx, false)
+			clients := newGatewayAPIClients(ctx)
 			hostClient = clients.HostClient
 			vClusterClient = clients.VClusterClient
 			vClusterName = clients.VClusterName
