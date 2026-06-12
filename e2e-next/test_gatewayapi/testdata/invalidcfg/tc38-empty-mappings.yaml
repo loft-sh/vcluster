@@ -1,0 +1,14 @@
+sync:
+  fromHost:
+    gatewayClasses:
+      enabled: true
+    gateways:
+      enabled: true
+  toHost:
+    gatewayApi:
+      gateways:
+        enabled: false
+      httpRoutes:
+        enabled: true
+      referenceGrants:
+        enabled: auto
