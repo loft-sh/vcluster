@@ -8,6 +8,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/mappings/generic"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util"
+	gatewayapiutil "github.com/loft-sh/vcluster/pkg/util/gatewayapi"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -18,8 +19,8 @@ import (
 var gatewaysCRD string
 
 func CreateGatewayMapper(ctx *synccontext.RegisterContext) (synccontext.Mapper, error) {
-	if ctx.Config.Sync.FromHost.Gateways.Enabled || ctx.Config.Sync.ToHost.GatewayAPI.Gateways.Enabled {
-		err := ensureHostGatewayAPIKind(ctx, mappings.Gateways(), "sync.fromHost.gateways.enabled or sync.toHost.gatewayApi.gateways.enabled")
+	if ctx.Config.Sync.FromHost.Gateways.Enabled || gatewayapiutil.GatewaysEnabled(ctx.Config) {
+		err := ensureHostGatewayAPIKind(ctx, mappings.Gateways(), "sync.fromHost.gateways.enabled, sync.toHost.gatewayApi.gateways.enabled or sync.toHost.gatewayApi.enabled")
 		if err != nil {
 			return nil, err
 		}
@@ -30,12 +31,20 @@ func CreateGatewayMapper(ctx *synccontext.RegisterContext) (synccontext.Mapper, 
 		return nil, err
 	}
 
-	err = util.EnsureCRD(ctx.Context, ctx.VirtualManager.GetConfig(), []byte(gatewaysCRD), mappings.Gateways())
+	err = EnsureGatewayCRD(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	return NewImportedGatewayMapper(), nil
+}
+
+// EnsureGatewayCRD installs the Gateway CRD in the virtual cluster. Route
+// controllers watch virtual Gateways for cross-namespace authorization even
+// when tenant Gateway sync is disabled, so route mappers ensure the CRD
+// independently of sync.toHost.gatewayApi.gateways.enabled.
+func EnsureGatewayCRD(ctx *synccontext.RegisterContext) error {
+	return util.EnsureCRD(ctx.Context, ctx.VirtualManager.GetConfig(), []byte(gatewaysCRD), mappings.Gateways())
 }
 
 func NewImportedGatewayMapper() synccontext.Mapper {
@@ -62,7 +71,7 @@ func (m *importedGatewayMapper) VirtualToHost(ctx *synccontext.SyncContext, req 
 	if host, ok := GatewayVirtualToHost(ctx, req); ok {
 		return host
 	}
-	if ctx.Config.Sync.ToHost.GatewayAPI.Gateways.Enabled {
+	if gatewayapiutil.GatewaysEnabled(ctx.Config) {
 		return translate.Default.HostName(ctx, req.Name, req.Namespace)
 	}
 	return req
@@ -76,7 +85,7 @@ func (m *importedGatewayMapper) HostToVirtual(ctx *synccontext.SyncContext, req 
 	if virtual, ok := GatewayHostToVirtual(ctx, req); ok {
 		return virtual
 	}
-	if ctx.Config.Sync.ToHost.GatewayAPI.Gateways.Enabled {
+	if gatewayapiutil.GatewaysEnabled(ctx.Config) {
 		vName := generic.TryToTranslateBackByAnnotations(ctx, req, pObj, m.gvk)
 		if vName.Name != "" {
 			return vName
@@ -98,7 +107,7 @@ func (m *importedGatewayMapper) IsManaged(ctx *synccontext.SyncContext, obj clie
 	if GatewayHostWildcardMapped(ctx, host.Namespace) {
 		return ctx.Config.Sync.FromHost.Gateways.Selector.Matches(obj)
 	}
-	if ctx.Config.Sync.ToHost.GatewayAPI.Gateways.Enabled {
+	if gatewayapiutil.GatewaysEnabled(ctx.Config) {
 		return translate.Default.IsManaged(ctx, obj), nil
 	}
 	return false, nil
