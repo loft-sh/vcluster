@@ -263,7 +263,9 @@ func (c *CacheClient) blockApply(ctx context.Context, obj runtime.ApplyConfigura
 	})
 }
 
-// TODO: implement DeleteAllOf
+func (c *CacheClient) DeleteAllOf(ctx context.Context, obj client.Object, opts ...client.DeleteAllOfOption) error {
+	return c.Client.DeleteAllOf(ctx, obj, opts...)
+}
 
 func (c *CacheClient) Status() client.StatusWriter {
 	return &CacheStatusClient{
