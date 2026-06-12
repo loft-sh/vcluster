@@ -30,7 +30,7 @@ func GatewayAPISelectiveSpec() {
 
 		BeforeEach(func(ctx context.Context) {
 			installTenantGatewayAPICRDs(ctx, cluster.CurrentClusterFrom(ctx).GetKubeconfig(), tenantHTTPRouteCRD, tenantReferenceGrantCRD)
-			clients = newGatewayAPIClients(ctx, true)
+			clients = newGatewayAPIClients(ctx)
 		})
 
 		It("syncs only Gateway when sub-toggles disable httpRoutes and referenceGrants", func(ctx context.Context) {
@@ -97,7 +97,7 @@ func GatewayAPIReferenceGrantDisabledSpec() {
 
 		BeforeEach(func(ctx context.Context) {
 			installTenantGatewayAPICRDs(ctx, cluster.CurrentClusterFrom(ctx).GetKubeconfig(), tenantReferenceGrantCRD)
-			clients = newGatewayAPIClients(ctx, true)
+			clients = newGatewayAPIClients(ctx)
 		})
 
 		It("does not sync tenant-created ReferenceGrants when referenceGrants.enabled is false", func(ctx context.Context) {

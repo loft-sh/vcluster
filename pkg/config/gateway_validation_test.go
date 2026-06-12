@@ -123,9 +123,9 @@ func TestValidateFromHostGatewaysEnforcesAtDeployTime(t *testing.T) {
 		{name: "empty key", mappings: map[string]string{"": "tenant-gateways/edge"}, want: "explicit host namespace is required"},
 		{name: "slash-wildcard key", mappings: map[string]string{"/*": "tenant-gateways/*"}, want: "explicit host namespace is required"},
 		{name: "slash-name key", mappings: map[string]string{"/edge": "tenant-gateways/edge"}, want: "explicit host namespace is required"},
-		// wildcard mismatch.
-		{name: "wildcard source exact target", mappings: map[string]string{"host-ns/*": "tenant-ns/edge"}, want: "must map to"},
-		{name: "exact source wildcard target", mappings: map[string]string{"host-ns/edge": "tenant-ns/*"}, want: "must map to"},
+		// wildcard mismatch: each direction blames the wildcard side, not the concrete one.
+		{name: "wildcard source exact target", mappings: map[string]string{"host-ns/*": "tenant-ns/edge"}, want: `wildcard key "host-ns/*" must map to a wildcard target NAMESPACE/*, but "tenant-ns/edge" is concrete`},
+		{name: "exact source wildcard target", mappings: map[string]string{"host-ns/edge": "tenant-ns/*"}, want: `target "tenant-ns/*" requires the source key to be a wildcard NAMESPACE/*, but "host-ns/edge" is concrete`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			gateways := rootconfig.FromHostGateways{}
