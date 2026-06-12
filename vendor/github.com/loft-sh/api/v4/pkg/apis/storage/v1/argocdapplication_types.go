@@ -15,6 +15,10 @@ var (
 
 const (
 	ArgoCDApplicationSynced agentstoragev1.ConditionType = "Synced"
+
+	// ArgoCDApplicationReasonTemplateNotFound is set on the Synced condition when the
+	// ArgoCDApplicationTemplate referenced by spec.templateRef does not exist.
+	ArgoCDApplicationReasonTemplateNotFound = "TemplateNotFound"
 )
 
 // +genclient
@@ -94,10 +98,6 @@ type ArgoCDDestinationVirtualCluster struct {
 	// +optional
 	Name string `json:"name,omitempty"`
 
-	// Namespace within the destination to deploy the application
-	// +optional
-	Namespace string `json:"namespace,omitempty"`
-
 	// Target of the tenant cluster
 	// +optional
 	Target ArgoCDDestinationVirtualClusterTarget `json:"target,omitempty"`
@@ -114,10 +114,6 @@ type ArgoCDDestinationCluster struct {
 	// Name of the cluster
 	// +optional
 	Name string `json:"name,omitempty"`
-
-	// Namespace within the destination to deploy the application
-	// +optional
-	Namespace string `json:"namespace,omitempty"`
 }
 
 type ArgoCDApplicationTemplateRef struct {

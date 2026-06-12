@@ -290,7 +290,7 @@ type NodeProviderKubeVirt struct {
 	// ClusterRef is a reference to connected control plane cluster in which KubeVirt operator is running
 	ClusterRef NodeProviderClusterRef `json:"clusterRef,omitempty"`
 
-	// Deploy configures components deployed into the connected host cluster.
+	// Deploy configures components deployed into the connected control plane cluster.
 	// +optional
 	Deploy KubeVirtProviderDeployment `json:"deploy,omitempty"`
 
@@ -310,6 +310,18 @@ type KubeVirtProviderDeployment struct {
 type KubeVirtDeployment struct {
 	// Enabled controls whether the KubeVirt operator is deployed into the cluster.
 	Enabled bool `json:"enabled"`
+
+	// ChartRepo overrides the Helm chart repository used to install the KubeVirt operator.
+	// +optional
+	ChartRepo string `json:"chartRepo,omitempty"`
+
+	// Chart overrides the Helm chart name used to install the KubeVirt operator.
+	// +optional
+	Chart string `json:"chart,omitempty"`
+
+	// Version overrides the Helm chart version used to install the KubeVirt operator.
+	// +optional
+	Version string `json:"version,omitempty"`
 
 	// HelmValues is raw YAML that will be passed as values to the KubeVirt Helm chart.
 	// +optional

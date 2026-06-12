@@ -94,6 +94,8 @@ const (
 
 	Metal3 FeatureName = "metal3" // Metal3 Integration
 
+	VmManagement FeatureName = "vm-management" // VM Management with KubeVirt
+
 	ArgoIntegration FeatureName = "argo-integration" // Argo Integration
 
 	VirtualClusterProDistroIntegrationsKubeVirt FeatureName = "vcp-distro-integrations-kube-virt" // KubeVirt Integration
@@ -197,6 +199,7 @@ func GetFeatures() []FeatureName {
 		Netris,
 		KubeVip,
 		Metal3,
+		VmManagement,
 		ArgoIntegration,
 		VirtualClusterProDistroIntegrationsKubeVirt,
 		VaultIntegration,
@@ -453,6 +456,11 @@ func GetAllFeatures() []*Feature {
 			DisplayName: "Metal3 Integration",
 			Name:        "metal3",
 			Module:      "bare-metal",
+		},
+		{
+			DisplayName: "VM Management with KubeVirt",
+			Name:        "vm-management",
+			Module:      "vm-management",
 		},
 		{
 			DisplayName: "Argo Integration",
