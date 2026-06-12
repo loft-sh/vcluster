@@ -338,21 +338,12 @@ type Deploy struct {
 	// MetricsServer holds dedicated metrics server configuration.
 	MetricsServer DeployMetricsServer `json:"metricsServer,omitempty"`
 
-	// VolumeSnapshotController holds dedicated CSI snapshot-controller configuration.
-	VolumeSnapshotController VolumeSnapshotController `json:"volumeSnapshotController,omitempty"`
-
 	// ArgoCD holds dedicated configuration for argoCD Apps to deploy
 	ArgoCD vclusterconfig.ArgoCDDeploy `json:"argoCD,omitempty"`
 }
 
 type DeployMetricsServer struct {
 	// Enabled defines if metrics server should be enabled.
-	Enabled bool `json:"enabled,omitempty"`
-}
-
-// VolumeSnapshotController defines CSI volumes snapshot-controller configuration.
-type VolumeSnapshotController struct {
-	// Enabled defines if the CSI volumes snapshot-controller should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
 }
 
@@ -1254,12 +1245,6 @@ type SyncToHost struct {
 	// PersistentVolumes defines if persistent volumes created within the virtual cluster should get synced to the host cluster.
 	PersistentVolumes EnableSwitchWithPatches `json:"persistentVolumes,omitempty"`
 
-	// VolumeSnapshots defines if volume snapshots created within the virtual cluster should get synced to the host cluster.
-	VolumeSnapshots EnableSwitchWithPatches `json:"volumeSnapshots,omitempty"`
-
-	// VolumeSnapshotContents defines if volume snapshot contents created within the virtual cluster should get synced to the host cluster.
-	VolumeSnapshotContents EnableSwitchWithPatches `json:"volumeSnapshotContents,omitempty"`
-
 	// StorageClasses defines if storage classes created within the virtual cluster should get synced to the host cluster.
 	StorageClasses EnableSwitchWithPatches `json:"storageClasses,omitempty"`
 
@@ -1381,9 +1366,6 @@ type SyncFromHost struct {
 
 	// CustomResources defines what custom resources should get synced read-only to the virtual cluster from the host cluster. vCluster will automatically add any required RBAC to the vCluster cluster role.
 	CustomResources map[string]SyncFromHostCustomResource `json:"customResources,omitempty"`
-
-	// VolumeSnapshotClasses defines if volume snapshot classes created within the virtual cluster should get synced to the host cluster.
-	VolumeSnapshotClasses EnableSwitchWithPatches `json:"volumeSnapshotClasses,omitempty"`
 
 	// ConfigMaps defines if config maps in the host should get synced to the virtual cluster.
 	ConfigMaps EnableSwitchWithResourcesMappings `json:"configMaps,omitempty"`
@@ -3199,10 +3181,6 @@ type RBAC struct {
 
 	// ClusterRole holds virtual cluster cluster role configuration
 	ClusterRole RBACClusterRole `json:"clusterRole,omitempty"`
-
-	// EnableVolumeSnapshotRules enables all required volume snapshot rules in the Role and
-	// ClusterRole.
-	EnableVolumeSnapshotRules EnableAutoSwitch `json:"enableVolumeSnapshotRules,omitempty"`
 }
 
 type RBACClusterRole struct {

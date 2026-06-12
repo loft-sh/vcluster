@@ -540,9 +540,6 @@ func convertBaseValues(oldConfig BaseHelm, newConfig *config.Config) error {
 	if oldConfig.Sync.Networkpolicies.Enabled != nil {
 		newConfig.Sync.ToHost.NetworkPolicies.Enabled = *oldConfig.Sync.Networkpolicies.Enabled
 	}
-	if oldConfig.Sync.Volumesnapshots.Enabled != nil {
-		newConfig.Sync.ToHost.VolumeSnapshots.Enabled = *oldConfig.Sync.Volumesnapshots.Enabled
-	}
 	if oldConfig.Sync.Poddisruptionbudgets.Enabled != nil {
 		newConfig.Sync.ToHost.PodDisruptionBudgets.Enabled = *oldConfig.Sync.Poddisruptionbudgets.Enabled
 	}

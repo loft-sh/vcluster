@@ -10,14 +10,11 @@ import (
 	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
-	csiVolumes "github.com/loft-sh/vcluster/pkg/snapshot/volumes/csi"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -39,7 +36,6 @@ type Reconciler struct {
 	snapshotRequestsManager    ctrl.Manager
 	logger                     loghelper.Logger
 	eventRecorder              events.EventRecorder
-	volumeSnapshotter          volumes.Snapshotter
 	isHostMode                 bool
 }
 
@@ -65,24 +61,7 @@ func NewController(registerContext *synccontext.RegisterContext) (*Reconciler, e
 		snapshotRequestsManager = registerContext.VirtualManager
 		logger.Infof("vcluster-snapshot-controller will reconcile snapshot requests in the virtual cluster")
 	}
-
-	var volumesManager ctrl.Manager
-	if registerContext.Config.PrivateNodes.Enabled {
-		logger.Infof("vcluster-snapshot-controller will create volume snapshots in the virtual cluster")
-		volumesManager = registerContext.VirtualManager
-	} else {
-		logger.Infof("vcluster-snapshot-controller will create volume snapshots in the host cluster")
-		volumesManager = registerContext.HostManager
-	}
-	kubeClient, snapshotsClient, err := createClients(volumesManager.GetConfig())
-	if err != nil {
-		return nil, fmt.Errorf("failed to create kuberenetes clients: %w", err)
-	}
 	eventRecorder := snapshotRequestsManager.GetEventRecorder(controllerName)
-	volumeSnapshotter, err := csiVolumes.NewVolumeSnapshotter(registerContext.Config, kubeClient, snapshotsClient, eventRecorder, logger)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create volume snapshotter: %w", err)
-	}
 
 	reconciler := reconcilerBase{
 		vConfig:            registerContext.Config,
@@ -101,8 +80,7 @@ func NewController(registerContext *synccontext.RegisterContext) (*Reconciler, e
 		snapshotRequestsKubeClient: snapshotRequestsManager.GetClient(),
 		snapshotRequestsManager:    snapshotRequestsManager,
 		logger:                     logger,
-		eventRecorder:              snapshotRequestsManager.GetEventRecorder(controllerName),
-		volumeSnapshotter:          volumeSnapshotter,
+		eventRecorder:              eventRecorder,
 		isHostMode:                 isHostMode,
 	}, nil
 }
@@ -199,29 +177,9 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to reconcile new snapshot request %s/%s: %w", configMap.Namespace, configMap.Name, err)
 		}
-	case snapshotapi.RequestPhaseDeletingVolumeSnapshots:
-		fallthrough
 	case snapshotapi.RequestPhaseCanceling:
-		if !snapshotRequest.Spec.IncludeVolumes {
-			snapshotRequest.Status.Phase = snapshotRequest.Status.Phase.Next()
-			return ctrl.Result{}, nil
-		}
-		if snapshotRequest.Status.Phase == snapshotapi.RequestPhaseCanceling {
-			snapshotRequest.Status.VolumeSnapshots.Phase = snapshotapi.VolumeSnapshotPhaseCanceling
-		} else {
-			snapshotRequest.Status.VolumeSnapshots.Phase = snapshotapi.VolumeSnapshotPhaseDeleting
-		}
-		fallthrough
-	case snapshotapi.RequestPhaseCreatingVolumeSnapshots:
-		requeueAfter, err := c.reconcileVolumeSnapshots(ctx, &configMap, snapshotRequest)
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to reconcile volume snapshots for snapshot request %s/%s: %w", configMap.Namespace, configMap.Name, err)
-		}
-		if requeueAfter > 0 {
-			return ctrl.Result{
-				RequeueAfter: requeueAfter,
-			}, nil
-		}
+		snapshotRequest.Status.Phase = snapshotRequest.Status.Phase.Next()
+		return ctrl.Result{}, nil
 	case snapshotapi.RequestPhaseCreatingEtcdBackup:
 		requeue, err := c.reconcileCreatingEtcdBackup(ctx, &configMap, snapshotRequest)
 		if err != nil {
@@ -270,47 +228,6 @@ func (c *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	return ctrl.Result{}, nil
 }
 
-func (c *Reconciler) reconcileVolumeSnapshots(ctx context.Context, snapshotRequestObj runtime.Object, snapshotRequest *snapshotapi.Request) (time.Duration, error) {
-	volumeSnapshotsRequest := &snapshotRequest.Spec.VolumeSnapshots
-	volumeSnapshotsStatus := &snapshotRequest.Status.VolumeSnapshots
-	previousVolumeSnapshotsRequestPhase := volumeSnapshotsStatus.Phase
-	err := c.volumeSnapshotter.Reconcile(ctx, snapshotRequestObj, snapshotRequest.Name, volumeSnapshotsRequest, volumeSnapshotsStatus)
-	if err != nil {
-		return 0, fmt.Errorf("failed to reconcile volume snapshots: %w", err)
-	}
-
-	// check volume snapshots' status
-	switch volumeSnapshotsStatus.Phase {
-	case snapshotapi.VolumeSnapshotPhaseCanceling:
-		fallthrough
-	case snapshotapi.VolumeSnapshotPhaseDeleting:
-		fallthrough
-	case snapshotapi.VolumeSnapshotPhaseInProgress:
-		if previousVolumeSnapshotsRequestPhase == snapshotapi.VolumeSnapshotPhaseNotStarted {
-			// volume snapshots request just got initialized and moved to in-progress
-			return 5 * time.Second, nil
-		} else {
-			// ongoing volume snapshots reconciliation, this may take some time, wait a bit before reconciling again
-			return 30 * time.Second, nil
-		}
-	case snapshotapi.VolumeSnapshotPhasePartiallyFailed:
-		fallthrough
-	case snapshotapi.VolumeSnapshotPhaseCompleted:
-		snapshotRequest.Status.Phase = snapshotapi.RequestPhaseCreatingEtcdBackup
-	case snapshotapi.VolumeSnapshotPhaseFailed:
-		snapshotRequest.Status.Phase = snapshotapi.RequestPhaseFailed
-		snapshotRequest.Status.Error.Message = volumeSnapshotsStatus.Error.Message
-	case snapshotapi.VolumeSnapshotPhaseCanceled:
-		snapshotRequest.Status.Phase = snapshotapi.RequestPhaseCanceled
-	case snapshotapi.VolumeSnapshotPhaseDeleted:
-		snapshotRequest.Status.Phase = snapshotRequest.Status.Phase.Next()
-	default:
-		return 0, fmt.Errorf("unexpected volume snapshots request phase %s", volumeSnapshotsStatus.Phase)
-	}
-
-	return 0, nil
-}
-
 func (c *Reconciler) Register() error {
 	isVolumeSnapshotsConfig := predicate.NewPredicateFuncs(func(obj client.Object) bool {
 		if obj.GetNamespace() != c.getRequestNamespace() {
@@ -337,33 +254,17 @@ func (c *Reconciler) Register() error {
 
 // reconcileNewRequest updates the snapshot request phase to "InProgress".
 func (c *Reconciler) reconcileNewRequest(_ context.Context, configMap *corev1.ConfigMap, snapshotRequest *snapshotapi.Request) error {
-	if snapshotRequest.Spec.IncludeVolumes {
-		snapshotRequest.Spec.VolumeSnapshots = snapshotapi.VolumeSnapshotsRequest{
-			Requests: []snapshotapi.VolumeSnapshotRequest{},
-		}
-		snapshotRequest.Status.Phase = snapshotapi.RequestPhaseCreatingVolumeSnapshots
-		c.eventRecorder.Eventf(
-			configMap,
-			nil,
-			corev1.EventTypeNormal,
-			"CreatingVolumeSnapshots",
-			"ReconcileSnapShotRequest",
-			"Started to create volume snapshots for snapshot request %s/%s",
-			configMap.Namespace,
-			configMap.Name)
-	} else {
-		snapshotRequest.Status.Phase = snapshotapi.RequestPhaseCreatingEtcdBackup
-		c.eventRecorder.Eventf(
-			configMap,
-			nil,
-			corev1.EventTypeNormal,
-			"CreatingEtcdBackup",
-			"ReconcileSnapShotRequest",
-			"Started to create etcd backup for snapshot request %s/%s",
-			configMap.Namespace,
-			configMap.Name,
-		)
-	}
+	snapshotRequest.Status.Phase = snapshotapi.RequestPhaseCreatingEtcdBackup
+	c.eventRecorder.Eventf(
+		configMap,
+		nil,
+		corev1.EventTypeNormal,
+		"CreatingEtcdBackup",
+		"ReconcileSnapShotRequest",
+		"Started to create etcd backup for snapshot request %s/%s",
+		configMap.Namespace,
+		configMap.Name,
+	)
 	return nil
 }
 
@@ -420,18 +321,7 @@ func (c *Reconciler) reconcileCreatingEtcdBackup(ctx context.Context, configMap 
 	c.logger.Infof("Created vCluster snapshot in storage type %q", snapshotOptions.Type)
 
 	// All done, now update the snapshot request phase to "Completed"! ✅
-	if snapshotRequest.Spec.IncludeVolumes {
-		if snapshotRequest.Status.VolumeSnapshots.Phase == snapshotapi.VolumeSnapshotPhaseCompleted {
-			snapshotRequest.Status.Phase = snapshotapi.RequestPhaseCompleted
-		} else if snapshotRequest.Status.VolumeSnapshots.Phase == snapshotapi.VolumeSnapshotPhasePartiallyFailed {
-			snapshotRequest.Status.Phase = snapshotapi.RequestPhasePartiallyFailed
-			snapshotRequest.Status.Error.Message = snapshotRequest.Status.VolumeSnapshots.Error.Message
-		} else {
-			return false, fmt.Errorf("unexpected volume snapshots request phase %s", snapshotRequest.Status.VolumeSnapshots.Phase)
-		}
-	} else {
-		snapshotRequest.Status.Phase = snapshotapi.RequestPhaseCompleted
-	}
+	snapshotRequest.Status.Phase = snapshotapi.RequestPhaseCompleted
 
 	if snapshotRequest.Status.Phase == snapshotapi.RequestPhaseCompleted {
 		c.eventRecorder.Eventf(

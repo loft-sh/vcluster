@@ -22,7 +22,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/controllers/k8sdefaultendpoint"
 	"github.com/loft-sh/vcluster/pkg/controllers/podsecurity"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
-	csiVolumeSnapshots "github.com/loft-sh/vcluster/pkg/snapshot/volumes/csi/deploy"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/pkg/errors"
 	"k8s.io/klog/v2"
@@ -267,15 +266,6 @@ func registerSnapshotController(registerContext *synccontext.RegisterContext) er
 	err = controller.Register()
 	if err != nil {
 		return fmt.Errorf("unable to register vcluster snapshot controller: %w", err)
-	}
-
-	config := registerContext.Config
-	if config.PrivateNodes.Enabled && config.Deploy.VolumeSnapshotController.Enabled {
-		klog.Warning("WARNING: volume snapshot and restore is deprecated and will be removed in an upcoming release.")
-		err = csiVolumeSnapshots.Deploy(registerContext)
-		if err != nil {
-			return fmt.Errorf("unable to deploy required CSI volume snapshot compoments: %w", err)
-		}
 	}
 
 	return nil

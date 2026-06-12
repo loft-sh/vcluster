@@ -74,9 +74,6 @@ vcluster snapshot create my-vcluster --driver docker
 				return fmt.Errorf("--standalone cannot be used with --driver docker")
 			}
 
-			if cmd.Snapshot.IncludeVolumes {
-				cmd.Log.Warn("WARNING: --include-volumes is now deprecated and slated for removal in an upcoming release.")
-			}
 			if driverType == config.DockerDriver {
 				vClusterName := args[0]
 				outputPath := ""

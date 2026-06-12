@@ -161,7 +161,6 @@ type SyncValues struct {
 	Hoststorageclasses     EnabledSwitch  `json:"hoststorageclasses,omitempty"`
 	Priorityclasses        EnabledSwitch  `json:"priorityclasses,omitempty"`
 	Networkpolicies        EnabledSwitch  `json:"networkpolicies,omitempty"`
-	Volumesnapshots        EnabledSwitch  `json:"volumesnapshots,omitempty"`
 	Poddisruptionbudgets   EnabledSwitch  `json:"poddisruptionbudgets,omitempty"`
 	Serviceaccounts        EnabledSwitch  `json:"serviceaccounts,omitempty"`
 	CSIStorageCapacities   EnabledSwitch  `json:"csistoragecapacities,omitempty"`
