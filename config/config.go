@@ -1692,6 +1692,9 @@ type ServiceMonitor struct {
 
 	// Annotations are the extra annotations to add to the service monitor.
 	Annotations map[string]string `json:"annotations,omitempty"`
+
+	// MetricRelabelings are extra metricRelabelings to add to each endpoint of the service monitor. This allows filtering scraped metrics before ingestion, e.g. dropping high-cardinality metrics. Follows the Prometheus Operator RelabelConfig format.
+	MetricRelabelings []interface{} `json:"metricRelabelings,omitempty"`
 }
 
 type Networking struct {
