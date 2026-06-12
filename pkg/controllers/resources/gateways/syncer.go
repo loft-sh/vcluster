@@ -22,9 +22,10 @@ import (
 )
 
 const (
-	ImportedGatewayLabel    = "vcluster.loft.sh/imported-gateway"
-	ManagedByAnnotation     = "vcluster.loft.sh/managed-by"
-	SourceGatewayAnnotation = "vcluster.loft.sh/source-gateway"
+	ImportedGatewayLabel              = "vcluster.loft.sh/imported-gateway"
+	ManagedByAnnotation               = "vcluster.loft.sh/managed-by"
+	SourceGatewayAnnotation           = "vcluster.loft.sh/source-gateway"
+	SanitizedCertificateRefsTLSOption = "vcluster.loft.sh/certificate-refs-sanitized"
 )
 
 type gatewaySyncer struct {
@@ -283,7 +284,15 @@ func gatewaySpecToVirtual(ctx *synccontext.SyncContext, host *gatewayv1.Gateway)
 	policy := virtualNamespacePolicyFor(ctx, host)
 	for i := range spec.Listeners {
 		if ctx.Config.Sync.FromHost.Gateways.Sanitize.CertificateRefs && spec.Listeners[i].TLS != nil {
-			spec.Listeners[i].TLS.CertificateRefs = nil
+			tls := spec.Listeners[i].TLS
+			tls.CertificateRefs = nil
+			// The CRD requires certificateRefs or options when mode is Terminate
+			// (the default); add a marker option so the sanitized mirror stays valid.
+			if (tls.Mode == nil || *tls.Mode == gatewayv1.TLSModeTerminate) && len(tls.Options) == 0 {
+				tls.Options = map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{
+					SanitizedCertificateRefsTLSOption: "true",
+				}
+			}
 		}
 		if policy != nil {
 			spec.Listeners[i].AllowedRoutes = toGatewayAllowedRoutes(policy)
