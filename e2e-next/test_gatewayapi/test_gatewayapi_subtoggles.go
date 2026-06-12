@@ -16,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 const (
@@ -57,11 +56,11 @@ func GatewayAPISelectiveSpec() {
 				Expect(ctrlclient.IgnoreNotFound(clients.VClusterClient.Delete(ctx, route))).To(Succeed())
 			})
 
-			grant := &gatewayv1beta1.ReferenceGrant{
+			grant := &gatewayv1.ReferenceGrant{
 				ObjectMeta: metav1.ObjectMeta{Name: "allow-" + suffix, Namespace: backend.Name},
-				Spec: gatewayv1beta1.ReferenceGrantSpec{
-					From: []gatewayv1beta1.ReferenceGrantFrom{{Group: gatewayv1.Group(gatewayv1.GroupName), Kind: gatewayv1.Kind("HTTPRoute"), Namespace: gatewayv1.Namespace(frontend.Name)}},
-					To:   []gatewayv1beta1.ReferenceGrantTo{{Group: gatewayv1.Group(""), Kind: gatewayv1.Kind("Service")}},
+				Spec: gatewayv1.ReferenceGrantSpec{
+					From: []gatewayv1.ReferenceGrantFrom{{Group: gatewayv1.Group(gatewayv1.GroupName), Kind: gatewayv1.Kind("HTTPRoute"), Namespace: gatewayv1.Namespace(frontend.Name)}},
+					To:   []gatewayv1.ReferenceGrantTo{{Group: gatewayv1.Group(""), Kind: gatewayv1.Kind("Service")}},
 				},
 			}
 			Expect(clients.VClusterClient.Create(ctx, grant)).To(Succeed())
@@ -83,7 +82,7 @@ func GatewayAPISelectiveSpec() {
 				Consistently(func(g Gomega) {
 					err := clients.HostClient.Get(ctx, types.NamespacedName{Namespace: clients.VClusterHostNS, Name: hostRouteName}, &gatewayv1.HTTPRoute{})
 					g.Expect(kerrors.IsNotFound(err)).To(BeTrue(), "HTTPRoute should not be on host when httpRoutes.enabled=false")
-					err = clients.HostClient.Get(ctx, types.NamespacedName{Namespace: clients.VClusterHostNS, Name: hostGrantName}, &gatewayv1beta1.ReferenceGrant{})
+					err = clients.HostClient.Get(ctx, types.NamespacedName{Namespace: clients.VClusterHostNS, Name: hostGrantName}, &gatewayv1.ReferenceGrant{})
 					g.Expect(kerrors.IsNotFound(err)).To(BeTrue(), "ReferenceGrant should not be on host when referenceGrants.enabled=false")
 				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutShort).Should(Succeed())
 			})
@@ -108,11 +107,11 @@ func GatewayAPIReferenceGrantDisabledSpec() {
 			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 
 			backend := createTenantNamespace(ctx, clients.VClusterClient, "rgdis-backend-"+suffix)
-			grant := &gatewayv1beta1.ReferenceGrant{
+			grant := &gatewayv1.ReferenceGrant{
 				ObjectMeta: metav1.ObjectMeta{Name: "allow-" + suffix, Namespace: backend.Name},
-				Spec: gatewayv1beta1.ReferenceGrantSpec{
-					From: []gatewayv1beta1.ReferenceGrantFrom{{Group: gatewayv1.Group(gatewayv1.GroupName), Kind: gatewayv1.Kind("HTTPRoute"), Namespace: gatewayv1.Namespace("rgdis-frontend-" + suffix)}},
-					To:   []gatewayv1beta1.ReferenceGrantTo{{Group: gatewayv1.Group(""), Kind: gatewayv1.Kind("Service")}},
+				Spec: gatewayv1.ReferenceGrantSpec{
+					From: []gatewayv1.ReferenceGrantFrom{{Group: gatewayv1.Group(gatewayv1.GroupName), Kind: gatewayv1.Kind("HTTPRoute"), Namespace: gatewayv1.Namespace("rgdis-frontend-" + suffix)}},
+					To:   []gatewayv1.ReferenceGrantTo{{Group: gatewayv1.Group(""), Kind: gatewayv1.Kind("Service")}},
 				},
 			}
 			Expect(clients.VClusterClient.Create(ctx, grant)).To(Succeed())
@@ -122,12 +121,12 @@ func GatewayAPIReferenceGrantDisabledSpec() {
 
 			hostGrantName := translate.SafeConcatName(grant.Name, "x", backend.Name, "x", clients.VClusterName)
 			Consistently(func(g Gomega) {
-				err := clients.HostClient.Get(ctx, types.NamespacedName{Namespace: clients.VClusterHostNS, Name: hostGrantName}, &gatewayv1beta1.ReferenceGrant{})
+				err := clients.HostClient.Get(ctx, types.NamespacedName{Namespace: clients.VClusterHostNS, Name: hostGrantName}, &gatewayv1.ReferenceGrant{})
 				g.Expect(kerrors.IsNotFound(err)).To(BeTrue(), "tenant ReferenceGrant must not sync when referenceGrants.enabled is false")
 			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutShort).Should(Succeed())
 
 			By("confirming the tenant still owns the ReferenceGrant", func() {
-				got := &gatewayv1beta1.ReferenceGrant{}
+				got := &gatewayv1.ReferenceGrant{}
 				Expect(clients.VClusterClient.Get(ctx, ctrlclient.ObjectKeyFromObject(grant), got)).To(Succeed())
 				Expect(got.Spec.From).To(HaveLen(1))
 			})
