@@ -35,6 +35,12 @@ const (
 	BuildKitLastAppliedHashAnnotation                              = "loft.sh/buildkit-last-applied-hash"
 	BuildKitDeployed                  agentstoragev1.ConditionType = "BuildKitDeployed"
 	BuildKitAvailable                 agentstoragev1.ConditionType = "BuildKitAvailable"
+
+	// HTTPRouteRequestMirrorSupported is True when at least one GatewayClass in the
+	// managed cluster supports HTTPRoute request mirroring, either by advertising the
+	// HTTPRouteRequestMirror feature in status.supportedFeatures or by matching the
+	// agent's allowlisted spec.controllerName set.
+	HTTPRouteRequestMirrorSupported agentstoragev1.ConditionType = "HTTPRouteRequestMirrorSupported"
 )
 
 // +genclient

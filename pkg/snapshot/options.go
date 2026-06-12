@@ -12,11 +12,11 @@ import (
 	"strings"
 
 	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
+	"github.com/loft-sh/api/v4/pkg/snapshot/storage/azure"
+	"github.com/loft-sh/api/v4/pkg/snapshot/storage/oci"
+	"github.com/loft-sh/api/v4/pkg/snapshot/storage/s3"
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/snapshot/azure"
-	"github.com/loft-sh/vcluster/pkg/snapshot/oci"
 	"github.com/loft-sh/vcluster/pkg/snapshot/options"
-	"github.com/loft-sh/vcluster/pkg/snapshot/s3"
 	"github.com/spf13/pflag"
 )
 
@@ -159,5 +159,10 @@ func AddFlags(flags *pflag.FlagSet, options *snapshotapi.Options) {
 	flags.StringVarP(&options.S3.ServerSideEncryption, "server-side-encryption", "", "", "AWS Server-Side encryption algorithm")
 	flags.BoolVarP(&options.IncludeVolumes, "include-volumes", "", false, "Create CSI volume snapshots (shared and private nodes only). Deprecated: volume snapshot and restore will be removed in an upcoming release.")
 	flags.StringVarP(&options.SnapshotTempDir, "snapshot-temp-dir", "", "", "Temporary directory for snapshot operations. If set to empty string, the OS default directory for temporary files will be used")
-	azure.AddFlags(flags, &options.Azure)
+	AddAzureFlags(flags, &options.Azure)
+}
+
+func AddAzureFlags(flags *pflag.FlagSet, options *snapshotapi.AzureOptions) {
+	flags.StringVar(&options.SubscriptionID, "azure-subscription-id", "", "Azure subscription ID where the storage account is located")
+	flags.StringVar(&options.ResourceGroup, "azure-resource-group", "", "Azure resource group where the storage account is located")
 }

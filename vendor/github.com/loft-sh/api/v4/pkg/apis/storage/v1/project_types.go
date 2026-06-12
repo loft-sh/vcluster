@@ -105,7 +105,7 @@ type ProjectSpec struct {
 	// ("aws.large") or a provider wildcard ("aws.*"). If unset (nil),
 	// all NodeTypes are allowed; an empty list disallows all NodeTypes.
 	// +optional
-	AllowedNodeTypes []AllowedNodeType `json:"allowedNodeTypes"`
+	AllowedNodeTypes []AllowedNodeType `json:"allowedNodeTypes" jsonschema:"nullable"`
 
 	// RequireTemplate configures if a template is required for instance creation.
 	// +optional

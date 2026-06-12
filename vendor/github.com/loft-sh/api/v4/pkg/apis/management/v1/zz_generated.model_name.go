@@ -671,6 +671,26 @@ func (in LoftUpgradeStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MachineConfigTemplate) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.MachineConfigTemplate"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MachineConfigTemplateList) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.MachineConfigTemplateList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MachineConfigTemplateSpec) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.MachineConfigTemplateSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MachineConfigTemplateStatus) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.MachineConfigTemplateStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in MaintenanceWindow) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.MaintenanceWindow"
 }

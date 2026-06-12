@@ -227,8 +227,18 @@ var (
 	NewLoftUpgradeREST = func(getter generic.RESTOptionsGetter) rest.Storage {
 		return NewLoftUpgradeRESTFunc(Factory)
 	}
-	NewLoftUpgradeRESTFunc       NewRESTFunc
-	ManagementNetworkPeerStorage = builders.NewApiResourceWithStorage( // Resource status endpoint
+	NewLoftUpgradeRESTFunc                 NewRESTFunc
+	ManagementMachineConfigTemplateStorage = builders.NewApiResourceWithStorage( // Resource status endpoint
+		InternalMachineConfigTemplate,
+		func() runtime.Object { return &MachineConfigTemplate{} },     // Register versioned resource
+		func() runtime.Object { return &MachineConfigTemplateList{} }, // Register versioned resource list
+		NewMachineConfigTemplateREST,
+	)
+	NewMachineConfigTemplateREST = func(getter generic.RESTOptionsGetter) rest.Storage {
+		return NewMachineConfigTemplateRESTFunc(Factory)
+	}
+	NewMachineConfigTemplateRESTFunc NewRESTFunc
+	ManagementNetworkPeerStorage     = builders.NewApiResourceWithStorage( // Resource status endpoint
 		InternalNetworkPeer,
 		func() runtime.Object { return &NetworkPeer{} },     // Register versioned resource
 		func() runtime.Object { return &NetworkPeerList{} }, // Register versioned resource list
@@ -835,6 +845,18 @@ var (
 		"LoftUpgradeStatus",
 		func() runtime.Object { return &LoftUpgrade{} },
 		func() runtime.Object { return &LoftUpgradeList{} },
+	)
+	InternalMachineConfigTemplate = builders.NewInternalResource(
+		"machineconfigtemplates",
+		"MachineConfigTemplate",
+		func() runtime.Object { return &MachineConfigTemplate{} },
+		func() runtime.Object { return &MachineConfigTemplateList{} },
+	)
+	InternalMachineConfigTemplateStatus = builders.NewInternalResourceStatus(
+		"machineconfigtemplates",
+		"MachineConfigTemplateStatus",
+		func() runtime.Object { return &MachineConfigTemplate{} },
+		func() runtime.Object { return &MachineConfigTemplateList{} },
 	)
 	InternalNetworkPeer = builders.NewInternalResource(
 		"networkpeers",
@@ -1486,6 +1508,8 @@ var (
 		InternalLicenseRequestREST,
 		InternalLoftUpgrade,
 		InternalLoftUpgradeStatus,
+		InternalMachineConfigTemplate,
+		InternalMachineConfigTemplateStatus,
 		InternalNetworkPeer,
 		InternalNetworkPeerStatus,
 		InternalNetworkPeerDebugREST,
@@ -2374,6 +2398,25 @@ type LoftUpgradeSpec struct {
 }
 
 type LoftUpgradeStatus struct {
+}
+
+// +genclient
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type MachineConfigTemplate struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              MachineConfigTemplateSpec   `json:"spec,omitempty"`
+	Status            MachineConfigTemplateStatus `json:"status,omitempty"`
+}
+
+type MachineConfigTemplateSpec struct {
+	storagev1.MachineConfigTemplateSpec `json:",inline"`
+}
+
+type MachineConfigTemplateStatus struct {
+	storagev1.MachineConfigTemplateStatus `json:",inline"`
 }
 
 type MaintenanceWindow struct {
@@ -3371,6 +3414,7 @@ type VirtualClusterExternalDatabaseStatus struct {
 	DataSource       string `json:"dataSource,omitempty"`
 	IdentityProvider string `json:"identityProvider,omitempty"`
 	CaCert           string `json:"caCert,omitempty"`
+	SslMode          string `json:"sslMode,omitempty"`
 }
 
 // +genclient
@@ -5917,6 +5961,125 @@ func (s *storageLoftUpgrade) UpdateLoftUpgrade(ctx context.Context, object *Loft
 }
 
 func (s *storageLoftUpgrade) DeleteLoftUpgrade(ctx context.Context, id string) (bool, error) {
+	st := s.GetStandardStorage()
+	_, sync, err := st.Delete(ctx, id, nil, &metav1.DeleteOptions{})
+	return sync, err
+}
+
+// MachineConfigTemplate Functions and Structs
+//
+// +k8s:deepcopy-gen=false
+type MachineConfigTemplateStrategy struct {
+	builders.DefaultStorageStrategy
+}
+
+// +k8s:deepcopy-gen=false
+type MachineConfigTemplateStatusStrategy struct {
+	builders.DefaultStatusStorageStrategy
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type MachineConfigTemplateList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []MachineConfigTemplate `json:"items"`
+}
+
+func (MachineConfigTemplate) NewStatus() interface{} {
+	return MachineConfigTemplateStatus{}
+}
+
+func (pc *MachineConfigTemplate) GetStatus() interface{} {
+	return pc.Status
+}
+
+func (pc *MachineConfigTemplate) SetStatus(s interface{}) {
+	pc.Status = s.(MachineConfigTemplateStatus)
+}
+
+func (pc *MachineConfigTemplate) GetSpec() interface{} {
+	return pc.Spec
+}
+
+func (pc *MachineConfigTemplate) SetSpec(s interface{}) {
+	pc.Spec = s.(MachineConfigTemplateSpec)
+}
+
+func (pc *MachineConfigTemplate) GetObjectMeta() *metav1.ObjectMeta {
+	return &pc.ObjectMeta
+}
+
+func (pc *MachineConfigTemplate) SetGeneration(generation int64) {
+	pc.ObjectMeta.Generation = generation
+}
+
+func (pc MachineConfigTemplate) GetGeneration() int64 {
+	return pc.ObjectMeta.Generation
+}
+
+// Registry is an interface for things that know how to store MachineConfigTemplate.
+// +k8s:deepcopy-gen=false
+type MachineConfigTemplateRegistry interface {
+	ListMachineConfigTemplates(ctx context.Context, options *internalversion.ListOptions) (*MachineConfigTemplateList, error)
+	GetMachineConfigTemplate(ctx context.Context, id string, options *metav1.GetOptions) (*MachineConfigTemplate, error)
+	CreateMachineConfigTemplate(ctx context.Context, id *MachineConfigTemplate) (*MachineConfigTemplate, error)
+	UpdateMachineConfigTemplate(ctx context.Context, id *MachineConfigTemplate) (*MachineConfigTemplate, error)
+	DeleteMachineConfigTemplate(ctx context.Context, id string) (bool, error)
+}
+
+// NewRegistry returns a new Registry interface for the given Storage. Any mismatched types will panic.
+func NewMachineConfigTemplateRegistry(sp builders.StandardStorageProvider) MachineConfigTemplateRegistry {
+	return &storageMachineConfigTemplate{sp}
+}
+
+// Implement Registry
+// storage puts strong typing around storage calls
+// +k8s:deepcopy-gen=false
+type storageMachineConfigTemplate struct {
+	builders.StandardStorageProvider
+}
+
+func (s *storageMachineConfigTemplate) ListMachineConfigTemplates(ctx context.Context, options *internalversion.ListOptions) (*MachineConfigTemplateList, error) {
+	if options != nil && options.FieldSelector != nil && !options.FieldSelector.Empty() {
+		return nil, fmt.Errorf("field selector not supported yet")
+	}
+	st := s.GetStandardStorage()
+	obj, err := st.List(ctx, options)
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*MachineConfigTemplateList), err
+}
+
+func (s *storageMachineConfigTemplate) GetMachineConfigTemplate(ctx context.Context, id string, options *metav1.GetOptions) (*MachineConfigTemplate, error) {
+	st := s.GetStandardStorage()
+	obj, err := st.Get(ctx, id, options)
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*MachineConfigTemplate), nil
+}
+
+func (s *storageMachineConfigTemplate) CreateMachineConfigTemplate(ctx context.Context, object *MachineConfigTemplate) (*MachineConfigTemplate, error) {
+	st := s.GetStandardStorage()
+	obj, err := st.Create(ctx, object, nil, &metav1.CreateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*MachineConfigTemplate), nil
+}
+
+func (s *storageMachineConfigTemplate) UpdateMachineConfigTemplate(ctx context.Context, object *MachineConfigTemplate) (*MachineConfigTemplate, error) {
+	st := s.GetStandardStorage()
+	obj, _, err := st.Update(ctx, object.Name, rest.DefaultUpdatedObjectInfo(object), nil, nil, false, &metav1.UpdateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*MachineConfigTemplate), nil
+}
+
+func (s *storageMachineConfigTemplate) DeleteMachineConfigTemplate(ctx context.Context, id string) (bool, error) {
 	st := s.GetStandardStorage()
 	_, sync, err := st.Delete(ctx, id, nil, &metav1.DeleteOptions{})
 	return sync, err
