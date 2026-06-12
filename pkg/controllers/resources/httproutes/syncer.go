@@ -79,7 +79,7 @@ func (s *httpRouteSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.
 		func() error {
 			// Status translation is independent of spec sync; on failure keep applying
 			// the spec but surface the error so the route is requeued and status retried.
-			vStatus, statusErr := statusToVirtual(ctx, event.Host, event.Virtual.Namespace, event.Host.Status)
+			vStatus, statusErr := statusToVirtual(ctx, event.Host, event.Virtual, event.Host.Status)
 			if statusErr == nil {
 				event.Virtual.Status = vStatus
 			}
