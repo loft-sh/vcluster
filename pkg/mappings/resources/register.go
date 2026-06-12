@@ -25,7 +25,7 @@ func getMappers(ctx *synccontext.RegisterContext) []BuildMapper {
 		isEnabled(gatewayapiutil.HTTPRoutesEnabled(ctx.Config), CreateHTTPRouteMapper),
 		isEnabled(gatewayapiutil.TLSRoutesEnabled(ctx.Config), CreateTLSRouteMapper),
 		isEnabled(gatewayapiutil.BackendTLSPoliciesEnabled(ctx.Config), CreateBackendTLSPolicyMapper),
-		isEnabled(gatewayapiutil.ReferenceGrantsEnabled(ctx.Config), CreateReferenceGrantMapper),
+		isEnabled(gatewayapiutil.ReferenceGrantSyncEnabled(ctx.Config), CreateReferenceGrantMapper),
 		CreateNamespacesMapper,
 		isEnabled(ctx.Config.Sync.ToHost.NetworkPolicies.Enabled, CreateNetworkPoliciesMapper),
 		CreateNodesMapper,

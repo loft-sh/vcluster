@@ -2598,7 +2598,7 @@
         },
         "referenceGrants": {
           "$ref": "#/$defs/EnableAutoSwitchWithPatches",
-          "description": "ReferenceGrants configures ReferenceGrant sync to the control plane cluster. Enabled may be \"auto\", \"true\", or \"false\"."
+          "description": "ReferenceGrants configures ReferenceGrant sync to the control plane cluster. Enabled may be \"auto\", \"true\", or \"false\".\nIn auto mode grants follow route sync and are validated within the tenant cluster; they sync to the control plane cluster only when namespace sync is also enabled."
         }
       },
       "additionalProperties": false,
@@ -5306,7 +5306,7 @@
         },
         "gatewayApi": {
           "$ref": "#/$defs/GatewayAPIEnableSwitchWithPatches",
-          "description": "GatewayAPI defines Gateway API resources created within the tenant cluster that should get synced to the control plane cluster."
+          "description": "GatewayAPI defines Gateway API resources created within the tenant cluster that should get synced to the control plane cluster.\nSetting enabled: true turns on Gateway and HTTPRoute sync, imports control plane cluster GatewayClasses so tenant Gateways can resolve them, and serves tenant ReferenceGrants for validation; TLSRoutes and BackendTLSPolicies must be enabled individually."
         },
         "services": {
           "$ref": "#/$defs/EnableSwitchWithPatches",
