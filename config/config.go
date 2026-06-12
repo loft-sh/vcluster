@@ -1234,6 +1234,7 @@ type SyncToHost struct {
 	Ingresses EnableSwitchWithPatches `json:"ingresses,omitempty"`
 
 	// GatewayAPI defines Gateway API resources created within the tenant cluster that should get synced to the control plane cluster.
+	// Setting enabled: true turns on Gateway and HTTPRoute sync, imports control plane cluster GatewayClasses so tenant Gateways can resolve them, and serves tenant ReferenceGrants for validation; TLSRoutes and BackendTLSPolicies must be enabled individually.
 	GatewayAPI GatewayAPIEnableSwitchWithPatches `json:"gatewayApi,omitempty"`
 
 	// Services defines if services created within the virtual cluster should get synced to the host cluster.
@@ -1310,6 +1311,7 @@ type GatewayAPIEnableSwitchWithPatches struct {
 	BackendTLSPolicies EnableSwitchWithPatches `json:"backendTLSPolicies,omitempty"`
 
 	// ReferenceGrants configures ReferenceGrant sync to the control plane cluster. Enabled may be "auto", "true", or "false".
+	// In auto mode grants follow route sync and are validated within the tenant cluster; they sync to the control plane cluster only when namespace sync is also enabled.
 	ReferenceGrants EnableAutoSwitchWithPatches `json:"referenceGrants,omitempty"`
 }
 

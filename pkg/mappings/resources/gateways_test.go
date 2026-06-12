@@ -56,6 +56,19 @@ func TestGatewayMapperUsesTenantTranslationForUnmappedTenantGateway(t *testing.T
 	}
 }
 
+func TestGatewayMapperUsesTenantTranslationUnderUmbrella(t *testing.T) {
+	mapper := NewImportedGatewayMapper()
+	vcConfig := &pkgconfig.VirtualClusterConfig{}
+	vcConfig.Sync.ToHost.GatewayAPI.Enabled = true
+	ctx := &synccontext.SyncContext{Context: context.Background(), Config: vcConfig}
+
+	got := mapper.VirtualToHost(ctx, types.NamespacedName{Namespace: "team-a", Name: "edge"}, &gatewayv1.Gateway{})
+	expected := translate.Default.HostName(ctx, "edge", "team-a")
+	if got != expected {
+		t.Fatalf("expected umbrella-enabled tenant Gateway to use standard physical translation %s, got %s", expected.String(), got.String())
+	}
+}
+
 func TestImportedGatewayMapperManagedOnlyForMappedHostGateways(t *testing.T) {
 	mapper := NewImportedGatewayMapper()
 	vcConfig := &pkgconfig.VirtualClusterConfig{}

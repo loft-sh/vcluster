@@ -31,6 +31,11 @@ func CreateReferenceGrantMapper(ctx *synccontext.RegisterContext) (synccontext.M
 	return generic.NewMapper(ctx, &gatewayv1.ReferenceGrant{}, translate.Default.HostName)
 }
 
+// EnsureReferenceGrantCRD installs the ReferenceGrant CRD in the virtual
+// cluster. Route controllers watch virtual ReferenceGrants and cross-namespace
+// authorization lists them even when grant sync to the host is disabled, so
+// route mappers ensure the CRD independently of
+// sync.toHost.gatewayApi.referenceGrants.enabled.
 func EnsureReferenceGrantCRD(ctx *synccontext.RegisterContext) error {
 	return util.EnsureCRD(ctx.Context, ctx.VirtualManager.GetConfig(), []byte(referenceGrantsCRD), mappings.ReferenceGrants())
 }

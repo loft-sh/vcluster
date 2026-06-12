@@ -16,13 +16,18 @@ func TestGatewayClassesEnabledWhenGatewaysAreImported(t *testing.T) {
 	}
 }
 
-func TestTenantGatewaysRequireExplicitToggle(t *testing.T) {
+func TestUmbrellaEnablesTenantGatewaySync(t *testing.T) {
 	ctx := &synccontext.RegisterContext{Config: &pkgconfig.VirtualClusterConfig{}}
-	ctx.Config.Sync.ToHost.GatewayAPI.Enabled = true
 	if gatewayGatewaysEnabled(ctx) {
-		t.Fatalf("legacy gatewayApi umbrella must not enable tenant Gateway sync")
+		t.Fatalf("tenant Gateway sync must be disabled by default")
 	}
 
+	ctx.Config.Sync.ToHost.GatewayAPI.Enabled = true
+	if !gatewayGatewaysEnabled(ctx) {
+		t.Fatalf("expected gatewayApi umbrella to enable tenant Gateway sync")
+	}
+
+	ctx.Config.Sync.ToHost.GatewayAPI.Enabled = false
 	ctx.Config.Sync.ToHost.GatewayAPI.Gateways.Enabled = true
 	if !gatewayGatewaysEnabled(ctx) {
 		t.Fatalf("expected explicit gatewayApi.gateways.enabled to enable tenant Gateway sync")
@@ -38,6 +43,15 @@ func TestGatewayClassSyncNotEnabledByTenantGatewaySyncAlone(t *testing.T) {
 	}
 }
 
+func TestGatewayClassSyncEnabledByUmbrella(t *testing.T) {
+	ctx := &synccontext.RegisterContext{Config: &pkgconfig.VirtualClusterConfig{}}
+	ctx.Config.Sync.ToHost.GatewayAPI.Enabled = true
+
+	if !gatewayClassesEnabled(ctx) {
+		t.Fatalf("gatewayApi umbrella should enable host GatewayClass sync; tenant Gateways are only eligible when their GatewayClass is visible in the tenant cluster")
+	}
+}
+
 func TestReferenceGrantAutoDoesNotFollowGatewaySyncAlone(t *testing.T) {
 	ctx := &synccontext.RegisterContext{Config: &pkgconfig.VirtualClusterConfig{}}
 	ctx.Config.Sync.ToHost.Namespaces.Enabled = true
@@ -49,12 +63,23 @@ func TestReferenceGrantAutoDoesNotFollowGatewaySyncAlone(t *testing.T) {
 	}
 }
 
-func TestReferenceGrantAutoFollowsHTTPRouteSyncWithoutNamespaceSync(t *testing.T) {
+func TestReferenceGrantSyncerRequiresNamespaceSyncInAuto(t *testing.T) {
 	ctx := &synccontext.RegisterContext{Config: &pkgconfig.VirtualClusterConfig{}}
 	ctx.Config.Sync.ToHost.GatewayAPI.ReferenceGrants.Enabled = "auto"
 	ctx.Config.Sync.ToHost.GatewayAPI.HTTPRoutes.Enabled = true
 
+	if gatewayReferenceGrantsEnabled(ctx) {
+		t.Fatalf("referenceGrants=auto must not start the host syncer without namespace sync; the chart only grants read RBAC in single-namespace mode")
+	}
+
+	ctx.Config.Sync.ToHost.Namespaces.Enabled = true
 	if !gatewayReferenceGrantsEnabled(ctx) {
-		t.Fatalf("referenceGrants=auto should install the tenant CRD when HTTPRoute sync watches ReferenceGrant")
+		t.Fatalf("referenceGrants=auto should start the host syncer when HTTPRoute and namespace sync are enabled")
+	}
+
+	ctx.Config.Sync.ToHost.Namespaces.Enabled = false
+	ctx.Config.Sync.ToHost.GatewayAPI.ReferenceGrants.Enabled = "true"
+	if !gatewayReferenceGrantsEnabled(ctx) {
+		t.Fatalf("referenceGrants=true should start the host syncer regardless of namespace sync")
 	}
 }

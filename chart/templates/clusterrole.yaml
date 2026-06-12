@@ -83,7 +83,7 @@ rules:
     resources: ["ingressclasses"]
     verbs: ["get", "watch", "list"]
   {{- end }}
-  {{- if or .Values.sync.fromHost.gatewayClasses.enabled .Values.sync.fromHost.gateways.enabled }}
+  {{- if or .Values.sync.fromHost.gatewayClasses.enabled .Values.sync.fromHost.gateways.enabled .Values.sync.toHost.gatewayApi.enabled }}
   - apiGroups: ["gateway.networking.k8s.io"]
     resources: ["gatewayclasses"]
     verbs: ["get", "watch", "list"]

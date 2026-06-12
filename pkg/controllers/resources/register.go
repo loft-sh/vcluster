@@ -134,7 +134,7 @@ func isEnabled[T any](enabled bool, fn T) T {
 }
 
 func gatewayClassesEnabled(ctx *synccontext.RegisterContext) bool {
-	return ctx.Config.Sync.FromHost.GatewayClasses.Enabled || ctx.Config.Sync.FromHost.Gateways.Enabled
+	return gatewayapiutil.GatewayClassesImportEnabled(ctx.Config)
 }
 
 func gatewayGatewaysEnabled(ctx *synccontext.RegisterContext) bool {
@@ -154,5 +154,5 @@ func gatewayBackendTLSPoliciesEnabled(ctx *synccontext.RegisterContext) bool {
 }
 
 func gatewayReferenceGrantsEnabled(ctx *synccontext.RegisterContext) bool {
-	return gatewayapiutil.ReferenceGrantsEnabled(ctx.Config)
+	return gatewayapiutil.ReferenceGrantSyncEnabled(ctx.Config)
 }
