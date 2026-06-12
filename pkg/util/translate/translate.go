@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1clientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -376,44 +378,66 @@ func checkSubresourceStatus(ctx context.Context, vClient *apiextensionsv1clients
 	return isClusterScoped, hasStatusSubresource, err
 }
 
-func crdUpdateWithNewVersion(ctx context.Context, vClient *apiextensionsv1clientset.Clientset, pCrdDefinition, vCrdDefinition *apiextensionsv1.CustomResourceDefinition, groupVersionKind schema.GroupVersionKind) (bool, bool, error) {
-	var err error
-	isClusterScoped := vCrdDefinition.Spec.Scope == apiextensionsv1.ClusterScoped
-	hasStatusSubresource := false
+func crdVersionsWithNewStorageVersion(crdVersions []apiextensionsv1.CustomResourceDefinitionVersion, storageVersion apiextensionsv1.CustomResourceDefinitionVersion) []apiextensionsv1.CustomResourceDefinitionVersion {
+	storageVersion.Storage = true
 
-	// CRD exists but with different version. Need to add the new version to it, and set as storage version if it is not already set.
-	klog.FromContext(ctx).Info("CRD found in virtual cluster, checking versions", "crd", vCrdDefinition.Name, "groupVersionKind", groupVersionKind)
-
-	newVersions := []apiextensionsv1.CustomResourceDefinitionVersion{}
-	for _, version := range vCrdDefinition.Spec.Versions {
-		if version.Name == groupVersionKind.Version {
+	newVersions := make([]apiextensionsv1.CustomResourceDefinitionVersion, 0, len(crdVersions)+1)
+	for _, version := range crdVersions {
+		if version.Name == storageVersion.Name {
 			continue
 		}
 		version.Storage = false
 		newVersions = append(newVersions, version)
 	}
 
-	// Version not found, we need to add it
-	klog.FromContext(ctx).Info("CRD version not found in virtual cluster, adding it", "version", groupVersionKind.Version, "crd", vCrdDefinition.Name)
+	return append(newVersions, storageVersion)
+}
+
+func crdUpdateWithNewVersion(ctx context.Context, vClient *apiextensionsv1clientset.Clientset, pCrdDefinition, vCrdDefinition *apiextensionsv1.CustomResourceDefinition, groupVersionKind schema.GroupVersionKind) (bool, bool, error) {
+	// CRD exists but with different version. Need to add the new version to it, and set as storage version if it is not already set.
+	isClusterScoped := vCrdDefinition.Spec.Scope == apiextensionsv1.ClusterScoped
+	hasStatusSubresource := false
+
+	klog.FromContext(ctx).Info("CRD found in virtual cluster, checking versions", "crd", vCrdDefinition.Name, "groupVersionKind", groupVersionKind)
+
 	newVersion := getCrdVersionByName(pCrdDefinition.Spec.Versions, groupVersionKind.Version)
 	if newVersion == nil {
-		err = fmt.Errorf("could not find version %q in physical CRD %q", groupVersionKind.Version, pCrdDefinition.Name)
-		return isClusterScoped, hasStatusSubresource, err
-	}
-	newVersion.Storage = true
-	newVersions = append(newVersions, *newVersion)
-	vCrdDefinition.Spec.Versions = newVersions
-	// Update the CRD in the virtual cluster
-	klog.FromContext(ctx).Info("Updating CRD in virtual cluster with new version", "crd", vCrdDefinition.Name, "version", groupVersionKind.Version)
-	_, err = vClient.ApiextensionsV1().CustomResourceDefinitions().Update(ctx, vCrdDefinition, metav1.UpdateOptions{})
-	if err != nil {
-		err = fmt.Errorf("update crd in virtual cluster: %w", err)
-		return isClusterScoped, hasStatusSubresource, err
+		return isClusterScoped, false, fmt.Errorf("could not find version %q in physical CRD %q", groupVersionKind.Version, pCrdDefinition.Name)
 	}
 	// Check if the status subresource is set
 	hasStatusSubresource = hasStatus(*newVersion)
-	klog.FromContext(ctx).Info("CRD updated in virtual cluster", "crd", vCrdDefinition.Name, "version", groupVersionKind.Version, "hasStatusSubresource", hasStatusSubresource)
-	return isClusterScoped, hasStatusSubresource, err
+
+	updated := false
+	// In HA mode all replicas run this code concurrently (before leader election), so we use RetryOnConflict to handle potential
+	// race occurring when multiple replicas try to update the CRD at the same time.
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		crdDefinition, err := vClient.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, vCrdDefinition.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		isClusterScoped = crdDefinition.Spec.Scope == apiextensionsv1.ClusterScoped
+		newVersions := crdVersionsWithNewStorageVersion(crdDefinition.Spec.Versions, *newVersion)
+		if apiequality.Semantic.DeepEqual(crdDefinition.Spec.Versions, newVersions) {
+			klog.FromContext(ctx).V(1).Info("CRD in virtual cluster already has desired version", "crd", crdDefinition.Name, "version", groupVersionKind.Version)
+			return nil
+		}
+		crdDefinition.Spec.Versions = newVersions
+
+		klog.FromContext(ctx).V(1).Info("Updating CRD in virtual cluster with new version", "crd", crdDefinition.Name, "version", groupVersionKind.Version)
+		_, err = vClient.ApiextensionsV1().CustomResourceDefinitions().Update(ctx, crdDefinition, metav1.UpdateOptions{})
+		if kerrors.IsConflict(err) {
+			klog.FromContext(ctx).V(1).Info("CRD update conflict, retrying with latest ResourceVersion", "crd", crdDefinition.Name, "version", groupVersionKind.Version)
+		}
+		updated = err == nil
+		return err
+	})
+	if err != nil {
+		return isClusterScoped, false, fmt.Errorf("update crd in virtual cluster: %w", err)
+	}
+	if updated {
+		klog.FromContext(ctx).Info("CRD updated in virtual cluster", "crd", vCrdDefinition.Name, "version", groupVersionKind.Version, "hasStatusSubresource", hasStatusSubresource)
+	}
+	return isClusterScoped, hasStatusSubresource, nil
 }
 
 func createCrdFromPhysicalCluster(ctx context.Context, vClient *apiextensionsv1clientset.Clientset, pCrdDefinition *apiextensionsv1.CustomResourceDefinition, groupVersionResource schema.GroupVersionResource, groupVersionKind schema.GroupVersionKind) (bool, bool, error) {
