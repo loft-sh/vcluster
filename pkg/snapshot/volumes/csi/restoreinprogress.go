@@ -176,7 +176,12 @@ func (r *Restorer) reconcileInProgressPVC(ctx context.Context, requestObj runtim
 	originalPVC := &volumeRestoreRequest.PersistentVolumeClaim
 	_, err := r.kubeClient.CoreV1().PersistentVolumeClaims(originalPVC.Namespace).Get(ctx, originalPVC.Name, metav1.GetOptions{})
 	if err == nil {
-		// existing PVC found
+		// existing PVC found — skip restore to avoid data loss; user must delete the
+		// PVC and re-run the restore to recover data from the snapshot.
+		r.logger.Infof(
+			"PersistentVolumeClaim %s/%s already exists; skipping volume restore. "+
+				"Data from the snapshot was NOT applied. Delete the PersistentVolumeClaim and re-run restore to recover snapshot data.",
+			originalPVC.Namespace, originalPVC.Name)
 		status.Phase = snapshotapi.VolumeSnapshotPhaseSkipped
 		return status, nil
 	} else if !kerrors.IsNotFound(err) {
@@ -370,9 +375,10 @@ func (r *Restorer) inProgressPVCReconcileFinished(requestObj runtime.Object, vol
 			err,
 		}
 	case snapshotapi.VolumeSnapshotPhaseSkipped:
-		eventType = corev1.EventTypeNormal
+		eventType = corev1.EventTypeWarning
 		reason = "VolumeRestoreSkipped"
-		messageFmt = "Skipped restoring PersistentVolumeClaim %s/%s"
+		messageFmt = "Skipped restoring PersistentVolumeClaim %s/%s: a PersistentVolumeClaim with this name already exists. " +
+			"Snapshot data was NOT applied. Delete the PersistentVolumeClaim and re-run the restore to recover data from the snapshot."
 		args = []interface{}{
 			volumeRestoreRequest.PersistentVolumeClaim.Namespace,
 			volumeRestoreRequest.PersistentVolumeClaim.Name,
