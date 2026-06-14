@@ -482,7 +482,7 @@ func serverPort(parsed *url.URL) (string, error) {
 	case "http":
 		return "80", nil
 	default:
-		return "", fmt.Errorf("unexpected server in kubeconfig: %s", parsed.String())
+		return "", fmt.Errorf("unexpected server scheme in kubeconfig: %s", parsed.String())
 	}
 }
 
