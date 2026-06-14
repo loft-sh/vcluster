@@ -152,7 +152,7 @@ func containerExists(ctx context.Context, containerName string) (bool, error) {
 }
 
 func stopContainer(ctx context.Context, containerName string) error {
-	args := []string{"stop", "--timeout=1", containerName}
+	args := []string{"stop", "-t=1", containerName}
 	output, err := exec.CommandContext(ctx, "docker", args...).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("docker stop failed: %w, output: %s", err, string(output))
