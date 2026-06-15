@@ -251,6 +251,7 @@ jobs:
         id: execute-e2e-tests
         uses: loft-sh/github-actions/.github/actions/run-ginkgo@run-ginkgo/v1
         with:
+          test-dir: e2e
           upload-report: "true"
           reports-bucket: ${{ vars.E2E_INSIGHTS_BUCKET }}
           workflow-file: e2e-ginkgo.yaml
