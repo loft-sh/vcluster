@@ -19,6 +19,7 @@ type StorageV1Interface interface {
 	ClustersGetter
 	ClusterAccessesGetter
 	ClusterRoleTemplatesGetter
+	MachineConfigTemplatesGetter
 	NetworkPeersGetter
 	NodeClaimsGetter
 	NodeEnvironmentsGetter
@@ -68,6 +69,10 @@ func (c *StorageV1Client) ClusterAccesses() ClusterAccessInterface {
 
 func (c *StorageV1Client) ClusterRoleTemplates() ClusterRoleTemplateInterface {
 	return newClusterRoleTemplates(c)
+}
+
+func (c *StorageV1Client) MachineConfigTemplates(namespace string) MachineConfigTemplateInterface {
+	return newMachineConfigTemplates(c, namespace)
 }
 
 func (c *StorageV1Client) NetworkPeers() NetworkPeerInterface {

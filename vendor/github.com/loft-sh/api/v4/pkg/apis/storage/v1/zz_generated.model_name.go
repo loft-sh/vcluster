@@ -446,6 +446,26 @@ func (in LocalClusterRoleTemplateSpec) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MachineConfigTemplate) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.MachineConfigTemplate"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MachineConfigTemplateList) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.MachineConfigTemplateList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MachineConfigTemplateSpec) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.MachineConfigTemplateSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MachineConfigTemplateStatus) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.MachineConfigTemplateStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ManagedNodeTypeObjectMeta) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.ManagedNodeTypeObjectMeta"
 }

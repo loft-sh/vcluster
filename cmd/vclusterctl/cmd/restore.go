@@ -11,7 +11,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/cli/util"
-	snapshotazure "github.com/loft-sh/vcluster/pkg/snapshot/azure"
+	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
 	"github.com/spf13/cobra"
 )
@@ -96,6 +96,6 @@ vcluster restore my-new-name ./my-snapshot.tar.gz --driver docker
 	cobraCmd.Flags().BoolVar(&cmd.RestoreVolumes, "restore-volumes", false, "Restore volumes from volume snapshots. Deprecated: volume snapshot and restore will be removed in an upcoming release.")
 	cobraCmd.Flags().BoolVar(&cmd.Standalone, "standalone", false, "Target the local standalone vCluster on this host")
 	cobraCmd.Flags().StringVarP(&cmd.Snapshot.SnapshotTempDir, "snapshot-temp-dir", "", "", "Temporary directory for snapshot operations. If set to empty string, the OS default directory for temporary files will be used")
-	snapshotazure.AddFlags(cobraCmd.Flags(), &cmd.Snapshot.Azure)
+	snapshot.AddAzureFlags(cobraCmd.Flags(), &cmd.Snapshot.Azure)
 	return cobraCmd
 }

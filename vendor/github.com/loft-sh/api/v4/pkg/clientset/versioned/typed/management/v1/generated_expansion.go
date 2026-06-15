@@ -38,6 +38,8 @@ type LicenseExpansion interface{}
 
 type LoftUpgradeExpansion interface{}
 
+type MachineConfigTemplateExpansion interface{}
+
 type NetworkPeerExpansion interface{}
 
 type NodeClaimExpansion interface{}

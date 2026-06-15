@@ -17,10 +17,10 @@ import (
 
 var (
 	// ErrSubscriptionIDNotSet is returned when the Azure subscription ID is not set
-	ErrSubscriptionIDNotSet = fmt.Errorf("the Azure subscription ID is required, set the AZURE_SUBSCRIPTION_ID environment variable, or set the --azure-subscription-id flag if you're running vcluster CLI")
+	ErrSubscriptionIDNotSet = fmt.Errorf("the Azure subscription ID is required, set AzureOptions.SubscriptionID or the AZURE_SUBSCRIPTION_ID environment variable")
 
 	// ErrResourceGroupNotSet is returned when the Azure resource group is not set
-	ErrResourceGroupNotSet = fmt.Errorf("the Azure resource group is required, set the AZURE_RESOURCE_GROUP environment variable, or set the --azure-resource-group flag if you're running vcluster CLI")
+	ErrResourceGroupNotSet = fmt.Errorf("the Azure resource group is required, set AzureOptions.ResourceGroup or the AZURE_RESOURCE_GROUP environment variable")
 )
 
 // IsAzureFlagNotSetError returns true if the error is caused by a missing Azure flag

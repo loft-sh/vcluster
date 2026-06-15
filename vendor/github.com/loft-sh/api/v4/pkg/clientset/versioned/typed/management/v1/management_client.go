@@ -30,6 +30,7 @@ type ManagementV1Interface interface {
 	IngressAuthTokensGetter
 	LicensesGetter
 	LoftUpgradesGetter
+	MachineConfigTemplatesGetter
 	NetworkPeersGetter
 	NodeClaimsGetter
 	NodeEnvironmentsGetter
@@ -135,6 +136,10 @@ func (c *ManagementV1Client) Licenses() LicenseInterface {
 
 func (c *ManagementV1Client) LoftUpgrades() LoftUpgradeInterface {
 	return newLoftUpgrades(c)
+}
+
+func (c *ManagementV1Client) MachineConfigTemplates(namespace string) MachineConfigTemplateInterface {
+	return newMachineConfigTemplates(c, namespace)
 }
 
 func (c *ManagementV1Client) NetworkPeers() NetworkPeerInterface {

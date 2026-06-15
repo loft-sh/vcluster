@@ -61,6 +61,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&LicenseRequest{},
 		&LoftUpgrade{},
 		&LoftUpgradeList{},
+		&MachineConfigTemplate{},
+		&MachineConfigTemplateList{},
 		&NetworkPeer{},
 		&NetworkPeerList{},
 		&NetworkPeerDebug{},
@@ -245,6 +247,7 @@ var (
 			management.NewLicenseRequestREST,
 		),
 		management.ManagementLoftUpgradeStorage,
+		management.ManagementMachineConfigTemplateStorage,
 		management.ManagementNetworkPeerStorage,
 		builders.NewApiResourceWithStorage(
 			management.InternalNetworkPeerDebugREST,
@@ -757,6 +760,14 @@ type LoftUpgradeList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []LoftUpgrade `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type MachineConfigTemplateList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []MachineConfigTemplate `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

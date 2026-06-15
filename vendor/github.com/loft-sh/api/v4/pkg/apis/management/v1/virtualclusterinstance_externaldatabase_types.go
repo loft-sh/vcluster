@@ -46,4 +46,11 @@ type VirtualClusterExternalDatabaseStatus struct {
 	// it (sslmode=verify-full).
 	// +optional
 	CaCert string `json:"caCert,omitempty"`
+
+	// SslMode is an explicit Postgres sslmode value sourced from the connector secret's sslMode
+	// field. When non-empty (e.g. "disable", "require", "verify-full"), the tenant cluster should
+	// pass this to Kine to override the default policy. Empty means the tenant cluster should
+	// derive the mode from CaCert (verify-full when CaCert is set, require otherwise).
+	// +optional
+	SslMode string `json:"sslMode,omitempty"`
 }
