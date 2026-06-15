@@ -34,7 +34,7 @@ bootstrap label:
 # Cross-compile check + vet — catches type errors before push (~20s)
 compile-check:
   GOOS=linux GOARCH={{GOARCH}} CGO_ENABLED=0 go build -mod vendor -trimpath -ldflags "-s -w" -o /dev/null ./cmd/vcluster/
-  go vet ./cmd/... ./pkg/... ./e2e-next/...
+  go vet ./cmd/... ./pkg/... ./e2e/...
 
 # Rebuild image + load to kind (~15-45s)
 rebuild:
@@ -45,16 +45,16 @@ rebuild:
 # Compile check + rebuild in one step
 push: compile-check rebuild
 
-# Run all e2e-next tests with JSON report
+# Run all e2e tests with JSON report
 [no-exit-message]
 test-all: (test "")
 
-# Run e2e-next tests with JSON report
+# Run e2e tests with JSON report
 [no-exit-message]
 test label="pr":
   ginkgo --procs=8 -timeout=0 --silence-skips --succinct --no-color \
     --json-report={{report_file}} \
-    --label-filter='{{label}}' ./e2e-next -- \
+    --label-filter='{{label}}' ./e2e -- \
     --vcluster-image="{{image}}" \
     --teardown=false
 
@@ -64,7 +64,7 @@ test-focus label focus:
   ginkgo --procs=8 -timeout=0 --silence-skips --succinct --no-color \
     --json-report={{report_file}} \
     --label-filter='{{label}}' \
-    --focus='{{focus}}' ./e2e-next -- \
+    --focus='{{focus}}' ./e2e -- \
     --vcluster-image="{{image}}" \
     --teardown=false
 

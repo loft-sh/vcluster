@@ -1,6 +1,6 @@
 # E2E Test Examples — Annotated Patterns
 
-Concrete excerpts from production tests in `e2e-next/`. These are ground truth — read them before writing new tests.
+Concrete excerpts from production tests in `e2e/`. These are ground truth — read them before writing new tests.
 
 ---
 
@@ -45,7 +45,7 @@ By("creating source namespace on host", func() {
 
 ## 2. Eventually + Polling
 
-Source: `e2e-next/test_core/sync/test_servicesync.go`, `e2e-next/test_deploy/test_helm_charts.go`
+Source: `e2e/test_core/sync/test_servicesync.go`, `e2e/test_deploy/test_helm_charts.go`
 
 Use the `g Gomega` parameter inside `Eventually`. Bare `Expect()` inside `Eventually` panics instead of retrying. Include failure context for debuggability.
 
@@ -112,7 +112,7 @@ Eventually(func(g Gomega) []appsv1.Deployment {
 
 ## 3. Cluster Client Usage
 
-Source: `e2e-next/test_core/sync/test_node.go`
+Source: `e2e/test_core/sync/test_node.go`
 
 Obtain host and vcluster clients from context. Use `cluster.KubeClientFrom` with the host cluster name for the host client, and `cluster.CurrentKubeClientFrom` for the current vcluster client.
 
@@ -248,7 +248,7 @@ Describe("controller-based snapshot with volumes", Ordered, func() {
 
 ## 5. BeforeEach Pattern
 
-Source: `e2e-next/test_deploy/test_helm_charts.go`, `e2e-next/test_deploy/test_init_manifests.go`
+Source: `e2e/test_deploy/test_helm_charts.go`, `e2e/test_deploy/test_init_manifests.go`
 
 Use `BeforeEach` when specs are independent and only need shared client setup. Each spec operates on pre-existing state (deployed charts, init manifests) and doesn't modify shared resources.
 

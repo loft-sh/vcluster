@@ -106,7 +106,7 @@ jobs:
         if: steps.gcp-auth.outcome == 'success'
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Run e2e-next tests
+      - name: Run e2e tests
         id: run-tests
         uses: loft-sh/github-actions/.github/actions/run-ginkgo@run-ginkgo/v1
         with:

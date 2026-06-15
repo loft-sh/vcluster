@@ -34,7 +34,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # The docker image to use for testing. It should be the same as the one used in the e2e-next tests.
+  # The docker image to use for testing. It should be the same as the one used in the e2e tests.
   REPOSITORY_NAME: ghcr.io/loft-sh/vcluster
   TAG_NAME: dev-next
   VCLUSTER_SUFFIX: vcluster
@@ -106,7 +106,7 @@ jobs:
         - "**.go"
         - "!**_test.go" # exclude test files to ignore unit test changes
         - "test/**" # include test files in e2e again
-        - "e2e-next/**" # include e2e-next test files
+        - "e2e/**" # include e2e test files
         - "!**.md"
         - "Dockerfile.release"
         - ".github/workflows/e2e.yaml"

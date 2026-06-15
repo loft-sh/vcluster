@@ -1,12 +1,12 @@
 ---
 paths:
-  - "e2e-next/**/*.go"
+  - "e2e/**/*.go"
 ---
 <!-- Generic core: e2e-tdd-workflow plugin references/e2e-conventions-core.md -->
 
-# e2e-next Test Conventions
+# e2e Test Conventions
 
-Ginkgo v2 + Gomega, running against vCluster instances on Kind. Read existing tests in `e2e-next/test_*/` for patterns before writing new ones.
+Ginkgo v2 + Gomega, running against vCluster instances on Kind. Read existing tests in `e2e/test_*/` for patterns before writing new ones.
 
 ## Key Conventions
 
@@ -21,11 +21,11 @@ Ginkgo v2 + Gomega, running against vCluster instances on Kind. Read existing te
 
 ## Setup Helpers
 
-vCluster's `e2e-next/` does not yet have a rich `setup/` builder library like loft-enterprise. During migration:
+vCluster's `e2e/` does not yet have a rich `setup/` builder library like loft-enterprise. During migration:
 
-- Use existing **cluster definitions** from `e2e-next/clusters/` for test environment setup. Browse `clusters/clusters.go` for available vclusters with different configurations.
+- Use existing **cluster definitions** from `e2e/clusters/` for test environment setup. Browse `clusters/clusters.go` for available vclusters with different configurations.
 - Use the `setup/template` package (`template.MustRender()`) for rendering vcluster YAML with image overrides.
-- When a setup pattern repeats across multiple tests, create a shared setup helper as an `[infra]` sub-problem. Place it in `e2e-next/setup/` following the functional-options pattern.
+- When a setup pattern repeats across multiple tests, create a shared setup helper as an `[infra]` sub-problem. Place it in `e2e/setup/` following the functional-options pattern.
 - For now, most test setup is done inline using the Kubernetes client directly (create namespace, create resource, DeferCleanup).
 
 ### Scoping Constants and Helpers
@@ -46,8 +46,8 @@ Embed the `vcluster.yaml` in the suite file. Templates support `{{.Repository}}`
 
 ### Defining a New vCluster Suite
 
-1. Create `e2e-next/vcluster-myfeature.yaml` with the `vcluster.yaml` config.
-2. Create `e2e-next/suite_myfeature_test.go`:
+1. Create `e2e/vcluster-myfeature.yaml` with the `vcluster.yaml` config.
+2. Create `e2e/suite_myfeature_test.go`:
    ```go
    //go:embed vcluster-myfeature.yaml
    var myFeatureYAML string
@@ -133,7 +133,7 @@ It("tests something", func(ctx context.Context) {
 
 ## Labels
 
-Attach labels to `Describe`, `Context`, or `It`. Check `e2e-next/labels/labels.go` for the full list. Key ones:
+Attach labels to `Describe`, `Context`, or `It`. Check `e2e/labels/labels.go` for the full list. Key ones:
 - `labels.PR` — gate tests that run on every PR
 - `labels.Core`, `labels.Sync`, `labels.Deploy` — feature-area labels
 
@@ -171,7 +171,7 @@ By("Checking that the configmap is synced to the host cluster", func() { /* ... 
 
 ## New Test Checklist
 
-1. Place the file in the appropriate `e2e-next/test_*` directory. Package name must match sibling files.
+1. Place the file in the appropriate `e2e/test_*` directory. Package name must match sibling files.
 2. If creating a **new** `test_*` package, add a blank import in `e2e_suite_test.go`.
-3. If testing a **new** resource type, add a label constant in `e2e-next/labels/labels.go`.
+3. If testing a **new** resource type, add a label constant in `e2e/labels/labels.go`.
 4. Use an existing test file in the same package as your starting template.

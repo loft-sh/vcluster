@@ -1,10 +1,10 @@
 # Old → New Pattern Mapping (vcluster)
 
-Translation table for migrating tests from `test/framework` to `e2e-next/`.
+Translation table for migrating tests from `test/framework` to `e2e/`.
 
 ## Client Accessors
 
-| Old Pattern (`test/framework`) | New Pattern (`e2e-next`) |
+| Old Pattern (`test/framework`) | New Pattern (`e2e`) |
 |---|---|
 | `framework.DefaultFramework` global singleton | Context-based: `cluster.KubeClientFrom(ctx, name)`, `cluster.CurrentKubeClientFrom(ctx)` |
 | `f.HostClient` / `f.HostCRClient` | `cluster.KubeClientFrom(ctx, constants.GetHostClusterName())` |
@@ -27,7 +27,7 @@ Translation table for migrating tests from `test/framework` to `e2e-next/`.
 
 | Old Pattern | New Pattern |
 |---|---|
-| `go test -v -ginkgo.v` | `ginkgo --label-filter="..." ./e2e-next` |
+| `go test -v -ginkgo.v` | `ginkgo --label-filter="..." ./e2e` |
 | `time.Sleep()` | `Eventually().WithPolling().WithTimeout()` |
 | Ad-hoc durations | `constants.PollingTimeout*` constants |
 | Env-based config (`VCLUSTER_SUFFIX`, etc.) | Flag-based config (`--vcluster-image`, `--cluster-name`) |
@@ -45,7 +45,7 @@ Translation table for migrating tests from `test/framework` to `e2e-next/`.
 
 ## Cluster Definitions
 
-The old framework uses a single vcluster per suite. The new framework defines multiple vclusters in `e2e-next/clusters/clusters.go`:
+The old framework uses a single vcluster per suite. The new framework defines multiple vclusters in `e2e/clusters/clusters.go`:
 
 ```go
 // Host cluster (Kind)
@@ -82,7 +82,7 @@ vcluster pause/resume or cert rotation. `cluster.CurrentKubeClientFrom(ctx)` and
 `cluster.CurrentClusterFrom(ctx).KubernetesRestConfig()` both point to the suite proxy — if the
 vcluster has been paused, restarted, or had its certs rotated, these return dead connections.
 
-The old framework's `f.RefreshVirtualClient()` re-established the connection. The e2e-next
+The old framework's `f.RefreshVirtualClient()` re-established the connection. The e2e
 equivalent is to run `vcluster connect` programmatically with a background proxy:
 
 1. Create a temp file for the kubeconfig
@@ -99,4 +99,4 @@ Key imports: `connectcmd "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd"`,
 `"github.com/loft-sh/vcluster/pkg/cli"`, `"github.com/loft-sh/vcluster/pkg/cli/flags"`,
 `loftlog "github.com/loft-sh/log"`,
 `"github.com/spf13/cobra"`, `"k8s.io/client-go/tools/clientcmd"`,
-`"github.com/loft-sh/vcluster/e2e-next/constants"`.
+`"github.com/loft-sh/vcluster/e2e/constants"`.
