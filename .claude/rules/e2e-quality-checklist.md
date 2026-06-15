@@ -1,10 +1,10 @@
 ---
 paths:
-  - "e2e-next/**/*.go"
+  - "e2e/**/*.go"
 ---
 <!-- Generic core (items 1-8): e2e-tdd-workflow plugin references/e2e-quality-checklist-core.md -->
 
-# E2E Test Quality Checklist (e2e-next)
+# E2E Test Quality Checklist (e2e)
 
 Every item is **pass/fail**. A test must pass all 10 items.
 
@@ -136,7 +136,7 @@ Describe("myfeature-vcluster", labels.MyFeature, Ordered,
 // FAIL — eager registration in clusters/ + cluster.Use(vc) is the old pattern; do not reintroduce it.
 ```
 
-Do not add definitions to `clusters/`. Pre-setup hooks (CRD install, PVC, Helm) go into `setup/` and are passed via `lazyvcluster.WithPreSetup`. See `e2e-next/README.md` for the full pattern.
+Do not add definitions to `clusters/`. Pre-setup hooks (CRD install, PVC, Helm) go into `setup/` and are passed via `lazyvcluster.WithPreSetup`. See `e2e/README.md` for the full pattern.
 
 ---
 
@@ -176,7 +176,7 @@ By("Calling vClusterClient.CoreV1().Services().Get in a loop", func() { /* ... *
 
 ## 9. Lint Passes
 
-`just -f Justfile.agent lint ./e2e-next/...` runs clean. This runs the full `golangci-lint` suite (formatting, static analysis, 28+ linters) matching CI. Note: `compile-check` only runs `go build` + `go vet`, which is a subset — always run `lint` as well.
+`just -f Justfile.agent lint ./e2e/...` runs clean. This runs the full `golangci-lint` suite (formatting, static analysis, 28+ linters) matching CI. Note: `compile-check` only runs `go build` + `go vet`, which is a subset — always run `lint` as well.
 
 ---
 

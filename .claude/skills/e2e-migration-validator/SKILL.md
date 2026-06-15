@@ -2,7 +2,7 @@
 name: e2e-migration-validator
 description: >
   Use this skill whenever a user wants to validate, review, or audit e2e tests that have been
-  migrated from an old framework (typically in a `e2e-next/` directory) to the new `e2e-next/`
+  migrated from an old framework (typically in a `e2e/` directory) to the new `e2e/`
   framework. Triggers include: "review my migrated test", "validate this e2e test", "check
   my test migration", "did I migrate this correctly", "review e2e PR", "check test coverage
   after migration", or any request involving comparing old vs new e2e test files across the
@@ -14,7 +14,7 @@ description: >
 # E2E Test Migration Validator
 
 A skill for exhaustively reviewing e2e tests migrated from the old framework (`next/` directory)
-to the new framework (`e2e-next/` directory) across the `vcluster`, `vcluster-pro`, and
+to the new framework (`e2e/` directory) across the `vcluster`, `vcluster-pro`, and
 `loft-enterprise` repositories.
 
 ---
@@ -74,7 +74,7 @@ Using the repo MCP tools:
 
 Verify the structural correctness of the migration:
 
-- [ ] Test file is in the correct `e2e-next/` directory structure
+- [ ] Test file is in the correct `e2e/` directory structure
 - [ ] Imports use the new framework's helpers/fixtures (not the old ones)
 - [ ] Test lifecycle hooks (`beforeAll`, `afterAll`, `beforeEach`, `afterEach`) are correctly
       translated — no leftover old-framework teardown patterns

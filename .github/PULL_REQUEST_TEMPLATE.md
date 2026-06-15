@@ -32,7 +32,7 @@ You can specify custom Ginkgo label filters for e2e tests by adding a label-filt
 
 Available labels: core, sync, pr
 
-For a complete list of existing labels, see: e2e-next/labels/labels.go
+For a complete list of existing labels, see: e2e/labels/labels.go
 
 You can combine labels using Ginkgo syntax: && (AND), || (OR), ! (NOT)
 
