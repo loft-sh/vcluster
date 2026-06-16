@@ -131,6 +131,13 @@ func filterToHost(ctx *synccontext.SyncContext, routeNamespace string, filter *g
 		}
 	}
 
+	if filter.ExtensionRef != nil {
+		err := routetranslate.LocalObjectRefToHost(ctx, routeNamespace, filter.ExtensionRef, translateOpts...)
+		if err != nil {
+			return fmt.Errorf("translate extensionRef: %w", err)
+		}
+	}
+
 	return nil
 }
 

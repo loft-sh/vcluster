@@ -60,7 +60,7 @@ func (s *httpRouteSyncer) Options() *syncertypes.Options {
 
 func (s *httpRouteSyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
 	builder = gatewayauthz.RegisterHTTPRouteWatches(ctx, builder)
-	return routetranslate.RegisterReferencedWatches(ctx, builder, s.GroupVersionKind(), mappings.Gateways(), mappings.Services())
+	return routetranslate.RegisterReferencedWatches(ctx, builder, s.GroupVersionKind(), mappings.Gateways(), mappings.Services(), mappings.ConfigMaps(), mappings.Secrets())
 }
 
 func (s *httpRouteSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*gatewayv1.HTTPRoute]) (ctrl.Result, error) {

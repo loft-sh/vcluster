@@ -115,6 +115,16 @@ func LocalObjectRefToHost(ctx *synccontext.SyncContext, localNamespace string, r
 	return localObjectRefToHost(ctx, localNamespace, ref, options.validateHostObject)
 }
 
+func ParametersRefToHost(ctx *synccontext.SyncContext, localNamespace string, ref *gatewayv1.LocalParametersReference, opts ...ToHostOption) error {
+	options := newToHostOptions(opts...)
+	return parametersRefToHost(ctx, localNamespace, ref, options.validateHostObject)
+}
+
+func ObjectRefToHost(ctx *synccontext.SyncContext, localNamespace string, ref *gatewayv1.ObjectReference, opts ...ToHostOption) error {
+	options := newToHostOptions(opts...)
+	return objectReferenceRefToHost(ctx, localNamespace, ref, options.validateHostObject)
+}
+
 func PolicyTargetRefToHost(ctx *synccontext.SyncContext, policyNamespace string, ref *gatewayv1.LocalPolicyTargetReferenceWithSectionName, opts ...ToHostOption) error {
 	options := newToHostOptions(opts...)
 	return policyTargetRefToHost(ctx, policyNamespace, ref, options.validateHostObject)
@@ -167,6 +177,30 @@ func localObjectRefToHost(ctx *synccontext.SyncContext, localNamespace string, r
 	}
 
 	return objectRefToHost(ctx, localNamespace, &ref.Name, nil, gvk, validateHostObject)
+}
+
+func parametersRefToHost(ctx *synccontext.SyncContext, localNamespace string, ref *gatewayv1.LocalParametersReference, validateHostObject bool) error {
+	gvk, err := parametersReferenceGVK(ref)
+	if err != nil {
+		return err
+	}
+
+	refName := gatewayv1.ObjectName(ref.Name)
+	if err := objectRefToHost(ctx, localNamespace, &refName, nil, gvk, validateHostObject); err != nil {
+		return err
+	}
+
+	ref.Name = string(refName)
+	return nil
+}
+
+func objectReferenceRefToHost(ctx *synccontext.SyncContext, localNamespace string, ref *gatewayv1.ObjectReference, validateHostObject bool) error {
+	gvk, err := objectReferenceGVK(ref)
+	if err != nil {
+		return err
+	}
+
+	return objectRefToHost(ctx, localNamespace, &ref.Name, &ref.Namespace, gvk, validateHostObject)
 }
 
 func policyTargetRefToHost(ctx *synccontext.SyncContext, policyNamespace string, ref *gatewayv1.LocalPolicyTargetReferenceWithSectionName, validateHostObject bool) error {
@@ -443,9 +477,18 @@ func secretObjectReferenceGVK(ref *gatewayv1.SecretObjectReference) (schema.Grou
 }
 
 func localObjectReferenceGVK(ref *gatewayv1.LocalObjectReference) (schema.GroupVersionKind, error) {
-	group := string(ref.Group)
-	kind := string(ref.Kind)
+	return objectReferenceGroupKindGVK(string(ref.Group), string(ref.Kind), "localObjectRef")
+}
 
+func parametersReferenceGVK(ref *gatewayv1.LocalParametersReference) (schema.GroupVersionKind, error) {
+	return objectReferenceGroupKindGVK(string(ref.Group), string(ref.Kind), "parametersRef")
+}
+
+func objectReferenceGVK(ref *gatewayv1.ObjectReference) (schema.GroupVersionKind, error) {
+	return objectReferenceGroupKindGVK(string(ref.Group), string(ref.Kind), "objectRef")
+}
+
+func objectReferenceGroupKindGVK(group, kind, field string) (schema.GroupVersionKind, error) {
 	if group == corev1.GroupName && kind == "ConfigMap" {
 		return mappings.ConfigMaps(), nil
 	}
@@ -453,7 +496,7 @@ func localObjectReferenceGVK(ref *gatewayv1.LocalObjectReference) (schema.GroupV
 		return mappings.Secrets(), nil
 	}
 
-	return schema.GroupVersionKind{}, unsupportedReferencef("localObjectRef group %q kind %q is not supported", group, kind)
+	return schema.GroupVersionKind{}, unsupportedReferencef("%s group %q kind %q is not supported", field, group, kind)
 }
 
 func policyTargetReferenceGVK(ref *gatewayv1.LocalPolicyTargetReferenceWithSectionName) (schema.GroupVersionKind, error) {

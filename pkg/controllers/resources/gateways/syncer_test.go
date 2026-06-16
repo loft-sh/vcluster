@@ -273,6 +273,63 @@ func TestTenantGatewaySyncToHostCreatesGatewayWhenExplicitlyEnabled(t *testing.T
 	}
 }
 
+func TestTenantGatewaySyncToHostSkipsUnsupportedParametersRef(t *testing.T) {
+	vcConfig := &pkgconfig.VirtualClusterConfig{}
+	vcConfig.Sync.ToHost.GatewayAPI.Gateways.Enabled = true
+	pClient := testingutil.NewFakeClient(scheme.Scheme)
+	vClient := testingutil.NewFakeClient(scheme.Scheme,
+		&gatewayv1.GatewayClass{ObjectMeta: metav1.ObjectMeta{Name: "tenant-class"}},
+	)
+	registerCtx := syncertesting.NewFakeRegisterContext(vcConfig, pClient, vClient)
+	syncCtx, object := syncertesting.FakeStartSyncer(t, registerCtx, NewToHost)
+	syncer := object.(*tenantGatewaySyncer)
+
+	virtual := gatewayWithParametersRef(gatewayv1.LocalParametersReference{Group: "example.com", Kind: "GatewayConfig", Name: "params"})
+	_, err := syncer.SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(virtual))
+	if err != nil {
+		t.Fatalf("expected unsupported parametersRef kind to be a warning/skip, not hard error: %v", err)
+	}
+
+	host := &gatewayv1.Gateway{}
+	if err := pClient.Get(context.Background(), translate.Default.HostName(syncCtx, "edge", "team-a"), host); err == nil {
+		t.Fatalf("did not expect host Gateway to be created for unsupported parametersRef kind")
+	}
+}
+
+func TestTenantGatewaySyncDeletesHostOnUnsupportedParametersRef(t *testing.T) {
+	vcConfig := &pkgconfig.VirtualClusterConfig{}
+	vcConfig.Sync.ToHost.GatewayAPI.Gateways.Enabled = true
+	hostName := types.NamespacedName{Namespace: testingutil.DefaultTestTargetNamespace, Name: "edge-x-team-a-x-suffix"}
+	host := &gatewayv1.Gateway{ObjectMeta: metav1.ObjectMeta{
+		Namespace: hostName.Namespace,
+		Name:      hostName.Name,
+		Labels:    map[string]string{translate.MarkerLabel: translate.VClusterName},
+		Annotations: map[string]string{
+			translate.NameAnnotation:      "edge",
+			translate.NamespaceAnnotation: "team-a",
+		},
+	}}
+	virtual := gatewayWithParametersRef(gatewayv1.LocalParametersReference{Group: "example.com", Kind: "GatewayConfig", Name: "params"})
+	pClient := testingutil.NewFakeClient(scheme.Scheme, host)
+	vClient := testingutil.NewFakeClient(scheme.Scheme,
+		virtual,
+		&gatewayv1.GatewayClass{ObjectMeta: metav1.ObjectMeta{Name: "tenant-class"}},
+	)
+	registerCtx := syncertesting.NewFakeRegisterContext(vcConfig, pClient, vClient)
+	syncCtx, object := syncertesting.FakeStartSyncer(t, registerCtx, NewToHost)
+	syncer := object.(*tenantGatewaySyncer)
+
+	_, err := syncer.Sync(syncCtx, synccontext.NewSyncEvent(host, virtual))
+	if err != nil {
+		t.Fatalf("expected unsupported parametersRef kind on update to be a warning/skip, not hard error: %v", err)
+	}
+
+	got := &gatewayv1.Gateway{}
+	if err := pClient.Get(context.Background(), hostName, got); err == nil {
+		t.Fatalf("expected stale host Gateway to be deleted when virtual reference cannot be synced")
+	}
+}
+
 func TestTenantGatewaySyncIgnoresImportedMirror(t *testing.T) {
 	vcConfig := &pkgconfig.VirtualClusterConfig{}
 	vcConfig.Sync.ToHost.GatewayAPI.Gateways.Enabled = true

@@ -75,6 +75,11 @@ func GatewayCertificate(ctx *synccontext.SyncContext, gatewayNamespace string, r
 	return referenceGrant(ctx, gatewayv1.GroupVersion.Group, "Gateway", gatewayNamespace, secretRefTarget(gatewayNamespace, ref))
 }
 
+// GatewayCACertificate checks whether a Gateway frontend CA certificateRef is allowed by virtual ReferenceGrants.
+func GatewayCACertificate(ctx *synccontext.SyncContext, gatewayNamespace string, ref *gatewayv1.ObjectReference) error {
+	return referenceGrant(ctx, gatewayv1.GroupVersion.Group, "Gateway", gatewayNamespace, objectRefTarget(gatewayNamespace, ref))
+}
+
 type referenceTarget struct {
 	group     string
 	kind      string
@@ -115,6 +120,15 @@ func secretRefTarget(localNamespace string, ref *gatewayv1.SecretObjectReference
 	return referenceTarget{
 		group:     group,
 		kind:      kind,
+		namespace: referenceNamespace(localNamespace, ref.Namespace),
+		name:      string(ref.Name),
+	}
+}
+
+func objectRefTarget(localNamespace string, ref *gatewayv1.ObjectReference) referenceTarget {
+	return referenceTarget{
+		group:     string(ref.Group),
+		kind:      string(ref.Kind),
 		namespace: referenceNamespace(localNamespace, ref.Namespace),
 		name:      string(ref.Name),
 	}

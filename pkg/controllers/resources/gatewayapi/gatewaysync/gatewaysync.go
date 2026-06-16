@@ -36,7 +36,7 @@ func CreateToHost[O any, T interface {
 
 	pObj, err := toHost()
 	if err != nil {
-		if recordTerminalRefError(rec, event.Virtual, err) {
+		if RecordTerminalRefError(rec, event.Virtual, err) {
 			return ctrl.Result{}, nil
 		}
 
@@ -61,7 +61,7 @@ func Sync[T client.Object](
 	applyToHost func() error,
 ) (_ ctrl.Result, retErr error) {
 	if err := translateSpec(); err != nil {
-		if recordTerminalRefError(rec, event.Virtual, err) {
+		if RecordTerminalRefError(rec, event.Virtual, err) {
 			return patcher.DeleteHostObject(ctx, event.Host, event.Virtual, "virtual reference cannot be synced to the host")
 		}
 
@@ -117,8 +117,10 @@ func CreateToVirtual[O any, T interface {
 	return patcher.CreateVirtualObject(ctx, event.Host, vObj, rec, true)
 }
 
-// recordTerminalRefError records denied or unsupported reference errors.
-func recordTerminalRefError(rec events.EventRecorder, obj client.Object, err error) bool {
+// RecordTerminalRefError records denied or unsupported reference errors and reports
+// whether err was terminal. Terminal ref errors cannot succeed on requeue, so callers
+// surface a Warning event and skip-create / delete-host instead of returning a hard error.
+func RecordTerminalRefError(rec events.EventRecorder, obj client.Object, err error) bool {
 	switch {
 	case gatewayauthz.IsNotPermitted(err):
 		RecordRefNotPermitted(rec, obj, err)
