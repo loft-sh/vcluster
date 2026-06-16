@@ -393,6 +393,12 @@ type Standalone struct {
 	// DataDir defines the data directory for the standalone mode.
 	DataDir string `json:"dataDir,omitempty"`
 
+	// AdvertiseAddress pins the IP address the standalone control plane advertises to the
+	// kubernetes and konnectivity Services. Defaults to the VCLUSTER_STANDALONE_IP_ADDRESS env
+	// var, then default-route interface detection. Set this on multi-homed hosts where the
+	// default route is not reachable from the pod network.
+	AdvertiseAddress string `json:"advertiseAddress,omitempty"`
+
 	// AutoNodes automatically deploys nodes for standalone mode.
 	AutoNodes StandaloneAutoNodes `json:"autoNodes,omitempty"`
 
