@@ -180,12 +180,12 @@ func parametersRefToHost(ctx *synccontext.SyncContext, localNamespace string, re
 		return err
 	}
 
-	hostName, err := refToHost(ctx, localNamespace, gatewayv1.ObjectName(ref.Name), nil, gvk, validateHostObject)
-	if err != nil {
+	refName := gatewayv1.ObjectName(ref.Name)
+	if err := objectRefToHost(ctx, localNamespace, &refName, nil, gvk, validateHostObject); err != nil {
 		return err
 	}
 
-	ref.Name = hostName.Name
+	ref.Name = string(refName)
 	return nil
 }
 

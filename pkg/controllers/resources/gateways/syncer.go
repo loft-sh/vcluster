@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	rootconfig "github.com/loft-sh/vcluster/config"
-	gatewayroutetranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/gatewayroutes/translate"
+	routetranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/gatewayroutes/translate"
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/mappings/resources"
 	"github.com/loft-sh/vcluster/pkg/patcher"
@@ -85,7 +85,7 @@ func (s *tenantGatewaySyncer) Syncer() syncertypes.Sync[client.Object] {
 }
 
 func (s *tenantGatewaySyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
-	return gatewayroutetranslate.RegisterReferencedWatches(ctx, builder, s.GroupVersionKind(), mappings.ConfigMaps(), mappings.Secrets())
+	return routetranslate.RegisterReferencedWatches(ctx, builder, s.GroupVersionKind(), mappings.ConfigMaps(), mappings.Secrets())
 }
 
 func (s *tenantGatewaySyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*gatewayv1.Gateway]) (ctrl.Result, error) {

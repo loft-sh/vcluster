@@ -58,16 +58,13 @@ func TestListenersToHostTranslatesInfrastructureParametersRef(t *testing.T) {
 	}
 }
 
-func TestListenersToHostLeavesUnsupportedInfrastructureParametersRefUnchanged(t *testing.T) {
+func TestListenersToHostRejectsUnsupportedInfrastructureParametersRef(t *testing.T) {
 	syncCtx := newGatewayTranslateSyncContext(t, nil, nil)
 	gateway := gatewayWithParametersRef(gatewayv1.LocalParametersReference{Group: "example.com", Kind: "GatewayConfig", Name: "params"})
 
-	spec, err := listenersToHost(syncCtx, gateway, true)
-	if err != nil {
-		t.Fatalf("expected unsupported infrastructure.parametersRef to be skipped, got %v", err)
-	}
-	if spec.Infrastructure.ParametersRef.Name != "params" {
-		t.Fatalf("expected unsupported parametersRef name to stay verbatim, got %q", spec.Infrastructure.ParametersRef.Name)
+	_, err := listenersToHost(syncCtx, gateway, true)
+	if err == nil || !strings.Contains(err.Error(), "parametersRef group \"example.com\" kind \"GatewayConfig\" is not supported") {
+		t.Fatalf("expected unsupported infrastructure.parametersRef to reject Gateway, got %v", err)
 	}
 }
 
