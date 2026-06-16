@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	rootconfig "github.com/loft-sh/vcluster/config"
+	gatewayroutetranslate "github.com/loft-sh/vcluster/pkg/controllers/resources/gatewayroutes/translate"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/mappings/resources"
 	"github.com/loft-sh/vcluster/pkg/patcher"
 	"github.com/loft-sh/vcluster/pkg/pro"
@@ -17,6 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -64,6 +67,7 @@ type tenantGatewaySyncer struct {
 
 var _ syncertypes.Object = &tenantGatewaySyncer{}
 var _ syncertypes.Syncer = &tenantGatewaySyncer{}
+var _ syncertypes.ControllerModifier = &tenantGatewaySyncer{}
 
 func NewToHostSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 	mapper, err := ctx.Mappings.ByGVK(resources.NewImportedGatewayMapper().GroupVersionKind())
@@ -78,6 +82,10 @@ func NewToHostSyncer(ctx *synccontext.RegisterContext) (syncertypes.Object, erro
 
 func (s *tenantGatewaySyncer) Syncer() syncertypes.Sync[client.Object] {
 	return syncer.ToGenericSyncer[*gatewayv1.Gateway](s)
+}
+
+func (s *tenantGatewaySyncer) ModifyController(ctx *synccontext.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
+	return gatewayroutetranslate.RegisterReferencedWatches(ctx, builder, s.GroupVersionKind(), mappings.ConfigMaps(), mappings.Secrets())
 }
 
 func (s *tenantGatewaySyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*gatewayv1.Gateway]) (ctrl.Result, error) {

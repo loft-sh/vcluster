@@ -44,7 +44,21 @@ func listenersToHost(ctx *synccontext.SyncContext, vGateway *gatewayv1.Gateway, 
 		}
 	}
 
+	if infra := retSpec.Infrastructure; infra != nil && infra.ParametersRef != nil {
+		if err := infrastructureParametersRefToHost(ctx, vGateway.Namespace, infra.ParametersRef, validateRefs); err != nil {
+			return nil, fmt.Errorf("translate infrastructure.parametersRef: %w", err)
+		}
+	}
+
 	return retSpec, nil
+}
+
+func infrastructureParametersRefToHost(ctx *synccontext.SyncContext, gatewayNamespace string, ref *gatewayv1.LocalParametersReference, validateRefs bool) error {
+	err := routetranslate.ParametersRefToHost(ctx, gatewayNamespace, ref, routetranslate.WithValidateHostObject(validateRefs))
+	if routetranslate.IsUnsupportedReference(err) {
+		return nil
+	}
+	return err
 }
 
 // In single-namespace mode, vCluster authorizes virtual route attachment before

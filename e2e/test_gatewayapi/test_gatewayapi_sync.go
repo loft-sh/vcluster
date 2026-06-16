@@ -176,17 +176,28 @@ func GatewayAPISyncSpec() {
 
 			service := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "backend-" + suffix, Namespace: ns.Name}, Spec: corev1.ServiceSpec{Ports: []corev1.ServicePort{{Port: 80}}}}
 			Expect(vClusterClient.Create(ctx, service)).To(Succeed())
+			parameters := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "gw-params-" + suffix, Namespace: ns.Name}, Data: map[string]string{"profile": "edge"}}
+			Expect(vClusterClient.Create(ctx, parameters)).To(Succeed())
+			DeferCleanup(func(ctx context.Context) {
+				Expect(ctrlclient.IgnoreNotFound(vClusterClient.Delete(ctx, parameters))).To(Succeed())
+			})
 			gateway := tenantGateway(ns.Name, "gw-"+suffix, allowed.Name)
+			gateway.Spec.Infrastructure = &gatewayv1.GatewayInfrastructure{ParametersRef: &gatewayv1.LocalParametersReference{Group: gatewayv1.Group(corev1.GroupName), Kind: gatewayv1.Kind("ConfigMap"), Name: parameters.Name}}
 			Expect(vClusterClient.Create(ctx, gateway)).To(Succeed())
 			DeferCleanup(func(ctx context.Context) {
 				Expect(ctrlclient.IgnoreNotFound(vClusterClient.Delete(ctx, gateway))).To(Succeed())
 			})
 
 			hostGatewayName := translate.SafeConcatName(gateway.Name, "x", ns.Name, "x", vClusterName)
+			hostParametersName := translate.SafeConcatName(parameters.Name, "x", ns.Name, "x", vClusterName)
 			Eventually(func(g Gomega) {
+				g.Expect(hostClient.Get(ctx, types.NamespacedName{Namespace: vClusterHostNS, Name: hostParametersName}, &corev1.ConfigMap{})).To(Succeed())
 				got := &gatewayv1.Gateway{}
 				g.Expect(hostClient.Get(ctx, types.NamespacedName{Namespace: vClusterHostNS, Name: hostGatewayName}, got)).To(Succeed())
 				g.Expect(got.Spec.GatewayClassName).To(Equal(gatewayv1.ObjectName(allowed.Name)))
+				g.Expect(got.Spec.Infrastructure).NotTo(BeNil())
+				g.Expect(got.Spec.Infrastructure.ParametersRef).NotTo(BeNil())
+				g.Expect(got.Spec.Infrastructure.ParametersRef.Name).To(Equal(hostParametersName))
 				g.Expect(got.Spec.Listeners).To(HaveLen(1))
 				listener := got.Spec.Listeners[0]
 				g.Expect(listener.Name).To(Equal(gatewayv1.SectionName("http")))

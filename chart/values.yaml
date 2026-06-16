@@ -91,6 +91,8 @@ sync:
         # Enabled defines if this option should be enabled.
         enabled: false
       # Gateways configures tenant-created Gateway sync to the control plane cluster.
+      # Gateway spec.infrastructure.parametersRef names are translated for core ConfigMap and Secret refs.
+      # Referenced objects must also be synced to the host, for example with a pod reference or sync.toHost.configMaps.all / sync.toHost.secrets.all.
       gateways:
         # Enabled defines if this option should be enabled.
         enabled: false

@@ -115,6 +115,11 @@ func LocalObjectRefToHost(ctx *synccontext.SyncContext, localNamespace string, r
 	return localObjectRefToHost(ctx, localNamespace, ref, options.validateHostObject)
 }
 
+func ParametersRefToHost(ctx *synccontext.SyncContext, localNamespace string, ref *gatewayv1.LocalParametersReference, opts ...ToHostOption) error {
+	options := newToHostOptions(opts...)
+	return parametersRefToHost(ctx, localNamespace, ref, options.validateHostObject)
+}
+
 func PolicyTargetRefToHost(ctx *synccontext.SyncContext, policyNamespace string, ref *gatewayv1.LocalPolicyTargetReferenceWithSectionName, opts ...ToHostOption) error {
 	options := newToHostOptions(opts...)
 	return policyTargetRefToHost(ctx, policyNamespace, ref, options.validateHostObject)
@@ -167,6 +172,21 @@ func localObjectRefToHost(ctx *synccontext.SyncContext, localNamespace string, r
 	}
 
 	return objectRefToHost(ctx, localNamespace, &ref.Name, nil, gvk, validateHostObject)
+}
+
+func parametersRefToHost(ctx *synccontext.SyncContext, localNamespace string, ref *gatewayv1.LocalParametersReference, validateHostObject bool) error {
+	gvk, err := parametersReferenceGVK(ref)
+	if err != nil {
+		return err
+	}
+
+	hostName, err := refToHost(ctx, localNamespace, gatewayv1.ObjectName(ref.Name), nil, gvk, validateHostObject)
+	if err != nil {
+		return err
+	}
+
+	ref.Name = hostName.Name
+	return nil
 }
 
 func policyTargetRefToHost(ctx *synccontext.SyncContext, policyNamespace string, ref *gatewayv1.LocalPolicyTargetReferenceWithSectionName, validateHostObject bool) error {
@@ -446,6 +466,17 @@ func localObjectReferenceGVK(ref *gatewayv1.LocalObjectReference) (schema.GroupV
 	group := string(ref.Group)
 	kind := string(ref.Kind)
 
+	return localReferenceGVK("localObjectRef", group, kind)
+}
+
+func parametersReferenceGVK(ref *gatewayv1.LocalParametersReference) (schema.GroupVersionKind, error) {
+	group := string(ref.Group)
+	kind := string(ref.Kind)
+
+	return localReferenceGVK("parametersRef", group, kind)
+}
+
+func localReferenceGVK(refType, group, kind string) (schema.GroupVersionKind, error) {
 	if group == corev1.GroupName && kind == "ConfigMap" {
 		return mappings.ConfigMaps(), nil
 	}
@@ -453,7 +484,7 @@ func localObjectReferenceGVK(ref *gatewayv1.LocalObjectReference) (schema.GroupV
 		return mappings.Secrets(), nil
 	}
 
-	return schema.GroupVersionKind{}, unsupportedReferencef("localObjectRef group %q kind %q is not supported", group, kind)
+	return schema.GroupVersionKind{}, unsupportedReferencef("%s group %q kind %q is not supported", refType, group, kind)
 }
 
 func policyTargetReferenceGVK(ref *gatewayv1.LocalPolicyTargetReferenceWithSectionName) (schema.GroupVersionKind, error) {
