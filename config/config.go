@@ -144,9 +144,6 @@ type PrivateNodesDaemon struct {
 	// ControlPlaneLoadBalancer holds configuration for the control plane load balancer. This is used to load balance the control plane traffic on the node to the control plane nodes.
 	// This is useful to achieve true high availability for the control plane without having to deploy a separate load balancer.
 	ControlPlaneLoadBalancer ControlPlaneLoadBalancer `json:"controlPlaneLoadBalancer,omitempty"`
-
-	// NodeName is the Kubernetes node name of the node this daemon runs on. Set automatically at join time; used by the daemon to read its own Node object.
-	NodeName string `json:"nodeName,omitempty"`
 }
 
 type ControlPlaneLoadBalancer struct {

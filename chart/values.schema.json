@@ -4170,10 +4170,6 @@
         "controlPlaneLoadBalancer": {
           "$ref": "#/$defs/ControlPlaneLoadBalancer",
           "description": "ControlPlaneLoadBalancer holds configuration for the control plane load balancer. This is used to load balance the control plane traffic on the node to the control plane nodes.\nThis is useful to achieve true high availability for the control plane without having to deploy a separate load balancer."
-        },
-        "nodeName": {
-          "type": "string",
-          "description": "NodeName is the Kubernetes node name of the node this daemon runs on. Set automatically at join time; used by the daemon to read its own Node object."
         }
       },
       "additionalProperties": false,
