@@ -4857,6 +4857,10 @@
           "type": "string",
           "description": "DataDir defines the data directory for the standalone mode."
         },
+        "advertiseAddress": {
+          "type": "string",
+          "description": "AdvertiseAddress pins the IP address the standalone control plane advertises to the\nkubernetes and konnectivity Services. Defaults to the VCLUSTER_STANDALONE_IP_ADDRESS env\nvar, then default-route interface detection. Set this on multi-homed hosts where the\ndefault route is not reachable from the pod network."
+        },
         "autoNodes": {
           "$ref": "#/$defs/StandaloneAutoNodes",
           "description": "AutoNodes automatically deploys nodes for standalone mode."
