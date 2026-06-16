@@ -299,7 +299,7 @@ vClusters live next to the suite that uses them. Do NOT add entries to `clusters
 1. Create `e2e/vcluster-myfeature.yaml` (sibling of the suite files) with the `vcluster.yaml` config. Use `{{.Repository}}`, `{{.Tag}}`, `{{.HostClusterName}}` template vars.
 2. Create `suite_myfeature_test.go`:
    ```go
-   package e2e_next
+   package e2e
 
    import (
        "context"
