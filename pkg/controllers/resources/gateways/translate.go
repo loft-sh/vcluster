@@ -26,6 +26,54 @@ func (s *tenantGatewaySyncer) translate(ctx *synccontext.SyncContext, vGateway *
 func listenersToHost(ctx *synccontext.SyncContext, vGateway *gatewayv1.Gateway, validateRefs bool) (*gatewayv1.GatewaySpec, error) {
 	retSpec := vGateway.Spec.DeepCopy()
 
+	if retSpec.TLS != nil {
+		if retSpec.TLS.Backend != nil && retSpec.TLS.Backend.ClientCertificateRef != nil {
+			err := gatewayauthz.GatewayCertificate(ctx, vGateway.Namespace, retSpec.TLS.Backend.ClientCertificateRef)
+			if err != nil {
+				return nil, fmt.Errorf("authorize tls.backend.clientCertificateRef: %w", err)
+			}
+
+			err = routetranslate.SecretObjectRefToHost(ctx, vGateway.Namespace, retSpec.TLS.Backend.ClientCertificateRef, routetranslate.WithValidateHostObject(validateRefs))
+			if err != nil {
+				return nil, fmt.Errorf("translate tls.backend.clientCertificateRef: %w", err)
+			}
+		}
+
+		if retSpec.TLS.Frontend != nil {
+			if retSpec.TLS.Frontend.Default.Validation != nil {
+				for i := range retSpec.TLS.Frontend.Default.Validation.CACertificateRefs {
+					err := gatewayauthz.GatewayCACertificate(ctx, vGateway.Namespace, &retSpec.TLS.Frontend.Default.Validation.CACertificateRefs[i])
+					if err != nil {
+						return nil, fmt.Errorf("authorize tls.frontend.default.validation.caCertificateRefs[%d]: %w", i, err)
+					}
+
+					err = routetranslate.ObjectRefToHost(ctx, vGateway.Namespace, &retSpec.TLS.Frontend.Default.Validation.CACertificateRefs[i], routetranslate.WithValidateHostObject(validateRefs))
+					if err != nil {
+						return nil, fmt.Errorf("translate tls.frontend.default.validation.caCertificateRefs[%d]: %w", i, err)
+					}
+				}
+			}
+
+			for i := range retSpec.TLS.Frontend.PerPort {
+				if retSpec.TLS.Frontend.PerPort[i].TLS.Validation == nil {
+					continue
+				}
+
+				for j := range retSpec.TLS.Frontend.PerPort[i].TLS.Validation.CACertificateRefs {
+					err := gatewayauthz.GatewayCACertificate(ctx, vGateway.Namespace, &retSpec.TLS.Frontend.PerPort[i].TLS.Validation.CACertificateRefs[j])
+					if err != nil {
+						return nil, fmt.Errorf("authorize tls.frontend.perPort[%d].tls.validation.caCertificateRefs[%d]: %w", i, j, err)
+					}
+
+					err = routetranslate.ObjectRefToHost(ctx, vGateway.Namespace, &retSpec.TLS.Frontend.PerPort[i].TLS.Validation.CACertificateRefs[j], routetranslate.WithValidateHostObject(validateRefs))
+					if err != nil {
+						return nil, fmt.Errorf("translate tls.frontend.perPort[%d].tls.validation.caCertificateRefs[%d]: %w", i, j, err)
+					}
+				}
+			}
+		}
+	}
+
 	for i := range retSpec.Listeners {
 		ensureAllowedRoutesAttachableOnHost(retSpec.Listeners[i].AllowedRoutes)
 
