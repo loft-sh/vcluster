@@ -132,6 +132,9 @@ func PodSyncSpec() {
 					// Since k8s 1.32, status.QOSClass field has become immutable,
 					// hence we have stopped syncing it.
 					pod.Status.QOSClass = vpod.Status.QOSClass
+					// k8s 1.35 tenant can't carry pod-level Resources/AllocatedResources; exclude them from the comparison.
+					vpod.Status.Resources, pod.Status.Resources = nil, nil
+					vpod.Status.AllocatedResources, pod.Status.AllocatedResources = nil, nil
 					Expect(vpod.Status).To(Equal(pod.Status))
 				})
 
@@ -272,6 +275,9 @@ func PodSyncSpec() {
 					pod, err := hostClient.CoreV1().Pods(hostNS).Get(ctx, pPodName, metav1.GetOptions{})
 					Expect(err).To(Succeed())
 					pod.Status.QOSClass = vpod.Status.QOSClass
+					// k8s 1.35 tenant can't carry pod-level Resources/AllocatedResources; exclude them from the comparison.
+					vpod.Status.Resources, pod.Status.Resources = nil, nil
+					vpod.Status.AllocatedResources, pod.Status.AllocatedResources = nil, nil
 					Expect(vpod.Status).To(Equal(pod.Status))
 				})
 
