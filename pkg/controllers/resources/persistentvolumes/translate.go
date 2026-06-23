@@ -54,10 +54,14 @@ func (s *persistentVolumeSyncer) translateUpdateBackwards(ctx *synccontext.SyncC
 			translatedSpec.ClaimRef = &corev1.ObjectReference{}
 		}
 
-		translatedSpec.ClaimRef.ResourceVersion = vPvc.ResourceVersion
 		translatedSpec.ClaimRef.UID = vPvc.UID
 		translatedSpec.ClaimRef.Name = vPvc.Name
 		translatedSpec.ClaimRef.Namespace = vPvc.Namespace
+		if vPv.Spec.ClaimRef != nil {
+			translatedSpec.ClaimRef.ResourceVersion = vPv.Spec.ClaimRef.ResourceVersion
+		} else {
+			translatedSpec.ClaimRef.ResourceVersion = ""
+		}
 		if vPvc.Spec.StorageClassName != nil {
 			translatedSpec.StorageClassName = *vPvc.Spec.StorageClassName
 		}

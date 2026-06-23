@@ -108,4 +108,10 @@ func (s *persistentVolumeClaimSyncer) translateUpdateBackwards(pObj, vObj *corev
 		}
 		vObj.Annotations[storageProvisionerAnnotation] = pObj.Annotations[storageProvisionerAnnotation]
 	}
+	if vObj.Annotations[selectedNodeAnnotation] != pObj.Annotations[selectedNodeAnnotation] {
+		if vObj.Annotations == nil {
+			vObj.Annotations = map[string]string{}
+		}
+		vObj.Annotations[selectedNodeAnnotation] = pObj.Annotations[selectedNodeAnnotation]
+	}
 }

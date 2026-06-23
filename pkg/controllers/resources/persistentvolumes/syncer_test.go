@@ -518,3 +518,61 @@ func TestSync(t *testing.T) {
 		})
 	}
 }
+
+func TestTranslateUpdateBackwards_ClaimRefResourceVersionPreserved(t *testing.T) {
+	createContext := func(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
+		vConfig.Sync.ToHost.PersistentVolumes.Enabled = true
+		return syncertesting.NewFakeRegisterContext(vConfig, pClient, vClient)
+	}
+
+	test := &syncertesting.SyncTest{
+		Name: "ClaimRef ResourceVersion preserved on PVC update",
+		Sync: func(ctx *synccontext.RegisterContext) {
+			syncContext, syncer := newFakeSyncer(t, ctx)
+
+			bindTimeRV := "100"
+			currentPvcRV := "200"
+
+			vPv := &corev1.PersistentVolume{
+				ObjectMeta: metav1.ObjectMeta{Name: "testpv"},
+				Spec: corev1.PersistentVolumeSpec{
+					ClaimRef: &corev1.ObjectReference{
+						Name:            "testpvc",
+						Namespace:       "test",
+						UID:             "pvc-uid-1",
+						ResourceVersion: bindTimeRV,
+					},
+				},
+			}
+			pPv := &corev1.PersistentVolume{
+				ObjectMeta: metav1.ObjectMeta{Name: "testpv"},
+				Spec: corev1.PersistentVolumeSpec{
+					ClaimRef: &corev1.ObjectReference{
+						Name:            translate.Default.HostName(nil, "testpvc", "test").Name,
+						Namespace:       "test",
+						UID:             "host-pvc-uid",
+						ResourceVersion: "host-rv",
+					},
+				},
+			}
+			vPvc := &corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "testpvc",
+					Namespace:       "test",
+					UID:             "pvc-uid-1",
+					ResourceVersion: currentPvcRV,
+				},
+			}
+
+			err := syncer.translateUpdateBackwards(syncContext, vPv, pPv, vPvc)
+			assert.NilError(t, err)
+
+			assert.Equal(t, vPv.Spec.ClaimRef.ResourceVersion, bindTimeRV)
+			assert.Equal(t, vPv.Spec.ClaimRef.Name, "testpvc")
+			assert.Equal(t, vPv.Spec.ClaimRef.Namespace, "test")
+			assert.Equal(t, string(vPv.Spec.ClaimRef.UID), "pvc-uid-1")
+		},
+	}
+
+	test.Run(t, createContext)
+}
