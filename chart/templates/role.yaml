@@ -37,7 +37,7 @@ rules:
     resources: ["configmaps", "secrets", "services", "pods", "pods/attach", "pods/portforward", "pods/exec", "persistentvolumeclaims"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   - apiGroups: [""]
-    resources: ["pods/status", "pods/ephemeralcontainers"]
+    resources: ["pods/status", "pods/ephemeralcontainers", "persistentvolumeclaims/status"]
     verbs: ["patch", "update"]
   {{- end }}
   {{- if ge (.Capabilities.KubeVersion.Minor|int) 35 }}
