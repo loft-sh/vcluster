@@ -16,7 +16,6 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/util/retry"
 )
 
 // SyncErrorSanitisationSpec verifies that SyncError warning events recorded on
@@ -109,7 +108,7 @@ func SyncErrorSanitisationSpec() {
 						Should(Succeed())
 				})
 
-				// Race the syncer against concurrent host and virtual pod updates.
+				// Race the syncer against continuous host and virtual pod updates.
 				//
 				// The pod syncer fetches the host pod once at the start of each reconcile.
 				// If the host pod's resource version changes before the syncer's patch lands,
@@ -117,51 +116,64 @@ func SyncErrorSanitisationSpec() {
 				// event (pkg/controllers/resources/pods/syncer.go) before the conflict is
 				// silently requeued by the outer controller.
 				//
-				// Running both goroutines concurrently widens the race window so that the
-				// syncer is processing a reconcile while we are simultaneously bumping the
-				// host pod's resource version.
-				// Errors are intentionally swallowed — the goal is volume of conflicting
-				// updates, not that every individual update succeeds.
-				By("concurrently bumping the host pod and triggering virtual reconciles to force SyncError events", func() {
-					var wg sync.WaitGroup
+				// Both goroutines keep mutating for the entire verification window below,
+				// rather than running a fixed number of iterations up front. A single short
+				// burst can finish before the syncer ever loses the race, after which the
+				// syncer settles and no further conflicts occur — that is what made this test
+				// flaky. Keeping the race window open until a SyncError event is observed
+				// makes the conflict reliable. Errors are intentionally ignored: an update
+				// that fails because the syncer just changed the pod is exactly the
+				// contention we want.
+				stop := make(chan struct{})
+				var wg sync.WaitGroup
+
+				runMutator := func(bump func(i int) error) {
+					defer wg.Done()
+					for i := 0; ; i++ {
+						select {
+						case <-stop:
+							return
+						case <-ctx.Done():
+							return
+						default:
+						}
+						_ = bump(i)
+					}
+				}
+
+				By("continuously racing host and virtual pod updates against the syncer to force SyncError events", func() {
 					wg.Add(2)
-
-					go func() {
-						defer wg.Done()
-						for i := range 20 {
-							_ = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-								hp, err := hostClient.CoreV1().Pods(hostNS).Get(ctx, hostPodName, metav1.GetOptions{})
-								if err != nil {
-									return err
-								}
-								if hp.Annotations == nil {
-									hp.Annotations = map[string]string{}
-								}
-								hp.Annotations["race-bump"] = fmt.Sprintf("%d", i)
-								_, err = hostClient.CoreV1().Pods(hostNS).Update(ctx, hp, metav1.UpdateOptions{})
-								return err
-							})
+					go runMutator(func(i int) error {
+						hp, err := hostClient.CoreV1().Pods(hostNS).Get(ctx, hostPodName, metav1.GetOptions{})
+						if err != nil {
+							return err
 						}
-					}()
-
-					go func() {
-						defer wg.Done()
-						for i := range 20 {
-							_ = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-								vPod, err := vClusterClient.CoreV1().Pods(ns).Get(ctx, podName, metav1.GetOptions{})
-								if err != nil {
-									return err
-								}
-								if vPod.Annotations == nil {
-									vPod.Annotations = map[string]string{}
-								}
-								vPod.Annotations["reconcile-trigger"] = fmt.Sprintf("%d", i)
-								_, err = vClusterClient.CoreV1().Pods(ns).Update(ctx, vPod, metav1.UpdateOptions{})
-								return err
-							})
+						if hp.Annotations == nil {
+							hp.Annotations = map[string]string{}
 						}
-					}()
+						hp.Annotations["race-bump"] = fmt.Sprintf("%d", i)
+						_, err = hostClient.CoreV1().Pods(hostNS).Update(ctx, hp, metav1.UpdateOptions{})
+						return err
+					})
+					go runMutator(func(i int) error {
+						vPod, err := vClusterClient.CoreV1().Pods(ns).Get(ctx, podName, metav1.GetOptions{})
+						if err != nil {
+							return err
+						}
+						if vPod.Annotations == nil {
+							vPod.Annotations = map[string]string{}
+						}
+						vPod.Annotations["reconcile-trigger"] = fmt.Sprintf("%d", i)
+						_, err = vClusterClient.CoreV1().Pods(ns).Update(ctx, vPod, metav1.UpdateOptions{})
+						return err
+					})
+				})
 
+				// Stop the background mutators before the pod/namespace cleanups run.
+				// DeferCleanup is LIFO, so this runs before the earlier-registered
+				// pod and namespace deletions.
+				DeferCleanup(func() {
+					close(stop)
 					wg.Wait()
 				})
 
