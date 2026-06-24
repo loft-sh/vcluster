@@ -1,0 +1,119 @@
+# Kubernetes AI Conformance Checklist
+# Notes: This checklist is based on the Kubernetes AI Conformance document.
+# Participants should fill in the 'status', 'evidence', and 'notes' fields for each requirement.
+# Submission target: https://github.com/cncf/k8s-ai-conformance/tree/main/v1.34/vcluster-private-nodes
+
+metadata:
+  kubernetesVersion: v1.34
+  platformName: "vCluster with Private Nodes"
+  platformVersion: "v0.32.0"
+  vendorName: "vCluster Labs"
+  websiteUrl: "https://www.vcluster.com/"
+  repoUrl: "https://github.com/loft-sh/vcluster"
+  documentationUrl: "https://www.vcluster.com/docs"
+  productLogoUrl: "https://static.loft.sh/branding/logos/vcluster/square/vcluster_square.svg"
+  description: "vCluster creates fully functional virtual Kubernetes clusters inside host cluster namespaces, with Private Nodes providing exclusive attachment of real physical GPU nodes directly to a virtual cluster for AI/ML workloads."
+  contactEmailAddress: "cncf@vcluster.com"
+  k8sConformanceUrl: "https://github.com/cncf/k8s-conformance/tree/master/v1.34/vcluster-private-nodes"
+
+spec:
+  accelerators:
+    - id: dra_support
+      description: "Support Dynamic Resource Allocation (DRA) APIs to enable more flexible and fine-grained resource requests beyond simple counts."
+      level: MUST
+      status: "Implemented"
+      evidence:
+        - "https://kubernetes.io/blog/2025/09/01/kubernetes-v1-34-dra-updates/"
+        - "https://www.vcluster.com/docs/vcluster/0.32.0/deploy/worker-nodes/private-nodes"
+        - "https://github.com/loft-sh/vcluster/releases/tag/v0.32.0"
+      notes: "With Private Nodes, vCluster attaches real physical Kubernetes nodes exclusively to the virtual cluster. Since those nodes run Kubernetes v1.34, the DRA APIs (ResourceClaim, DeviceClass, ResourceClaimTemplate) are natively available at GA — no virtual-to-host syncing is required. The Kubernetes v1.34 blog post confirms DRA graduation to stable. vCluster v0.32.0 introduced DRA support, enabling Private Nodes vClusters to use ResourceClaims and DeviceClasses as native Kubernetes resources for fine-grained GPU and accelerator allocation."
+
+  networking:
+    - id: ai_inference
+      description: "Support the Kubernetes Gateway API with an implementation for advanced traffic management for inference services, which enables capabilities like weighted traffic splitting, header-based routing (for OpenAI protocol headers), and optional integration with service meshes."
+      level: MUST
+      status: "Implemented"
+      evidence:
+        - "https://www.vcluster.com/docs/vcluster/0.32.0/deploy/worker-nodes/private-nodes"
+        - "https://github.com/loft-sh/vcluster/blob/main/chart/templates/tlsroute.yaml"
+        - "https://www.vcluster.com/docs/vcluster/0.32.0/configure/vcluster-yaml/sync/to-host/advanced/custom-resources#configure-kubernetes-gateway-api-sync"
+      notes: "vCluster natively implements a Kubernetes Gateway API TLSRoute resource for its own control-plane TLS exposure (see chart/templates/tlsroute.yaml) — a production-grade Gateway API implementation shipped as part of the vCluster Helm chart. With Private Nodes, workloads run on dedicated physical Kubernetes nodes that belong exclusively to the virtual cluster, exposing the full Kubernetes API surface. This means any Gateway API controller (such as Envoy Gateway, Traefik v3, or NGINX Gateway Fabric) can be installed as a native workload inside the vCluster without host-level syncing or custom resource proxying. Installed controllers provide advanced traffic management for AI inference workloads via standard Gateway API resources (HTTPRoute, GRPCRoute), enabling weighted traffic splitting across model versions and header-based routing for inference protocol selection. The custom-resources documentation demonstrates how vCluster supports Gateway API resource synchronization including waypoint gateway configuration for ambient mesh integration."
+
+  schedulingOrchestration:
+    - id: gang_scheduling
+      description: "The platform must allow for the installation and successful operation of at least one gang scheduling solution that ensures all-or-nothing scheduling for distributed AI workloads (e.g. Kueue, Volcano, etc.) To be conformant, the vendor must demonstrate that their platform can successfully run at least one such solution."
+      level: MUST
+      status: "Implemented"
+      evidence:
+        - "https://www.vcluster.com/solutions/volcano"
+        - "https://www.vcluster.com/blog/gpu-multitenancy-kubernetes-strategies"
+      notes: "With Private Nodes, the virtual scheduler is automatically enabled and is the required scheduler for private-node vClusters. This allows installing any third-party gang scheduling solution (Volcano, NVIDIA KAI Scheduler, Kueue) natively as a workload inside the virtual cluster without host syncing. vCluster has a dedicated Volcano integration page demonstrating successful all-or-nothing scheduling for distributed GPU workloads. Each virtual cluster maintains isolated CRD versions, eliminating scheduler version conflicts between AI tenants."
+
+    - id: cluster_autoscaling
+      description: "If the platform provides a cluster autoscaler or an equivalent mechanism, it must be able to scale up/down node groups containing specific accelerator types based on pending pods requesting those accelerators."
+      level: MUST
+      status: "Implemented"
+      evidence:
+        - "https://www.vcluster.com/docs/platform/administer/node-providers/overview"
+        - "https://www.vcluster.com/docs/vcluster/deploy/worker-nodes/private-nodes/auto-nodes"
+        - "https://www.vcluster.com/blog/kubernetes-node-autoscaling-with-auto-nodes"
+        - "https://www.vcluster.com/blog/introducing-vcluster-auto-nodes-karpenter-based-dynamic-autoscaling-anywhere"
+        - "https://www.vcluster.com/docs/platform/4.6.0/administer/node-providers/bcm"
+      notes: "vCluster Platform's Auto Nodes feature provides Karpenter-based dynamic autoscaling of private node groups, including GPU-equipped nodes. Node types specify accelerator resources (e.g., nvidia.com/gpu) and nodes are provisioned on-demand only when workloads explicitly request them, and scale back down when demand drops. The NVIDIA Base Command Manager (BCM) node provider enables elastic GPU cluster provisioning on DGX hardware."
+
+    - id: pod_autoscaling
+      description: "If the platform supports the HorizontalPodAutoscaler, it must function correctly for pods utilizing accelerators. This includes the ability to scale these Pods based on custom metrics relevant to AI/ML workloads."
+      level: MUST
+      status: "Implemented"
+      evidence:
+        - "https://www.vcluster.com/docs/vcluster/configure/vcluster-yaml/deploy"
+        - "https://www.vcluster.com/docs/vcluster/integrations/gpu-hpa-dcgm"
+        - "https://www.vcluster.com/blog/gpu-multitenancy-kubernetes-strategies"
+        - "https://www.vcluster.com/guides/gpu-multi-tenancy-kubernetes-virtual-clusters"
+      notes: "For Private Nodes, vCluster deploys metrics-server natively inside the virtual cluster via `deploy.metricsServer.enabled: true`, enabling HPA based on CPU/memory for workloads on dedicated GPU nodes. For GPU custom metrics, NVIDIA DCGM-Exporter runs as a DaemonSet on private GPU nodes and exposes per-GPU metrics in Prometheus format. These are scraped by Prometheus and exposed to the Kubernetes Custom Metrics API via Prometheus Adapter, enabling HPA driven by GPU utilization metrics (DCGM_FI_DEV_GPU_UTIL). The gpu-hpa-dcgm integration guide provides a complete step-by-step walkthrough for this Private Nodes GPU autoscaling setup."
+
+  observability:
+    - id: accelerator_metrics
+      description: "For supported accelerator types, the platform must allow for the installation and successful operation of at least one accelerator metrics solution that exposes fine-grained performance metrics via a standardized, machine-readable metrics endpoint. This must include a core set of metrics for per-accelerator utilization and memory usage. Additionally, other relevant metrics such as temperature, power draw, and interconnect bandwidth should be exposed if the underlying hardware or virtualization layer makes them available. The list of metrics should align with emerging standards, such as OpenTelemetry metrics, to ensure interoperability. The platform may provide a managed solution, but this is not required for conformance."
+      level: MUST
+      status: "Implemented"
+      evidence:
+        - "https://www.vcluster.com/docs/vcluster/integrations/gpu-hpa-dcgm"
+        - "https://www.vcluster.com/guides/gpu-multi-tenancy-kubernetes-virtual-clusters"
+        - "https://www.vcluster.com/blog/gpu-multitenancy-kubernetes-strategies"
+        - "https://www.vcluster.com/guides/gpus-without-the-headache-scaling-ai-factory-infrastructure"
+        - "https://www.vcluster.com/docs/platform/maintenance/monitoring/fleet-monitoring-otel"
+      notes: "vCluster with Private Nodes exposes real GPU hardware directly to virtual cluster workloads. NVIDIA DCGM-Exporter is installed via its official Helm chart as a DaemonSet on the private GPU nodes and collects fine-grained per-GPU metrics in Prometheus exposition format at port 9400/metrics. Metrics include: utilization (DCGM_FI_DEV_GPU_UTIL), framebuffer memory used/free (DCGM_FI_DEV_FB_USED, DCGM_FI_DEV_FB_FREE), temperature (DCGM_FI_DEV_GPU_TEMP), power draw (DCGM_FI_DEV_POWER_USAGE), and NVLink bandwidth. MIG partition-level monitoring is supported for multi-tenant GPU isolation. The fleet-monitoring-otel guide documents how vCluster integrates with OpenTelemetry pipelines for workload observability, aligning with the OTel metrics standard referenced in the requirement."
+
+    - id: ai_service_metrics
+      description: "Provide a monitoring system capable of discovering and collecting metrics from workloads that expose them in a standard format (e.g. Prometheus exposition format). This ensures easy integration for collecting key metrics from common AI frameworks and servers."
+      level: MUST
+      status: "Implemented"
+      evidence:
+        - "https://www.vcluster.com/docs/platform/maintenance/monitoring/fleet-monitoring-otel#private-nodes"
+        - "https://www.vcluster.com/docs/vcluster/integrations/gpu-hpa-dcgm"
+      notes: "With Private Nodes, a full Prometheus monitoring stack (Prometheus Operator, kube-prometheus-stack) can be installed natively inside the vCluster as regular workloads — no host-cluster sync or external plugin required. ServiceMonitor and PodMonitor resources defined inside the virtual cluster automatically discover and scrape any workload exposing metrics in Prometheus exposition format, including common AI inference servers (TensorFlow Serving, TorchServe, Triton Inference Server, vLLM). The gpu-hpa-dcgm integration guide demonstrates this pattern in full: it installs kube-prometheus-stack inside the vCluster and configures a ServiceMonitor to scrape DCGM Exporter running on private GPU nodes. The fleet-monitoring-otel private-nodes section describes the complementary OTel collector pipeline that runs as a DaemonSet inside the vCluster, collecting infrastructure observability data and forwarding it to a central platform-level Prometheus."
+
+  security:
+    - id: secure_accelerator_access
+      description: "Ensure that access to accelerators from within containers is properly isolated and mediated by the Kubernetes resource management framework (device plugin or DRA) and container runtime, preventing unauthorized access or interference between workloads."
+      level: MUST
+      status: "Implemented"
+      evidence:
+        - "https://www.vcluster.com/docs/vcluster/0.32.0/deploy/worker-nodes/private-nodes"
+        - "https://www.vcluster.com/blog/deploy-vcluster-gpu-kubernetes-tutorial"
+        - "https://kubernetes.io/blog/2025/09/01/kubernetes-v1-34-dra-updates/"
+      notes: "vCluster enforces accelerator isolation at two levels. (1) Node-level isolation: Private Nodes are attached exclusively to a single vCluster — no other workload on the host cluster can schedule onto those nodes, providing physical-level GPU isolation between tenants. This is the primary isolation boundary: nodes cannot be shared across virtual clusters. (2) DRA-mediated device access: With Private Nodes running Kubernetes v1.34, the DRA framework (ResourceClaim, DeviceClass) and the NVIDIA device plugin run directly on the dedicated physical nodes, mediating all GPU hardware access at the container level via the Kubernetes resource management framework. The Kubernetes v1.34 DRA blog confirms the admin access labeling feature (restricts device access to authorized namespaces), which platform administrators can use to prevent unauthorized accelerator access across tenant workloads."
+
+  operator:
+    - id: robust_controller
+      description: "The platform must prove that at least one complex AI operator with a CRD (e.g., Ray, Kubeflow) can be installed and functions reliably. This includes verifying that the operator's pods run correctly, its webhooks are operational, and its custom resources can be reconciled."
+      level: MUST
+      status: "Implemented"
+      evidence:
+        - "https://www.vcluster.com/blog/kubernetes-ai-pipelines-with-vcluster-and-kubeflow-tutorial"
+        - "https://www.vcluster.com/docs/vcluster/0.32.0/configure/vcluster-yaml/policies/admission-control"
+        - "https://www.vcluster.com/docs/vcluster/0.32.0/integrations/external-secrets-operator"
+        - "https://www.vcluster.com/blog/deploying-machine-learning-models-on-kubernetes-with-vcluster-tutorial"
+        - "https://www.vcluster.com/docs/platform/integrations/certified-stacks"
+      notes: "vCluster has a complete tutorial deploying Kubeflow Pipelines v2.0.1 inside a virtual cluster, demonstrating: CRD installation (applications.app.k8s.io), operator pods running, and custom resource reconciliation. KServe (InferenceService CRD) is demonstrated inside vCluster in the ML models tutorial with inference endpoints verified. Regarding webhooks: vCluster's admission-control documentation explicitly states that 'a user can still install a webhook service or webhook configuration into the virtual cluster outside of this config, and it would run inside the virtual cluster like any other workload' — confirming that operator ValidatingWebhookConfiguration and MutatingWebhookConfiguration resources are fully supported inside vCluster's API server. The External Secrets Operator integration (with its webhook component, externalSecrets.webhook) is a documented example of an operator with webhooks running successfully inside vCluster. The Certified Stacks documentation demonstrates certified AI platforms (NVIDIA Run:ai, Slinky/Slurm) running successfully inside vCluster with Private Nodes, confirming robust operator support for production AI workloads."
