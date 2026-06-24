@@ -34,6 +34,25 @@ func VirtualClusterInstanceContextName(projectName, virtualClusterInstance strin
 	return "vcluster-platform-vcluster_" + virtualClusterInstance + "_" + projectName
 }
 
+// ParseVirtualClusterInstanceContextName parses a context name produced by
+// VirtualClusterInstanceContextName, i.e. vcluster-platform-vcluster_{instance}_{project}.
+// Splitting on the first underscore is safe because Kubernetes object names
+// (instance, project) never contain underscores.
+func ParseVirtualClusterInstanceContextName(contextName string) (virtualClusterInstance, projectName string, ok bool) {
+	const prefix = "vcluster-platform-vcluster_"
+	if !strings.HasPrefix(contextName, prefix) {
+		return "", "", false
+	}
+
+	rest := strings.TrimPrefix(contextName, prefix)
+	sep := strings.Index(rest, "_")
+	if sep <= 0 || sep >= len(rest)-1 {
+		return "", "", false
+	}
+
+	return rest[:sep], rest[sep+1:], true
+}
+
 func SpaceContextName(clusterName, namespaceName string) string {
 	contextName := "vcluster-platform_"
 	if namespaceName != "" {
