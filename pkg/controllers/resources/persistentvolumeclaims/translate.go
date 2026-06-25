@@ -67,7 +67,7 @@ func (s *persistentVolumeClaimSyncer) translateSelector(ctx *synccontext.SyncCon
 				vPvc.Spec.Selector = translate.HostLabelSelector(vPvc.Spec.Selector)
 			}
 			if vPvc.Spec.VolumeName != "" {
-				vPvc.Spec.VolumeName = translate.Default.HostNameCluster(vPvc.Spec.VolumeName)
+				vPvc.Spec.VolumeName = mappings.VirtualToHostName(ctx, vPvc.Spec.VolumeName, "", mappings.PersistentVolumes())
 			}
 			// check if the storage class exists in the physical cluster
 			if !s.storageClassesEnabled && storageClassName != "" {

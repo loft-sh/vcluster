@@ -354,5 +354,52 @@ func TestSync(t *testing.T) {
 				assert.NilError(t, err)
 			},
 		},
+		{
+			Name: "Translate VolumeName using PV mapper when PV sync is enabled",
+			AdjustConfig: func(vConfig *config.VirtualClusterConfig) {
+				vConfig.Sync.ToHost.PersistentVolumes.Enabled = true
+			},
+			InitialVirtualState: []runtime.Object{
+				&corev1.PersistentVolumeClaim{
+					ObjectMeta: vObjectMeta,
+					Spec: corev1.PersistentVolumeClaimSpec{
+						VolumeName: "pvc-abc123",
+					},
+				},
+			},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"): {
+					&corev1.PersistentVolumeClaim{
+						ObjectMeta: vObjectMeta,
+						Spec: corev1.PersistentVolumeClaimSpec{
+							VolumeName: "pvc-abc123",
+						},
+					},
+				},
+			},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"): {
+					&corev1.PersistentVolumeClaim{
+						ObjectMeta: pObjectMeta,
+						Spec: corev1.PersistentVolumeClaimSpec{
+							VolumeName: "pvc-abc123",
+						},
+					},
+				},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+
+				vPvc := &corev1.PersistentVolumeClaim{}
+				err := syncCtx.VirtualClient.Get(syncCtx, types.NamespacedName{
+					Namespace: vObjectMeta.Namespace,
+					Name:      vObjectMeta.Name,
+				}, vPvc)
+				assert.NilError(t, err)
+
+				_, err = syncer.(*persistentVolumeClaimSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vPvc.DeepCopy()))
+				assert.NilError(t, err)
+			},
+		},
 	})
 }
