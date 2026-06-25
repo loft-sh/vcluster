@@ -41,6 +41,85 @@ tests:
           path: spec.endpoints[2].relabelings[0].replacement
           value: kine
 
+  - it: check metricRelabelings not rendered by default
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      controlPlane:
+        serviceMonitor:
+          enabled: true
+    asserts:
+      - notExists:
+          path: spec.endpoints[0].metricRelabelings
+      - notExists:
+          path: spec.endpoints[1].metricRelabelings
+      - notExists:
+          path: spec.endpoints[2].metricRelabelings
+
+  - it: check metricRelabelings rendered on every endpoint
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+            scheduler:
+              enabled: true
+        backingStore:
+          etcd:
+            embedded:
+              enabled: true
+        serviceMonitor:
+          enabled: true
+          metricRelabelings:
+            - action: drop
+              sourceLabels: ["__name__"]
+              regex: apiserver_request_duration_seconds_bucket
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: spec.endpoints
+          count: 4
+      - equal:
+          path: spec.endpoints[0].metricRelabelings[0].action
+          value: drop
+      - equal:
+          path: spec.endpoints[1].metricRelabelings[0].action
+          value: drop
+      - equal:
+          path: spec.endpoints[2].metricRelabelings[0].action
+          value: drop
+      - equal:
+          path: spec.endpoints[3].metricRelabelings[0].action
+          value: drop
+      - equal:
+          path: spec.endpoints[0].metricRelabelings[0].regex
+          value: apiserver_request_duration_seconds_bucket
+
+  - it: check metricRelabelings rendered on kine endpoint
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      controlPlane:
+        serviceMonitor:
+          enabled: true
+          metricRelabelings:
+            - action: drop
+              sourceLabels: ["__name__"]
+              regex: apiserver_request_duration_seconds_bucket
+    asserts:
+      - equal:
+          path: spec.endpoints[2].path
+          value: /metrics/kine
+      - equal:
+          path: spec.endpoints[2].metricRelabelings[0].action
+          value: drop
+
   - it: override release label
     release:
       name: my-release

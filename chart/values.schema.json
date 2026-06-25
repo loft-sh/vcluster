@@ -4595,6 +4595,11 @@
           },
           "type": "object",
           "description": "Annotations are the extra annotations to add to the service monitor."
+        },
+        "metricRelabelings": {
+          "items": true,
+          "type": "array",
+          "description": "MetricRelabelings are extra metricRelabelings to add to each endpoint of the service monitor. This allows filtering scraped metrics before ingestion, e.g. dropping high-cardinality metrics. Follows the Prometheus Operator RelabelConfig format."
         }
       },
       "additionalProperties": false,
