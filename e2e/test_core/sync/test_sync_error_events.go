@@ -116,14 +116,12 @@ func SyncErrorSanitisationSpec() {
 				// event (pkg/controllers/resources/pods/syncer.go) before the conflict is
 				// silently requeued by the outer controller.
 				//
-				// Both goroutines keep mutating for the entire verification window below,
-				// rather than running a fixed number of iterations up front. A single short
-				// burst can finish before the syncer ever loses the race, after which the
-				// syncer settles and no further conflicts occur — that is what made this test
-				// flaky. Keeping the race window open until a SyncError event is observed
-				// makes the conflict reliable. Errors are intentionally ignored: an update
-				// that fails because the syncer just changed the pod is exactly the
-				// contention we want.
+				// Both goroutines mutate continuously until the verification step closes
+				// `stop` via DeferCleanup, keeping the race window open until a SyncError
+				// event is observed. A bounded burst can complete before the syncer ever
+				// loses the race, leaving no contention to verify. Errors are intentionally
+				// ignored: an update that fails because the syncer just changed the pod is
+				// exactly the contention we want.
 				stop := make(chan struct{})
 				var wg sync.WaitGroup
 
