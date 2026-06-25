@@ -49,7 +49,7 @@ func (s *persistentVolumeSyncer) translateUpdateBackwards(ctx *synccontext.SyncC
 	// build virtual persistent volume
 	translatedSpec := *pPv.Spec.DeepCopy()
 	isStorageClassCreatedOnVirtual, isClaimRefCreatedOnVirtual := false, false
-	if vPvc != nil {
+	if vPvc != nil && vPv.Spec.ClaimRef != nil {
 		if translatedSpec.ClaimRef == nil {
 			translatedSpec.ClaimRef = &corev1.ObjectReference{}
 		}
@@ -88,7 +88,9 @@ func (s *persistentVolumeSyncer) translateUpdateBackwards(ctx *synccontext.SyncC
 
 	// check claim ref. Do not copy, if it was created on virtual.
 	if !equality.Semantic.DeepEqual(vPv.Spec.ClaimRef, translatedSpec.ClaimRef) && !isClaimRefCreatedOnVirtual {
-		vPv.Spec.ClaimRef = translatedSpec.ClaimRef
+		if pPv.Status.Phase != corev1.VolumeAvailable {
+			vPv.Spec.ClaimRef = translatedSpec.ClaimRef
+		}
 	}
 
 	return nil
