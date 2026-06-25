@@ -296,7 +296,10 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, event *syncc
 func (s *persistentVolumeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.PersistentVolume]) (ctrl.Result, error) {
 	// if host PV is being deleted, delete the virtual PV too
 	if event.Host.GetDeletionTimestamp() != nil {
-		return patcher.DeleteVirtualObject(ctx, event.VirtualOld, event.Host, "host persistent volume is being deleted")
+		if event.VirtualOld != nil {
+			return patcher.DeleteVirtualObject(ctx, event.VirtualOld, event.Host, "host persistent volume is being deleted")
+		}
+		return ctrl.Result{}, nil
 	}
 
 	sync, vPvc, err := s.shouldSync(ctx, event.Host)
