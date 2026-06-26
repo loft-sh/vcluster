@@ -129,7 +129,9 @@ func CoreDNSSpec() {
 					url := fmt.Sprintf("http://nginx-%s.%s.svc:8080/", suffix, nsName)
 					cmd := []string{"curl", "-s", "--show-error", "-o", "/dev/null", "-w", "%{http_code}", "--max-time", "5", url}
 					Eventually(func(g Gomega) {
-						stdout, _, err := podhelper.ExecBuffered(ctx, vClusterConfig, nsName, curlPodName, "curl", cmd, nil)
+						execCtx, cancel := context.WithTimeout(ctx, constants.PollingTimeoutShort)
+						defer cancel()
+						stdout, _, err := podhelper.ExecBuffered(execCtx, vClusterConfig, nsName, curlPodName, "curl", cmd, nil)
 						g.Expect(err).NotTo(HaveOccurred(), "curl exec failed")
 						g.Expect(string(stdout)).To(Equal("200"), "expected 200 from nginx service, got %s", string(stdout))
 					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
