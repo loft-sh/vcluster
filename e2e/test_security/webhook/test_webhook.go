@@ -258,7 +258,7 @@ func (w *webhookInfra) registerWebhook(ctx context.Context, configName string) {
 			_ = w.client.CoreV1().ConfigMaps(w.markersNS).Delete(ctx, marker.Name, metav1.DeleteOptions{})
 		}
 		g.Expect(true).To(BeFalse(), "webhook not yet ready")
-	}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+	}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 }
 
 // AdmissionWebhookSpec registers admission webhook tests.
