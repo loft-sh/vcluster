@@ -21,7 +21,7 @@ import (
 
 func (t *translator) Diff(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Pod]) error {
 	// sync conditions
-	event.Virtual.Status.Conditions, event.Host.Status.Conditions = patcher.CopyBidirectional(
+	event.Virtual.Status.Conditions, event.Host.Status.Conditions = t.conditionsCopyBidirectional(
 		event.VirtualOld.Status.Conditions,
 		event.Virtual.Status.Conditions,
 		event.HostOld.Status.Conditions,
@@ -32,11 +32,19 @@ func (t *translator) Diff(ctx *synccontext.SyncContext, event *synccontext.SyncE
 	vPod := event.Virtual
 	pPod := event.Host
 
-	// We have to reset the QOSClass to the original value, otherwise we might get an error
-	// that the field is immutable
+	// Copy the host status onto the virtual pod, but keep the virtual values for fields the
+	// host must not overwrite:
+	//   - QOSClass is immutable on the host (since K8s 1.32), so we always keep the virtual value.
+	//   - ObservedGeneration is dropped by virtual apiservers that don't track it (K8s < 1.34).
+	//     Syncing the host value there would cause infinite status-patch churn: the object cache
+	//     records what we sent while the informer returns the stored (zero) value.
 	originalQOSClass := vPod.Status.QOSClass
+	originalObservedGeneration := vPod.Status.ObservedGeneration
 	vPod.Status = *pPod.Status.DeepCopy()
 	vPod.Status.QOSClass = originalQOSClass
+	if t.virtualClusterStripsObservedGeneration() {
+		vPod.Status.ObservedGeneration = originalObservedGeneration
+	}
 	err := t.convertResourceClaimStatuses(ctx, vPod, pPod.GetNamespace())
 	if err != nil {
 		return err
@@ -280,4 +288,53 @@ func hasToleration(tolerations []corev1.Toleration, tol corev1.Toleration) bool 
 		}
 	}
 	return false
+}
+
+// virtualClusterStripsObservedGeneration reports whether the virtual apiserver drops
+// ObservedGeneration on write. It does on K8s < 1.34, where the PodObservedGenerationTracking
+// feature gate is off by default.
+func (t *translator) virtualClusterStripsObservedGeneration() bool {
+	return t.virtualClusterVersion != nil &&
+		t.virtualClusterVersion.LessThan(k8sPodObservedGenerationMinVersion)
+}
+
+// conditionsCopyBidirectional is patcher.CopyBidirectional for pod conditions, except it
+// ignores ObservedGeneration when the virtual cluster strips it (K8s < 1.34) to avoid
+// detecting a phantom change every reconcile. It returns the original slices, so a real
+// ObservedGeneration from the host is still synced.
+func (t *translator) conditionsCopyBidirectional(
+	virtualOld, virtual, hostOld, host []corev1.PodCondition,
+) (newVirtual, newHost []corev1.PodCondition) {
+	if !t.virtualClusterStripsObservedGeneration() {
+		return patcher.CopyBidirectional(virtualOld, virtual, hostOld, host)
+	}
+
+	newVirtual = virtual
+	newHost = host
+	if !apiequality.Semantic.DeepEqual(
+		stripConditionObservedGenerations(virtualOld),
+		stripConditionObservedGenerations(virtual),
+	) {
+		newHost = virtual
+	} else if !apiequality.Semantic.DeepEqual(
+		stripConditionObservedGenerations(hostOld),
+		stripConditionObservedGenerations(host),
+	) {
+		newVirtual = host
+	}
+	return newVirtual, newHost
+}
+
+// stripConditionObservedGenerations returns a shallow copy of conditions with
+// ObservedGeneration zeroed on each entry. Used only for equality comparisons.
+func stripConditionObservedGenerations(conditions []corev1.PodCondition) []corev1.PodCondition {
+	if conditions == nil {
+		return nil
+	}
+	out := make([]corev1.PodCondition, len(conditions))
+	copy(out, conditions)
+	for i := range out {
+		out[i].ObservedGeneration = 0
+	}
+	return out
 }

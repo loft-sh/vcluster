@@ -52,6 +52,8 @@ type RegisterContext struct {
 
 	VirtualManager ctrl.Manager
 	HostManager    ctrl.Manager
+
+	VirtualClusterVersion *version.Info
 }
 
 type Filter func(http.Handler, *ControllerContext) http.Handler
@@ -69,6 +71,8 @@ func (c *ControllerContext) ToRegisterContext() *RegisterContext {
 
 		VirtualManager: c.VirtualManager,
 		HostManager:    c.HostManager,
+
+		VirtualClusterVersion: c.VirtualClusterVersion,
 
 		Mappings: c.Mappings,
 	}
