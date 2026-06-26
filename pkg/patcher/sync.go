@@ -12,11 +12,20 @@ import (
 // CopyBidirectional determines whether the change is in the virtual or host object by seeing what changed between "old" and "new" for each.
 // It then mutates the changed object to match the unchanged object.
 func CopyBidirectional[T any](virtualOld, virtual, hostOld, host T) (T, T) {
+	return CopyBidirectionalWithEq(virtualOld, virtual, hostOld, host, func(a, b T) bool {
+		return apiequality.Semantic.DeepEqual(a, b)
+	})
+}
+
+// CopyBidirectionalWithEq is like CopyBidirectional but uses eq to compare the "old" and "new"
+// values. Pass a custom eq to ignore fields that should not count as a change (for example a
+// field the target apiserver strips on write).
+func CopyBidirectionalWithEq[T any](virtualOld, virtual, hostOld, host T, eq func(a, b T) bool) (T, T) {
 	newVirtual := virtual
 	newHost := host
-	if !apiequality.Semantic.DeepEqual(virtualOld, virtual) {
+	if !eq(virtualOld, virtual) {
 		newHost = virtual
-	} else if !apiequality.Semantic.DeepEqual(hostOld, host) {
+	} else if !eq(hostOld, host) {
 		newVirtual = host
 	}
 

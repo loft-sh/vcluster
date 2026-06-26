@@ -234,6 +234,19 @@ func TestConditionsCopyBidirectionalObservedGeneration(t *testing.T) {
 			wantNewVirtual: []corev1.PodCondition{ready},
 			wantNewHost:    []corev1.PodCondition{ready},
 		},
+		{
+			// Version not yet discovered (startup). We must NOT take the strip path: with the
+			// same inputs as the v1.33 case, the observedGeneration delta is treated as a real
+			// change (wantNewHost is ready, not readyGen1). This pins the nil guard.
+			name:           "nil version: defaults to preserve, not strip-path",
+			version:        nil,
+			virtualOld:     []corev1.PodCondition{readyGen1},
+			virtual:        []corev1.PodCondition{ready},
+			hostOld:        []corev1.PodCondition{readyGen1},
+			host:           []corev1.PodCondition{readyGen1},
+			wantNewVirtual: []corev1.PodCondition{ready},
+			wantNewHost:    []corev1.PodCondition{ready},
+		},
 	}
 
 	for _, tc := range tests {
@@ -246,10 +259,10 @@ func TestConditionsCopyBidirectionalObservedGeneration(t *testing.T) {
 	}
 }
 
-// TestDiffPodStatusObservedGeneration checks that Diff() keeps the virtual
-// PodStatus.ObservedGeneration (instead of copying the host value) when the virtual cluster
-// runs K8s < 1.34 and would strip that field on write. Copying it there makes the cache and
-// informer disagree every reconcile and causes endless status-patch churn (Bug 2).
+// TestDiffPodStatusObservedGeneration checks that Diff() does not write the host's
+// ObservedGeneration to the virtual pod (on both the pod status and its conditions) when the
+// virtual cluster runs K8s < 1.34 and would strip that field on write. Writing it there makes
+// the cache and informer disagree every reconcile and causes endless status-patch churn (Bug 2).
 func TestDiffPodStatusObservedGeneration(t *testing.T) {
 	pClient := testingutil.NewFakeClient(scheme.Scheme)
 	vClient := testingutil.NewFakeClient(scheme.Scheme)
@@ -282,6 +295,14 @@ func TestDiffPodStatusObservedGeneration(t *testing.T) {
 			hostObservedGeneration: 3,
 			wantVirtualObservedGen: 3,
 		},
+		{
+			// Version not yet discovered (startup). The guard returns false, so the host value
+			// is copied (same as >= 1.34). This pins the nil guard against an accidental inversion.
+			name:                   "nil version: host ObservedGeneration copied (unknown version defaults to preserve)",
+			version:                nil,
+			hostObservedGeneration: 3,
+			wantVirtualObservedGen: 3,
+		},
 	}
 
 	for _, tc := range tests {
@@ -297,15 +318,26 @@ func TestDiffPodStatusObservedGeneration(t *testing.T) {
 			vNew := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "testpod", Namespace: "testns"}}
 			vNew.Status.ObservedGeneration = 0
 
+			// The host kubelet sets ObservedGeneration on both the pod status and the condition.
 			pOld := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "testpod-x-testns", Namespace: "test"}}
 			pNew := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "testpod-x-testns", Namespace: "test"}}
 			pNew.Status.ObservedGeneration = tc.hostObservedGeneration
+			pNew.Status.Conditions = []corev1.PodCondition{{
+				Type:               corev1.PodReady,
+				Status:             corev1.ConditionTrue,
+				ObservedGeneration: tc.hostObservedGeneration,
+			}}
 
 			event := synccontext.NewSyncEventWithOld(pOld, pNew, vOld, vNew)
 			assert.NilError(t, tr.Diff(syncCtx, event))
 
 			assert.Equal(t, tc.wantVirtualObservedGen, event.Virtual.Status.ObservedGeneration,
-				"test case %q: unexpected virtual ObservedGeneration after Diff", tc.name)
+				"test case %q: unexpected virtual pod ObservedGeneration after Diff", tc.name)
+
+			assert.Assert(t, len(event.Virtual.Status.Conditions) == 1,
+				"test case %q: expected one virtual condition", tc.name)
+			assert.Equal(t, tc.wantVirtualObservedGen, event.Virtual.Status.Conditions[0].ObservedGeneration,
+				"test case %q: unexpected virtual condition ObservedGeneration after Diff", tc.name)
 		})
 	}
 }

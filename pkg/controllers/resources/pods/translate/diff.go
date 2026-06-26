@@ -43,7 +43,11 @@ func (t *translator) Diff(ctx *synccontext.SyncContext, event *synccontext.SyncE
 	vPod.Status = *pPod.Status.DeepCopy()
 	vPod.Status.QOSClass = originalQOSClass
 	if t.virtualClusterStripsObservedGeneration() {
+		// Drop ObservedGeneration from the pod status and its conditions. The virtual
+		// apiserver won't store it, so writing the host value here just churns a patch
+		// every reconcile. The host object keeps its values and syncs normally.
 		vPod.Status.ObservedGeneration = originalObservedGeneration
+		vPod.Status.Conditions = stripConditionObservedGenerations(vPod.Status.Conditions)
 	}
 	err := t.convertResourceClaimStatuses(ctx, vPod, pPod.GetNamespace())
 	if err != nil {
@@ -309,20 +313,12 @@ func (t *translator) conditionsCopyBidirectional(
 		return patcher.CopyBidirectional(virtualOld, virtual, hostOld, host)
 	}
 
-	newVirtual = virtual
-	newHost = host
-	if !apiequality.Semantic.DeepEqual(
-		stripConditionObservedGenerations(virtualOld),
-		stripConditionObservedGenerations(virtual),
-	) {
-		newHost = virtual
-	} else if !apiequality.Semantic.DeepEqual(
-		stripConditionObservedGenerations(hostOld),
-		stripConditionObservedGenerations(host),
-	) {
-		newVirtual = host
-	}
-	return newVirtual, newHost
+	return patcher.CopyBidirectionalWithEq(virtualOld, virtual, hostOld, host, func(a, b []corev1.PodCondition) bool {
+		return apiequality.Semantic.DeepEqual(
+			stripConditionObservedGenerations(a),
+			stripConditionObservedGenerations(b),
+		)
+	})
 }
 
 // stripConditionObservedGenerations returns a shallow copy of conditions with

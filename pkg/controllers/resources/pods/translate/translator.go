@@ -128,7 +128,7 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder events.EventR
 		}
 	}
 
-	return &translator{
+	t := &translator{
 		vClientConfig: ctx.VirtualManager.GetConfig(),
 		vClient:       ctx.VirtualManager.GetClient(),
 
@@ -163,7 +163,15 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder events.EventR
 		resourceClaimTemplateEnabled: ctx.Config.Sync.ToHost.ResourceClaimTemplates.Enabled,
 
 		enforcedTolerations: parseEnforcedTolerations(ctx.Config.Sync.ToHost.Pods.EnforceTolerations),
-	}, nil
+	}
+
+	// Surface the suppression path so operators debugging pod conditions on a mixed-version
+	// cluster (virtual < 1.34, host >= 1.34) have a runtime signal that it is active.
+	if t.virtualClusterStripsObservedGeneration() {
+		t.log.Infof("virtual cluster version %s strips ObservedGeneration on write; suppressing phantom pod condition diffs", virtualClusterVersion)
+	}
+
+	return t, nil
 }
 
 type translator struct {
