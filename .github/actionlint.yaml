@@ -31,3 +31,13 @@ name-pattern:
   - "uses: docker://.*"
   # Block actions/checkout@v4 - require sha pinning
   #- "!uses: actions/checkout@v[0-9]+"
+
+# DEVOPS-1029: actionlint (v1.7.x) has no schema yet for the GitHub Actions
+# parallel-steps feature (`parallel:` / `background:` / `wait:`, GA 2026-06-25),
+# so it reports each `parallel:` step in the release workflow as missing a
+# `run`/`uses` section. Suppress only that one message, only for that one file,
+# until actionlint ships native support; then delete this block.
+paths:
+  .github/workflows/release.yaml:
+    ignore:
+      - 'step must run script with "run" section or run action with "uses" section'
