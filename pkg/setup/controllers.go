@@ -51,6 +51,15 @@ func StartControllers(controllerContext *synccontext.ControllerContext, syncers 
 		return err
 	}
 
+	// If this vCluster was migrated from the k3s distro, strip the orphaned k3s node finalizer left
+	// on synced nodes. Without this, a terminated host node would remain as a ghost node because no
+	// controller removes the finalizer after migration. CleanupK3sNodeFinalizers is self-gating and
+	// runs once, so it never fights a controller (e.g. Rancher) that re-adds finalizers later.
+	err = k8s.CleanupK3sNodeFinalizers(controllerContext.Context, controllerContext.Config.HostClient, controllerContext.Config.HostNamespace, controllerContext.VirtualManager.GetClient(), controllerContext.Config)
+	if err != nil {
+		return fmt.Errorf("cleanup k3s node finalizers: %w", err)
+	}
+
 	// register init manifests configmap watcher controller
 	err = deploy.RegisterInitManifestsController(controllerContext)
 	if err != nil {

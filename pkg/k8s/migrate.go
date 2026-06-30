@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"slices"
 
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/certs"
@@ -12,14 +13,25 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// k3sNodeFinalizer is the finalizer the k3s distro stamps onto node objects. After migrating to
+// the k8s distro no controller removes it, so it must be cleaned up once as part of the migration.
+// We match this exact finalizer (rather than the whole wrangler.cattle.io/ prefix) so we never
+// strip finalizers a wrangler-based controller such as Rancher might legitimately add to nodes.
+const k3sNodeFinalizer = "wrangler.cattle.io/node"
+
 var (
 	migratedFromK3sAnnotation = "vcluster.loft.sh/migrated-from-k3s"
+
+	// migratedFromK3sNodesCleanedAnnotation marks that the one-time node finalizer cleanup has run,
+	// so it is not repeated on every restart (which could fight a controller re-adding finalizers).
+	migratedFromK3sNodesCleanedAnnotation = "vcluster.loft.sh/migrated-from-k3s-nodes-cleaned"
 
 	k3sClientCACertPath = "/data/server/tls/client-ca.crt"
 	k3sClientCAKeyPath  = "/data/server/tls/client-ca.key"
@@ -210,6 +222,75 @@ func MigrateK3sToK8sStateless(ctx context.Context, currentNamespaceClient kubern
 	_, err = currentNamespaceClient.CoreV1().Secrets(currentNamespace).Patch(ctx, secretName, patch.Type(), patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to patch k3s secret %s: %w", secretName, err)
+	}
+
+	return nil
+}
+
+// k3sMigrationSecretName returns the host-namespace secret that carries the k3s migration markers.
+// The marker lives on the certificate secret for stateful backing stores and on the vc-k3s-<name>
+// secret for stateless ones.
+func k3sMigrationSecretName(options *config.VirtualClusterConfig) string {
+	switch options.BackingStoreType() {
+	case vclusterconfig.StoreTypeDeployedEtcd, vclusterconfig.StoreTypeExternalEtcd, vclusterconfig.StoreTypeExternalDatabase:
+		return "vc-k3s-" + options.Name
+	default:
+		return certs.CertSecretName(options.Name)
+	}
+}
+
+// CleanupK3sNodeFinalizers removes the orphaned k3s node finalizer from synced nodes after a
+// k3s->k8s migration. It is self-gating and runs at most once: it acts only when this vCluster was
+// migrated from k3s and the cleanup has not already run, then records a marker so it never repeats.
+// Running once (rather than every restart) means it never removes a wrangler.cattle.io/node
+// finalizer that a controller such as Rancher could legitimately add to nodes after the migration.
+func CleanupK3sNodeFinalizers(ctx context.Context, currentNamespaceClient kubernetes.Interface, currentNamespace string, vClient client.Client, options *config.VirtualClusterConfig) error {
+	secretName := k3sMigrationSecretName(options)
+	secret, err := currentNamespaceClient.CoreV1().Secrets(currentNamespace).Get(ctx, secretName, metav1.GetOptions{})
+	if kerrors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("failed to get migration secret %s: %w", secretName, err)
+	} else if secret.Annotations[migratedFromK3sAnnotation] != "true" { // not migrated from k3s
+		return nil
+	} else if secret.Annotations[migratedFromK3sNodesCleanedAnnotation] == "true" { // already cleaned
+		return nil
+	}
+
+	if err := removeK3sNodeFinalizers(ctx, vClient); err != nil {
+		return err
+	}
+
+	// record that the cleanup ran so we don't repeat it on the next restart
+	patchData := fmt.Appendf(nil, `{"metadata":{"annotations":{%q:"true"}}}`, migratedFromK3sNodesCleanedAnnotation)
+	if _, err := currentNamespaceClient.CoreV1().Secrets(currentNamespace).Patch(ctx, secretName, types.MergePatchType, patchData, metav1.PatchOptions{}); err != nil {
+		return fmt.Errorf("failed to mark k3s node finalizers cleaned on secret %s: %w", secretName, err)
+	}
+
+	return nil
+}
+
+// removeK3sNodeFinalizers strips the k3s node finalizer (k3sNodeFinalizer) from every synced node
+// in the tenant cluster. After migrating to the k8s distro no controller removes it, so a
+// terminated host node would otherwise remain as a ghost node (the syncer sets a deletionTimestamp
+// but the orphaned finalizer blocks actual removal).
+func removeK3sNodeFinalizers(ctx context.Context, vClient client.Client) error {
+	nodeList := &corev1.NodeList{}
+	if err := vClient.List(ctx, nodeList); err != nil {
+		return fmt.Errorf("failed to list nodes: %w", err)
+	}
+	for i := range nodeList.Items {
+		node := &nodeList.Items[i]
+		if !slices.Contains(node.Finalizers, k3sNodeFinalizer) {
+			continue
+		}
+
+		orig := node.DeepCopy()
+		node.Finalizers = slices.DeleteFunc(node.Finalizers, func(f string) bool { return f == k3sNodeFinalizer })
+		if err := vClient.Patch(ctx, node, client.MergeFrom(orig)); err != nil {
+			return fmt.Errorf("failed to remove %s finalizer from node %s: %w", k3sNodeFinalizer, node.Name, err)
+		}
+		klog.Infof("Removed orphaned %s finalizer from node %s after k3s->k8s migration", k3sNodeFinalizer, node.Name)
 	}
 
 	return nil

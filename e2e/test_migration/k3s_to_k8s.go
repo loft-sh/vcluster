@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
@@ -29,6 +30,7 @@ import (
 const (
 	k3sBaseChartVersion       = "0.32.2"
 	migratedFromK3sAnnotation = "vcluster.loft.sh/migrated-from-k3s"
+	k3sNodeFinalizer          = "wrangler.cattle.io/node"
 )
 
 // K3SToK8SMigrationSpec verifies that k3s-era CA material is migrated into a
@@ -39,10 +41,11 @@ func K3SToK8SMigrationSpec() {
 		Ordered,
 		func() {
 			var (
-				clusterName   string
-				namespace     string
-				hostClient    kubernetes.Interface
-				initialRootCA []byte
+				clusterName       string
+				namespace         string
+				hostClient        kubernetes.Interface
+				initialRootCA     []byte
+				finalizerNodeName string
 			)
 
 			BeforeAll(func(ctx context.Context) {
@@ -70,6 +73,14 @@ func K3SToK8SMigrationSpec() {
 				Expect(secret.Data[certs.ServerCACertName]).To(Equal(initialRootCA))
 			})
 
+			// Under the k3s distro, k3s's wrangler node controller stamps this finalizer onto the
+			// synced node objects on its own. We capture an affected node here so a later spec can
+			// assert the migration strips it; otherwise a terminated host node would ghost.
+			It("has k3s stamp the node finalizer onto synced nodes", func(ctx context.Context) {
+				vClusterClient := connectVClusterClient(ctx, namespace, clusterName)
+				finalizerNodeName = awaitNodeWithK3sFinalizer(ctx, vClusterClient)
+			})
+
 			It("migrates k3s CA aliases when upgraded to the local k8s chart", func(ctx context.Context) {
 				_, err := runHelmCmd(ctx, upgradeToLocalK8SHelmArgs(clusterName, namespace)...)
 				Expect(err).To(Succeed())
@@ -91,6 +102,19 @@ func K3SToK8SMigrationSpec() {
 					g.Expect(secret.Data[certs.CAKeyName]).To(Equal(secret.Data[certs.ClientCAKeyName]))
 					g.Expect(ca).NotTo(Equal(initialRootCA), "ca.crt should not remain the pre-migration kubeadm CA")
 					g.Expect(serverCA).NotTo(Equal(clientCA), "k3s server CA should stay split until kubeadm regenerates leaves")
+				}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
+			})
+
+			// The migration step in StartControllers should have stripped the orphaned k3s
+			// finalizer, so a terminated host node no longer gets stuck as a ghost node.
+			It("removes the orphaned k3s node finalizer after migrating to the k8s distro", func(ctx context.Context) {
+				vClusterClient := connectVClusterClient(ctx, namespace, clusterName)
+
+				Eventually(func(g Gomega, ctx context.Context) {
+					node, err := vClusterClient.CoreV1().Nodes().Get(ctx, finalizerNodeName, metav1.GetOptions{})
+					g.Expect(err).To(Succeed())
+					g.Expect(node.Finalizers).NotTo(ContainElement(k3sNodeFinalizer),
+						"node %s still carries the orphaned k3s finalizer after migration", finalizerNodeName)
 				}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
 			})
 
@@ -130,6 +154,8 @@ func createK3SHelmArgs(name, namespace string) []string {
 		"--create-namespace",
 		"--set", "controlPlane.distro.k3s.enabled=true",
 		"--set", "controlPlane.distro.k8s.enabled=false",
+		"--set", "sync.fromHost.nodes.enabled=true",
+		"--set", "sync.fromHost.nodes.selector.all=true",
 		"--set", "controlPlane.statefulSet.image.registry=ghcr.io",
 		"--set", "controlPlane.statefulSet.image.repository=loft-sh/vcluster-oss",
 		"--set", "controlPlane.statefulSet.image.tag=" + k3sBaseChartVersion,
@@ -144,6 +170,8 @@ func upgradeToLocalK8SHelmArgs(name, namespace string) []string {
 		"--reset-values",
 		"--set", "controlPlane.distro.k8s.enabled=true",
 		"--set", "controlPlane.distro.k8s.image.tag=v1.35.0",
+		"--set", "sync.fromHost.nodes.enabled=true",
+		"--set", "sync.fromHost.nodes.selector.all=true",
 		"--set", "controlPlane.statefulSet.image.registry=",
 		"--set", "controlPlane.statefulSet.image.repository=" + constants.GetRepository(),
 		"--set", "controlPlane.statefulSet.image.tag=" + constants.GetTag(),
@@ -272,6 +300,14 @@ func parseCertificate(g Gomega, certPEM []byte) *x509.Certificate {
 
 func expectVClusterAPIReachable(ctx context.Context, namespace, vClusterName string) {
 	GinkgoHelper()
+	connectVClusterClient(ctx, namespace, vClusterName)
+}
+
+// connectVClusterClient connects to the tenant cluster via a background proxy and returns a
+// client for it. The connection is one-shot, so callers must reconnect after destructive
+// operations such as a helm upgrade that restarts the vCluster pod.
+func connectVClusterClient(ctx context.Context, namespace, vClusterName string) kubernetes.Interface {
+	GinkgoHelper()
 	tmpFile, err := os.CreateTemp("", "vcluster-migration-kubeconfig-*")
 	Expect(err).To(Succeed())
 	Expect(tmpFile.Close()).To(Succeed())
@@ -288,6 +324,7 @@ func expectVClusterAPIReachable(ctx context.Context, namespace, vClusterName str
 	)
 	Expect(err).To(Succeed())
 
+	var vClusterClient kubernetes.Interface
 	Eventually(func(g Gomega, ctx context.Context) {
 		data, err := os.ReadFile(tmpFile.Name())
 		g.Expect(err).To(Succeed())
@@ -296,10 +333,37 @@ func expectVClusterAPIReachable(ctx context.Context, namespace, vClusterName str
 		restConfig, err := clientcmd.RESTConfigFromKubeConfig(data)
 		g.Expect(err).To(Succeed())
 
-		client, err := kubernetes.NewForConfig(restConfig)
+		vClusterClient, err = kubernetes.NewForConfig(restConfig)
 		g.Expect(err).To(Succeed())
 
-		_, err = client.CoreV1().ServiceAccounts("default").Get(ctx, "default", metav1.GetOptions{})
+		_, err = vClusterClient.CoreV1().ServiceAccounts("default").Get(ctx, "default", metav1.GetOptions{})
 		g.Expect(err).To(Succeed())
 	}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+
+	return vClusterClient
+}
+
+// awaitNodeWithK3sFinalizer waits for the k3s distro to stamp the node finalizer (k3sNodeFinalizer)
+// onto a synced node on its own and returns that node's name, so a later spec can assert the
+// migration cleaned it up. If k3s never adds it, this fails — the correct signal that the bug's
+// premise no longer holds.
+func awaitNodeWithK3sFinalizer(ctx context.Context, vClusterClient kubernetes.Interface) string {
+	GinkgoHelper()
+	var nodeName string
+	Eventually(func(g Gomega, ctx context.Context) {
+		nodes, err := vClusterClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+		g.Expect(err).To(Succeed())
+		g.Expect(nodes.Items).NotTo(BeEmpty(), "no nodes were synced into the tenant cluster")
+
+		nodeName = ""
+		for i := range nodes.Items {
+			if slices.Contains(nodes.Items[i].Finalizers, k3sNodeFinalizer) {
+				nodeName = nodes.Items[i].Name
+				break
+			}
+		}
+		g.Expect(nodeName).NotTo(BeEmpty(), "no synced node has acquired the %q finalizer from k3s", k3sNodeFinalizer)
+	}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
+
+	return nodeName
 }
