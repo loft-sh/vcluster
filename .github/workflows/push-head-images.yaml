@@ -64,25 +64,43 @@ jobs:
         with:
           fetch-depth: 0
 
+      # DEVOPS-1029: these setup steps are independent of one another, so they
+      # run concurrently. Each is backgrounded with an id, and the wait barrier
+      # below blocks until all of them finish, guaranteeing every tool is on
+      # PATH before goreleaser builds. The registry login stays serial to avoid
+      # a ~/.docker/config.json write race.
       - name: Set up Go
+        id: setup-go
+        background: true
         uses: actions/setup-go@v6
         with:
           cache: false
           go-version-file: go.mod
 
       - name: Install just
+        id: setup-just
+        background: true
         uses: extractions/setup-just@v1
 
       - name: Set up QEMU
+        id: setup-qemu
+        background: true
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
+        id: setup-buildx
+        background: true
         uses: docker/setup-buildx-action@v3
 
       - name: Setup Cosgin
+        id: setup-cosign
+        background: true
         uses: sigstore/cosign-installer@main
         with:
           cosign-release: "v2.2.3"
+
+      - name: Wait for setup tools
+        wait: [setup-go, setup-just, setup-qemu, setup-buildx, setup-cosign]
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
