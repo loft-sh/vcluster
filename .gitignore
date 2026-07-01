@@ -4,6 +4,7 @@
 .devspace/
 .DS_Store
 profile.out
+coverage.out
 *.swp
 /vcluster
 /zzz
