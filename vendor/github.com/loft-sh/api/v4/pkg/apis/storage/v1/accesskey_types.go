@@ -156,7 +156,7 @@ func (a AccessKeyScope) ContainsRole(val AccessKeyScopeRoleName) bool {
 		// (ThomasK33): Add implicit network peer permissions
 		if val == AccessKeyScopeRoleNetworkPeer {
 			switch entry.Role {
-			case AccessKeyScopeRoleVCluster, AccessKeyScopeRoleAgent, AccessKeyScopeRoleRunner:
+			case AccessKeyScopeRoleVCluster, AccessKeyScopeRoleAgent:
 				return true
 			// (ThomasK33): Adding this so that the exhaustive linter is happy
 			case AccessKeyScopeRoleNetworkPeer:
@@ -205,12 +205,13 @@ type AccessKeyScopeRole struct {
 type AccessKeyScopeRoleName string
 
 const (
-	AccessKeyScopeRoleAgent       AccessKeyScopeRoleName = "agent"
-	AccessKeyScopeRoleVCluster    AccessKeyScopeRoleName = "vcluster"
-	AccessKeyScopeRoleNetworkPeer AccessKeyScopeRoleName = "network-peer"
-	AccessKeyScopeRoleLoftCLI     AccessKeyScopeRoleName = "loft-cli"
-	AccessKeyScopeRoleRunner      AccessKeyScopeRoleName = "runner"
-	AccessKeyScopeRoleWorkspace   AccessKeyScopeRoleName = "workspace"
+	AccessKeyScopeRoleAgent         AccessKeyScopeRoleName = "agent"
+	AccessKeyScopeRoleVCluster      AccessKeyScopeRoleName = "vcluster"
+	AccessKeyScopeRoleNetworkPeer   AccessKeyScopeRoleName = "network-peer"
+	AccessKeyScopeRoleLoftCLI       AccessKeyScopeRoleName = "loft-cli"
+	AccessKeyScopeRoleWorkspace     AccessKeyScopeRoleName = "workspace"
+	AccessKeyScopeRoleMetricsWriter AccessKeyScopeRoleName = "metrics-writer"
+	AccessKeyScopeRoleMetricsReader AccessKeyScopeRoleName = "metrics-reader"
 )
 
 type AccessKeyScopeCluster struct {

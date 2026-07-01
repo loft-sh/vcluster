@@ -43,14 +43,13 @@ type SnapshotTaken struct {
 	Timestamp string              `json:"timestamp,omitempty"`
 	Reason    string              `json:"reason,omitempty"`
 	Request   SnapshotRequest     `json:"snapshotRequest,omitempty"`
-	TotalPV   int                 `json:"totalPV"`
 	Status    SnapshotTakenStatus `json:"status,omitempty"`
 }
 
 // SnapshotRequest is the request to take a snapshot from vcluster
 // this struct is a copy from the vcluster snapshot request object
 
-// SnapshotRequest is the request to take a snapshot of a volume.
+// SnapshotRequest is the request to take a snapshot.
 type SnapshotRequest struct {
 	Metadata SnapshotRequestMetadata `json:"metadata,omitempty"`
 	Status   SnapshotRequestStatus   `json:"status"`
@@ -65,23 +64,8 @@ type SnapshotRequestMetadata struct {
 // SnapshotRequestStatus shows the overall status of the snapshot request.
 type SnapshotRequestStatus struct {
 	Phase           SnapshotRequestPhase         `json:"phase,omitempty"`
-	VolumeSnapshots VolumeSnapshotsRequestStatus `json:"volumeSnapshots"`
 	Error           SnapshotRequestError         `json:"error,omitempty"`
 }
-
-// VolumeSnapshotsRequestStatus shows the current status of the snapshot request.
-type VolumeSnapshotsRequestStatus struct {
-	Phase     string                                 `json:"phase,omitempty"`
-	Snapshots map[string]VolumeSnapshotRequestStatus `json:"snapshots,omitempty"`
-	Error     SnapshotRequestError                   `json:"error"`
-}
-
-// SnapshotStatus shows the current status of a single PVC snapshot.
-type VolumeSnapshotRequestStatus struct {
-	Phase string               `json:"phase,omitempty"`
-	Error SnapshotRequestError `json:"error"`
-}
-
 // SnapshotError describes the error that occurred while taking the snapshot.
 type SnapshotRequestError struct {
 	Message string `json:"message,omitempty"`

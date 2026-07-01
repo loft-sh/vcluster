@@ -18,7 +18,6 @@ func NewRequest(name string, creationTimestamp metav1.Time, options *Options) *R
 	if options != nil {
 		request.Spec = RequestSpec{
 			URL:            options.GetURL(),
-			IncludeVolumes: options.IncludeVolumes,
 		}
 	}
 	return request

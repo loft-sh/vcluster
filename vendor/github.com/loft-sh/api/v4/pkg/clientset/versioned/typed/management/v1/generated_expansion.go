@@ -64,6 +64,8 @@ type RedirectTokenExpansion interface{}
 
 type RegisterVirtualClusterExpansion interface{}
 
+type RenderVirtualClusterTemplateExpansion interface{}
+
 type ResetAccessKeyExpansion interface{}
 
 type SSHKeyExpansion interface{}

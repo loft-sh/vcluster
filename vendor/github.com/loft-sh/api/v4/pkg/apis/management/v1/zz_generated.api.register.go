@@ -98,6 +98,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&RedirectTokenList{},
 		&RegisterVirtualCluster{},
 		&RegisterVirtualClusterList{},
+		&RenderVirtualClusterTemplate{},
+		&RenderVirtualClusterTemplateList{},
 		&ResetAccessKey{},
 		&ResetAccessKeyList{},
 		&SSHKey{},
@@ -351,6 +353,7 @@ var (
 		management.ManagementProjectSecretStorage,
 		management.ManagementRedirectTokenStorage,
 		management.ManagementRegisterVirtualClusterStorage,
+		management.ManagementRenderVirtualClusterTemplateStorage,
 		management.ManagementResetAccessKeyStorage,
 		management.ManagementSSHKeyStorage,
 		management.ManagementSelfStorage,
@@ -952,6 +955,14 @@ type RegisterVirtualClusterList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []RegisterVirtualCluster `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type RenderVirtualClusterTemplateList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []RenderVirtualClusterTemplate `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

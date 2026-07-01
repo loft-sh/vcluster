@@ -213,9 +213,46 @@ type VirtualClusterCommonSpec struct {
 
 	// ForwardToken signals the proxy to pass through the used token to the virtual Kubernetes
 	// api server and do a TokenReview there.
+	// Deprecated: use ForwardTokenMode instead. When ForwardTokenMode is empty, ForwardToken==true
+	// is treated as ForwardTokenMode "TokenReview" and ForwardToken==false as "Off".
 	// +optional
 	ForwardToken bool `json:"forwardToken,omitempty"`
+
+	// ForwardTokenMode controls how the proxy forwards the caller's token to the virtual
+	// Kubernetes api server.
+	//   - "Off": do not forward the token (default).
+	//   - "TokenReview": run a TokenReview against the virtual cluster and proxy the request using
+	//     impersonation headers for the resulting user (historical ForwardToken behavior).
+	//   - "Passthrough": forward the raw bearer token directly to the virtual cluster api server
+	//     without a TokenReview and without impersonation headers. The virtual cluster api server is
+	//     responsible for authenticating and authorizing the request (e.g. via its own OIDC config).
+	// When empty, the deprecated ForwardToken bool is used to derive the mode.
+	// Both "TokenReview" and "Passthrough" skip the platform's own instance-access check and delegate
+	// authorization to the virtual cluster api server, so only enable them on virtual clusters that
+	// enforce their own authentication and authorization.
+	// Downgrade note: older platform versions understand only the ForwardToken bool. "Off" and
+	// "TokenReview" are kept in sync with it automatically, so they downgrade cleanly. "Passthrough"
+	// has no bool equivalent and is unavailable on older versions; it downgrades to forwarding
+	// disabled.
+	// +kubebuilder:validation:Enum=Off;TokenReview;Passthrough
+	// +optional
+	ForwardTokenMode ForwardTokenMode `json:"forwardTokenMode,omitempty"`
 }
+
+// ForwardTokenMode controls how the proxy forwards the caller's token to the virtual cluster.
+type ForwardTokenMode string
+
+const (
+	// ForwardTokenModeOff signals the proxy to not forward the caller's token.
+	ForwardTokenModeOff ForwardTokenMode = "Off"
+	// ForwardTokenModeTokenReview signals the proxy to do a TokenReview against the virtual cluster
+	// and proxy the request using impersonation headers for the resulting user.
+	ForwardTokenModeTokenReview ForwardTokenMode = "TokenReview"
+	// ForwardTokenModePassthrough signals the proxy to forward the raw bearer token directly to the
+	// virtual cluster api server without a TokenReview and without impersonation headers.
+	ForwardTokenModePassthrough ForwardTokenMode = "Passthrough"
+)
+
 
 type VirtualClusterProSpec struct {
 	// Enabled defines if the tenant cluster is a pro cluster or not
