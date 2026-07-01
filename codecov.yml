@@ -1,0 +1,35 @@
+# Codecov configuration for vcluster.
+#
+# Goal (DEVOPS-1053): flag a PR that changes code without tests to hold the
+# line, so overall coverage regresses versus the base branch. A PR that holds
+# or improves coverage stays quiet. Statuses are informational, so nothing
+# blocks merge; this is a review-time signal, not a gate.
+
+coverage:
+  status:
+    project:
+      default:
+        # Compare against the base branch and flag a drop beyond the threshold.
+        target: auto
+        threshold: 1%
+        informational: true
+    patch:
+      default:
+        # Coverage of the changed lines, shown as supporting detail.
+        informational: true
+
+comment:
+  layout: "condensed_header, diff, components"
+  # Only post when coverage actually changes, so well-covered PRs get nothing.
+  require_changes: true
+
+# Exclude non-product and generated code so it does not skew the delta. Mirrors
+# the exclusions in hack/test.sh.
+ignore:
+  - "vendor"
+  - "test"
+  - "e2e"
+  - "chart"
+  - "**/*.pb.go"
+  - "**/zz_generated*.go"
+  - "**/*_generated.go"
