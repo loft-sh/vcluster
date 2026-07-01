@@ -5,12 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 
 	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/snapshot/volumes"
-	csiVolumes "github.com/loft-sh/vcluster/pkg/snapshot/volumes/csi"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	corev1 "k8s.io/api/core/v1"
@@ -29,7 +26,6 @@ const (
 
 type RestoreReconciler struct {
 	reconcilerBase
-	volumesRestorer volumes.Restorer
 }
 
 func NewRestoreController(registerContext *synccontext.RegisterContext) (*RestoreReconciler, error) {
@@ -55,24 +51,7 @@ func NewRestoreController(registerContext *synccontext.RegisterContext) (*Restor
 		logger.Infof("vcluster-restore-controller will reconcile snapshot requests in the virtual cluster")
 	}
 
-	var volumesManager ctrl.Manager
-	if registerContext.Config.PrivateNodes.Enabled {
-		logger.Infof("vcluster-restore-controller will create volume snapshots in the virtual cluster")
-		volumesManager = registerContext.VirtualManager
-	} else {
-		logger.Infof("vcluster-restore-controller will create volume snapshots in the host cluster")
-		volumesManager = registerContext.HostManager
-	}
-	kubeClient, snapshotsClient, err := createClients(volumesManager.GetConfig())
-	if err != nil {
-		return nil, fmt.Errorf("failed to create kuberenetes clients: %w", err)
-	}
 	eventRecorder := requestsManager.GetEventRecorder(controllerName)
-	volumesRestorer, err := csiVolumes.NewRestorer(registerContext.Config, kubeClient, snapshotsClient, eventRecorder, logger)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create volume snapshotter: %w", err)
-	}
-
 	reconciler := reconcilerBase{
 		vConfig:            registerContext.Config,
 		requestsKubeClient: requestsManager.GetClient(),
@@ -86,8 +65,7 @@ func NewRestoreController(registerContext *synccontext.RegisterContext) (*Restor
 	}
 
 	return &RestoreReconciler{
-		reconcilerBase:  reconciler,
-		volumesRestorer: volumesRestorer,
+		reconcilerBase: reconciler,
 	}, nil
 }
 
@@ -174,40 +152,11 @@ func (c *RestoreReconciler) Reconcile(ctx context.Context, req ctrl.Request) (re
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to reconcile new restore request %s/%s: %w", configMap.Namespace, configMap.Name, err)
 		}
-	case RequestPhaseRestoringVolumes:
-		volumesRestoreRequest := &restoreRequest.Spec.VolumesRestore
-		volumesRestoreStatus := &restoreRequest.Status.VolumesRestore
-		previousVolumesRestoreRequestPhase := volumesRestoreStatus.Phase
-		err = c.volumesRestorer.Reconcile(ctx, &configMap, restoreRequest.Name, volumesRestoreRequest, volumesRestoreStatus)
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to reconcile volume snapshots: %w", err)
-		}
-		switch volumesRestoreStatus.Phase {
-		case snapshotapi.VolumeSnapshotPhaseInProgress:
-			if previousVolumesRestoreRequestPhase == snapshotapi.VolumeSnapshotPhaseNotStarted {
-				// volume restore request just got initialized and moved to in-progress
-				return ctrl.Result{
-					RequeueAfter: 5 * time.Second,
-				}, nil
-			} else {
-				// ongoing volumes restore reconciliation, this may take some time, wait a bit before reconciling again
-				return ctrl.Result{
-					RequeueAfter: time.Minute,
-				}, nil
-			}
-		case snapshotapi.VolumeSnapshotPhaseSkipped:
-			fallthrough
-		case snapshotapi.VolumeSnapshotPhaseCompleted:
-			restoreRequest.Status.Phase = snapshotapi.RequestPhaseCompleted
-		case snapshotapi.VolumeSnapshotPhaseFailed:
-			restoreRequest.Status.Phase = snapshotapi.RequestPhaseFailed
-			restoreRequest.Status.Error.Message = volumesRestoreStatus.Error.Message
-		case snapshotapi.VolumeSnapshotPhasePartiallyFailed:
-			restoreRequest.Status.Phase = snapshotapi.RequestPhasePartiallyFailed
-			restoreRequest.Status.Error.Message = volumesRestoreStatus.Error.Message
-		default:
-			return ctrl.Result{}, fmt.Errorf("unexpected volume snapshots request phase %s", volumesRestoreStatus.Phase)
-		}
+	case RequestPhaseRestoringEtcdBackup:
+		// The etcd backup is restored by the restore client in a separate process,
+		// so the controller has no further work and can mark the request completed.
+		restoreRequest.Status.Phase = snapshotapi.RequestPhaseCompleted
+		return ctrl.Result{}, nil
 	case snapshotapi.RequestPhasePartiallyFailed:
 		fallthrough
 	case snapshotapi.RequestPhaseCompleted:
@@ -252,7 +201,7 @@ func (c *RestoreReconciler) Register() error {
 
 // reconcileNewRequest updates the snapshot request phase to "InProgress".
 func (c *RestoreReconciler) reconcileNewRequest(_ context.Context, configMap *corev1.ConfigMap, restoreRequest *RestoreRequest) error {
-	restoreRequest.Status.Phase = RequestPhaseRestoringVolumes
+	restoreRequest.Status.Phase = RequestPhaseRestoringEtcdBackup
 	c.eventRecorder.Eventf(
 		configMap,
 		nil,

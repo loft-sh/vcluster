@@ -2,19 +2,15 @@ package snapshot
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
-	snapshotsv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/clientset/versioned"
 	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -275,22 +271,4 @@ func (c *reconcilerBase) deleteRequestSecret(ctx context.Context, configMap *cor
 		configMap.Name,
 	)
 	return nil
-}
-
-func createClients(restConfig *rest.Config) (*kubernetes.Clientset, *snapshotsv1.Clientset, error) {
-	if restConfig == nil {
-		return nil, nil, errors.New("rest config is nil")
-	}
-
-	kubeClient, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		return nil, nil, fmt.Errorf("could not create kube client: %w", err)
-	}
-
-	snapshotClient, err := snapshotsv1.NewForConfig(restConfig)
-	if err != nil {
-		return nil, nil, fmt.Errorf("could not create snapshot client: %w", err)
-	}
-
-	return kubeClient, snapshotClient, nil
 }

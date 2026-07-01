@@ -122,16 +122,6 @@ rules:
     resources: ["networkpolicies"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- end }}
-  {{- if or .Values.sync.toHost.volumeSnapshots.enabled (include "vcluster.enableVolumeSnapshotRules" .) }}
-  - apiGroups: [ "snapshot.storage.k8s.io" ]
-    resources: [ "volumesnapshots" ]
-    verbs: ["create", "delete", "patch", "update", "get", "list"]
-  {{- end }}
-  {{- if .Values.sync.toHost.volumeSnapshots.enabled }}
-  - apiGroups: ["snapshot.storage.k8s.io"]
-    resources: ["volumesnapshots"]
-    verbs: ["watch"]
-  {{- end }}
   {{ if .Values.sync.toHost.resourceClaims.enabled}}
   - apiGroups: ["resource.k8s.io"]
     resources: ["resourceclaims"]

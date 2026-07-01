@@ -11,7 +11,6 @@ import (
 	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/loft-sh/vcluster/e2e/constants"
 	pkgconstants "github.com/loft-sh/vcluster/pkg/constants"
-	"github.com/loft-sh/vcluster/pkg/snapshot"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -30,14 +29,11 @@ func runVClusterCmd(kubeconfig string, args ...string) {
 	Expect(err).NotTo(HaveOccurred(), "vcluster command failed: vcluster %v", args)
 }
 
-func createSnapshot(vClusterName, vClusterNamespace, kubeconfig string, useNewCommand bool, snapshotPath string, includeVolumes bool) {
+func createSnapshot(vClusterName, vClusterNamespace, kubeconfig string, useNewCommand bool, snapshotPath string) {
 	GinkgoHelper()
 	By("Creating a snapshot", func() {
 		if useNewCommand {
 			args := []string{"snapshot", "create", vClusterName, snapshotPath, "-n", vClusterNamespace}
-			if includeVolumes {
-				args = append(args, "--include-volumes")
-			}
 			runVClusterCmd(kubeconfig, args...)
 		} else {
 			runVClusterCmd(kubeconfig, "snapshot", vClusterName, snapshotPath, "-n", vClusterNamespace,
@@ -46,15 +42,12 @@ func createSnapshot(vClusterName, vClusterNamespace, kubeconfig string, useNewCo
 	})
 }
 
-func restoreVCluster(ctx context.Context, hostClient kubernetes.Interface, vClusterName, vClusterNamespace, snapshotPath, kubeconfig string, controllerBased, restoreVolumes bool) {
+func restoreVCluster(ctx context.Context, hostClient kubernetes.Interface, vClusterName, vClusterNamespace, snapshotPath, kubeconfig string, controllerBased bool) {
 	GinkgoHelper()
 	By("Restoring the vCluster", func() {
 		args := []string{"restore", vClusterName, snapshotPath, "-n", vClusterNamespace}
 		if !controllerBased {
 			args = append(args, "--pod-mount", "pvc:snapshot-pvc:/snapshot-pvc")
-		}
-		if restoreVolumes {
-			args = append(args, "--restore-volumes")
 		}
 		runVClusterCmd(kubeconfig, args...)
 	})
@@ -76,10 +69,6 @@ func restoreVCluster(ctx context.Context, hostClient kubernetes.Interface, vClus
 			}
 		}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
 	})
-
-	if restoreVolumes {
-		waitForRequestToFinish(ctx, hostClient, vClusterNamespace, pkgconstants.RestoreRequestLabel, snapshot.UnmarshalRestoreRequest, constants.PollingTimeoutVeryLong)
-	}
 }
 
 func waitForSnapshotToBeCreated(ctx context.Context, hostClient kubernetes.Interface, vClusterNamespace string) {

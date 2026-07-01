@@ -183,7 +183,7 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 				}
 
 				log.Infof("Restore vCluster %s...", vClusterName)
-				err = Restore(ctx, []string{vClusterName, cmd.Restore}, globalFlags, &snapshotapi.Options{SnapshotTempDir: cmd.SnapshotTempDir}, &pod.Options{}, false, false, false, log)
+				err = Restore(ctx, []string{vClusterName, cmd.Restore}, globalFlags, &snapshotapi.Options{SnapshotTempDir: cmd.SnapshotTempDir}, &pod.Options{}, false, false, log)
 				if err != nil {
 					return fmt.Errorf("restore vCluster %s: %w", vClusterName, err)
 				}
@@ -258,11 +258,6 @@ func CreateHelm(ctx context.Context, options *CreateOptions, globalFlags *flags.
 	}
 
 	err = pkgconfig.ValidateAllSyncPatches(vClusterConfig.Sync)
-	if err != nil {
-		return err
-	}
-
-	err = pkgconfig.ValidateVolumeSnapshotController(vClusterConfig.Deploy.VolumeSnapshotController, vClusterConfig.PrivateNodes)
 	if err != nil {
 		return err
 	}
@@ -655,7 +650,7 @@ func (cmd *createHelm) deployChart(ctx context.Context, vClusterName, chartValue
 	// now restore if wanted
 	if cmd.Restore != "" {
 		cmd.log.Infof("Restore vCluster %s...", vClusterName)
-		err = Restore(ctx, []string{vClusterName, cmd.Restore}, cmd.GlobalFlags, &snapshotapi.Options{SnapshotTempDir: cmd.SnapshotTempDir}, &pod.Options{}, true, false, false, cmd.log)
+		err = Restore(ctx, []string{vClusterName, cmd.Restore}, cmd.GlobalFlags, &snapshotapi.Options{SnapshotTempDir: cmd.SnapshotTempDir}, &pod.Options{}, true, false, cmd.log)
 		if err != nil {
 			// delete the vcluster if the restore failed
 			deleteErr := helmClient.Delete(vClusterName, cmd.Namespace)

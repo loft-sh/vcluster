@@ -4,15 +4,13 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/spf13/cobra"
 )
 
 var (
-	newVCluster    bool
-	restoreVolumes bool
+	newVCluster bool
 )
 
 func NewRestoreCommand() *cobra.Command {
@@ -21,9 +19,6 @@ func NewRestoreCommand() *cobra.Command {
 		Short: "Restore a vCluster",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if restoreVolumes {
-				log.GetInstance().Warnf("WARNING: --restore-volumes is deprecated and will be removed in an upcoming release.")
-			}
 			vConfig, err := config.LoadConfig(os.Getenv("VCLUSTER_NAME"))
 			if err != nil {
 				return err
@@ -33,12 +28,11 @@ func NewRestoreCommand() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to parse options from environment: %w", err)
 			}
-			restoreClient := snapshot.NewRestoreClient(*envOptions, restoreVolumes, newVCluster)
+			restoreClient := snapshot.NewRestoreClient(*envOptions, newVCluster)
 			return restoreClient.Run(cmd.Context(), vConfig)
 		},
 	}
 
 	cmd.Flags().BoolVar(&newVCluster, "new-vcluster", false, "Restore a new vCluster from snapshot instead of restoring into an existing vCluster")
-	cmd.Flags().BoolVar(&restoreVolumes, "restore-volumes", false, "Restore volumes from volume snapshots. Deprecated: volume snapshot and restore will be removed in an upcoming release.")
 	return cmd
 }

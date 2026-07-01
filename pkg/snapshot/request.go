@@ -49,8 +49,7 @@ func CreateSnapshotRequestResources(ctx context.Context, vClusterNamespace, vClu
 			CreationTimestamp: metav1.Now(),
 		},
 		Spec: snapshotapi.RequestSpec{
-			URL:            options.GetURL(),
-			IncludeVolumes: options.IncludeVolumes,
+			URL: options.GetURL(),
 		},
 	}
 	configMap, err := snapshotapi.NewSnapshotRequestConfigMap(vClusterNamespace, vClusterName, snapshotRequest)
@@ -82,7 +81,7 @@ func IsSnapshotRequestCreatedInHostCluster(config *config.VirtualClusterConfig) 
 
 func GetSnapshots(ctx context.Context, vClusterNamespace string, snapshotOpts *snapshotapi.Options, kubeClient *kubernetes.Clientset, log log.Logger) error {
 	// First, try to get saved snapshots
-	restoreClient := NewRestoreClient(*snapshotOpts, false, false)
+	restoreClient := NewRestoreClient(*snapshotOpts, false)
 
 	savedSnapshotRequest, err := restoreClient.GetSnapshotRequest(ctx)
 	if azure.IsAzureFlagNotSetError(err) {
@@ -93,18 +92,7 @@ func GetSnapshots(ctx context.Context, vClusterNamespace string, snapshotOpts *s
 		log.Debugf("Failed to get saved snapshot request for URL %s: %v", snapshotOpts.GetURL(), err)
 	}
 	if savedSnapshotRequest != nil {
-		// The snapshot request has been saved while it was in progress (it's
-		// set to Completed/PartiallyFailed after the upload). Therefore, here
-		// we update the phase to the correct final state.
-		if savedSnapshotRequest.Spec.IncludeVolumes {
-			if savedSnapshotRequest.Status.VolumeSnapshots.Phase == snapshotapi.VolumeSnapshotPhaseCompleted {
-				savedSnapshotRequest.Status.Phase = snapshotapi.RequestPhaseCompleted
-			} else {
-				savedSnapshotRequest.Status.Phase = snapshotapi.RequestPhasePartiallyFailed
-			}
-		} else {
-			savedSnapshotRequest.Status.Phase = snapshotapi.RequestPhaseCompleted
-		}
+		savedSnapshotRequest.Status.Phase = snapshotapi.RequestPhaseCompleted
 	}
 
 	var inProgressSnapshotRequest *snapshotapi.Request
@@ -145,7 +133,6 @@ func GetSnapshots(ctx context.Context, vClusterNamespace string, snapshotOpts *s
 	}
 
 	var url string
-	var volumesStatus string
 	var saved string
 	var status snapshotapi.RequestPhase
 	var age string
@@ -158,28 +145,16 @@ func GetSnapshots(ctx context.Context, vClusterNamespace string, snapshotOpts *s
 	url = snapshotRequestToShow.Spec.URL
 	status = snapshotRequestToShow.Status.Phase
 	age = duration.HumanDuration(time.Since(snapshotRequestToShow.CreationTimestamp.Time))
-	if len(snapshotRequestToShow.Spec.VolumeSnapshots.Requests) > 0 {
-		var completedCount int
-		for _, volumeSnapshotRequest := range snapshotRequestToShow.Spec.VolumeSnapshots.Requests {
-			pvcName := fmt.Sprintf("%s/%s", volumeSnapshotRequest.PersistentVolumeClaim.Namespace, volumeSnapshotRequest.PersistentVolumeClaim.Name)
-			volumeSnapshotStatus, ok := snapshotRequestToShow.Status.VolumeSnapshots.Snapshots[pvcName]
-			if ok && volumeSnapshotStatus.Phase == snapshotapi.VolumeSnapshotPhaseCompleted {
-				completedCount++
-			}
-		}
-		volumesStatus = fmt.Sprintf("%d/%d", completedCount, len(snapshotRequestToShow.Spec.VolumeSnapshots.Requests))
-	}
 	if savedSnapshotRequest != nil {
 		saved = "Yes"
 	} else {
 		saved = "No"
 	}
 
-	header := []string{"SNAPSHOT", "VOLUMES", "SAVED", "STATUS", "AGE"}
+	header := []string{"SNAPSHOT", "SAVED", "STATUS", "AGE"}
 	values := [][]string{
 		{
 			url,
-			volumesStatus,
 			saved,
 			string(status),
 			age,
@@ -191,7 +166,7 @@ func GetSnapshots(ctx context.Context, vClusterNamespace string, snapshotOpts *s
 
 func DeleteSnapshotRequestResources(ctx context.Context, vClusterNamespace, vClusterName string, vConfig *config.VirtualClusterConfig, options *snapshotapi.Options, kubeClient *kubernetes.Clientset) error {
 	// First, try to get saved snapshots
-	restoreClient := NewRestoreClient(*options, false, false)
+	restoreClient := NewRestoreClient(*options, false)
 
 	savedSnapshotRequest, err := restoreClient.GetSnapshotRequest(ctx)
 	if errors.Is(err, ErrSnapshotRequestNotFound) {

@@ -43,6 +43,7 @@ type ManagementV1Interface interface {
 	ProjectSecretsGetter
 	RedirectTokensGetter
 	RegisterVirtualClustersGetter
+	RenderVirtualClusterTemplatesGetter
 	ResetAccessKeysGetter
 	SSHKeysGetter
 	SelvesGetter
@@ -188,6 +189,10 @@ func (c *ManagementV1Client) RedirectTokens() RedirectTokenInterface {
 
 func (c *ManagementV1Client) RegisterVirtualClusters() RegisterVirtualClusterInterface {
 	return newRegisterVirtualClusters(c)
+}
+
+func (c *ManagementV1Client) RenderVirtualClusterTemplates() RenderVirtualClusterTemplateInterface {
+	return newRenderVirtualClusterTemplates(c)
 }
 
 func (c *ManagementV1Client) ResetAccessKeys() ResetAccessKeyInterface {

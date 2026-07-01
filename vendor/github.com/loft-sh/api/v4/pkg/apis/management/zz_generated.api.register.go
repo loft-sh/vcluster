@@ -377,8 +377,18 @@ var (
 	NewRegisterVirtualClusterREST = func(getter generic.RESTOptionsGetter) rest.Storage {
 		return NewRegisterVirtualClusterRESTFunc(Factory)
 	}
-	NewRegisterVirtualClusterRESTFunc NewRESTFunc
-	ManagementResetAccessKeyStorage   = builders.NewApiResourceWithStorage( // Resource status endpoint
+	NewRegisterVirtualClusterRESTFunc             NewRESTFunc
+	ManagementRenderVirtualClusterTemplateStorage = builders.NewApiResourceWithStorage( // Resource status endpoint
+		InternalRenderVirtualClusterTemplate,
+		func() runtime.Object { return &RenderVirtualClusterTemplate{} },     // Register versioned resource
+		func() runtime.Object { return &RenderVirtualClusterTemplateList{} }, // Register versioned resource list
+		NewRenderVirtualClusterTemplateREST,
+	)
+	NewRenderVirtualClusterTemplateREST = func(getter generic.RESTOptionsGetter) rest.Storage {
+		return NewRenderVirtualClusterTemplateRESTFunc(Factory)
+	}
+	NewRenderVirtualClusterTemplateRESTFunc NewRESTFunc
+	ManagementResetAccessKeyStorage         = builders.NewApiResourceWithStorage( // Resource status endpoint
 		InternalResetAccessKey,
 		func() runtime.Object { return &ResetAccessKey{} },     // Register versioned resource
 		func() runtime.Object { return &ResetAccessKeyList{} }, // Register versioned resource list
@@ -1090,6 +1100,18 @@ var (
 		func() runtime.Object { return &RegisterVirtualCluster{} },
 		func() runtime.Object { return &RegisterVirtualClusterList{} },
 	)
+	InternalRenderVirtualClusterTemplate = builders.NewInternalResource(
+		"rendervirtualclustertemplates",
+		"RenderVirtualClusterTemplate",
+		func() runtime.Object { return &RenderVirtualClusterTemplate{} },
+		func() runtime.Object { return &RenderVirtualClusterTemplateList{} },
+	)
+	InternalRenderVirtualClusterTemplateStatus = builders.NewInternalResourceStatus(
+		"rendervirtualclustertemplates",
+		"RenderVirtualClusterTemplateStatus",
+		func() runtime.Object { return &RenderVirtualClusterTemplate{} },
+		func() runtime.Object { return &RenderVirtualClusterTemplateList{} },
+	)
 	InternalResetAccessKey = builders.NewInternalResource(
 		"resetaccesskeys",
 		"ResetAccessKey",
@@ -1545,6 +1567,8 @@ var (
 		InternalRedirectTokenStatus,
 		InternalRegisterVirtualCluster,
 		InternalRegisterVirtualClusterStatus,
+		InternalRenderVirtualClusterTemplate,
+		InternalRenderVirtualClusterTemplateStatus,
 		InternalResetAccessKey,
 		InternalResetAccessKeyStatus,
 		InternalSSHKey,
@@ -1798,105 +1822,6 @@ type AuditPolicyRule struct {
 	Clusters        []string                `json:"clusters,omitempty"`
 }
 
-type Authentication struct {
-	Connector                `json:",inline"`
-	Password                 *AuthenticationPassword `json:"password,omitempty"`
-	Connectors               []ConnectorWithName     `json:"connectors,omitempty"`
-	DisableTeamCreation      bool                    `json:"disableTeamCreation,omitempty"`
-	DisableUserCreation      bool                    `json:"disableUserCreation,omitempty"`
-	AccessKeyMaxTTLSeconds   int64                   `json:"accessKeyMaxTTLSeconds,omitempty"`
-	LoginAccessKeyTTLSeconds *int64                  `json:"loginAccessKeyTTLSeconds,omitempty"`
-	CustomHttpHeaders        map[string]string       `json:"customHttpHeaders,omitempty"`
-	GroupsFilters            []string                `json:"groupsFilters,omitempty"`
-}
-
-type AuthenticationGithub struct {
-	ClientID     string                    `json:"clientId,omitempty"`
-	ClientSecret string                    `json:"clientSecret"`
-	RedirectURI  string                    `json:"redirectURI"`
-	Orgs         []AuthenticationGithubOrg `json:"orgs,omitempty"`
-	HostName     string                    `json:"hostName,omitempty"`
-	RootCA       string                    `json:"rootCA,omitempty"`
-}
-
-type AuthenticationGithubOrg struct {
-	Name  string   `json:"name"`
-	Teams []string `json:"teams,omitempty"`
-}
-
-type AuthenticationGitlab struct {
-	ClientID     string   `json:"clientId"`
-	ClientSecret string   `json:"clientSecret"`
-	RedirectURI  string   `json:"redirectURI"`
-	BaseURL      string   `json:"baseURL,omitempty"`
-	Groups       []string `json:"groups,omitempty"`
-}
-
-type AuthenticationGoogle struct {
-	ClientID               string   `json:"clientId"`
-	ClientSecret           string   `json:"clientSecret"`
-	RedirectURI            string   `json:"redirectURI"`
-	Scopes                 []string `json:"scopes,omitempty"`
-	HostedDomains          []string `json:"hostedDomains,omitempty"`
-	Groups                 []string `json:"groups,omitempty"`
-	ServiceAccountFilePath string   `json:"serviceAccountFilePath,omitempty"`
-	AdminEmail             string   `json:"adminEmail,omitempty"`
-}
-
-type AuthenticationMicrosoft struct {
-	ClientID             string   `json:"clientId"`
-	ClientSecret         string   `json:"clientSecret"`
-	RedirectURI          string   `json:"redirectURI"`
-	Tenant               string   `json:"tenant,omitempty"`
-	Groups               []string `json:"groups,omitempty"`
-	OnlySecurityGroups   bool     `json:"onlySecurityGroups,omitempty"`
-	UseGroupsAsWhitelist bool     `json:"useGroupsAsWhitelist,omitempty"`
-}
-
-type AuthenticationOIDC struct {
-	IssuerURL              string   `json:"issuerUrl,omitempty"`
-	ClientID               string   `json:"clientId,omitempty"`
-	ClientSecret           string   `json:"clientSecret,omitempty"`
-	RedirectURI            string   `json:"redirectURI,omitempty"`
-	PostLogoutRedirectURI  string   `json:"postLogoutRedirectURI,omitempty"`
-	CAFile                 string   `json:"caFile,omitempty"`
-	InsecureCA             bool     `json:"insecureCa,omitempty"`
-	PreferredUsernameClaim string   `json:"preferredUsername,omitempty"`
-	LoftUsernameClaim      string   `json:"loftUsernameClaim,omitempty"`
-	UsernameClaim          string   `json:"usernameClaim,omitempty"`
-	EmailClaim             string   `json:"emailClaim,omitempty"`
-	AllowedExtraClaims     []string `json:"allowedExtraClaims,omitempty"`
-	UsernamePrefix         string   `json:"usernamePrefix,omitempty"`
-	GroupsClaim            string   `json:"groupsClaim,omitempty"`
-	Groups                 []string `json:"groups,omitempty"`
-	Scopes                 []string `json:"scopes,omitempty"`
-	GetUserInfo            bool     `json:"getUserInfo,omitempty"`
-	GroupsPrefix           string   `json:"groupsPrefix,omitempty"`
-	Type                   string   `json:"type,omitempty"`
-	Resource               string   `json:"resource,omitempty"`
-}
-
-type AuthenticationPassword struct {
-	Disabled bool `json:"disabled,omitempty"`
-}
-
-type AuthenticationSAML struct {
-	RedirectURI                     string   `json:"redirectURI,omitempty"`
-	SSOURL                          string   `json:"ssoURL,omitempty"`
-	CAData                          []byte   `json:"caData,omitempty"`
-	UsernameAttr                    string   `json:"usernameAttr,omitempty"`
-	EmailAttr                       string   `json:"emailAttr,omitempty"`
-	GroupsAttr                      string   `json:"groupsAttr,omitempty"`
-	CA                              string   `json:"ca,omitempty"`
-	InsecureSkipSignatureValidation bool     `json:"insecureSkipSignatureValidation,omitempty"`
-	EntityIssuer                    string   `json:"entityIssuer,omitempty"`
-	SSOIssuer                       string   `json:"ssoIssuer,omitempty"`
-	GroupsDelim                     string   `json:"groupsDelim,omitempty"`
-	AllowedGroups                   []string `json:"allowedGroups,omitempty"`
-	FilterGroups                    bool     `json:"filterGroups,omitempty"`
-	NameIDPolicyFormat              string   `json:"nameIDPolicyFormat,omitempty"`
-}
-
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -2102,7 +2027,7 @@ type ConfigSpec struct {
 }
 
 type ConfigStatus struct {
-	Authentication              Authentication                  `json:"auth,omitempty"`
+	Authentication              storagev1.Authentication        `json:"auth,omitempty"`
 	OIDC                        *OIDC                           `json:"oidc,omitempty"`
 	Apps                        *Apps                           `json:"apps,omitempty"`
 	Audit                       *Audit                          `json:"audit,omitempty"`
@@ -2118,21 +2043,6 @@ type ConfigStatus struct {
 	PlatformDB                  *PlatformDB                     `json:"platformDB,omitempty"`
 	ImageBuilder                *ImageBuilder                   `json:"imageBuilder,omitempty"`
 	Database                    *DatabaseKine                   `json:"database,omitempty"`
-}
-
-type Connector struct {
-	OIDC      *AuthenticationOIDC      `json:"oidc,omitempty"`
-	Github    *AuthenticationGithub    `json:"github,omitempty"`
-	Gitlab    *AuthenticationGitlab    `json:"gitlab,omitempty"`
-	Google    *AuthenticationGoogle    `json:"google,omitempty"`
-	Microsoft *AuthenticationMicrosoft `json:"microsoft,omitempty"`
-	SAML      *AuthenticationSAML      `json:"saml,omitempty"`
-}
-
-type ConnectorWithName struct {
-	ID          string `json:"id,omitempty"`
-	DisplayName string `json:"displayName,omitempty"`
-	Connector   `json:",inline"`
 }
 
 // +genclient
@@ -2906,6 +2816,36 @@ type RegisterVirtualClusterStatus struct {
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+type RenderVirtualClusterTemplate struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              RenderVirtualClusterTemplateSpec   `json:"spec,omitempty"`
+	Status            RenderVirtualClusterTemplateStatus `json:"status,omitempty"`
+}
+
+type RenderVirtualClusterTemplateLoft struct {
+	Name      string `json:"name,omitempty"`
+	Project   string `json:"project,omitempty"`
+	Cluster   string `json:"cluster,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+	User      string `json:"user,omitempty"`
+	Team      string `json:"team,omitempty"`
+}
+
+type RenderVirtualClusterTemplateSpec struct {
+	Values     string                           `json:"values,omitempty"`
+	Parameters string                           `json:"parameters,omitempty"`
+	Loft       RenderVirtualClusterTemplateLoft `json:"loft,omitempty"`
+}
+
+type RenderVirtualClusterTemplateStatus struct {
+	Values string `json:"values,omitempty"`
+}
+
+// +genclient
+// +genclient:nonNamespaced
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
 type ResetAccessKey struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -3023,9 +2963,8 @@ type SnapshotRequestMetadata struct {
 }
 
 type SnapshotRequestStatus struct {
-	Phase           SnapshotRequestPhase         `json:"phase,omitempty"`
-	VolumeSnapshots VolumeSnapshotsRequestStatus `json:"volumeSnapshots"`
-	Error           SnapshotRequestError         `json:"error,omitempty"`
+	Phase SnapshotRequestPhase `json:"phase,omitempty"`
+	Error SnapshotRequestError `json:"error,omitempty"`
 }
 
 type SnapshotTaken struct {
@@ -3034,7 +2973,6 @@ type SnapshotTaken struct {
 	Timestamp string              `json:"timestamp,omitempty"`
 	Reason    string              `json:"reason,omitempty"`
 	Request   SnapshotRequest     `json:"snapshotRequest,omitempty"`
-	TotalPV   int                 `json:"totalPV"`
 	Status    SnapshotTakenStatus `json:"status,omitempty"`
 }
 
@@ -3612,17 +3550,6 @@ type VirtualClusterTemplateSpec struct {
 type VirtualClusterTemplateStatus struct {
 	storagev1.VirtualClusterTemplateStatus `json:",inline"`
 	Apps                                   []*storagev1.EntityInfo `json:"apps,omitempty"`
-}
-
-type VolumeSnapshotRequestStatus struct {
-	Phase string               `json:"phase,omitempty"`
-	Error SnapshotRequestError `json:"error"`
-}
-
-type VolumeSnapshotsRequestStatus struct {
-	Phase     string                                 `json:"phase,omitempty"`
-	Snapshots map[string]VolumeSnapshotRequestStatus `json:"snapshots,omitempty"`
-	Error     SnapshotRequestError                   `json:"error"`
 }
 
 // AgentAuditEvent Functions and Structs
@@ -7596,6 +7523,125 @@ func (s *storageRegisterVirtualCluster) UpdateRegisterVirtualCluster(ctx context
 }
 
 func (s *storageRegisterVirtualCluster) DeleteRegisterVirtualCluster(ctx context.Context, id string) (bool, error) {
+	st := s.GetStandardStorage()
+	_, sync, err := st.Delete(ctx, id, nil, &metav1.DeleteOptions{})
+	return sync, err
+}
+
+// RenderVirtualClusterTemplate Functions and Structs
+//
+// +k8s:deepcopy-gen=false
+type RenderVirtualClusterTemplateStrategy struct {
+	builders.DefaultStorageStrategy
+}
+
+// +k8s:deepcopy-gen=false
+type RenderVirtualClusterTemplateStatusStrategy struct {
+	builders.DefaultStatusStorageStrategy
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type RenderVirtualClusterTemplateList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []RenderVirtualClusterTemplate `json:"items"`
+}
+
+func (RenderVirtualClusterTemplate) NewStatus() interface{} {
+	return RenderVirtualClusterTemplateStatus{}
+}
+
+func (pc *RenderVirtualClusterTemplate) GetStatus() interface{} {
+	return pc.Status
+}
+
+func (pc *RenderVirtualClusterTemplate) SetStatus(s interface{}) {
+	pc.Status = s.(RenderVirtualClusterTemplateStatus)
+}
+
+func (pc *RenderVirtualClusterTemplate) GetSpec() interface{} {
+	return pc.Spec
+}
+
+func (pc *RenderVirtualClusterTemplate) SetSpec(s interface{}) {
+	pc.Spec = s.(RenderVirtualClusterTemplateSpec)
+}
+
+func (pc *RenderVirtualClusterTemplate) GetObjectMeta() *metav1.ObjectMeta {
+	return &pc.ObjectMeta
+}
+
+func (pc *RenderVirtualClusterTemplate) SetGeneration(generation int64) {
+	pc.ObjectMeta.Generation = generation
+}
+
+func (pc RenderVirtualClusterTemplate) GetGeneration() int64 {
+	return pc.ObjectMeta.Generation
+}
+
+// Registry is an interface for things that know how to store RenderVirtualClusterTemplate.
+// +k8s:deepcopy-gen=false
+type RenderVirtualClusterTemplateRegistry interface {
+	ListRenderVirtualClusterTemplates(ctx context.Context, options *internalversion.ListOptions) (*RenderVirtualClusterTemplateList, error)
+	GetRenderVirtualClusterTemplate(ctx context.Context, id string, options *metav1.GetOptions) (*RenderVirtualClusterTemplate, error)
+	CreateRenderVirtualClusterTemplate(ctx context.Context, id *RenderVirtualClusterTemplate) (*RenderVirtualClusterTemplate, error)
+	UpdateRenderVirtualClusterTemplate(ctx context.Context, id *RenderVirtualClusterTemplate) (*RenderVirtualClusterTemplate, error)
+	DeleteRenderVirtualClusterTemplate(ctx context.Context, id string) (bool, error)
+}
+
+// NewRegistry returns a new Registry interface for the given Storage. Any mismatched types will panic.
+func NewRenderVirtualClusterTemplateRegistry(sp builders.StandardStorageProvider) RenderVirtualClusterTemplateRegistry {
+	return &storageRenderVirtualClusterTemplate{sp}
+}
+
+// Implement Registry
+// storage puts strong typing around storage calls
+// +k8s:deepcopy-gen=false
+type storageRenderVirtualClusterTemplate struct {
+	builders.StandardStorageProvider
+}
+
+func (s *storageRenderVirtualClusterTemplate) ListRenderVirtualClusterTemplates(ctx context.Context, options *internalversion.ListOptions) (*RenderVirtualClusterTemplateList, error) {
+	if options != nil && options.FieldSelector != nil && !options.FieldSelector.Empty() {
+		return nil, fmt.Errorf("field selector not supported yet")
+	}
+	st := s.GetStandardStorage()
+	obj, err := st.List(ctx, options)
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*RenderVirtualClusterTemplateList), err
+}
+
+func (s *storageRenderVirtualClusterTemplate) GetRenderVirtualClusterTemplate(ctx context.Context, id string, options *metav1.GetOptions) (*RenderVirtualClusterTemplate, error) {
+	st := s.GetStandardStorage()
+	obj, err := st.Get(ctx, id, options)
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*RenderVirtualClusterTemplate), nil
+}
+
+func (s *storageRenderVirtualClusterTemplate) CreateRenderVirtualClusterTemplate(ctx context.Context, object *RenderVirtualClusterTemplate) (*RenderVirtualClusterTemplate, error) {
+	st := s.GetStandardStorage()
+	obj, err := st.Create(ctx, object, nil, &metav1.CreateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*RenderVirtualClusterTemplate), nil
+}
+
+func (s *storageRenderVirtualClusterTemplate) UpdateRenderVirtualClusterTemplate(ctx context.Context, object *RenderVirtualClusterTemplate) (*RenderVirtualClusterTemplate, error) {
+	st := s.GetStandardStorage()
+	obj, _, err := st.Update(ctx, object.Name, rest.DefaultUpdatedObjectInfo(object), nil, nil, false, &metav1.UpdateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*RenderVirtualClusterTemplate), nil
+}
+
+func (s *storageRenderVirtualClusterTemplate) DeleteRenderVirtualClusterTemplate(ctx context.Context, id string) (bool, error) {
 	st := s.GetStandardStorage()
 	_, sync, err := st.Delete(ctx, id, nil, &metav1.DeleteOptions{})
 	return sync, err

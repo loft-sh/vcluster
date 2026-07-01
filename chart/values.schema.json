@@ -1312,7 +1312,7 @@
         },
         "volumeSnapshotController": {
           "$ref": "#/$defs/VolumeSnapshotController",
-          "description": "VolumeSnapshotController holds dedicated CSI snapshot-controller configuration."
+          "description": "VolumeSnapshotController holds dedicated CSI snapshot-controller configuration.\nDeprecated: Removed in 0.36.0. Retained as a no-op so existing configs continue to parse."
         },
         "argoCD": {
           "$ref": "#/$defs/ArgoCDDeploy",
@@ -4216,7 +4216,7 @@
         },
         "enableVolumeSnapshotRules": {
           "$ref": "#/$defs/EnableAutoSwitch",
-          "description": "EnableVolumeSnapshotRules enables all required volume snapshot rules in the Role and\nClusterRole."
+          "description": "EnableVolumeSnapshotRules enables all required volume snapshot rules in the Role and\nClusterRole.\nDeprecated: Removed in 0.36.0. Retained as a no-op so existing configs continue to parse."
         }
       },
       "additionalProperties": false,
@@ -4798,17 +4798,6 @@
       "type": "object",
       "description": "SnapshotStorageS3 holds S3 storage configuration"
     },
-    "SnapshotVolumes": {
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enabled specifies whether a snapshot should also include volumes in the snapshot\n+optional"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "description": "SnapshotVolumes holds volume snapshot configuration"
-    },
     "Snapshots": {
       "properties": {
         "auto": {
@@ -4837,10 +4826,6 @@
         "storage": {
           "$ref": "#/$defs/SnapshotStorage",
           "description": "Storage specifies where the snapshot will be stored\n+optional"
-        },
-        "volumes": {
-          "$ref": "#/$defs/SnapshotVolumes",
-          "description": "Volumes specifies configuration for volume snapshots\n+optional"
         }
       },
       "additionalProperties": false,
@@ -5118,7 +5103,7 @@
         },
         "volumeSnapshotClasses": {
           "$ref": "#/$defs/EnableSwitchWithPatches",
-          "description": "VolumeSnapshotClasses defines if volume snapshot classes created within the virtual cluster should get synced to the host cluster."
+          "description": "VolumeSnapshotClasses defines if volume snapshot classes created within the virtual cluster should get synced to the host cluster.\nDeprecated: Removed in 0.36.0. Retained as a no-op so existing configs continue to parse."
         },
         "configMaps": {
           "$ref": "#/$defs/EnableSwitchWithResourcesMappings",
@@ -5338,11 +5323,11 @@
         },
         "volumeSnapshots": {
           "$ref": "#/$defs/EnableSwitchWithPatches",
-          "description": "VolumeSnapshots defines if volume snapshots created within the virtual cluster should get synced to the host cluster."
+          "description": "VolumeSnapshots defines if volume snapshots created within the virtual cluster should get synced to the host cluster.\nDeprecated: Removed in 0.36.0. Retained as a no-op so existing configs continue to parse."
         },
         "volumeSnapshotContents": {
           "$ref": "#/$defs/EnableSwitchWithPatches",
-          "description": "VolumeSnapshotContents defines if volume snapshot contents created within the virtual cluster should get synced to the host cluster."
+          "description": "VolumeSnapshotContents defines if volume snapshot contents created within the virtual cluster should get synced to the host cluster.\nDeprecated: Removed in 0.36.0. Retained as a no-op so existing configs continue to parse."
         },
         "storageClasses": {
           "$ref": "#/$defs/EnableSwitchWithPatches",
