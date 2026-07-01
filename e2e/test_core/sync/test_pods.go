@@ -895,6 +895,99 @@ func PodSyncSpec() {
 					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 			})
+
+			It("should preserve virtual pod QOS class (Bug 1 regression)", func(ctx context.Context) {
+				// Regression test for https://github.com/loft-sh/vcluster/issues/3578 (Bug 1).
+				// The syncer used to overwrite the host QOS class with the virtual one before patching,
+				// so a later status update sent the wrong QOS class. K8s 1.32+ rejects that as
+				// "field is immutable", which left pods stuck at Ready=False.
+				suffix := random.String(6)
+				ns := "pod-qos-test-" + suffix
+				createTestNamespace(ctx, ns)
+
+				podName := "qos-" + suffix
+				By("Creating a pod with no resource requests (virtual QOS class: BestEffort)", func() {
+					_, err := vClusterClient.CoreV1().Pods(ns).Create(ctx, &corev1.Pod{
+						ObjectMeta: metav1.ObjectMeta{Name: podName},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Name:            testingContainerName,
+								Image:           testingContainerImage,
+								ImagePullPolicy: corev1.PullIfNotPresent,
+								SecurityContext: defaultSecurityContext(),
+							}},
+						},
+					}, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+				})
+
+				By("Waiting for the pod to be Running", func() {
+					waitPodRunning(ctx, podName, ns)
+				})
+
+				By("Verifying the virtual pod QOS class is BestEffort (not overwritten from host)", func() {
+					vpod, err := vClusterClient.CoreV1().Pods(ns).Get(ctx, podName, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vpod.Status.QOSClass).To(Equal(corev1.PodQOSBestEffort),
+						"virtual pod QOS class should reflect the virtual apiserver's computation (BestEffort for no resource requests), not the host pod's QOS class")
+				})
+			})
+
+			It("should keep pod Ready condition stable after reaching Ready=True (Bug 2 regression)", func(ctx context.Context) {
+				// Regression test for https://github.com/loft-sh/vcluster/issues/3578 (Bug 2).
+				// A K8s 1.34+ host kubelet sets ObservedGeneration on pod conditions. A virtual
+				// cluster on K8s < 1.34 strips that field on write, so the object cache (what we
+				// sent) and the informer (what was stored) disagree every reconcile. That false
+				// "conditions changed" signal caused needless host status updates and, together
+				// with Bug 1, made pods flap to Ready=False.
+				//
+				// This only reproduces the bug when the host is K8s >= 1.34 and the virtual cluster
+				// is < 1.34; on a same-version cluster it passes trivially. The real boundary guard
+				// is the unit test TestDiffPodStatusObservedGeneration; this is a best-effort check.
+				suffix := random.String(6)
+				ns := "pod-cond-stable-test-" + suffix
+				createTestNamespace(ctx, ns)
+
+				podName := "cond-stable-" + suffix
+				By("Creating a pod", func() {
+					_, err := vClusterClient.CoreV1().Pods(ns).Create(ctx, &corev1.Pod{
+						ObjectMeta: metav1.ObjectMeta{Name: podName},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Name:            testingContainerName,
+								Image:           testingContainerImage,
+								ImagePullPolicy: corev1.PullIfNotPresent,
+								SecurityContext: defaultSecurityContext(),
+							}},
+						},
+					}, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+				})
+
+				readyCondition := And(
+					HaveField("Type", corev1.PodReady),
+					HaveField("Status", corev1.ConditionTrue),
+				)
+
+				By("Waiting for the pod to reach Running phase with Ready=True", func() {
+					waitPodRunning(ctx, podName, ns)
+					Eventually(func(g Gomega) {
+						pod, err := vClusterClient.CoreV1().Pods(ns).Get(ctx, podName, metav1.GetOptions{})
+						g.Expect(err).To(Succeed())
+						g.Expect(pod.Status.Conditions).To(ContainElement(readyCondition),
+							"pod Ready condition is not yet True: %v", pod.Status.Conditions)
+					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+				})
+
+				By("Verifying Ready condition stays True and does not flap", func() {
+					Consistently(func(g Gomega) {
+						pod, err := vClusterClient.CoreV1().Pods(ns).Get(ctx, podName, metav1.GetOptions{})
+						g.Expect(err).To(Succeed())
+						g.Expect(pod.Status.Conditions).To(ContainElement(readyCondition),
+							"pod Ready condition flapped away from True: %v", pod.Status.Conditions)
+					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutShort).Should(Succeed())
+				})
+			})
 		},
 	)
 }
