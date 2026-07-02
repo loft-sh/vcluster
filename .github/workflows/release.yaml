@@ -221,7 +221,7 @@ jobs:
       contents: read
     steps:
       - name: Sync Linear issues to Released
-        uses: loft-sh/github-actions/.github/actions/linear-release-sync@0eaac503dce88c81646e6798c981bffa3927d83c # linear-release-sync/v1
+        uses: loft-sh/github-actions/.github/actions/linear-release-sync@e5084ddb2df90eab681462408d9b138356db9de4 # linear-release-sync (#156)
         with:
           release-tag: ${{ needs.publish.outputs.release_version }}
           repo-name: vcluster
