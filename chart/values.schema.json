@@ -1464,6 +1464,10 @@
         "weight": {
           "type": "integer",
           "description": "Weight is the weight of this node pool."
+        },
+        "profile": {
+          "type": "string",
+          "description": "Profile references a NodeProfile applied to nodes created by this pool."
         }
       },
       "additionalProperties": false,
@@ -4112,6 +4116,10 @@
         "daemon": {
           "$ref": "#/$defs/PrivateNodesDaemon",
           "description": "Daemon holds configuration for the private nodes daemon that is deployed on the nodes."
+        },
+        "defaultProfile": {
+          "type": "string",
+          "description": "DefaultProfile is the name of a NodeProfile applied to nodes joining this vCluster that do not select one explicitly. Overridden by per-pool or per-node selection. Requires a platform connection to resolve."
         }
       },
       "additionalProperties": false,
@@ -5004,6 +5012,10 @@
         "quantity": {
           "type": "integer",
           "description": "Quantity is the number of desired nodes in this pool."
+        },
+        "profile": {
+          "type": "string",
+          "description": "Profile references a NodeProfile applied to nodes created by this pool."
         }
       },
       "additionalProperties": false,
