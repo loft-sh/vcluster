@@ -31,3 +31,14 @@ name-pattern:
   - "uses: docker://.*"
   # Block actions/checkout@v4 - require sha pinning
   #- "!uses: actions/checkout@v[0-9]+"
+
+# DEVOPS-1029: actionlint (v1.7.x) has no schema yet for the GitHub Actions
+# parallel-steps feature (background:/wait:, GA 2026-06-25). It flags the
+# background: keys and the wait-only barrier step in push-head-images.yaml.
+# Suppress exactly those two messages, only for that one file, until actionlint
+# ships native support; then delete this block.
+paths:
+  .github/workflows/push-head-images.yaml:
+    ignore:
+      - 'unexpected key "background" for step'
+      - 'step must run script with "run" section or run action with "uses" section'
