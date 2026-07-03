@@ -339,7 +339,7 @@ type Deploy struct {
 	MetricsServer DeployMetricsServer `json:"metricsServer,omitempty"`
 
 	// VolumeSnapshotController holds dedicated CSI snapshot-controller configuration.
-	// Deprecated: Removed in 0.36.0. Retained as a no-op so existing configs continue to parse.
+	// Deprecated: Removed in 0.36.0. Setting this value is rejected by the Helm chart; remove it from your config.
 	VolumeSnapshotController VolumeSnapshotController `json:"volumeSnapshotController,omitempty"`
 
 	// ArgoCD holds dedicated configuration for argoCD Apps to deploy
@@ -352,7 +352,7 @@ type DeployMetricsServer struct {
 }
 
 // VolumeSnapshotController defines CSI volumes snapshot-controller configuration.
-// Deprecated: Removed in 0.36.0. Retained as a no-op so existing configs continue to parse.
+// Deprecated: Removed in 0.36.0. Setting this value is rejected by the Helm chart; remove it from your config.
 type VolumeSnapshotController struct {
 	// Enabled defines if the CSI volumes snapshot-controller should be enabled.
 	Enabled bool `json:"enabled,omitempty"`
@@ -1264,11 +1264,11 @@ type SyncToHost struct {
 	PersistentVolumes EnableSwitchWithPatches `json:"persistentVolumes,omitempty"`
 
 	// VolumeSnapshots defines if volume snapshots created within the virtual cluster should get synced to the host cluster.
-	// Deprecated: Removed in 0.36.0. Retained as a no-op so existing configs continue to parse.
+	// Deprecated: Removed in 0.36.0. Setting this value is rejected by the Helm chart; remove it from your config.
 	VolumeSnapshots EnableSwitchWithPatches `json:"volumeSnapshots,omitempty"`
 
 	// VolumeSnapshotContents defines if volume snapshot contents created within the virtual cluster should get synced to the host cluster.
-	// Deprecated: Removed in 0.36.0. Retained as a no-op so existing configs continue to parse.
+	// Deprecated: Removed in 0.36.0. Setting this value is rejected by the Helm chart; remove it from your config.
 	VolumeSnapshotContents EnableSwitchWithPatches `json:"volumeSnapshotContents,omitempty"`
 
 	// StorageClasses defines if storage classes created within the virtual cluster should get synced to the host cluster.
@@ -1395,7 +1395,7 @@ type SyncFromHost struct {
 	CustomResources map[string]SyncFromHostCustomResource `json:"customResources,omitempty"`
 
 	// VolumeSnapshotClasses defines if volume snapshot classes created within the virtual cluster should get synced to the host cluster.
-	// Deprecated: Removed in 0.36.0. Retained as a no-op so existing configs continue to parse.
+	// Deprecated: Removed in 0.36.0. Setting this value is rejected by the Helm chart; remove it from your config.
 	VolumeSnapshotClasses EnableSwitchWithPatches `json:"volumeSnapshotClasses,omitempty"`
 
 	// ConfigMaps defines if config maps in the host should get synced to the virtual cluster.
@@ -3215,7 +3215,7 @@ type RBAC struct {
 
 	// EnableVolumeSnapshotRules enables all required volume snapshot rules in the Role and
 	// ClusterRole.
-	// Deprecated: Removed in 0.36.0. Retained as a no-op so existing configs continue to parse.
+	// Deprecated: Removed in 0.36.0. Setting this value is rejected by the Helm chart; remove it from your config.
 	EnableVolumeSnapshotRules EnableAutoSwitch `json:"enableVolumeSnapshotRules,omitempty"`
 }
 

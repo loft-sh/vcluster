@@ -1026,6 +1026,79 @@ tests:
           path: spec.template.spec.containers[1].command[2]
           value: echo 'sidecar-container'
 
+  - it: fails when sync.toHost.volumeSnapshots is set
+    set:
+      sync:
+        toHost:
+          volumeSnapshots:
+            enabled: true
+    asserts:
+      - failedTemplate:
+          errorMessage: "sync.toHost.volumeSnapshots was removed in 0.36.0 and is no longer supported. Please remove it from your values."
+
+  - it: fails when sync.toHost.volumeSnapshots is set to false
+    set:
+      sync:
+        toHost:
+          volumeSnapshots:
+            enabled: false
+    asserts:
+      - failedTemplate:
+          errorMessage: "sync.toHost.volumeSnapshots was removed in 0.36.0 and is no longer supported. Please remove it from your values."
+
+  - it: fails when sync.toHost.volumeSnapshotContents is set
+    set:
+      sync:
+        toHost:
+          volumeSnapshotContents:
+            enabled: true
+    asserts:
+      - failedTemplate:
+          errorMessage: "sync.toHost.volumeSnapshotContents was removed in 0.36.0 and is no longer supported. Please remove it from your values."
+
+  - it: fails when sync.fromHost.volumeSnapshotClasses is set
+    set:
+      sync:
+        fromHost:
+          volumeSnapshotClasses:
+            enabled: true
+    asserts:
+      - failedTemplate:
+          errorMessage: "sync.fromHost.volumeSnapshotClasses was removed in 0.36.0 and is no longer supported. Please remove it from your values."
+
+  - it: fails when deploy.volumeSnapshotController is set
+    set:
+      deploy:
+        volumeSnapshotController:
+          enabled: true
+    asserts:
+      - failedTemplate:
+          errorMessage: "deploy.volumeSnapshotController was removed in 0.36.0 and is no longer supported. Please remove it from your values."
+
+  - it: fails when rbac.enableVolumeSnapshotRules is set
+    set:
+      rbac:
+        enableVolumeSnapshotRules:
+          enabled: true
+    asserts:
+      - failedTemplate:
+          errorMessage: "rbac.enableVolumeSnapshotRules was removed in 0.36.0 and is no longer supported. Please remove it from your values."
+
+  - it: does not error on legacy validation when sync.toHost is null
+    set:
+      sync:
+        toHost: null
+    asserts:
+      - isKind:
+          of: StatefulSet
+
+  - it: does not error on legacy validation when sync is null
+    set:
+      sync: null
+    asserts:
+      - isKind:
+          of: StatefulSet
+
   - it: should add NET_ADMIN and NET_RAW capabilities when kube-vip is enabled
     set:
       controlPlane:
