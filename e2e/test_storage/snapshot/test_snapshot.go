@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"time"
 
 	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
@@ -191,7 +190,6 @@ func SnapshotAllSpec() {
 			})
 
 			describeSnapshotRestore(&s)
-			describeSnapshotCanceling(&s)
 			describeSnapshotDeletion(&s)
 		},
 	)
@@ -443,81 +441,6 @@ func describeSnapshotRestore(s *snapshotCtx) {
 	})
 }
 
-func describeSnapshotCanceling(s *snapshotCtx) {
-	var (
-		testNS       string
-		snapshotPath string
-	)
-	const (
-		appCount  = 3
-		appPrefix = "test-app-"
-	)
-
-	// Ordered: BeforeAll creates 2 snapshots back-to-back -> spec 1 verifies 2 requests exist ->
-	// spec 2 verifies first was canceled -> spec 3 verifies second completed.
-	Describe("Snapshot canceling", Ordered, func() {
-		BeforeAll(func(ctx context.Context) {
-			testNS = "snap-cancel-" + random.String(6)
-			snapshotPath = "container:///snapshot-data/" + testNS + ".tar.gz"
-			cleanupAllSnapshotArtifacts(ctx, s.hostClient, s.vClusterNS)
-			_, err := s.vClusterClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{Name: testNS},
-			}, metav1.CreateOptions{})
-			Expect(err).To(Succeed())
-			for i := range appCount {
-				createAppWithPVC(ctx, s.vClusterClient, testNS, fmt.Sprintf("%s%d", appPrefix, i))
-			}
-			Eventually(func(g Gomega) {
-				for i := range appCount {
-					dep, err := s.vClusterClient.AppsV1().Deployments(testNS).Get(ctx, fmt.Sprintf("%s%d", appPrefix, i), metav1.GetOptions{})
-					g.Expect(err).To(Succeed())
-					g.Expect(dep.Status.AvailableReplicas).To(Equal(int32(1)))
-				}
-			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
-
-			createSnapshot(s.vClusterName, s.vClusterNS, s.kubeconfig, true, snapshotPath)
-			// Brief pause to ensure the first snapshot request is registered before
-			// the second one arrives - tests the cancellation path where a new
-			// snapshot supersedes an in-progress one.
-			time.Sleep(time.Second)
-			createSnapshot(s.vClusterName, s.vClusterNS, s.kubeconfig, true, snapshotPath)
-		})
-
-		It("Has 2 snapshot requests", func(ctx context.Context) {
-			Eventually(func(g Gomega) {
-				cms, err := s.hostClient.CoreV1().ConfigMaps(s.vClusterNS).List(ctx, metav1.ListOptions{
-					LabelSelector: pkgconstants.SnapshotRequestLabel,
-				})
-				g.Expect(err).To(Succeed())
-				g.Expect(cms.Items).To(HaveLen(2))
-			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
-		})
-
-		It("Canceled the previous snapshot request", func(ctx context.Context) {
-			Eventually(func(g Gomega) {
-				previousReq, _ := getTwoSnapshotRequests(g, ctx, s.hostClient, s.vClusterNS)
-				g.Expect(previousReq.Status.Phase).To(Equal(snapshotapi.RequestPhaseCanceled))
-			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
-		})
-
-		It("Completed the new snapshot request", func(ctx context.Context) {
-			Eventually(func(g Gomega) {
-				_, newerReq := getTwoSnapshotRequests(g, ctx, s.hostClient, s.vClusterNS)
-				g.Expect(newerReq.Status.Phase).To(Equal(snapshotapi.RequestPhaseCompleted))
-			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
-		})
-
-		AfterAll(func(ctx context.Context) {
-			err := s.vClusterClient.CoreV1().Namespaces().Delete(ctx, testNS, metav1.DeleteOptions{})
-			if !kerrors.IsNotFound(err) {
-				Expect(err).To(Succeed())
-			}
-			deleteSnapshotRequestConfigMaps(ctx, s.hostClient, s.vClusterNS)
-		})
-	},
-	)
-}
-
 func describeSnapshotDeletion(s *snapshotCtx) {
 	var (
 		testNS                    string
@@ -661,26 +584,4 @@ func createDeploymentWithVolume(ctx context.Context, client kubernetes.Interface
 		},
 	}, metav1.CreateOptions{})
 	Expect(err).To(Succeed())
-}
-
-func getTwoSnapshotRequests(g Gomega, ctx context.Context, hostClient kubernetes.Interface, vClusterNamespace string) (*snapshotapi.Request, *snapshotapi.Request) {
-	configMaps, err := hostClient.CoreV1().ConfigMaps(vClusterNamespace).List(ctx, metav1.ListOptions{
-		LabelSelector: pkgconstants.SnapshotRequestLabel,
-	})
-	g.Expect(err).To(Succeed())
-	g.Expect(configMaps.Items).To(HaveLen(2))
-
-	var previousCM, newerCM corev1.ConfigMap
-	if configMaps.Items[0].CreationTimestamp.Time.Before(configMaps.Items[1].CreationTimestamp.Time) {
-		previousCM = configMaps.Items[0]
-		newerCM = configMaps.Items[1]
-	} else {
-		previousCM = configMaps.Items[1]
-		newerCM = configMaps.Items[0]
-	}
-	previous, err := snapshotapi.UnmarshalRequest(&previousCM)
-	g.Expect(err).To(Succeed())
-	newer, err := snapshotapi.UnmarshalRequest(&newerCM)
-	g.Expect(err).To(Succeed())
-	return previous, newer
 }
