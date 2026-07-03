@@ -48,53 +48,24 @@ jobs:
     runs-on: ubuntu-22.04
 
     outputs:
-      label-filter: ${{ steps.sanitize.outputs.parsed-label-filter || steps.sanitize.outputs.input-label-filter || 'pr' }}
-      skip-edited: ${{ steps.check-edited.outputs.skip }}
+      label-filter: ${{ steps.parse.outputs.label-filter }}
+      skip-edited: ${{ steps.parse.outputs.skip-edited }}
 
     steps:
-      - name: Parse label-filter from PR description
+      # Parses the ```label-filter``` block from the PR body, resolves the
+      # Ginkgo label filter, and returns skip-edited=true for a no-op `edited`
+      # event (e.g. a cursor[bot] description edit on the same head SHA with an
+      # unchanged label-filter). Logic and tests live in loft-sh/github-actions
+      # so it isn't duplicated across the e2e workflows. See DEVOPS-1057.
+      - name: Parse label filter
         id: parse
-        if: github.event_name == 'pull_request'
-        uses: actions-ecosystem/action-regex-match@v2
+        uses: loft-sh/github-actions/.github/actions/parse-label-filter@parse-label-filter/v1
         with:
-          text: ${{ github.event.pull_request.body || '' }}
-          regex: '```\s*label-filter\s*\n(.*?)\n```'
-          flags: "gms"
-
-      - name: Parse previous label-filter (for edited PRs)
-        id: parse-previous
-        if: github.event_name == 'pull_request' && github.event.action == 'edited'
-        uses: actions-ecosystem/action-regex-match@v2
-        with:
-          text: ${{ github.event.changes.body.from || '' }}
-          regex: '```\s*label-filter\s*\n(.*?)\n```'
-          flags: "gms"
-
-      - name: Skip edited PRs with unchanged label-filter
-        id: check-edited
-        run: |
-          if [[ "${{ github.event_name }}" != "pull_request" ]] || [[ "${{ github.event.action }}" != "edited" ]]; then
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          else
-            CURRENT=$(echo "${{ steps.parse.outputs.group1 }}" | awk '{$1=$1; print}' | tr -d '\r\n')
-            PREVIOUS=$(echo "${{ steps.parse-previous.outputs.group1 }}" | awk '{$1=$1; print}' | tr -d '\r\n')
-            if [[ "$CURRENT" == "$PREVIOUS" ]]; then
-              echo "::notice::Skipping e2e: PR edited but label-filter unchanged (${CURRENT:-none})"
-              echo "skip=true" >> "$GITHUB_OUTPUT"
-            else
-              echo "::notice::Label-filter changed from '${PREVIOUS:-none}' to '${CURRENT:-none}', running e2e"
-              echo "skip=false" >> "$GITHUB_OUTPUT"
-            fi
-          fi
-
-      - name: Sanitize values
-        id: sanitize
-        run: |
-          # Trim whitespaces and newlines from label filter
-          INPUT_LABEL_FILTER=$(echo "${{ inputs.ginkgo-label }}" | awk '{$1=$1; print}' | tr -d '\r\n')
-          PARSED_LABEL_FILTER=$(echo "${{ steps.parse.outputs.group1 }}" | awk '{$1=$1; print}' | tr -d '\r\n')
-          echo "input-label-filter=${INPUT_LABEL_FILTER}" >> "$GITHUB_OUTPUT"
-          echo "parsed-label-filter=${PARSED_LABEL_FILTER}" >> "$GITHUB_OUTPUT"
+          pr-body: ${{ github.event.pull_request.body }}
+          previous-pr-body: ${{ github.event.changes.body.from }}
+          event-name: ${{ github.event_name }}
+          event-action: ${{ github.event.action }}
+          label-filter-input: ${{ inputs.ginkgo-label }}
 
   detect_changes:
     needs: [parse_label-filter]
