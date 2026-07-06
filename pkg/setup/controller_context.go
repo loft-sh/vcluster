@@ -378,6 +378,11 @@ func initControllerContext(
 	nodes.FakeNodesVersion = virtualClusterVersion.GitVersion
 	klog.FromContext(ctx).Info("Can connect to virtual cluster", "version", virtualClusterVersion.GitVersion)
 
+	hostClusterVersion, err := vClusterOptions.HostClient.Discovery().ServerVersion()
+	if err != nil {
+		return nil, errors.Wrap(err, "get host cluster version")
+	}
+
 	// create a new current namespace client
 	var currentNamespaceClient client.Client
 	if !vClusterOptions.ControlPlane.Standalone.Enabled {
@@ -400,6 +405,7 @@ func initControllerContext(
 		VirtualManager:        virtualManager,
 		VirtualRawConfig:      virtualRawConfig,
 		VirtualClusterVersion: virtualClusterVersion,
+		HostClusterVersion:    hostClusterVersion,
 
 		HostNamespaceClient: currentNamespaceClient,
 

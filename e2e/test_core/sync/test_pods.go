@@ -896,11 +896,11 @@ func PodSyncSpec() {
 				})
 			})
 
-			It("should preserve virtual pod QOS class (Bug 1 regression)", func(ctx context.Context) {
-				// Regression test for https://github.com/loft-sh/vcluster/issues/3578 (Bug 1).
-				// The syncer used to overwrite the host QOS class with the virtual one before patching,
-				// so a later status update sent the wrong QOS class. K8s 1.32+ rejects that as
-				// "field is immutable", which left pods stuck at Ready=False.
+			It("should preserve virtual pod QOS class", func(ctx context.Context) {
+				// Regression test for https://github.com/loft-sh/vcluster/issues/3578, where pods
+				// got stuck at Ready=False. The syncer used to copy the virtual QOS class onto the
+				// host pod, so a later status update tried to change the host's QOS class. K8s 1.32+
+				// treats that field as immutable and rejects the update.
 				suffix := random.String(6)
 				ns := "pod-qos-test-" + suffix
 				createTestNamespace(ctx, ns)
@@ -933,17 +933,14 @@ func PodSyncSpec() {
 				})
 			})
 
-			It("should keep pod Ready condition stable after reaching Ready=True (Bug 2 regression)", func(ctx context.Context) {
-				// Regression test for https://github.com/loft-sh/vcluster/issues/3578 (Bug 2).
-				// A K8s 1.34+ host kubelet sets ObservedGeneration on pod conditions. A virtual
-				// cluster on K8s < 1.34 strips that field on write, so the object cache (what we
-				// sent) and the informer (what was stored) disagree every reconcile. That false
-				// "conditions changed" signal caused needless host status updates and, together
-				// with Bug 1, made pods flap to Ready=False.
+			It("should keep pod Ready condition stable after reaching Ready=True", func(ctx context.Context) {
+				// Regression test for https://github.com/loft-sh/vcluster/issues/3578, where pods
+				// kept switching back to Ready=False because the syncer wrongly thought their
+				// conditions had changed on every reconcile.
 				//
-				// This only reproduces the bug when the host is K8s >= 1.34 and the virtual cluster
-				// is < 1.34; on a same-version cluster it passes trivially. The real boundary guard
-				// is the unit test TestDiffPodStatusObservedGeneration; this is a best-effort check.
+				// This only happens when the host runs K8s >= 1.34 and the virtual cluster runs
+				// < 1.34. On a same-version cluster the bug can't reproduce, so the real check
+				// lives in the unit test TestDiffPodStatusObservedGeneration.
 				suffix := random.String(6)
 				ns := "pod-cond-stable-test-" + suffix
 				createTestNamespace(ctx, ns)

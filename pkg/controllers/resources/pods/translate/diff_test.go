@@ -147,11 +147,6 @@ func TestDiffTolerationSync(t *testing.T) {
 	}
 }
 
-// TestConditionsCopyBidirectionalObservedGeneration checks that, for a virtual cluster that
-// strips ObservedGeneration on write (K8s < 1.34), conditionsCopyBidirectional ignores that
-// field when deciding whether conditions changed. This avoids a false "virtual changed" signal
-// from the cache/informer disagreeing on ObservedGeneration, which is the original trigger for
-// Bug 1. On K8s >= 1.34 the field is real, so a change to it is treated as a real change.
 func TestConditionsCopyBidirectionalObservedGeneration(t *testing.T) {
 	v131 := utilversion.MustParseSemantic("1.31.0")
 	v133 := utilversion.MustParseSemantic("1.33.0")
@@ -173,10 +168,9 @@ func TestConditionsCopyBidirectionalObservedGeneration(t *testing.T) {
 	}{
 		{
 			// Object cache stored {ObservedGeneration:1} (what was sent); informer returned
-			// {ObservedGeneration:0} (what the v1.31 apiserver stored). The delta must NOT
-			// be treated as a virtual change — doing so triggers a host Status().Update with
-			// the wrong QOS class (Bug 1).
-			name:           "v1.31: cache/informer divergence (only observedGeneration) — no false trigger",
+			// {ObservedGeneration:0} (what the v1.31 apiserver stored). The delta must not be
+			// treated as a virtual change.
+			name:           "v1.31: cache/informer divergence (only observedGeneration), no false trigger",
 			version:        v131,
 			virtualOld:     []corev1.PodCondition{readyGen1},
 			virtual:        []corev1.PodCondition{ready},
@@ -187,7 +181,7 @@ func TestConditionsCopyBidirectionalObservedGeneration(t *testing.T) {
 		},
 		{
 			// A real condition status change must still propagate to the host even on v1.31.
-			name:           "v1.31: actual condition status change — propagated to host",
+			name:           "v1.31: actual condition status change, propagated to host",
 			version:        v131,
 			virtualOld:     []corev1.PodCondition{ready},
 			virtual:        []corev1.PodCondition{notReady},
@@ -197,10 +191,9 @@ func TestConditionsCopyBidirectionalObservedGeneration(t *testing.T) {
 			wantNewHost:    []corev1.PodCondition{notReady},
 		},
 		{
-			// EKS kubelet sets ObservedGeneration=1 on the host condition. After stripping,
-			// hostOld and host look identical, so we correctly skip propagation to virtual.
-			// The virtual apiserver would strip it on write anyway.
-			name:           "v1.31: host gets observedGeneration from kubelet — not propagated to virtual",
+			// Host kubelet sets ObservedGeneration=1 on the host condition. After stripping,
+			// hostOld and host are identical, so propagation to virtual is skipped.
+			name:           "v1.31: host gets observedGeneration from kubelet, not propagated to virtual",
 			version:        v131,
 			virtualOld:     []corev1.PodCondition{ready},
 			virtual:        []corev1.PodCondition{ready},
@@ -210,10 +203,9 @@ func TestConditionsCopyBidirectionalObservedGeneration(t *testing.T) {
 			wantNewHost:    []corev1.PodCondition{readyGen1},
 		},
 		{
-			// v1.33 is one of the versions reported in
-			// https://github.com/loft-sh/vcluster/issues/3578: the gate is alpha and off, so the
-			// apiserver still strips the field. The divergence must not be treated as a change.
-			name:           "v1.33: gate alpha/off, divergence still suppressed (reported version)",
+			// v1.33 (one of the versions reported in issue 3578): the gate is alpha and off, so
+			// the apiserver still strips the field. The divergence must not be treated as a change.
+			name:           "v1.33: gate alpha/off, divergence still suppressed",
 			version:        v133,
 			virtualOld:     []corev1.PodCondition{readyGen1},
 			virtual:        []corev1.PodCondition{ready},
@@ -223,9 +215,9 @@ func TestConditionsCopyBidirectionalObservedGeneration(t *testing.T) {
 			wantNewHost:    []corev1.PodCondition{readyGen1},
 		},
 		{
-			// From v1.34 the gate is beta/on, so the apiserver preserves the field. Any change to
-			// ObservedGeneration is then a genuine mutation and must be treated as a real virtual change.
-			name:           "v1.34: gate beta/on, observedGeneration change treated as real change — propagated to host",
+			// From v1.34 the gate is beta/on, so the apiserver preserves the field. A change to
+			// ObservedGeneration is then a genuine mutation and must be treated as a real change.
+			name:           "v1.34: gate beta/on, observedGeneration change treated as real change",
 			version:        v134,
 			virtualOld:     []corev1.PodCondition{readyGen1},
 			virtual:        []corev1.PodCondition{ready},
@@ -235,9 +227,9 @@ func TestConditionsCopyBidirectionalObservedGeneration(t *testing.T) {
 			wantNewHost:    []corev1.PodCondition{ready},
 		},
 		{
-			// Version not yet discovered (startup). We must NOT take the strip path: with the
-			// same inputs as the v1.33 case, the observedGeneration delta is treated as a real
-			// change (wantNewHost is ready, not readyGen1). This pins the nil guard.
+			// Version not yet discovered (startup): the strip path is not taken, so with the same
+			// inputs as the v1.33 case the observedGeneration delta is treated as a real change
+			// (wantNewHost is ready, not readyGen1).
 			name:           "nil version: defaults to preserve, not strip-path",
 			version:        nil,
 			virtualOld:     []corev1.PodCondition{readyGen1},
@@ -259,10 +251,6 @@ func TestConditionsCopyBidirectionalObservedGeneration(t *testing.T) {
 	}
 }
 
-// TestDiffPodStatusObservedGeneration checks that Diff() does not write the host's
-// ObservedGeneration to the virtual pod (on both the pod status and its conditions) when the
-// virtual cluster runs K8s < 1.34 and would strip that field on write. Writing it there makes
-// the cache and informer disagree every reconcile and causes endless status-patch churn (Bug 2).
 func TestDiffPodStatusObservedGeneration(t *testing.T) {
 	pClient := testingutil.NewFakeClient(scheme.Scheme)
 	vClient := testingutil.NewFakeClient(scheme.Scheme)
@@ -296,8 +284,8 @@ func TestDiffPodStatusObservedGeneration(t *testing.T) {
 			wantVirtualObservedGen: 3,
 		},
 		{
-			// Version not yet discovered (startup). The guard returns false, so the host value
-			// is copied (same as >= 1.34). This pins the nil guard against an accidental inversion.
+			// Version not yet discovered (startup): the guard returns false, so the host value
+			// is copied (same as >= 1.34).
 			name:                   "nil version: host ObservedGeneration copied (unknown version defaults to preserve)",
 			version:                nil,
 			hostObservedGeneration: 3,
@@ -342,11 +330,6 @@ func TestDiffPodStatusObservedGeneration(t *testing.T) {
 	}
 }
 
-// TestDiffQOSClassPreservation is a regression test for Bug 1. The syncer used to copy the
-// virtual QOS class onto the host before patching, so a status update sent the wrong QOS
-// class to the host, which K8s 1.32+ rejects as "field is immutable". After the fix, Diff()
-// must keep the virtual QOS class (BestEffort, from the virtual apiserver) and leave the host
-// QOS class untouched (Burstable, from the host kubelet).
 func TestDiffQOSClassPreservation(t *testing.T) {
 	pClient := testingutil.NewFakeClient(scheme.Scheme)
 	vClient := testingutil.NewFakeClient(scheme.Scheme)

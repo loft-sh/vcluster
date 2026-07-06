@@ -93,15 +93,14 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		return nil, fmt.Errorf("failed to create scheduling config: %w", err)
 	}
 
-	hostClusterVersionInfo, err := ctx.Config.HostClient.Discovery().ServerVersion()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get virtual cluster version : %w", err)
-	}
-
-	hostClusterVersion, err := utilversion.ParseSemantic(hostClusterVersionInfo.String())
-	if err != nil {
-		// This should never happen
-		return nil, fmt.Errorf("failed to parse host cluster version : %w", err)
+	// The host cluster version is discovered once at startup and carried on the context.
+	// It is nil in unit tests, which callers treat as "version unknown".
+	var hostClusterVersion *utilversion.Version
+	if ctx.HostClusterVersion != nil {
+		hostClusterVersion, err = utilversion.ParseSemantic(ctx.HostClusterVersion.String())
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse host cluster version: %w", err)
+		}
 	}
 
 	return &podSyncer{
@@ -421,7 +420,9 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 }
 
 func (s *podSyncer) resizeHostPodContainerResourcesInPlace(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Pod]) error {
-	if s.hostClusterVersion.LessThan(utilversion.MustParseSemantic("1.35.0")) {
+	// in-place pod resize is only available on the host from K8s 1.35; skip it when the host
+	// version is older or not known.
+	if s.hostClusterVersion == nil || s.hostClusterVersion.LessThan(utilversion.MustParseSemantic("1.35.0")) {
 		return nil
 	}
 

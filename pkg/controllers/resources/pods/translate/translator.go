@@ -109,17 +109,16 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder events.EventR
 		"docker.io",
 	)
 
-	hostClusterVersionInfo, err := ctx.Config.HostClient.Discovery().ServerVersion()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get host cluster version: %w", err)
-	}
-	hostClusterVersion, err := utilversion.ParseSemantic(hostClusterVersionInfo.String())
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse host cluster version: %w", err)
+	// The host and virtual cluster versions are discovered once at startup and carried on the
+	// context. They are nil in unit tests, which callers treat as "version unknown".
+	var hostClusterVersion *utilversion.Version
+	if ctx.HostClusterVersion != nil {
+		hostClusterVersion, err = utilversion.ParseSemantic(ctx.HostClusterVersion.String())
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse host cluster version: %w", err)
+		}
 	}
 
-	// The virtual cluster version is discovered once at startup and carried on the context.
-	// In unit tests it is nil; callers treat nil as "version unknown, skip normalization".
 	var virtualClusterVersion *utilversion.Version
 	if ctx.VirtualClusterVersion != nil {
 		virtualClusterVersion, err = utilversion.ParseSemantic(ctx.VirtualClusterVersion.String())
@@ -165,8 +164,8 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder events.EventR
 		enforcedTolerations: parseEnforcedTolerations(ctx.Config.Sync.ToHost.Pods.EnforceTolerations),
 	}
 
-	// Surface the suppression path so operators debugging pod conditions on a mixed-version
-	// cluster (virtual < 1.34, host >= 1.34) have a runtime signal that it is active.
+	// Log when ObservedGeneration suppression is active, to aid debugging pod conditions on a
+	// mixed-version cluster (virtual < 1.34, host >= 1.34).
 	if t.virtualClusterStripsObservedGeneration() {
 		t.log.Infof("virtual cluster version %s strips ObservedGeneration on write; suppressing phantom pod condition diffs", virtualClusterVersion)
 	}
