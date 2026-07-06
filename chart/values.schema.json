@@ -1312,7 +1312,7 @@
         },
         "volumeSnapshotController": {
           "$ref": "#/$defs/VolumeSnapshotController",
-          "description": "VolumeSnapshotController holds dedicated CSI snapshot-controller configuration.\nDeprecated: Removed in 0.36.0. Retained as a no-op so existing configs continue to parse."
+          "description": "VolumeSnapshotController holds dedicated CSI snapshot-controller configuration.\nDeprecated: Removed in 0.36.0. Setting this value is rejected by the Helm chart; remove it from your config."
         },
         "argoCD": {
           "$ref": "#/$defs/ArgoCDDeploy",
@@ -4216,7 +4216,7 @@
         },
         "enableVolumeSnapshotRules": {
           "$ref": "#/$defs/EnableAutoSwitch",
-          "description": "EnableVolumeSnapshotRules enables all required volume snapshot rules in the Role and\nClusterRole.\nDeprecated: Removed in 0.36.0. Retained as a no-op so existing configs continue to parse."
+          "description": "EnableVolumeSnapshotRules enables all required volume snapshot rules in the Role and\nClusterRole.\nDeprecated: Removed in 0.36.0. Setting this value is rejected by the Helm chart; remove it from your config."
         }
       },
       "additionalProperties": false,
@@ -5103,7 +5103,7 @@
         },
         "volumeSnapshotClasses": {
           "$ref": "#/$defs/EnableSwitchWithPatches",
-          "description": "VolumeSnapshotClasses defines if volume snapshot classes created within the virtual cluster should get synced to the host cluster.\nDeprecated: Removed in 0.36.0. Retained as a no-op so existing configs continue to parse."
+          "description": "VolumeSnapshotClasses defines if volume snapshot classes created within the virtual cluster should get synced to the host cluster.\nDeprecated: Removed in 0.36.0. Setting this value is rejected by the Helm chart; remove it from your config."
         },
         "configMaps": {
           "$ref": "#/$defs/EnableSwitchWithResourcesMappings",
@@ -5323,11 +5323,11 @@
         },
         "volumeSnapshots": {
           "$ref": "#/$defs/EnableSwitchWithPatches",
-          "description": "VolumeSnapshots defines if volume snapshots created within the virtual cluster should get synced to the host cluster.\nDeprecated: Removed in 0.36.0. Retained as a no-op so existing configs continue to parse."
+          "description": "VolumeSnapshots defines if volume snapshots created within the virtual cluster should get synced to the host cluster.\nDeprecated: Removed in 0.36.0. Setting this value is rejected by the Helm chart; remove it from your config."
         },
         "volumeSnapshotContents": {
           "$ref": "#/$defs/EnableSwitchWithPatches",
-          "description": "VolumeSnapshotContents defines if volume snapshot contents created within the virtual cluster should get synced to the host cluster.\nDeprecated: Removed in 0.36.0. Retained as a no-op so existing configs continue to parse."
+          "description": "VolumeSnapshotContents defines if volume snapshot contents created within the virtual cluster should get synced to the host cluster.\nDeprecated: Removed in 0.36.0. Setting this value is rejected by the Helm chart; remove it from your config."
         },
         "storageClasses": {
           "$ref": "#/$defs/EnableSwitchWithPatches",
