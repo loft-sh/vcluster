@@ -4,6 +4,9 @@ on:
   pull_request_target:
     types: ["labeled", "closed"]
 
+permissions:
+  contents: read
+
 jobs:
   backport:
     uses: loft-sh/github-actions/.github/workflows/backport.yaml@2de17e8ed0da1b3063a7959d309478f00f094449 # backport/v1
