@@ -15,6 +15,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	pkgconstants "github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/etcd"
+	snapshotpkg "github.com/loft-sh/vcluster/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -481,14 +482,12 @@ func describeSnapshotDeletion(s *snapshotCtx) {
 		It("Creates snapshot deletion request", func(ctx context.Context) {
 			listOptions := metav1.ListOptions{LabelSelector: pkgconstants.SnapshotRequestLabel}
 
-			var snapshotOptions *snapshotapi.Options
-			Eventually(func(g Gomega) {
-				secrets, err := s.hostClient.CoreV1().Secrets(s.vClusterNS).List(ctx, listOptions)
-				g.Expect(err).To(Succeed())
-				g.Expect(secrets.Items).To(HaveLen(1))
-				snapshotOptions, err = snapshotapi.UnmarshalOptions(&secrets.Items[0])
-				g.Expect(err).To(Succeed())
-			}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+			// Build the storage options from the known snapshot path rather than
+			// reading them from the request Secret. The controller deletes that
+			// Secret as soon as the snapshot completes, which now happens almost
+			// immediately, so listing it here is a race.
+			snapshotOptions := &snapshotapi.Options{}
+			Expect(snapshotpkg.Parse(snapshotPath, snapshotOptions)).To(Succeed())
 
 			waitForSnapshotToBeCreated(ctx, s.hostClient, s.vClusterNS)
 
