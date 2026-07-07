@@ -67,7 +67,7 @@ func ServiceSyncSpec() {
 					Eventually(func(g Gomega) {
 						_, err := hostClient.CoreV1().Namespaces().Get(ctx, fromNS, metav1.GetOptions{})
 						g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
 				var fromService *corev1.Service
@@ -91,7 +91,7 @@ func ServiceSyncSpec() {
 						var err error
 						toService, err = vClusterClient.CoreV1().Services(toNS).Get(ctx, toName, metav1.GetOptions{})
 						g.Expect(err).To(Succeed())
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
 				By("asserting the replicated service has correct ports", func() {
@@ -110,7 +110,7 @@ func ServiceSyncSpec() {
 						g.Expect(err).To(Succeed())
 						g.Expect(toEndpoints.Subsets).To(HaveLen(1))
 						g.Expect(toEndpoints.Subsets[0].Addresses).To(HaveLen(1))
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
 				By("asserting endpoint IP equals source service ClusterIP", func() {
@@ -125,7 +125,7 @@ func ServiceSyncSpec() {
 					Eventually(func(g Gomega) {
 						_, err := vClusterClient.CoreV1().Services(toNS).Get(ctx, toName, metav1.GetOptions{})
 						g.Expect(kerrors.IsNotFound(err)).To(BeTrue(), "replicated service should be deleted after source is gone")
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
 				By("waiting for the replicated endpoint to be removed from vcluster", func() {
@@ -133,7 +133,7 @@ func ServiceSyncSpec() {
 						//nolint:staticcheck
 						_, err := vClusterClient.CoreV1().Endpoints(toNS).Get(ctx, toName, metav1.GetOptions{})
 						g.Expect(kerrors.IsNotFound(err)).To(BeTrue(), "replicated endpoint should be deleted after source is gone")
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 			})
 
@@ -161,7 +161,7 @@ func ServiceSyncSpec() {
 					Eventually(func(g Gomega) {
 						_, err := vClusterClient.CoreV1().Namespaces().Get(ctx, fromNS, metav1.GetOptions{})
 						g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
 				By("creating source service in vcluster", func() {
@@ -183,7 +183,7 @@ func ServiceSyncSpec() {
 						var err error
 						toService, err = hostClient.CoreV1().Services(vClusterNamespace).Get(ctx, toName, metav1.GetOptions{})
 						g.Expect(err).To(Succeed())
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
 				By("asserting the mapped service has correct ports", func() {
@@ -209,7 +209,7 @@ func ServiceSyncSpec() {
 					Eventually(func(g Gomega) {
 						_, err := hostClient.CoreV1().Services(vClusterNamespace).Get(ctx, toName, metav1.GetOptions{})
 						g.Expect(kerrors.IsNotFound(err)).To(BeTrue(), "mapped service should be deleted after source is gone")
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 			})
 
@@ -240,7 +240,7 @@ func ServiceSyncSpec() {
 					Eventually(func(g Gomega) {
 						_, err := hostClient.CoreV1().Namespaces().Get(ctx, fromNS, metav1.GetOptions{})
 						g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
 				By("creating an nginx deployment on host", func() {
@@ -275,7 +275,7 @@ func ServiceSyncSpec() {
 					Eventually(func(g Gomega) {
 						_, err := vClusterClient.CoreV1().Services(toNS).Get(ctx, toName, metav1.GetOptions{})
 						g.Expect(err).To(Succeed())
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
 				//nolint:staticcheck
@@ -288,7 +288,7 @@ func ServiceSyncSpec() {
 						g.Expect(err).To(Succeed())
 						g.Expect(fromEPs.Subsets).To(HaveLen(1))
 						g.Expect(fromEPs.Subsets[0].Addresses).To(HaveLen(int(two)))
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
 
 					Eventually(func(g Gomega) {
 						var err error
@@ -297,7 +297,7 @@ func ServiceSyncSpec() {
 						g.Expect(err).To(Succeed())
 						g.Expect(toEPs.Subsets).To(HaveLen(1))
 						g.Expect(toEPs.Subsets[0].Addresses).To(HaveLen(int(two)))
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
 				})
 
 				By("asserting endpoint IPs match between host and vcluster (order-independent)", func() {
@@ -311,7 +311,7 @@ func ServiceSyncSpec() {
 						dep.Spec.Replicas = &zero
 						_, err = hostClient.AppsV1().Deployments(fromNS).Update(ctx, dep, metav1.UpdateOptions{})
 						g.Expect(err).To(Succeed())
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 				})
 
 				By("waiting for host endpoints to be cleared", func() {
@@ -320,7 +320,7 @@ func ServiceSyncSpec() {
 						ep, err := hostClient.CoreV1().Endpoints(fromNS).Get(ctx, fromName, metav1.GetOptions{})
 						g.Expect(err).To(Succeed())
 						g.Expect(ep.Subsets).To(BeNil())
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
 				By("waiting for vcluster endpoints to also be cleared", func() {
@@ -329,7 +329,7 @@ func ServiceSyncSpec() {
 						ep, err := vClusterClient.CoreV1().Endpoints(toNS).Get(ctx, toName, metav1.GetOptions{})
 						g.Expect(err).To(Succeed())
 						g.Expect(ep.Subsets).To(BeNil())
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
 				By(fmt.Sprintf("scaling the deployment back to %d", two), func() {
@@ -339,7 +339,7 @@ func ServiceSyncSpec() {
 						dep.Spec.Replicas = &two
 						_, err = hostClient.AppsV1().Deployments(fromNS).Update(ctx, dep, metav1.UpdateOptions{})
 						g.Expect(err).To(Succeed())
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 				})
 
 				By(fmt.Sprintf("waiting for %d endpoints to be repopulated on both sides", two), func() {
@@ -350,7 +350,7 @@ func ServiceSyncSpec() {
 						g.Expect(err).To(Succeed())
 						g.Expect(fromEPs.Subsets).To(HaveLen(1))
 						g.Expect(fromEPs.Subsets[0].Addresses).To(HaveLen(int(two)))
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
 
 					Eventually(func(g Gomega) {
 						var err error
@@ -359,7 +359,7 @@ func ServiceSyncSpec() {
 						g.Expect(err).To(Succeed())
 						g.Expect(toEPs.Subsets).To(HaveLen(1))
 						g.Expect(toEPs.Subsets[0].Addresses).To(HaveLen(int(two)))
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
 				})
 
 				By("asserting endpoint IPs still match after scale-up", func() {
@@ -393,7 +393,7 @@ func ServiceSyncSpec() {
 					Eventually(func(g Gomega) {
 						_, err := vClusterClient.CoreV1().Namespaces().Get(ctx, fromNS, metav1.GetOptions{})
 						g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
 				By("creating an nginx deployment in vcluster", func() {
@@ -428,7 +428,7 @@ func ServiceSyncSpec() {
 					Eventually(func(g Gomega) {
 						_, err := hostClient.CoreV1().Services(vClusterNamespace).Get(ctx, toName, metav1.GetOptions{})
 						g.Expect(err).To(Succeed())
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
 				//nolint:staticcheck
@@ -441,7 +441,7 @@ func ServiceSyncSpec() {
 						g.Expect(err).To(Succeed())
 						g.Expect(fromEPs.Subsets).To(HaveLen(1))
 						g.Expect(fromEPs.Subsets[0].Addresses).To(HaveLen(int(two)))
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
 
 					Eventually(func(g Gomega) {
 						var err error
@@ -450,7 +450,7 @@ func ServiceSyncSpec() {
 						g.Expect(err).To(Succeed())
 						g.Expect(toEPs.Subsets).To(HaveLen(1))
 						g.Expect(toEPs.Subsets[0].Addresses).To(HaveLen(int(two)))
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
 				})
 
 				By("asserting endpoint IPs match between vcluster and host (order-independent)", func() {
@@ -464,7 +464,7 @@ func ServiceSyncSpec() {
 						dep.Spec.Replicas = &zero
 						_, err = vClusterClient.AppsV1().Deployments(fromNS).Update(ctx, dep, metav1.UpdateOptions{})
 						g.Expect(err).To(Succeed())
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 				})
 
 				By("waiting for vcluster endpoints to be cleared", func() {
@@ -473,7 +473,7 @@ func ServiceSyncSpec() {
 						ep, err := vClusterClient.CoreV1().Endpoints(fromNS).Get(ctx, fromName, metav1.GetOptions{})
 						g.Expect(err).To(Succeed())
 						g.Expect(ep.Subsets).To(BeNil())
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
 				By("waiting for host endpoints to also be cleared", func() {
@@ -482,7 +482,7 @@ func ServiceSyncSpec() {
 						ep, err := hostClient.CoreV1().Endpoints(vClusterNamespace).Get(ctx, toName, metav1.GetOptions{})
 						g.Expect(err).To(Succeed())
 						g.Expect(ep.Subsets).To(BeNil())
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
 				By(fmt.Sprintf("scaling the deployment back to %d", two), func() {
@@ -492,7 +492,7 @@ func ServiceSyncSpec() {
 						dep.Spec.Replicas = &two
 						_, err = vClusterClient.AppsV1().Deployments(fromNS).Update(ctx, dep, metav1.UpdateOptions{})
 						g.Expect(err).To(Succeed())
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 				})
 
 				By(fmt.Sprintf("waiting for %d endpoints to be repopulated on both sides", two), func() {
@@ -503,7 +503,7 @@ func ServiceSyncSpec() {
 						g.Expect(err).To(Succeed())
 						g.Expect(fromEPs.Subsets).To(HaveLen(1))
 						g.Expect(fromEPs.Subsets[0].Addresses).To(HaveLen(int(two)))
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
 
 					Eventually(func(g Gomega) {
 						var err error
@@ -512,7 +512,7 @@ func ServiceSyncSpec() {
 						g.Expect(err).To(Succeed())
 						g.Expect(toEPs.Subsets).To(HaveLen(1))
 						g.Expect(toEPs.Subsets[0].Addresses).To(HaveLen(int(two)))
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
 				})
 
 				By("asserting endpoint IPs still match after scale-up", func() {
@@ -575,7 +575,7 @@ func ServiceSyncSpec() {
 						g.Expect(hostSvc.Spec.Ports).To(HaveLen(1))
 						g.Expect(hostSvc.Spec.Ports[0].Name).To(Equal("custom-port"))
 						g.Expect(hostSvc.Spec.Ports[0].Port).To(Equal(int32(8080)))
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
 				By("waiting for Endpoint to appear on host with correct address and port", func() {
@@ -588,7 +588,7 @@ func ServiceSyncSpec() {
 						g.Expect(hostEP.Subsets[0].Addresses[0].IP).To(Equal("1.1.1.1"))
 						g.Expect(hostEP.Subsets[0].Ports).To(HaveLen(1))
 						g.Expect(hostEP.Subsets[0].Ports[0].Port).To(Equal(int32(5000)))
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
 				By("waiting for EndpointSlice to appear on host with correct content", func() {
@@ -600,7 +600,7 @@ func ServiceSyncSpec() {
 						g.Expect(slices.Items).To(HaveLen(1))
 						g.Expect(slices.Items[0].Endpoints).NotTo(BeEmpty())
 						g.Expect(slices.Items[0].Endpoints[0].Addresses).To(ConsistOf("1.1.1.1"))
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
 				By("deleting Service in vcluster and verifying host resources are cleaned up", func() {
@@ -609,13 +609,13 @@ func ServiceSyncSpec() {
 					Eventually(func(g Gomega) {
 						_, err := hostClient.CoreV1().Services(vClusterNamespace).Get(ctx, translatedName, metav1.GetOptions{})
 						g.Expect(kerrors.IsNotFound(err)).To(BeTrue(), "host service should be deleted")
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 
 					Eventually(func(g Gomega) {
 						//nolint:staticcheck
 						_, err := hostClient.CoreV1().Endpoints(vClusterNamespace).Get(ctx, translatedName, metav1.GetOptions{})
 						g.Expect(kerrors.IsNotFound(err)).To(BeTrue(), "host endpoint should be deleted")
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 
 					Eventually(func(g Gomega) {
 						slices, err := hostClient.DiscoveryV1().EndpointSlices(vClusterNamespace).List(ctx, metav1.ListOptions{
@@ -623,7 +623,7 @@ func ServiceSyncSpec() {
 						})
 						g.Expect(err).To(Succeed())
 						g.Expect(slices.Items).To(BeEmpty(), "host EndpointSlice should be deleted")
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 			})
 
@@ -640,7 +640,7 @@ func ServiceSyncSpec() {
 					Eventually(func(g Gomega) {
 						_, err := vClusterClient.CoreV1().Services("default").Get(ctx, "test-replicated-service-cleanup", metav1.GetOptions{})
 						g.Expect(kerrors.IsNotFound(err)).To(BeTrue(), "stale replicated service should have been cleaned up")
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 			})
 		})

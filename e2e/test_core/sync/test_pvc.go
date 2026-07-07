@@ -82,7 +82,7 @@ func PVCSyncSpec() {
 					Eventually(func(g Gomega) {
 						_, err := vClusterClient.CoreV1().ServiceAccounts(nsName).Get(ctx, "default", metav1.GetOptions{})
 						g.Expect(err).To(Succeed())
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 				})
 
 				_, err = vClusterClient.CoreV1().Pods(nsName).Create(ctx, &corev1.Pod{
@@ -117,7 +117,7 @@ func PVCSyncSpec() {
 						g.Expect(err).To(Succeed())
 						g.Expect(vpvc.Status.Phase).To(Equal(corev1.ClaimBound),
 							"PVC phase is %s, not yet Bound", vpvc.Status.Phase)
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
 				})
 
 				By("Verifying PVC status matches between vCluster and host", func() {
@@ -151,7 +151,7 @@ func PVCSyncSpec() {
 						_, err := vClusterClient.CoreV1().PersistentVolumeClaims(nsName).Get(ctx, pvcName, metav1.GetOptions{})
 						g.Expect(kerrors.IsNotFound(err)).To(BeTrue(),
 							"PVC %s/%s not yet deleted", nsName, pvcName)
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
 				By("Waiting for the PV to be deleted from vCluster", func() {
@@ -159,7 +159,7 @@ func PVCSyncSpec() {
 						_, err := vClusterClient.CoreV1().PersistentVolumes().Get(ctx, pvName, metav1.GetOptions{})
 						g.Expect(kerrors.IsNotFound(err)).To(BeTrue(),
 							"PV %s not yet deleted", pvName)
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
 				By("Verifying the host PVC is also deleted", func() {
@@ -168,7 +168,7 @@ func PVCSyncSpec() {
 						_, err := hostClient.CoreV1().PersistentVolumeClaims(hostNS).Get(ctx, hostPvcName, metav1.GetOptions{})
 						g.Expect(kerrors.IsNotFound(err)).To(BeTrue(),
 							"host PVC %s/%s not yet deleted", hostNS, hostPvcName)
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 			})
 		},

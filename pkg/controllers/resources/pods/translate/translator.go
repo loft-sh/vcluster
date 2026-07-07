@@ -67,6 +67,7 @@ type Translator interface {
 	Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error)
 	Diff(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Pod]) error
 	TranslateContainerEnv(ctx *synccontext.SyncContext, envVar []corev1.EnvVar, envFrom []corev1.EnvFromSource, vPod *corev1.Pod, serviceEnvMap map[string]string) ([]corev1.EnvVar, []corev1.EnvFromSource, error)
+	StripUnpersistedObservedGeneration(status *corev1.PodStatus)
 }
 
 func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder events.EventRecorder) (Translator, error) {

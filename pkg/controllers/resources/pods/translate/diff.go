@@ -319,6 +319,17 @@ func (t *translator) conditionsCopyBidirectional(
 	})
 }
 
+// StripUnpersistedObservedGeneration zeroes ObservedGeneration on the pod status and its
+// conditions when the virtual cluster drops that field on write (K8s < 1.34), so callers can
+// compare against what the virtual apiserver will actually store.
+func (t *translator) StripUnpersistedObservedGeneration(status *corev1.PodStatus) {
+	if !t.virtualClusterStripsObservedGeneration() {
+		return
+	}
+	status.ObservedGeneration = 0
+	status.Conditions = stripConditionObservedGenerations(status.Conditions)
+}
+
 // stripConditionObservedGenerations returns a copy of the conditions with ObservedGeneration
 // set to zero on each one. It is only used to compare conditions while ignoring that field.
 func stripConditionObservedGenerations(conditions []corev1.PodCondition) []corev1.PodCondition {

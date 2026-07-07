@@ -50,7 +50,7 @@ func NodeSyncLabelSelectorSpec() {
 					g.Expect(hostSyncedNodeName).ToNot(BeEmpty(), "Should find host node with matching hostname")
 					g.Expect(virtualNodes.Items).To(HaveLen(1), "Expected exactly one synced node")
 					g.Expect(virtualNodes.Items[0].Name).To(Equal(hostSyncedNodeName), "Synced node name should match")
-				}).
+				}).WithContext(ctx).
 					WithPolling(constants.PollingInterval).
 					WithTimeout(constants.PollingTimeout).
 					Should(Succeed(), "Node sync should work correctly")

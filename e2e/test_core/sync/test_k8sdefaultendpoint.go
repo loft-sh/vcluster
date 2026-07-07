@@ -78,7 +78,7 @@ func K8sDefaultEndpointSpec() {
 					}
 					g.Expect(hostClusterIps).To(Equal(vClusterIps), "IPs should match between host and vcluster endpoints")
 					g.Expect(hostClusterPorts).To(Equal(vClusterPorts), "Ports should match between host and vcluster endpoints")
-				}).
+				}).WithContext(ctx).
 					WithPolling(constants.PollingInterval).
 					WithTimeout(constants.PollingTimeoutVeryLong).
 					Should(Succeed(), "Endpoints should match after waiting")

@@ -79,7 +79,7 @@ func PodSyncSpec() {
 					g.Expect(err).NotTo(HaveOccurred(), "failed to get pod %s/%s", ns, podName)
 					g.Expect(pod.Status.Phase).To(Equal(corev1.PodRunning),
 						"pod %s/%s phase is %s, not yet Running", ns, podName, pod.Status.Phase)
-				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+				}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 			}
 
 			defaultSecurityContext := func() *corev1.SecurityContext {
@@ -159,7 +159,7 @@ func PodSyncSpec() {
 								g.Expect(err).To(Succeed())
 								g.Expect(p.Status.EphemeralContainerStatuses).NotTo(BeEmpty(),
 									"expected ephemeral container statuses to be present")
-							}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+							}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 						}
 					}
 				})
@@ -297,7 +297,7 @@ func PodSyncSpec() {
 						g.Expect(len(pPod.Status.Conditions)).To(BeNumerically(">=", 5),
 							"expected >= 5 conditions on host pod (4 standard + custom gate), got %d: %v",
 							len(pPod.Status.Conditions), pPod.Status.Conditions)
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 			})
 
@@ -320,7 +320,7 @@ func PodSyncSpec() {
 					Eventually(func(g Gomega) {
 						_, err := vClusterClient.CoreV1().ServiceAccounts(ns).Get(ctx, saName, metav1.GetOptions{})
 						g.Expect(err).To(Succeed())
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 				})
 
 				By("Creating a pod using the non-default service account", func() {
@@ -544,7 +544,7 @@ func PodSyncSpec() {
 					pSvc, err := hostClient.CoreV1().Services(hostNSForSvc).Get(ctx, pSvcName, metav1.GetOptions{})
 					g.Expect(err).NotTo(HaveOccurred(), "host service not yet synced")
 					g.Expect(pSvc.Spec.ClusterIP).NotTo(BeEmpty(), "host service ClusterIP not yet assigned")
-				}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+				}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 
 				By("Creating a pod with dependent env vars", func() {
 					_, err := vClusterClient.CoreV1().Pods(ns).Create(ctx, &corev1.Pod{
@@ -672,7 +672,7 @@ func PodSyncSpec() {
 						g.Expect(pKey).NotTo(BeEmpty(),
 							"namespace label with value %q not yet propagated to host pod, labels: %v",
 							additionalLabelValue, pPod.GetLabels())
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 				})
 			})
 
@@ -797,7 +797,7 @@ func PodSyncSpec() {
 							"annotation not synced from host to vCluster")
 						g.Expect(vPod.Labels).To(HaveKeyWithValue(additionalLabelKey, additionalLabelValue),
 							"label not synced from host to vCluster")
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 				})
 
 				additionalLabelValueFromVCluster := "good-syncer-from-vcluster"
@@ -831,7 +831,7 @@ func PodSyncSpec() {
 							"annotation not synced from vCluster to host")
 						g.Expect(pPod.Labels).To(HaveKeyWithValue(additionalLabelKey, additionalLabelValueFromVCluster),
 							"label not synced from vCluster to host")
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 				})
 			})
 
@@ -866,7 +866,7 @@ func PodSyncSpec() {
 						g.Expect(err).To(Succeed())
 						g.Expect(vpod.Status.ObservedGeneration).To(BeNumerically("==", 1),
 							"status.observedGeneration is %d, expected 1", vpod.Status.ObservedGeneration)
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 				})
 
 				By("Updating pod tolerations to trigger a generation bump", func() {
@@ -892,7 +892,7 @@ func PodSyncSpec() {
 						g.Expect(err).To(Succeed())
 						g.Expect(vpod.Status.ObservedGeneration).To(BeNumerically(">=", 2),
 							"status.observedGeneration is %d, expected >= 2", vpod.Status.ObservedGeneration)
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 			})
 
@@ -973,7 +973,7 @@ func PodSyncSpec() {
 						g.Expect(err).To(Succeed())
 						g.Expect(pod.Status.Conditions).To(ContainElement(readyCondition),
 							"pod Ready condition is not yet True: %v", pod.Status.Conditions)
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
 				By("Verifying Ready condition stays True and does not flap", func() {
@@ -982,7 +982,7 @@ func PodSyncSpec() {
 						g.Expect(err).To(Succeed())
 						g.Expect(pod.Status.Conditions).To(ContainElement(readyCondition),
 							"pod Ready condition flapped away from True: %v", pod.Status.Conditions)
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutShort).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutShort).Should(Succeed())
 				})
 			})
 		},

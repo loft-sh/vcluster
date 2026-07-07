@@ -305,18 +305,20 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 			}
 		}
 
-		// propagate pod status changes from host cluster to vcluster when the host pod
-		// is being deleted. We need this because there is a possibility that pod is owned
-		// by a controller which wants the pod status to be either succeeded or failed before
-		// deleting it. But because these status changes are not propagated
-		// to vcluster pod when the host pod is being deleted, vcluster pod's status still
-		// shows as running, hence it cannot be deleted until it has failed or succeeded. This
-		// results in dangling pods on vcluster
-		if !equality.Semantic.DeepEqual(event.Virtual.Status, event.Host.Status) {
+		// Keep propagating the host status to the virtual pod while the host pod is deleting.
+		// A controller may wait for the pod to reach Succeeded or Failed before removing it, so
+		// without this the virtual pod stays Running and can never be deleted (dangling pods).
+		//
+		// Compare against the status we actually want the virtual pod to have, not the raw host
+		// status: QOSClass is immutable and ObservedGeneration is dropped by virtual apiservers
+		// on K8s < 1.34, so those fields legitimately differ and must not trigger an update.
+		desiredStatus := *event.Host.Status.DeepCopy()
+		desiredStatus.QOSClass = event.Virtual.Status.QOSClass
+		s.podTranslator.StripUnpersistedObservedGeneration(&desiredStatus)
+
+		if !equality.Semantic.DeepEqual(event.Virtual.Status, desiredStatus) {
 			updated := event.Virtual.DeepCopy()
-			updated.Status = *event.Host.Status.DeepCopy()
-			// QOSClass is immutable in newer Kubernetes versions; preserve the existing value.
-			updated.Status.QOSClass = event.Virtual.Status.QOSClass
+			updated.Status = desiredStatus
 			ctx.Log.Infof("update virtual pod %s, because status has changed", event.Virtual.Name)
 			err := ctx.VirtualClient.Status().Update(ctx, updated)
 			if err != nil && !kerrors.IsNotFound(err) {
