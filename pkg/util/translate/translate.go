@@ -266,7 +266,7 @@ func applyAnnotations(fromAnnotations map[string]string, toAnnotations map[strin
 
 	excludedKeys := []string{ManagedAnnotationsAnnotation, ManagedLabelsAnnotation}
 	excludedKeys = append(excludedKeys, excludeAnnotations...)
-	mergedAnnotations, managedKeys := applyMaps(fromAnnotations, toAnnotations, ApplyMapsOptions{
+	mergedAnnotations, managedKeys := ApplyMaps(fromAnnotations, toAnnotations, ApplyMapsOptions{
 		ManagedKeys: strings.Split(toAnnotations[ManagedAnnotationsAnnotation], "\n"),
 		ExcludeKeys: excludedKeys,
 	})
@@ -284,7 +284,7 @@ func applyLabels(fromLabels map[string]string, toLabels map[string]string, toAnn
 		toAnnotations = map[string]string{}
 	}
 
-	mergedLabels, managedKeys := applyMaps(fromLabels, toLabels, ApplyMapsOptions{
+	mergedLabels, managedKeys := ApplyMaps(fromLabels, toLabels, ApplyMapsOptions{
 		ManagedKeys: strings.Split(toAnnotations[ManagedLabelsAnnotation], "\n"),
 		ExcludeKeys: []string{ManagedAnnotationsAnnotation, ManagedLabelsAnnotation},
 	})
@@ -306,7 +306,7 @@ type ApplyMapsOptions struct {
 	ExcludeKeys []string
 }
 
-func applyMaps(fromMap, toMap map[string]string, opts ApplyMapsOptions) (map[string]string, string) {
+func ApplyMaps(fromMap, toMap map[string]string, opts ApplyMapsOptions) (map[string]string, string) {
 	retMap := map[string]string{}
 	managedKeys := []string{}
 	for k, v := range fromMap {
