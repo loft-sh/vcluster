@@ -7,18 +7,20 @@ type LongRunningRequest interface {
 }
 
 const (
-	RequestPhaseNotStarted         RequestPhase = ""
-	RequestPhaseCreatingEtcdBackup RequestPhase = "CreatingEtcdBackup"
-	RequestPhaseCompleted          RequestPhase = "Completed"
-	RequestPhasePartiallyFailed    RequestPhase = "PartiallyFailed"
-	RequestPhaseFailed             RequestPhase = "Failed"
+	RequestPhaseNotStarted              RequestPhase = ""
+	RequestPhaseCreatingVolumeSnapshots RequestPhase = "CreatingVolumeSnapshots"
+	RequestPhaseCreatingEtcdBackup      RequestPhase = "CreatingEtcdBackup"
+	RequestPhaseCompleted               RequestPhase = "Completed"
+	RequestPhasePartiallyFailed         RequestPhase = "PartiallyFailed"
+	RequestPhaseFailed                  RequestPhase = "Failed"
 
 	RequestPhaseCanceling RequestPhase = "Canceling"
 	RequestPhaseCanceled  RequestPhase = "Canceled"
 
-	RequestPhaseDeleting           RequestPhase = "Deleting"
-	RequestPhaseDeletingEtcdBackup RequestPhase = "DeletingEtcdBackup"
-	RequestPhaseDeleted            RequestPhase = "Deleted"
+	RequestPhaseDeleting                RequestPhase = "Deleting"
+	RequestPhaseDeletingVolumeSnapshots RequestPhase = "DeletingVolumeSnapshots"
+	RequestPhaseDeletingEtcdBackup      RequestPhase = "DeletingEtcdBackup"
+	RequestPhaseDeleted                 RequestPhase = "Deleted"
 
 	RequestPhaseUnknown RequestPhase = "Unknown"
 )
@@ -27,10 +29,14 @@ type RequestPhase string
 
 func (r RequestPhase) Next() RequestPhase {
 	switch r {
+	case RequestPhaseCreatingVolumeSnapshots:
+		return RequestPhaseCreatingEtcdBackup
 	case RequestPhaseCreatingEtcdBackup:
 		return RequestPhaseCompleted
 	case RequestPhaseCanceling:
 		return RequestPhaseCanceled
+	case RequestPhaseDeletingVolumeSnapshots:
+		return RequestPhaseDeletingEtcdBackup
 	case RequestPhaseDeletingEtcdBackup:
 		return RequestPhaseDeleted
 	default:
@@ -71,15 +77,19 @@ func (r *Request) ShouldCancel(otherRequest *Request) bool {
 		return false
 	}
 	return otherRequest.Status.Phase == RequestPhaseNotStarted ||
+		otherRequest.Status.Phase == RequestPhaseCreatingVolumeSnapshots ||
 		otherRequest.Status.Phase == RequestPhaseCreatingEtcdBackup
 }
 
 type RequestSpec struct {
-	URL     string  `json:"url,omitempty"`
-	Options Options `json:"-"`
+	URL             string                 `json:"url,omitempty"`
+	IncludeVolumes  bool                   `json:"includeVolumes,omitempty"`
+	VolumeSnapshots VolumeSnapshotsRequest `json:"volumeSnapshots,omitempty"`
+	Options         Options                `json:"-"`
 }
 
 type RequestStatus struct {
-	Phase RequestPhase  `json:"phase,omitempty"`
-	Error SnapshotError `json:"error,omitempty"`
+	Phase           RequestPhase          `json:"phase,omitempty"`
+	VolumeSnapshots VolumeSnapshotsStatus `json:"volumeSnapshots,omitempty"`
+	Error           SnapshotError         `json:"error,omitempty"`
 }

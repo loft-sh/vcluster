@@ -19,5 +19,6 @@ func NewDeleteCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) 
 	}
 	c.AddCommand(newNamespaceCmd(globalFlags, defaults))
 	c.AddCommand(newVClusterCmd(globalFlags))
+	c.AddCommand(newSlurmCmd(globalFlags, defaults))
 	return c
 }

@@ -28,9 +28,9 @@ type ReaderConfig struct {
 // fill converts the zero values of the configuration to the default values.
 func (c *ReaderConfig) fill() {
 	if c.DictCap == 0 {
-		// set an upper limit of 2 GB for dictionary capacity to address
-		// the zero prefix security issue.
-		c.DictCap = 1 << 31
+		// set an upper limit of 2 GiB-1 for dictionary capacity
+		// to address the zero prefix security issue.
+		c.DictCap = (1 << 31) - 1
 		// original: c.DictCap = 8 * 1024 * 1024
 	}
 }
@@ -60,7 +60,7 @@ func (c *ReaderConfig) Verify() error {
 //
 //   - The [ReaderConfig] DictCap field is now interpreted as a limit for the
 //     dictionary size.
-//   - The default is 2 Gigabytes (2^31 bytes).
+//   - The default is 2 Gigabytes minus 1 byte (2^31-1 bytes).
 //   - Users can check with the [Reader.Header] method what the actual values are in
 //     their LZMA files and set a smaller limit using [ReaderConfig].
 //   - The dictionary size doesn't exceed the larger of the file size and

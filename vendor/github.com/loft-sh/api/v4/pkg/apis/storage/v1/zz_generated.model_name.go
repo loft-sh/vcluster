@@ -871,6 +871,46 @@ func (in SharedSecretStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in SlurmInstance) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.SlurmInstance"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in SlurmInstanceList) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.SlurmInstanceList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in SlurmInstanceSpec) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.SlurmInstanceSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in SlurmInstanceStatus) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.SlurmInstanceStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in SlurmSSHKeyRef) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.SlurmSSHKeyRef"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in SlurmVirtualCluster) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.SlurmVirtualCluster"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in SlurmVirtualClusterInstanceRef) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.SlurmVirtualClusterInstanceRef"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in SlurmVirtualClusterTemplate) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.SlurmVirtualClusterTemplate"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in SpaceInstance) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.SpaceInstance"
 }

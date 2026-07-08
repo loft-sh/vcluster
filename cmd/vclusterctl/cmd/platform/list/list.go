@@ -23,5 +23,6 @@ func NewListCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *c
 	listCmd.AddCommand(newTeamsCmd(globalFlags))
 	listCmd.AddCommand(newVClustersCmd(globalFlags, defaults))
 	listCmd.AddCommand(newNamespacesCmd(globalFlags))
+	listCmd.AddCommand(newSlurmCmd(globalFlags, defaults))
 	return listCmd
 }

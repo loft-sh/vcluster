@@ -76,6 +76,8 @@ type SelfSubjectAccessReviewExpansion interface{}
 
 type SharedSecretExpansion interface{}
 
+type SlurmInstanceExpansion interface{}
+
 type SpaceInstanceExpansion interface{}
 
 type SpaceTemplateExpansion interface{}

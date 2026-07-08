@@ -1266,6 +1266,26 @@ func (in SharedSecretStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in SlurmInstance) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.SlurmInstance"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in SlurmInstanceList) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.SlurmInstanceList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in SlurmInstanceSpec) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.SlurmInstanceSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in SlurmInstanceStatus) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.SlurmInstanceStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in SnapshotRequest) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.SnapshotRequest"
 }
@@ -1908,4 +1928,14 @@ func (in VirtualClusterTemplateSpec) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in VirtualClusterTemplateStatus) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.VirtualClusterTemplateStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in VolumeSnapshotRequestStatus) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.VolumeSnapshotRequestStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in VolumeSnapshotsRequestStatus) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.VolumeSnapshotsRequestStatus"
 }

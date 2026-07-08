@@ -209,6 +209,9 @@ func convertAutoSnapshotToSnapshots(as *LegacyAutoSnapshot) *Snapshots {
 					},
 				},
 			},
+			Volumes: &SnapshotVolumes{
+				Enabled: as.Volumes.Enabled,
+			},
 		},
 	}
 }

@@ -221,8 +221,8 @@ func ValidateDeletion(fldPath *field.Path, deletion *Deletion) field.ErrorList {
 	return errs
 }
 
-// check if vcluster chart version is compatible with snapshots requests
-func SupportsSnapshotRequests(release storagev1.VirtualClusterHelmRelease) bool {
+// check if vcluster chart version is compatible with PV snapshots
+func IsVolumeSnapshotCompatible(release storagev1.VirtualClusterHelmRelease) bool {
 	return semver.Compare("v"+release.Chart.Version, "v0.30.0-alpha.0") == 1
 }
 

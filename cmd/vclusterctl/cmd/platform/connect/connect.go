@@ -24,5 +24,6 @@ Activates a kube context for the given cluster / management / namespace / vclust
 	connectCmd.AddCommand(newManagementCmd(globalFlags))
 	connectCmd.AddCommand(newNamespaceCmd(globalFlags, defaults))
 	connectCmd.AddCommand(newVClusterCmd(globalFlags))
+	connectCmd.AddCommand(newSlurmCmd(globalFlags, defaults))
 	return connectCmd
 }

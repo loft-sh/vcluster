@@ -438,6 +438,20 @@ var (
 		return NewSharedSecretRESTFunc(Factory)
 	}
 	NewSharedSecretRESTFunc        NewRESTFunc
+	ManagementSlurmInstanceStorage = builders.NewApiResourceWithStorage( // Resource status endpoint
+		InternalSlurmInstance,
+		func() runtime.Object { return &SlurmInstance{} },     // Register versioned resource
+		func() runtime.Object { return &SlurmInstanceList{} }, // Register versioned resource list
+		NewSlurmInstanceREST,
+	)
+	NewSlurmInstanceREST = func(getter generic.RESTOptionsGetter) rest.Storage {
+		return NewSlurmInstanceRESTFunc(Factory)
+	}
+	NewSlurmInstanceRESTFunc   NewRESTFunc
+	NewSlurmInstanceStatusREST = func(getter generic.RESTOptionsGetter) rest.Storage {
+		return NewSlurmInstanceStatusRESTFunc(Factory)
+	}
+	NewSlurmInstanceStatusRESTFunc NewRESTFunc
 	ManagementSpaceInstanceStorage = builders.NewApiResourceWithStorage( // Resource status endpoint
 		InternalSpaceInstance,
 		func() runtime.Object { return &SpaceInstance{} },     // Register versioned resource
@@ -1172,6 +1186,18 @@ var (
 		func() runtime.Object { return &SharedSecret{} },
 		func() runtime.Object { return &SharedSecretList{} },
 	)
+	InternalSlurmInstance = builders.NewInternalResource(
+		"slurminstances",
+		"SlurmInstance",
+		func() runtime.Object { return &SlurmInstance{} },
+		func() runtime.Object { return &SlurmInstanceList{} },
+	)
+	InternalSlurmInstanceStatus = builders.NewInternalResourceStatus(
+		"slurminstances",
+		"SlurmInstanceStatus",
+		func() runtime.Object { return &SlurmInstance{} },
+		func() runtime.Object { return &SlurmInstanceList{} },
+	)
 	InternalSpaceInstance = builders.NewInternalResource(
 		"spaceinstances",
 		"SpaceInstance",
@@ -1579,6 +1605,8 @@ var (
 		InternalSelfSubjectAccessReviewStatus,
 		InternalSharedSecret,
 		InternalSharedSecretStatus,
+		InternalSlurmInstance,
+		InternalSlurmInstanceStatus,
 		InternalSpaceInstance,
 		InternalSpaceInstanceStatus,
 		InternalSpaceTemplate,
@@ -2948,6 +2976,27 @@ type SharedSecretStatus struct {
 	storagev1.SharedSecretStatus `json:",inline"`
 }
 
+// +genclient
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type SlurmInstance struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              SlurmInstanceSpec   `json:"spec,omitempty"`
+	Status            SlurmInstanceStatus `json:"status,omitempty"`
+}
+
+type SlurmInstanceSpec struct {
+	storagev1.SlurmInstanceSpec `json:",inline"`
+}
+
+type SlurmInstanceStatus struct {
+	storagev1.SlurmInstanceStatus `json:",inline"`
+	CanUse                        bool `json:"canUse,omitempty"`
+	CanUpdate                     bool `json:"canUpdate,omitempty"`
+}
+
 type SnapshotRequest struct {
 	Metadata SnapshotRequestMetadata `json:"metadata,omitempty"`
 	Status   SnapshotRequestStatus   `json:"status"`
@@ -2963,8 +3012,9 @@ type SnapshotRequestMetadata struct {
 }
 
 type SnapshotRequestStatus struct {
-	Phase SnapshotRequestPhase `json:"phase,omitempty"`
-	Error SnapshotRequestError `json:"error,omitempty"`
+	Phase           SnapshotRequestPhase         `json:"phase,omitempty"`
+	VolumeSnapshots VolumeSnapshotsRequestStatus `json:"volumeSnapshots"`
+	Error           SnapshotRequestError         `json:"error,omitempty"`
 }
 
 type SnapshotTaken struct {
@@ -2973,6 +3023,7 @@ type SnapshotTaken struct {
 	Timestamp string              `json:"timestamp,omitempty"`
 	Reason    string              `json:"reason,omitempty"`
 	Request   SnapshotRequest     `json:"snapshotRequest,omitempty"`
+	TotalPV   int                 `json:"totalPV"`
 	Status    SnapshotTakenStatus `json:"status,omitempty"`
 }
 
@@ -3550,6 +3601,17 @@ type VirtualClusterTemplateSpec struct {
 type VirtualClusterTemplateStatus struct {
 	storagev1.VirtualClusterTemplateStatus `json:",inline"`
 	Apps                                   []*storagev1.EntityInfo `json:"apps,omitempty"`
+}
+
+type VolumeSnapshotRequestStatus struct {
+	Phase string               `json:"phase,omitempty"`
+	Error SnapshotRequestError `json:"error"`
+}
+
+type VolumeSnapshotsRequestStatus struct {
+	Phase     string                                 `json:"phase,omitempty"`
+	Snapshots map[string]VolumeSnapshotRequestStatus `json:"snapshots,omitempty"`
+	Error     SnapshotRequestError                   `json:"error"`
 }
 
 // AgentAuditEvent Functions and Structs
@@ -8237,6 +8299,125 @@ func (s *storageSharedSecret) UpdateSharedSecret(ctx context.Context, object *Sh
 }
 
 func (s *storageSharedSecret) DeleteSharedSecret(ctx context.Context, id string) (bool, error) {
+	st := s.GetStandardStorage()
+	_, sync, err := st.Delete(ctx, id, nil, &metav1.DeleteOptions{})
+	return sync, err
+}
+
+// SlurmInstance Functions and Structs
+//
+// +k8s:deepcopy-gen=false
+type SlurmInstanceStrategy struct {
+	builders.DefaultStorageStrategy
+}
+
+// +k8s:deepcopy-gen=false
+type SlurmInstanceStatusStrategy struct {
+	builders.DefaultStatusStorageStrategy
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type SlurmInstanceList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []SlurmInstance `json:"items"`
+}
+
+func (SlurmInstance) NewStatus() interface{} {
+	return SlurmInstanceStatus{}
+}
+
+func (pc *SlurmInstance) GetStatus() interface{} {
+	return pc.Status
+}
+
+func (pc *SlurmInstance) SetStatus(s interface{}) {
+	pc.Status = s.(SlurmInstanceStatus)
+}
+
+func (pc *SlurmInstance) GetSpec() interface{} {
+	return pc.Spec
+}
+
+func (pc *SlurmInstance) SetSpec(s interface{}) {
+	pc.Spec = s.(SlurmInstanceSpec)
+}
+
+func (pc *SlurmInstance) GetObjectMeta() *metav1.ObjectMeta {
+	return &pc.ObjectMeta
+}
+
+func (pc *SlurmInstance) SetGeneration(generation int64) {
+	pc.ObjectMeta.Generation = generation
+}
+
+func (pc SlurmInstance) GetGeneration() int64 {
+	return pc.ObjectMeta.Generation
+}
+
+// Registry is an interface for things that know how to store SlurmInstance.
+// +k8s:deepcopy-gen=false
+type SlurmInstanceRegistry interface {
+	ListSlurmInstances(ctx context.Context, options *internalversion.ListOptions) (*SlurmInstanceList, error)
+	GetSlurmInstance(ctx context.Context, id string, options *metav1.GetOptions) (*SlurmInstance, error)
+	CreateSlurmInstance(ctx context.Context, id *SlurmInstance) (*SlurmInstance, error)
+	UpdateSlurmInstance(ctx context.Context, id *SlurmInstance) (*SlurmInstance, error)
+	DeleteSlurmInstance(ctx context.Context, id string) (bool, error)
+}
+
+// NewRegistry returns a new Registry interface for the given Storage. Any mismatched types will panic.
+func NewSlurmInstanceRegistry(sp builders.StandardStorageProvider) SlurmInstanceRegistry {
+	return &storageSlurmInstance{sp}
+}
+
+// Implement Registry
+// storage puts strong typing around storage calls
+// +k8s:deepcopy-gen=false
+type storageSlurmInstance struct {
+	builders.StandardStorageProvider
+}
+
+func (s *storageSlurmInstance) ListSlurmInstances(ctx context.Context, options *internalversion.ListOptions) (*SlurmInstanceList, error) {
+	if options != nil && options.FieldSelector != nil && !options.FieldSelector.Empty() {
+		return nil, fmt.Errorf("field selector not supported yet")
+	}
+	st := s.GetStandardStorage()
+	obj, err := st.List(ctx, options)
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*SlurmInstanceList), err
+}
+
+func (s *storageSlurmInstance) GetSlurmInstance(ctx context.Context, id string, options *metav1.GetOptions) (*SlurmInstance, error) {
+	st := s.GetStandardStorage()
+	obj, err := st.Get(ctx, id, options)
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*SlurmInstance), nil
+}
+
+func (s *storageSlurmInstance) CreateSlurmInstance(ctx context.Context, object *SlurmInstance) (*SlurmInstance, error) {
+	st := s.GetStandardStorage()
+	obj, err := st.Create(ctx, object, nil, &metav1.CreateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*SlurmInstance), nil
+}
+
+func (s *storageSlurmInstance) UpdateSlurmInstance(ctx context.Context, object *SlurmInstance) (*SlurmInstance, error) {
+	st := s.GetStandardStorage()
+	obj, _, err := st.Update(ctx, object.Name, rest.DefaultUpdatedObjectInfo(object), nil, nil, false, &metav1.UpdateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*SlurmInstance), nil
+}
+
+func (s *storageSlurmInstance) DeleteSlurmInstance(ctx context.Context, id string) (bool, error) {
 	st := s.GetStandardStorage()
 	_, sync, err := st.Delete(ctx, id, nil, &metav1.DeleteOptions{})
 	return sync, err

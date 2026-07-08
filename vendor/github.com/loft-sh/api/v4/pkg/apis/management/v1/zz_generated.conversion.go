@@ -2521,6 +2521,46 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddGeneratedConversionFunc((*SlurmInstance)(nil), (*management.SlurmInstance)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_SlurmInstance_To_management_SlurmInstance(a.(*SlurmInstance), b.(*management.SlurmInstance), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*management.SlurmInstance)(nil), (*SlurmInstance)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_management_SlurmInstance_To_v1_SlurmInstance(a.(*management.SlurmInstance), b.(*SlurmInstance), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*SlurmInstanceList)(nil), (*management.SlurmInstanceList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_SlurmInstanceList_To_management_SlurmInstanceList(a.(*SlurmInstanceList), b.(*management.SlurmInstanceList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*management.SlurmInstanceList)(nil), (*SlurmInstanceList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_management_SlurmInstanceList_To_v1_SlurmInstanceList(a.(*management.SlurmInstanceList), b.(*SlurmInstanceList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*SlurmInstanceSpec)(nil), (*management.SlurmInstanceSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_SlurmInstanceSpec_To_management_SlurmInstanceSpec(a.(*SlurmInstanceSpec), b.(*management.SlurmInstanceSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*management.SlurmInstanceSpec)(nil), (*SlurmInstanceSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_management_SlurmInstanceSpec_To_v1_SlurmInstanceSpec(a.(*management.SlurmInstanceSpec), b.(*SlurmInstanceSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*SlurmInstanceStatus)(nil), (*management.SlurmInstanceStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_SlurmInstanceStatus_To_management_SlurmInstanceStatus(a.(*SlurmInstanceStatus), b.(*management.SlurmInstanceStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*management.SlurmInstanceStatus)(nil), (*SlurmInstanceStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_management_SlurmInstanceStatus_To_v1_SlurmInstanceStatus(a.(*management.SlurmInstanceStatus), b.(*SlurmInstanceStatus), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddGeneratedConversionFunc((*SnapshotRequest)(nil), (*management.SnapshotRequest)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_SnapshotRequest_To_management_SnapshotRequest(a.(*SnapshotRequest), b.(*management.SnapshotRequest), scope)
 	}); err != nil {
@@ -3808,6 +3848,26 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*management.VirtualClusterTemplateStatus)(nil), (*VirtualClusterTemplateStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_management_VirtualClusterTemplateStatus_To_v1_VirtualClusterTemplateStatus(a.(*management.VirtualClusterTemplateStatus), b.(*VirtualClusterTemplateStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*VolumeSnapshotRequestStatus)(nil), (*management.VolumeSnapshotRequestStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_VolumeSnapshotRequestStatus_To_management_VolumeSnapshotRequestStatus(a.(*VolumeSnapshotRequestStatus), b.(*management.VolumeSnapshotRequestStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*management.VolumeSnapshotRequestStatus)(nil), (*VolumeSnapshotRequestStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_management_VolumeSnapshotRequestStatus_To_v1_VolumeSnapshotRequestStatus(a.(*management.VolumeSnapshotRequestStatus), b.(*VolumeSnapshotRequestStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*VolumeSnapshotsRequestStatus)(nil), (*management.VolumeSnapshotsRequestStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_VolumeSnapshotsRequestStatus_To_management_VolumeSnapshotsRequestStatus(a.(*VolumeSnapshotsRequestStatus), b.(*management.VolumeSnapshotsRequestStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*management.VolumeSnapshotsRequestStatus)(nil), (*VolumeSnapshotsRequestStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_management_VolumeSnapshotsRequestStatus_To_v1_VolumeSnapshotsRequestStatus(a.(*management.VolumeSnapshotsRequestStatus), b.(*VolumeSnapshotsRequestStatus), scope)
 	}); err != nil {
 		return err
 	}
@@ -10072,6 +10132,104 @@ func Convert_management_SharedSecretStatus_To_v1_SharedSecretStatus(in *manageme
 	return autoConvert_management_SharedSecretStatus_To_v1_SharedSecretStatus(in, out, s)
 }
 
+func autoConvert_v1_SlurmInstance_To_management_SlurmInstance(in *SlurmInstance, out *management.SlurmInstance, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_v1_SlurmInstanceSpec_To_management_SlurmInstanceSpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	if err := Convert_v1_SlurmInstanceStatus_To_management_SlurmInstanceStatus(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1_SlurmInstance_To_management_SlurmInstance is an autogenerated conversion function.
+func Convert_v1_SlurmInstance_To_management_SlurmInstance(in *SlurmInstance, out *management.SlurmInstance, s conversion.Scope) error {
+	return autoConvert_v1_SlurmInstance_To_management_SlurmInstance(in, out, s)
+}
+
+func autoConvert_management_SlurmInstance_To_v1_SlurmInstance(in *management.SlurmInstance, out *SlurmInstance, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_management_SlurmInstanceSpec_To_v1_SlurmInstanceSpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	if err := Convert_management_SlurmInstanceStatus_To_v1_SlurmInstanceStatus(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_management_SlurmInstance_To_v1_SlurmInstance is an autogenerated conversion function.
+func Convert_management_SlurmInstance_To_v1_SlurmInstance(in *management.SlurmInstance, out *SlurmInstance, s conversion.Scope) error {
+	return autoConvert_management_SlurmInstance_To_v1_SlurmInstance(in, out, s)
+}
+
+func autoConvert_v1_SlurmInstanceList_To_management_SlurmInstanceList(in *SlurmInstanceList, out *management.SlurmInstanceList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]management.SlurmInstance)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_v1_SlurmInstanceList_To_management_SlurmInstanceList is an autogenerated conversion function.
+func Convert_v1_SlurmInstanceList_To_management_SlurmInstanceList(in *SlurmInstanceList, out *management.SlurmInstanceList, s conversion.Scope) error {
+	return autoConvert_v1_SlurmInstanceList_To_management_SlurmInstanceList(in, out, s)
+}
+
+func autoConvert_management_SlurmInstanceList_To_v1_SlurmInstanceList(in *management.SlurmInstanceList, out *SlurmInstanceList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]SlurmInstance)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_management_SlurmInstanceList_To_v1_SlurmInstanceList is an autogenerated conversion function.
+func Convert_management_SlurmInstanceList_To_v1_SlurmInstanceList(in *management.SlurmInstanceList, out *SlurmInstanceList, s conversion.Scope) error {
+	return autoConvert_management_SlurmInstanceList_To_v1_SlurmInstanceList(in, out, s)
+}
+
+func autoConvert_v1_SlurmInstanceSpec_To_management_SlurmInstanceSpec(in *SlurmInstanceSpec, out *management.SlurmInstanceSpec, s conversion.Scope) error {
+	out.SlurmInstanceSpec = in.SlurmInstanceSpec
+	return nil
+}
+
+// Convert_v1_SlurmInstanceSpec_To_management_SlurmInstanceSpec is an autogenerated conversion function.
+func Convert_v1_SlurmInstanceSpec_To_management_SlurmInstanceSpec(in *SlurmInstanceSpec, out *management.SlurmInstanceSpec, s conversion.Scope) error {
+	return autoConvert_v1_SlurmInstanceSpec_To_management_SlurmInstanceSpec(in, out, s)
+}
+
+func autoConvert_management_SlurmInstanceSpec_To_v1_SlurmInstanceSpec(in *management.SlurmInstanceSpec, out *SlurmInstanceSpec, s conversion.Scope) error {
+	out.SlurmInstanceSpec = in.SlurmInstanceSpec
+	return nil
+}
+
+// Convert_management_SlurmInstanceSpec_To_v1_SlurmInstanceSpec is an autogenerated conversion function.
+func Convert_management_SlurmInstanceSpec_To_v1_SlurmInstanceSpec(in *management.SlurmInstanceSpec, out *SlurmInstanceSpec, s conversion.Scope) error {
+	return autoConvert_management_SlurmInstanceSpec_To_v1_SlurmInstanceSpec(in, out, s)
+}
+
+func autoConvert_v1_SlurmInstanceStatus_To_management_SlurmInstanceStatus(in *SlurmInstanceStatus, out *management.SlurmInstanceStatus, s conversion.Scope) error {
+	out.SlurmInstanceStatus = in.SlurmInstanceStatus
+	out.CanUse = in.CanUse
+	out.CanUpdate = in.CanUpdate
+	return nil
+}
+
+// Convert_v1_SlurmInstanceStatus_To_management_SlurmInstanceStatus is an autogenerated conversion function.
+func Convert_v1_SlurmInstanceStatus_To_management_SlurmInstanceStatus(in *SlurmInstanceStatus, out *management.SlurmInstanceStatus, s conversion.Scope) error {
+	return autoConvert_v1_SlurmInstanceStatus_To_management_SlurmInstanceStatus(in, out, s)
+}
+
+func autoConvert_management_SlurmInstanceStatus_To_v1_SlurmInstanceStatus(in *management.SlurmInstanceStatus, out *SlurmInstanceStatus, s conversion.Scope) error {
+	out.SlurmInstanceStatus = in.SlurmInstanceStatus
+	out.CanUse = in.CanUse
+	out.CanUpdate = in.CanUpdate
+	return nil
+}
+
+// Convert_management_SlurmInstanceStatus_To_v1_SlurmInstanceStatus is an autogenerated conversion function.
+func Convert_management_SlurmInstanceStatus_To_v1_SlurmInstanceStatus(in *management.SlurmInstanceStatus, out *SlurmInstanceStatus, s conversion.Scope) error {
+	return autoConvert_management_SlurmInstanceStatus_To_v1_SlurmInstanceStatus(in, out, s)
+}
+
 func autoConvert_v1_SnapshotRequest_To_management_SnapshotRequest(in *SnapshotRequest, out *management.SnapshotRequest, s conversion.Scope) error {
 	if err := Convert_v1_SnapshotRequestMetadata_To_management_SnapshotRequestMetadata(&in.Metadata, &out.Metadata, s); err != nil {
 		return err
@@ -10146,6 +10304,9 @@ func Convert_management_SnapshotRequestMetadata_To_v1_SnapshotRequestMetadata(in
 
 func autoConvert_v1_SnapshotRequestStatus_To_management_SnapshotRequestStatus(in *SnapshotRequestStatus, out *management.SnapshotRequestStatus, s conversion.Scope) error {
 	out.Phase = management.SnapshotRequestPhase(in.Phase)
+	if err := Convert_v1_VolumeSnapshotsRequestStatus_To_management_VolumeSnapshotsRequestStatus(&in.VolumeSnapshots, &out.VolumeSnapshots, s); err != nil {
+		return err
+	}
 	if err := Convert_v1_SnapshotRequestError_To_management_SnapshotRequestError(&in.Error, &out.Error, s); err != nil {
 		return err
 	}
@@ -10159,6 +10320,9 @@ func Convert_v1_SnapshotRequestStatus_To_management_SnapshotRequestStatus(in *Sn
 
 func autoConvert_management_SnapshotRequestStatus_To_v1_SnapshotRequestStatus(in *management.SnapshotRequestStatus, out *SnapshotRequestStatus, s conversion.Scope) error {
 	out.Phase = SnapshotRequestPhase(in.Phase)
+	if err := Convert_management_VolumeSnapshotsRequestStatus_To_v1_VolumeSnapshotsRequestStatus(&in.VolumeSnapshots, &out.VolumeSnapshots, s); err != nil {
+		return err
+	}
 	if err := Convert_management_SnapshotRequestError_To_v1_SnapshotRequestError(&in.Error, &out.Error, s); err != nil {
 		return err
 	}
@@ -10178,6 +10342,7 @@ func autoConvert_v1_SnapshotTaken_To_management_SnapshotTaken(in *SnapshotTaken,
 	if err := Convert_v1_SnapshotRequest_To_management_SnapshotRequest(&in.Request, &out.Request, s); err != nil {
 		return err
 	}
+	out.TotalPV = in.TotalPV
 	out.Status = management.SnapshotTakenStatus(in.Status)
 	return nil
 }
@@ -10195,6 +10360,7 @@ func autoConvert_management_SnapshotTaken_To_v1_SnapshotTaken(in *management.Sna
 	if err := Convert_management_SnapshotRequest_To_v1_SnapshotRequest(&in.Request, &out.Request, s); err != nil {
 		return err
 	}
+	out.TotalPV = in.TotalPV
 	out.Status = SnapshotTakenStatus(in.Status)
 	return nil
 }
@@ -13381,4 +13547,58 @@ func autoConvert_management_VirtualClusterTemplateStatus_To_v1_VirtualClusterTem
 // Convert_management_VirtualClusterTemplateStatus_To_v1_VirtualClusterTemplateStatus is an autogenerated conversion function.
 func Convert_management_VirtualClusterTemplateStatus_To_v1_VirtualClusterTemplateStatus(in *management.VirtualClusterTemplateStatus, out *VirtualClusterTemplateStatus, s conversion.Scope) error {
 	return autoConvert_management_VirtualClusterTemplateStatus_To_v1_VirtualClusterTemplateStatus(in, out, s)
+}
+
+func autoConvert_v1_VolumeSnapshotRequestStatus_To_management_VolumeSnapshotRequestStatus(in *VolumeSnapshotRequestStatus, out *management.VolumeSnapshotRequestStatus, s conversion.Scope) error {
+	out.Phase = in.Phase
+	if err := Convert_v1_SnapshotRequestError_To_management_SnapshotRequestError(&in.Error, &out.Error, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1_VolumeSnapshotRequestStatus_To_management_VolumeSnapshotRequestStatus is an autogenerated conversion function.
+func Convert_v1_VolumeSnapshotRequestStatus_To_management_VolumeSnapshotRequestStatus(in *VolumeSnapshotRequestStatus, out *management.VolumeSnapshotRequestStatus, s conversion.Scope) error {
+	return autoConvert_v1_VolumeSnapshotRequestStatus_To_management_VolumeSnapshotRequestStatus(in, out, s)
+}
+
+func autoConvert_management_VolumeSnapshotRequestStatus_To_v1_VolumeSnapshotRequestStatus(in *management.VolumeSnapshotRequestStatus, out *VolumeSnapshotRequestStatus, s conversion.Scope) error {
+	out.Phase = in.Phase
+	if err := Convert_management_SnapshotRequestError_To_v1_SnapshotRequestError(&in.Error, &out.Error, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_management_VolumeSnapshotRequestStatus_To_v1_VolumeSnapshotRequestStatus is an autogenerated conversion function.
+func Convert_management_VolumeSnapshotRequestStatus_To_v1_VolumeSnapshotRequestStatus(in *management.VolumeSnapshotRequestStatus, out *VolumeSnapshotRequestStatus, s conversion.Scope) error {
+	return autoConvert_management_VolumeSnapshotRequestStatus_To_v1_VolumeSnapshotRequestStatus(in, out, s)
+}
+
+func autoConvert_v1_VolumeSnapshotsRequestStatus_To_management_VolumeSnapshotsRequestStatus(in *VolumeSnapshotsRequestStatus, out *management.VolumeSnapshotsRequestStatus, s conversion.Scope) error {
+	out.Phase = in.Phase
+	out.Snapshots = *(*map[string]management.VolumeSnapshotRequestStatus)(unsafe.Pointer(&in.Snapshots))
+	if err := Convert_v1_SnapshotRequestError_To_management_SnapshotRequestError(&in.Error, &out.Error, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1_VolumeSnapshotsRequestStatus_To_management_VolumeSnapshotsRequestStatus is an autogenerated conversion function.
+func Convert_v1_VolumeSnapshotsRequestStatus_To_management_VolumeSnapshotsRequestStatus(in *VolumeSnapshotsRequestStatus, out *management.VolumeSnapshotsRequestStatus, s conversion.Scope) error {
+	return autoConvert_v1_VolumeSnapshotsRequestStatus_To_management_VolumeSnapshotsRequestStatus(in, out, s)
+}
+
+func autoConvert_management_VolumeSnapshotsRequestStatus_To_v1_VolumeSnapshotsRequestStatus(in *management.VolumeSnapshotsRequestStatus, out *VolumeSnapshotsRequestStatus, s conversion.Scope) error {
+	out.Phase = in.Phase
+	out.Snapshots = *(*map[string]VolumeSnapshotRequestStatus)(unsafe.Pointer(&in.Snapshots))
+	if err := Convert_management_SnapshotRequestError_To_v1_SnapshotRequestError(&in.Error, &out.Error, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_management_VolumeSnapshotsRequestStatus_To_v1_VolumeSnapshotsRequestStatus is an autogenerated conversion function.
+func Convert_management_VolumeSnapshotsRequestStatus_To_v1_VolumeSnapshotsRequestStatus(in *management.VolumeSnapshotsRequestStatus, out *VolumeSnapshotsRequestStatus, s conversion.Scope) error {
+	return autoConvert_management_VolumeSnapshotsRequestStatus_To_v1_VolumeSnapshotsRequestStatus(in, out, s)
 }
