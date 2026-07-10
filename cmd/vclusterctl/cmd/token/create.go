@@ -163,7 +163,7 @@ func (cmd *CreateCmd) resolveProfile(ctx context.Context) (*storagev1.NodeProfil
 		return nil, fmt.Errorf("get node profile %q: %w", cmd.Profile, err)
 	}
 
-	if !isNodeProfileAllowed(proj.Spec.AllowedNodeProfiles, cmd.Profile) {
+	if !proj.Spec.IsNodeProfileAllowed(cmd.Profile) {
 		return nil, fmt.Errorf("node profile %q is not allowed in project %q", cmd.Profile, cmd.Project)
 	}
 
@@ -196,25 +196,6 @@ func patchTokenWithProfile(ctx context.Context, vClient *kubernetes.Clientset, s
 		return fmt.Errorf("failed to patch bootstrap token secret %s with profile %s: %w", secretName, profileName, err)
 	}
 	return nil
-}
-
-// isNodeProfileAllowed returns true when profile is permitted by the allowlist.
-// nil allowlist = all allowed; empty allowlist = none allowed.
-// Entries may be exact names or owner-wildcard patterns ("owner.*").
-func isNodeProfileAllowed(allowed []storagev1.AllowedNodeProfile, name string) bool {
-	if allowed == nil {
-		return true
-	}
-	for _, a := range allowed {
-		if a.Name == name {
-			return true
-		}
-		if strings.HasSuffix(a.Name, ".*") &&
-			strings.HasPrefix(name, strings.TrimSuffix(a.Name, "*")) {
-			return true
-		}
-	}
-	return false
 }
 
 // CreateBootstrapToken attempts to create a token with the given ID. Its public because it's used in e2e tests.
