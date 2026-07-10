@@ -82,22 +82,23 @@ func (cmd *CreateCmd) Run(ctx context.Context) error {
 	if cmd.Kubeadm && cmd.ControlPlane {
 		return fmt.Errorf("--kubeadm and --control-plane are mutually exclusive")
 	}
+	var profileSpec *storagev1.NodeProfileSpec
 	if cmd.Profile != "" {
 		if cmd.Project == "" {
 			return fmt.Errorf("--project is required when --profile is set")
 		}
 
-		if err := cmd.verifyConnectedProject(ctx); err != nil {
+		cfg := cmd.GlobalFlags.LoadedConfig(cmd.Log)
+		platformClient, err := platform.InitClientFromConfig(ctx, cfg)
+		if err != nil {
+			return fmt.Errorf("connect to platform: %w", err)
+		}
+
+		if err := cmd.verifyConnectedProject(ctx, platformClient); err != nil {
 			return err
 		}
-	}
 
-	var (
-		profileSpec *storagev1.NodeProfileSpec
-		err         error
-	)
-	if cmd.Profile != "" {
-		profileSpec, err = cmd.resolveProfile(ctx)
+		profileSpec, err = cmd.resolveProfile(ctx, platformClient)
 		if err != nil {
 			return err
 		}
@@ -141,13 +142,7 @@ func (cmd *CreateCmd) Run(ctx context.Context) error {
 
 // resolveProfile validates that the requested profile is allowed in the given project,
 // then fetches and returns the full NodeProfileSpec from the platform catalog.
-func (cmd *CreateCmd) resolveProfile(ctx context.Context) (*storagev1.NodeProfileSpec, error) {
-	cfg := cmd.GlobalFlags.LoadedConfig(cmd.Log)
-	platformClient, err := platform.InitClientFromConfig(ctx, cfg)
-	if err != nil {
-		return nil, fmt.Errorf("connect to platform: %w", err)
-	}
-
+func (cmd *CreateCmd) resolveProfile(ctx context.Context, platformClient platform.Client) (*storagev1.NodeProfileSpec, error) {
 	managementClient, err := platformClient.Management()
 	if err != nil {
 		return nil, fmt.Errorf("get management client: %w", err)
@@ -158,13 +153,13 @@ func (cmd *CreateCmd) resolveProfile(ctx context.Context) (*storagev1.NodeProfil
 		return nil, fmt.Errorf("get project %q: %w", cmd.Project, err)
 	}
 
+	if !proj.Spec.IsNodeProfileAllowed(cmd.Profile) {
+		return nil, fmt.Errorf("node profile %q is not allowed in project %q", cmd.Profile, cmd.Project)
+	}
+
 	nodeProfile, err := managementClient.Loft().ManagementV1().NodeProfiles().Get(ctx, cmd.Profile, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("get node profile %q: %w", cmd.Profile, err)
-	}
-
-	if !proj.Spec.IsNodeProfileAllowed(cmd.Profile) {
-		return nil, fmt.Errorf("node profile %q is not allowed in project %q", cmd.Profile, cmd.Project)
 	}
 
 	return &nodeProfile.Spec.NodeProfileSpec, nil
@@ -332,7 +327,7 @@ func getClient(flags *flags.GlobalFlags) (*kubernetes.Clientset, error) {
 }
 
 // verifyConnectedProject ensures the kubeconfig points at a platform vCluster in --project.
-func (cmd *CreateCmd) verifyConnectedProject(ctx context.Context) error {
+func (cmd *CreateCmd) verifyConnectedProject(ctx context.Context, platformClient platform.Client) error {
 	project, vclusterName, err := detectPlatformConnectionFromKubeconfig(cmd.GlobalFlags)
 	if err != nil {
 		return err
@@ -347,11 +342,6 @@ func (cmd *CreateCmd) verifyConnectedProject(ctx context.Context) error {
 		return fmt.Errorf("cannot verify virtual cluster in project %q: could not determine vCluster name from kubeconfig", cmd.Project)
 	}
 
-	cfg := cmd.GlobalFlags.LoadedConfig(cmd.Log)
-	platformClient, err := platform.InitClientFromConfig(ctx, cfg)
-	if err != nil {
-		return fmt.Errorf("connect to platform: %w", err)
-	}
 	if _, err := find.GetPlatformVCluster(ctx, platformClient, vclusterName, cmd.Project, cmd.Log); err != nil {
 		return fmt.Errorf("virtual cluster %q not found in project %q: %w", vclusterName, cmd.Project, err)
 	}
