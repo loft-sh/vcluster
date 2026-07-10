@@ -40,6 +40,25 @@ func NewServiceManager() (ServiceManager, error) {
 	return newServiceManager(defaultSystemctlRunner)
 }
 
+// IsServiceActive reports whether the standalone vCluster systemd unit is
+// currently active on this host. It reports false wherever systemd cannot
+// answer affirmatively (non-Linux, no systemctl binary, systemd not running,
+// unit stopped or not installed), so callers can use it as a guard that only
+// engages on a standalone host with a running control plane.
+func IsServiceActive() bool {
+	if runtime.GOOS != "linux" {
+		return false
+	}
+	return isServiceActive(defaultSystemctlRunner)
+}
+
+func isServiceActive(run systemctlRunner) bool {
+	// "systemctl is-active" exits zero only when the unit is active; a missing
+	// systemctl binary, an unreachable systemd, a stopped unit, and an unknown
+	// unit all exit non-zero and therefore report not-active.
+	return run("is-active", "--quiet", constants.VClusterStandaloneSystemdServiceName) == nil
+}
+
 func newServiceManager(run systemctlRunner) (ServiceManager, error) {
 	if runtime.GOOS != "linux" {
 		return nil, fmt.Errorf("systemd manager is only supported on Linux (current OS: %s)", runtime.GOOS)
