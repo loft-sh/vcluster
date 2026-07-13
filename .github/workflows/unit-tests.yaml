@@ -1,12 +1,7 @@
 name: Unit tests
 
-# Runs on PRs and, post-build, when the "Release" builder completes (DEVOPS-1050:
-# release:created does not fire for builder-created releases). On the workflow_run
-# path the jobs run only for a green build and check out the built tag.
 on:
-  workflow_run:
-    workflows: ["Release"]
-    types: [completed]
+  workflow_dispatch:
   pull_request:
     branches:
       - main
@@ -25,43 +20,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  release_line_gate:
-    # Release (workflow_run) path: validate ONLY new release lines (>= v0.37, the
-    # DEVOPS-1050 cutover). Legacy lines (< v0.37) are intentionally NOT post-build
-    # validated here. pull_request runs skip this job.
-    if: github.event_name == 'workflow_run'
-    runs-on: ubuntu-latest
-    outputs:
-      validate: ${{ steps.gate.outputs.validate }}
-    steps:
-      - id: gate
-        env:
-          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
-        run: |
-          validate=false
-          if [[ "${HEAD_BRANCH}" =~ ^v([0-9]+)\.([0-9]+) ]]; then
-            maj="${BASH_REMATCH[1]}"; min="${BASH_REMATCH[2]}"
-            if [ "$maj" -gt 0 ] || { [ "$maj" -eq 0 ] && [ "$min" -ge 37 ]; }; then
-              validate=true
-            fi
-          fi
-          echo "validate=${validate}" >> "$GITHUB_OUTPUT"
-          echo "release line gate: head=${HEAD_BRANCH:-<none>} -> validate=${validate}"
-
   helm-unit-tests:
     name: Execute all helm tests
-    needs: [release_line_gate]
-    # do not run on forks; on the release path only for a green build of a new line (>= v0.37)
-    if: >-
-      !cancelled() && github.repository_owner == 'loft-sh' &&
-      (github.event_name != 'workflow_run' ||
-       (github.event.workflow_run.conclusion == 'success' && needs.release_line_gate.outputs.validate == 'true'))
+    # do not run on forks
+    if: github.repository_owner == 'loft-sh'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          ref: ${{ github.event.workflow_run.head_branch || github.ref }}
       - name: Install Helm Unit Test Plugin
         run: |
           helm plugin install https://github.com/helm-unittest/helm-unittest --version v0.4.4
@@ -71,18 +37,12 @@ jobs:
 
   go-unit-test:
     name: Execute all go tests
-    needs: [release_line_gate]
-    # do not run on forks; on the release path only for a green build of a new line (>= v0.37)
-    if: >-
-      !cancelled() && github.repository_owner == 'loft-sh' &&
-      (github.event_name != 'workflow_run' ||
-       (github.event.workflow_run.conclusion == 'success' && needs.release_line_gate.outputs.validate == 'true'))
+    # do not run on forks
+    if: github.repository_owner == 'loft-sh'
     runs-on: ubuntu-22.04
     steps:
       - name: Check out code into the Go module directory
         uses: actions/checkout@v6
-        with:
-          ref: ${{ github.event.workflow_run.head_branch || github.ref }}
       - name: Set up Go
         uses: actions/setup-go@v6
         with:

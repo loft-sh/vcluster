@@ -237,6 +237,30 @@ jobs:
           github-token: ${{ secrets.GH_ACCESS_TOKEN }}
           linear-token: ${{ secrets.LINEAR_TOKEN }}
 
+  trigger-validators:
+    needs: [publish]
+    if: ${{ success() && github.repository_owner == 'loft-sh' && !contains(needs.publish.outputs.release_version, '-next') }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Dispatch release validators at the built tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.publish.outputs.release_version }}
+        run: |
+          # Run each validator's OWN version at the built tag (per-line consistent).
+          # Each validator exists on the default branch (dispatchable) and carries a
+          # workflow_dispatch trigger in the tag's tree (true for lines cut from main).
+          for wf in e2e.yaml e2e-ginkgo.yaml unit-tests.yaml; do
+            if gh workflow run "$wf" --repo "$GITHUB_REPOSITORY" --ref "$VERSION"; then
+              echo "dispatched $wf @ $VERSION"
+            else
+              echo "::warning::could not dispatch $wf @ $VERSION (missing or no workflow_dispatch at tag)"
+            fi
+          done
+
   notify_failure:
     if: ${{ always() && contains(needs.*.result, 'failure') && github.repository_owner == 'loft-sh' }}
     needs:
