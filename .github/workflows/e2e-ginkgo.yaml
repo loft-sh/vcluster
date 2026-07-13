@@ -4,9 +4,13 @@ permissions:
   contents: read
   pull-requests: write
 
+# Release validation runs post-build via workflow_run on the "Release" builder
+# completing (DEVOPS-1050). On that path detect_changes is skipped, the suite
+# runs against the built tag, and the label filter falls back to the default.
 on:
-  release:
-    types: [created]
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       ginkgo-label:
@@ -44,7 +48,8 @@ env:
 jobs:
   parse_label-filter:
     name: Parse label filter and check if tests should run
-    if: github.repository_owner == 'loft-sh' # do not run on forks
+    # do not run on forks; on the release path only for a green build
+    if: github.repository_owner == 'loft-sh' && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-22.04
 
     outputs:
@@ -97,6 +102,9 @@ jobs:
           echo "parsed-label-filter=${PARSED_LABEL_FILTER}" >> "$GITHUB_OUTPUT"
 
   detect_changes:
+    # PR-only: the release (workflow_run) path always validates and bypasses
+    # change detection; entry jobs break skip-propagation with !cancelled().
+    if: github.event_name == 'pull_request'
     needs: [parse_label-filter]
     uses: loft-sh/github-actions/.github/workflows/detect-changes.yaml@detect-changes/v1
     with:
@@ -115,13 +123,20 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
-    if: github.repository_owner == 'loft-sh' && needs.detect_changes.outputs.has_changed == 'true'
+    if: >-
+      !cancelled() && github.repository_owner == 'loft-sh' &&
+      (
+        (github.event_name == 'pull_request' && needs.detect_changes.outputs.has_changed == 'true') ||
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+        github.event_name == 'workflow_dispatch'
+      )
     needs: detect_changes
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_branch || github.ref }}
 
       - run: git fetch --force --tags
 
@@ -163,7 +178,13 @@ jobs:
 
   download-latest-cli:
     needs: detect_changes
-    if: needs.detect_changes.outputs.has_changed == 'true'
+    if: >-
+      !cancelled() &&
+      (
+        (github.event_name == 'pull_request' && needs.detect_changes.outputs.has_changed == 'true') ||
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+        github.event_name == 'workflow_dispatch'
+      )
     name: Download the latest vCluster cli
     runs-on: ubuntu-latest
     steps:
@@ -183,9 +204,14 @@ jobs:
       - build
       - parse_label-filter
       - detect_changes
-    if: >
+    if: >-
+      !cancelled() && needs.build.result == 'success' &&
       needs.parse_label-filter.outputs.skip-edited != 'true' &&
-      needs.detect_changes.outputs.has_changed == 'true'
+      (
+        (github.event_name == 'pull_request' && needs.detect_changes.outputs.has_changed == 'true') ||
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+        github.event_name == 'workflow_dispatch'
+      )
     runs-on: large-8_32
     permissions:
       id-token: write        # needed for OIDC → AWS
@@ -197,6 +223,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_branch || github.ref }}
 
       - run: git fetch --force --tags
 
