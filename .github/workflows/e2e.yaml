@@ -27,6 +27,29 @@ env:
   VCLUSTER_NAMESPACE: vcluster
 
 jobs:
+  release_line_gate:
+    # Release (workflow_run) path: validate ONLY new release lines (>= v0.37, the
+    # DEVOPS-1050 cutover). Legacy lines (< v0.37) are intentionally NOT post-build
+    # validated here. pull_request runs skip this job.
+    if: github.event_name == 'workflow_run'
+    runs-on: ubuntu-latest
+    outputs:
+      validate: ${{ steps.gate.outputs.validate }}
+    steps:
+      - id: gate
+        env:
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          validate=false
+          if [[ "${HEAD_BRANCH}" =~ ^v([0-9]+)\.([0-9]+) ]]; then
+            maj="${BASH_REMATCH[1]}"; min="${BASH_REMATCH[2]}"
+            if [ "$maj" -gt 0 ] || { [ "$maj" -eq 0 ] && [ "$min" -ge 37 ]; }; then
+              validate=true
+            fi
+          fi
+          echo "validate=${validate}" >> "$GITHUB_OUTPUT"
+          echo "release line gate: head=${HEAD_BRANCH:-<none>} -> validate=${validate}"
+
   detect_changes:
     # PR-only: the release (workflow_run) path always validates, so it bypasses
     # change detection. Entry jobs break the skip-propagation with !cancelled().
@@ -51,10 +74,10 @@ jobs:
       !cancelled() && github.repository_owner == 'loft-sh' &&
       (
         (github.event_name == 'pull_request' && needs.detect_changes.outputs.has_changed == 'true') ||
-        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && needs.release_line_gate.outputs.validate == 'true') ||
         github.event_name == 'workflow_dispatch'
       )
-    needs: detect_changes
+    needs: [detect_changes, release_line_gate]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -100,12 +123,12 @@ jobs:
           retention-days: 7
 
   get-testsuites-dir:
-    needs: detect_changes
+    needs: [detect_changes, release_line_gate]
     if: >-
       !cancelled() &&
       (
         (github.event_name == 'pull_request' && needs.detect_changes.outputs.has_changed == 'true') ||
-        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && needs.release_line_gate.outputs.validate == 'true') ||
         github.event_name == 'workflow_dispatch'
       )
     runs-on: ubuntu-latest
@@ -136,11 +159,12 @@ jobs:
     needs:
       - build
       - detect_changes
+      - release_line_gate
     if: >-
       !cancelled() && needs.build.result == 'success' &&
       (
         (github.event_name == 'pull_request' && needs.detect_changes.outputs.has_changed == 'true') ||
-        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && needs.release_line_gate.outputs.validate == 'true') ||
         github.event_name == 'workflow_dispatch'
       )
     runs-on: ubuntu-latest
@@ -200,12 +224,12 @@ jobs:
           ./hack/vcluster-install-scripts/test-helm-install.sh
 
   download-latest-cli:
-    needs: detect_changes
+    needs: [detect_changes, release_line_gate]
     if: >-
       !cancelled() &&
       (
         (github.event_name == 'pull_request' && needs.detect_changes.outputs.has_changed == 'true') ||
-        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && needs.release_line_gate.outputs.validate == 'true') ||
         github.event_name == 'workflow_dispatch'
       )
     name: Download the latest vCluster cli
@@ -227,11 +251,12 @@ jobs:
       - build
       - download-latest-cli
       - detect_changes
+      - release_line_gate
     if: >-
       !cancelled() && needs.build.result == 'success' && needs.download-latest-cli.result == 'success' &&
       (
         (github.event_name == 'pull_request' && needs.detect_changes.outputs.has_changed == 'true') ||
-        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && needs.release_line_gate.outputs.validate == 'true') ||
         github.event_name == 'workflow_dispatch'
       )
     runs-on: ubuntu-latest

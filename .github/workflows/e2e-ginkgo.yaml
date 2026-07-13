@@ -46,10 +46,37 @@ env:
   VCLUSTER_NAMESPACE: vcluster
 
 jobs:
+  release_line_gate:
+    # Release (workflow_run) path: validate ONLY new release lines (>= v0.37, the
+    # DEVOPS-1050 cutover). Legacy lines (< v0.37) are intentionally NOT post-build
+    # validated here. pull_request runs skip this job.
+    if: github.event_name == 'workflow_run'
+    runs-on: ubuntu-latest
+    outputs:
+      validate: ${{ steps.gate.outputs.validate }}
+    steps:
+      - id: gate
+        env:
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          validate=false
+          if [[ "${HEAD_BRANCH}" =~ ^v([0-9]+)\.([0-9]+) ]]; then
+            maj="${BASH_REMATCH[1]}"; min="${BASH_REMATCH[2]}"
+            if [ "$maj" -gt 0 ] || { [ "$maj" -eq 0 ] && [ "$min" -ge 37 ]; }; then
+              validate=true
+            fi
+          fi
+          echo "validate=${validate}" >> "$GITHUB_OUTPUT"
+          echo "release line gate: head=${HEAD_BRANCH:-<none>} -> validate=${validate}"
+
   parse_label-filter:
     name: Parse label filter and check if tests should run
-    # do not run on forks; on the release path only for a green build
-    if: github.repository_owner == 'loft-sh' && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
+    needs: [release_line_gate]
+    # do not run on forks; on the release path only for a green build of a new line (>= v0.37)
+    if: >-
+      !cancelled() && github.repository_owner == 'loft-sh' &&
+      (github.event_name != 'workflow_run' ||
+       (github.event.workflow_run.conclusion == 'success' && needs.release_line_gate.outputs.validate == 'true'))
     runs-on: ubuntu-22.04
 
     outputs:
@@ -100,10 +127,10 @@ jobs:
       !cancelled() && github.repository_owner == 'loft-sh' &&
       (
         (github.event_name == 'pull_request' && needs.detect_changes.outputs.has_changed == 'true') ||
-        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && needs.release_line_gate.outputs.validate == 'true') ||
         github.event_name == 'workflow_dispatch'
       )
-    needs: detect_changes
+    needs: [detect_changes, release_line_gate]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -150,12 +177,12 @@ jobs:
 
 
   download-latest-cli:
-    needs: detect_changes
+    needs: [detect_changes, release_line_gate]
     if: >-
       !cancelled() &&
       (
         (github.event_name == 'pull_request' && needs.detect_changes.outputs.has_changed == 'true') ||
-        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && needs.release_line_gate.outputs.validate == 'true') ||
         github.event_name == 'workflow_dispatch'
       )
     name: Download the latest vCluster cli
@@ -177,12 +204,13 @@ jobs:
       - build
       - parse_label-filter
       - detect_changes
+      - release_line_gate
     if: >-
       !cancelled() && needs.build.result == 'success' &&
       needs.parse_label-filter.outputs.skip-edited != 'true' &&
       (
         (github.event_name == 'pull_request' && needs.detect_changes.outputs.has_changed == 'true') ||
-        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && needs.release_line_gate.outputs.validate == 'true') ||
         github.event_name == 'workflow_dispatch'
       )
     runs-on: large-8_32
