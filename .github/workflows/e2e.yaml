@@ -1,8 +1,14 @@
 name: E2E CI
 
+# Release validation runs post-build via workflow_run on the "Release" builder
+# completing (DEVOPS-1050): a release created by the builder inside Actions does
+# not emit release:created, so validators keyed on it would silently never run.
+# On the workflow_run path detect_changes is skipped and the suite runs against
+# the built tag (github.event.workflow_run.head_branch).
 on:
-  release:
-    types: [created]
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
   pull_request:
     branches:
       - main
@@ -22,6 +28,9 @@ env:
 
 jobs:
   detect_changes:
+    # PR-only: the release (workflow_run) path always validates, so it bypasses
+    # change detection. Entry jobs break the skip-propagation with !cancelled().
+    if: github.event_name == 'pull_request'
     uses: loft-sh/github-actions/.github/workflows/detect-changes.yaml@v1
     with:
       paths: |
@@ -37,13 +46,20 @@ jobs:
         - "manifests/**"
   build:
     runs-on: ubuntu-latest
-    if: github.repository_owner == 'loft-sh' && needs.detect_changes.outputs.has_changed == 'true'
+    if: >-
+      !cancelled() && github.repository_owner == 'loft-sh' &&
+      (
+        (github.event_name == 'pull_request' && needs.detect_changes.outputs.has_changed == 'true') ||
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+        github.event_name == 'workflow_dispatch'
+      )
     needs: detect_changes
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_branch || github.ref }}
 
       - run: git fetch --force --tags
 
@@ -86,11 +102,19 @@ jobs:
 
   get-testsuites-dir:
     needs: detect_changes
-    if: needs.detect_changes.outputs.has_changed == 'true'
+    if: >-
+      !cancelled() &&
+      (
+        (github.event_name == 'pull_request' && needs.detect_changes.outputs.has_changed == 'true') ||
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+        github.event_name == 'workflow_dispatch'
+      )
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_branch || github.ref }}
       - id: set-paths-matrix
         run: |
           set -x
@@ -105,11 +129,19 @@ jobs:
     needs:
       - build
       - detect_changes
-    if: needs.detect_changes.outputs.has_changed == 'true'
+    if: >-
+      !cancelled() && needs.build.result == 'success' &&
+      (
+        (github.event_name == 'pull_request' && needs.detect_changes.outputs.has_changed == 'true') ||
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+        github.event_name == 'workflow_dispatch'
+      )
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_branch || github.ref }}
 
       - uses: azure/setup-helm@v4
         name: Setup Helm
@@ -158,7 +190,13 @@ jobs:
 
   download-latest-cli:
     needs: detect_changes
-    if: needs.detect_changes.outputs.has_changed == 'true'
+    if: >-
+      !cancelled() &&
+      (
+        (github.event_name == 'pull_request' && needs.detect_changes.outputs.has_changed == 'true') ||
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+        github.event_name == 'workflow_dispatch'
+      )
     name: Download the latest vCluster cli
     runs-on: ubuntu-latest
     steps:
@@ -178,7 +216,13 @@ jobs:
       - build
       - download-latest-cli
       - detect_changes
-    if: needs.detect_changes.outputs.has_changed == 'true'
+    if: >-
+      !cancelled() && needs.build.result == 'success' && needs.download-latest-cli.result == 'success' &&
+      (
+        (github.event_name == 'pull_request' && needs.detect_changes.outputs.has_changed == 'true') ||
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+        github.event_name == 'workflow_dispatch'
+      )
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -187,6 +231,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_branch || github.ref }}
 
       - uses: azure/setup-helm@v4
         name: Setup Helm
@@ -266,7 +312,13 @@ jobs:
       - build
       - get-testsuites-dir
       - detect_changes
-    if: needs.detect_changes.outputs.has_changed == 'true'
+    if: >-
+      !cancelled() && needs.build.result == 'success' && needs.get-testsuites-dir.result == 'success' &&
+      (
+        (github.event_name == 'pull_request' && needs.detect_changes.outputs.has_changed == 'true') ||
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+        github.event_name == 'workflow_dispatch'
+      )
     runs-on: ubuntu-latest
     permissions:
       id-token: write   # needed for OIDC → AWS
@@ -292,6 +344,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_branch || github.ref }}
 
       - name: Set up Go
         uses: actions/setup-go@v6
