@@ -51,6 +51,11 @@ func (in FeatureUsage) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in GPUTypeUsage) OpenAPIModelName() string {
+	return "com.github.loft-sh.admin-apis.pkg.licenseapi.GPUTypeUsage"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in GenericRequestInput) OpenAPIModelName() string {
 	return "com.github.loft-sh.admin-apis.pkg.licenseapi.GenericRequestInput"
 }
@@ -138,6 +143,11 @@ func (in Limit) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in Module) OpenAPIModelName() string {
 	return "com.github.loft-sh.admin-apis.pkg.licenseapi.Module"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NodeGPUInfo) OpenAPIModelName() string {
+	return "com.github.loft-sh.admin-apis.pkg.licenseapi.NodeGPUInfo"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.

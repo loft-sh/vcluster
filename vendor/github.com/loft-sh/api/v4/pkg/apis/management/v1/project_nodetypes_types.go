@@ -18,6 +18,9 @@ type ProjectNodeTypes struct {
 	// NodeTypes holds all the allowed node types for the project
 	NodeTypes []storagev1.NodeType `json:"nodeTypes,omitempty"`
 
+	// NodeProfiles holds all the allowed node profiles for the project
+	NodeProfiles []storagev1.NodeProfile `json:"nodeProfiles,omitempty"`
+
 	// OSImages holds all the allowed OS images for the project
 	OSImages []storagev1.OSImage `json:"osImages,omitempty"`
 }

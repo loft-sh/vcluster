@@ -672,11 +672,11 @@ github.com/liggitt/tabwriter
 # github.com/lithammer/dedent v1.1.0
 ## explicit
 github.com/lithammer/dedent
-# github.com/loft-sh/admin-apis v0.0.0-20260601071241-26d546886c99
+# github.com/loft-sh/admin-apis v0.0.0-20260707131545-11a67ade9341
 ## explicit; go 1.24.11
 github.com/loft-sh/admin-apis/pkg/licenseapi
-# github.com/loft-sh/agentapi/v4 v4.11.0-alpha.2
-## explicit; go 1.26.0
+# github.com/loft-sh/agentapi/v4 v4.11.0-rc.1
+## explicit; go 1.26.3
 github.com/loft-sh/agentapi/v4/pkg/apis/loft/cluster
 github.com/loft-sh/agentapi/v4/pkg/apis/loft/cluster/v1
 github.com/loft-sh/agentapi/v4/pkg/apis/loft/storage/v1
@@ -687,8 +687,8 @@ github.com/loft-sh/agentapi/v4/pkg/clientset/versioned/typed/storage/v1
 # github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e
 ## explicit; go 1.21
 github.com/loft-sh/analytics-client/client
-# github.com/loft-sh/api/v4 v4.11.0-alpha.2
-## explicit; go 1.26.0
+# github.com/loft-sh/api/v4 v4.11.0-rc.1
+## explicit; go 1.26.3
 github.com/loft-sh/api/v4/pkg/apis/audit/v1
 github.com/loft-sh/api/v4/pkg/apis/management
 github.com/loft-sh/api/v4/pkg/apis/management/v1
@@ -713,7 +713,7 @@ github.com/loft-sh/api/v4/pkg/snapshot/storage/s3
 github.com/loft-sh/api/v4/pkg/snapshot/storage/types
 github.com/loft-sh/api/v4/pkg/vclusterconfig
 github.com/loft-sh/api/v4/pkg/vclusterconfig/constants
-# github.com/loft-sh/apiserver v0.0.0-20260424174643-365191901530
+# github.com/loft-sh/apiserver v0.0.0-20260707184419-aef558a5ae8d
 ## explicit; go 1.26.0
 github.com/loft-sh/apiserver/pkg/builders
 # github.com/loft-sh/e2e-framework v0.0.0-20260423133544-5291e728f979

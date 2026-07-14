@@ -276,7 +276,17 @@ var (
 		return NewNodeEnvironmentStatusRESTFunc(Factory)
 	}
 	NewNodeEnvironmentStatusRESTFunc NewRESTFunc
-	ManagementNodeProviderStorage    = builders.NewApiResourceWithStorage( // Resource status endpoint
+	ManagementNodeProfileStorage     = builders.NewApiResourceWithStorage( // Resource status endpoint
+		InternalNodeProfile,
+		func() runtime.Object { return &NodeProfile{} },     // Register versioned resource
+		func() runtime.Object { return &NodeProfileList{} }, // Register versioned resource list
+		NewNodeProfileREST,
+	)
+	NewNodeProfileREST = func(getter generic.RESTOptionsGetter) rest.Storage {
+		return NewNodeProfileRESTFunc(Factory)
+	}
+	NewNodeProfileRESTFunc        NewRESTFunc
+	ManagementNodeProviderStorage = builders.NewApiResourceWithStorage( // Resource status endpoint
 		InternalNodeProvider,
 		func() runtime.Object { return &NodeProvider{} },     // Register versioned resource
 		func() runtime.Object { return &NodeProviderList{} }, // Register versioned resource list
@@ -912,6 +922,18 @@ var (
 		func() runtime.Object { return &NodeEnvironment{} },
 		func() runtime.Object { return &NodeEnvironmentList{} },
 	)
+	InternalNodeProfile = builders.NewInternalResource(
+		"nodeprofiles",
+		"NodeProfile",
+		func() runtime.Object { return &NodeProfile{} },
+		func() runtime.Object { return &NodeProfileList{} },
+	)
+	InternalNodeProfileStatus = builders.NewInternalResourceStatus(
+		"nodeprofiles",
+		"NodeProfileStatus",
+		func() runtime.Object { return &NodeProfile{} },
+		func() runtime.Object { return &NodeProfileList{} },
+	)
 	InternalNodeProvider = builders.NewInternalResource(
 		"nodeproviders",
 		"NodeProvider",
@@ -1539,6 +1561,8 @@ var (
 		InternalNodeClaimStatus,
 		InternalNodeEnvironment,
 		InternalNodeEnvironmentStatus,
+		InternalNodeProfile,
+		InternalNodeProfileStatus,
 		InternalNodeProvider,
 		InternalNodeProviderStatus,
 		InternalNodeProviderExecREST,
@@ -1858,7 +1882,7 @@ type Cloud struct {
 }
 
 // +genclient
-// +genclient
+// +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type Cluster struct {
@@ -2420,6 +2444,25 @@ type NodeEnvironmentStatus struct {
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+type NodeProfile struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              NodeProfileSpec   `json:"spec,omitempty"`
+	Status            NodeProfileStatus `json:"status,omitempty"`
+}
+
+type NodeProfileSpec struct {
+	storagev1.NodeProfileSpec `json:",inline"`
+}
+
+type NodeProfileStatus struct {
+	storagev1.NodeProfileStatus `json:",inline"`
+}
+
+// +genclient
+// +genclient:nonNamespaced
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
 type NodeProvider struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -2715,6 +2758,7 @@ type ProjectNodeTypes struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	NodeProviders     []storagev1.NodeProvider `json:"nodeProviders,omitempty"`
 	NodeTypes         []storagev1.NodeType     `json:"nodeTypes,omitempty"`
+	NodeProfiles      []storagev1.NodeProfile  `json:"nodeProfiles,omitempty"`
 	OSImages          []storagev1.OSImage      `json:"osImages,omitempty"`
 }
 
@@ -2999,7 +3043,7 @@ type SpaceInstanceStatus struct {
 }
 
 // +genclient
-// +genclient
+// +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type SpaceTemplate struct {
@@ -3380,7 +3424,12 @@ type VirtualClusterInstanceDebugShell struct {
 type VirtualClusterInstanceJoinScript struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              VirtualClusterInstanceJoinScriptSpec   `json:"spec,omitempty"`
 	Status            VirtualClusterInstanceJoinScriptStatus `json:"status,omitempty"`
+}
+
+type VirtualClusterInstanceJoinScriptSpec struct {
+	ProfileRef string `json:"profileRef,omitempty"`
 }
 
 type VirtualClusterInstanceJoinScriptStatus struct {
@@ -3533,7 +3582,7 @@ type VirtualClusterStandaloneStatus struct {
 }
 
 // +genclient
-// +genclient
+// +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type VirtualClusterTemplate struct {
@@ -6372,6 +6421,125 @@ func (s *storageNodeEnvironment) UpdateNodeEnvironment(ctx context.Context, obje
 }
 
 func (s *storageNodeEnvironment) DeleteNodeEnvironment(ctx context.Context, id string) (bool, error) {
+	st := s.GetStandardStorage()
+	_, sync, err := st.Delete(ctx, id, nil, &metav1.DeleteOptions{})
+	return sync, err
+}
+
+// NodeProfile Functions and Structs
+//
+// +k8s:deepcopy-gen=false
+type NodeProfileStrategy struct {
+	builders.DefaultStorageStrategy
+}
+
+// +k8s:deepcopy-gen=false
+type NodeProfileStatusStrategy struct {
+	builders.DefaultStatusStorageStrategy
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type NodeProfileList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []NodeProfile `json:"items"`
+}
+
+func (NodeProfile) NewStatus() interface{} {
+	return NodeProfileStatus{}
+}
+
+func (pc *NodeProfile) GetStatus() interface{} {
+	return pc.Status
+}
+
+func (pc *NodeProfile) SetStatus(s interface{}) {
+	pc.Status = s.(NodeProfileStatus)
+}
+
+func (pc *NodeProfile) GetSpec() interface{} {
+	return pc.Spec
+}
+
+func (pc *NodeProfile) SetSpec(s interface{}) {
+	pc.Spec = s.(NodeProfileSpec)
+}
+
+func (pc *NodeProfile) GetObjectMeta() *metav1.ObjectMeta {
+	return &pc.ObjectMeta
+}
+
+func (pc *NodeProfile) SetGeneration(generation int64) {
+	pc.ObjectMeta.Generation = generation
+}
+
+func (pc NodeProfile) GetGeneration() int64 {
+	return pc.ObjectMeta.Generation
+}
+
+// Registry is an interface for things that know how to store NodeProfile.
+// +k8s:deepcopy-gen=false
+type NodeProfileRegistry interface {
+	ListNodeProfiles(ctx context.Context, options *internalversion.ListOptions) (*NodeProfileList, error)
+	GetNodeProfile(ctx context.Context, id string, options *metav1.GetOptions) (*NodeProfile, error)
+	CreateNodeProfile(ctx context.Context, id *NodeProfile) (*NodeProfile, error)
+	UpdateNodeProfile(ctx context.Context, id *NodeProfile) (*NodeProfile, error)
+	DeleteNodeProfile(ctx context.Context, id string) (bool, error)
+}
+
+// NewRegistry returns a new Registry interface for the given Storage. Any mismatched types will panic.
+func NewNodeProfileRegistry(sp builders.StandardStorageProvider) NodeProfileRegistry {
+	return &storageNodeProfile{sp}
+}
+
+// Implement Registry
+// storage puts strong typing around storage calls
+// +k8s:deepcopy-gen=false
+type storageNodeProfile struct {
+	builders.StandardStorageProvider
+}
+
+func (s *storageNodeProfile) ListNodeProfiles(ctx context.Context, options *internalversion.ListOptions) (*NodeProfileList, error) {
+	if options != nil && options.FieldSelector != nil && !options.FieldSelector.Empty() {
+		return nil, fmt.Errorf("field selector not supported yet")
+	}
+	st := s.GetStandardStorage()
+	obj, err := st.List(ctx, options)
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*NodeProfileList), err
+}
+
+func (s *storageNodeProfile) GetNodeProfile(ctx context.Context, id string, options *metav1.GetOptions) (*NodeProfile, error) {
+	st := s.GetStandardStorage()
+	obj, err := st.Get(ctx, id, options)
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*NodeProfile), nil
+}
+
+func (s *storageNodeProfile) CreateNodeProfile(ctx context.Context, object *NodeProfile) (*NodeProfile, error) {
+	st := s.GetStandardStorage()
+	obj, err := st.Create(ctx, object, nil, &metav1.CreateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*NodeProfile), nil
+}
+
+func (s *storageNodeProfile) UpdateNodeProfile(ctx context.Context, object *NodeProfile) (*NodeProfile, error) {
+	st := s.GetStandardStorage()
+	obj, _, err := st.Update(ctx, object.Name, rest.DefaultUpdatedObjectInfo(object), nil, nil, false, &metav1.UpdateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*NodeProfile), nil
+}
+
+func (s *storageNodeProfile) DeleteNodeProfile(ctx context.Context, id string) (bool, error) {
 	st := s.GetStandardStorage()
 	_, sync, err := st.Delete(ctx, id, nil, &metav1.DeleteOptions{})
 	return sync, err

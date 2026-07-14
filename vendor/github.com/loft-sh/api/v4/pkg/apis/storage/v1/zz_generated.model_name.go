@@ -91,6 +91,11 @@ func (in AllowedClusterAccountTemplate) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in AllowedNodeProfile) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.AllowedNodeProfile"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in AllowedNodeType) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.AllowedNodeType"
 }
@@ -638,6 +643,26 @@ func (in NodeEnvironmentSpec) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in NodeEnvironmentStatus) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.NodeEnvironmentStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NodeProfile) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.NodeProfile"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NodeProfileList) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.NodeProfileList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NodeProfileSpec) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.NodeProfileSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NodeProfileStatus) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.NodeProfileStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.

@@ -10,6 +10,8 @@ const (
 
 	ConnectedClusters FeatureName = "connected-clusters" // Connected Clusters
 
+	FleetObservability FeatureName = "fleet-observability" // Fleet Observability
+
 	Secrets FeatureName = "secrets" // Secrets Sync
 
 	Apps FeatureName = "apps" // Apps
@@ -25,6 +27,8 @@ const (
 	VirtualClusterProDistroBuiltInCoreDNS FeatureName = "vcp-distro-built-in-coredns" // Built-In CoreDNS
 
 	PrivateNodesVpn FeatureName = "private-nodes-vpn" // Private Nodes VPN
+
+	NodeProfiles FeatureName = "node-profiles" // Node Profiles
 
 	VirtualClusterProDistroPrivateNodes FeatureName = "vcp-distro-private-nodes" // Private Nodes
 
@@ -118,6 +122,8 @@ const (
 
 	AutoNodesMetal3 FeatureName = "auto-nodes-metal3" // Metal3 Node Provider
 
+	AutoNodesNICo FeatureName = "auto-nodes-nico" // NICo Node Provider
+
 	VirtualClusterProDistroGenericSync FeatureName = "vcp-distro-generic-sync" // Generic Sync
 
 	VirtualClusterProDistroSyncPatches FeatureName = "vcp-distro-sync-patches" // Sync Patches
@@ -157,6 +163,7 @@ func GetFeatures() []FeatureName {
 		ClusterAccess,
 		ClusterRoles,
 		ConnectedClusters,
+		FleetObservability,
 		Secrets,
 		Apps,
 		Namespaces,
@@ -165,6 +172,7 @@ func GetFeatures() []FeatureName {
 		VirtualClusterProDistroImage,
 		VirtualClusterProDistroBuiltInCoreDNS,
 		PrivateNodesVpn,
+		NodeProfiles,
 		VirtualClusterProDistroPrivateNodes,
 		PrivateNodesAutoNodes,
 		Standalone,
@@ -211,6 +219,7 @@ func GetFeatures() []FeatureName {
 		AutoNodesTerraform,
 		AutoNodesClusterapi,
 		AutoNodesMetal3,
+		AutoNodesNICo,
 		VirtualClusterProDistroGenericSync,
 		VirtualClusterProDistroSyncPatches,
 		VirtualClusterProDistroTranslatePatches,
@@ -245,6 +254,11 @@ func GetAllFeatures() []*Feature {
 		{
 			DisplayName: "Connected Clusters",
 			Name:        "connected-clusters",
+			Module:      "platform",
+		},
+		{
+			DisplayName: "Fleet Observability",
+			Name:        "fleet-observability",
 			Module:      "platform",
 		},
 		{
@@ -285,6 +299,11 @@ func GetAllFeatures() []*Feature {
 		{
 			DisplayName: "Private Nodes VPN",
 			Name:        "private-nodes-vpn",
+			Module:      "vcluster",
+		},
+		{
+			DisplayName: "Node Profiles",
+			Name:        "node-profiles",
 			Module:      "vcluster",
 		},
 		{
@@ -515,6 +534,11 @@ func GetAllFeatures() []*Feature {
 		{
 			DisplayName: "Metal3 Node Provider",
 			Name:        "auto-nodes-metal3",
+			Module:      "auto-nodes",
+		},
+		{
+			DisplayName: "NICo Node Provider",
+			Name:        "auto-nodes-nico",
 			Module:      "auto-nodes",
 		},
 		{

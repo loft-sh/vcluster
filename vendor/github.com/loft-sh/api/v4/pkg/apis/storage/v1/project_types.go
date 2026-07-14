@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"strings"
+
 	agentstoragev1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/storage/v1"
 	argoapplicationsv1alpha1 "github.com/loft-sh/external-types/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -107,6 +109,21 @@ type ProjectSpec struct {
 	// +optional
 	AllowedNodeTypes []AllowedNodeType `json:"allowedNodeTypes" jsonschema:"nullable"`
 
+	// AllowedNodeProfiles restricts which NodeProfiles can be referenced
+	// by NodeClaims and joinscript requests in this project. An entry can
+	// be an exact name ("platform.gpu-training") or an owner wildcard
+	// ("platform.*"). If unset (nil), all NodeProfiles are allowed; an
+	// empty list disallows all NodeProfiles.
+	// +optional
+	AllowedNodeProfiles []AllowedNodeProfile `json:"allowedNodeProfiles" jsonschema:"nullable"`
+
+	// DefaultNodeProfile is the default NodeProfile applied to nodes in this
+	// project when none is selected explicitly. It is overridden by the
+	// vCluster-level privateNodes.defaultProfile and by per-node/per-pool
+	// selection, and is validated against allowedNodeProfiles.
+	// +optional
+	DefaultNodeProfile string `json:"defaultNodeProfile,omitempty"`
+
 	// RequireTemplate configures if a template is required for instance creation.
 	// +optional
 	RequireTemplate RequireTemplate `json:"requireTemplate,omitempty"`
@@ -140,7 +157,6 @@ type ProjectSpec struct {
 	// VaultIntegration holds information about Vault Integration
 	// +optional
 	VaultIntegration *VaultIntegrationSpec `json:"vault,omitempty"`
-
 }
 
 type RequireTemplate struct {
@@ -240,6 +256,33 @@ type AllowedNodeType struct {
 	// of the given provider.
 	// +optional
 	Name string `json:"name,omitempty"`
+}
+
+// AllowedNodeProfile restricts which NodeProfile a project's consumers may
+// reference. The Name field is either an exact profile name or an
+// "<owner>.*" wildcard, matching the same semantics as AllowedNodeType.
+type AllowedNodeProfile struct {
+	// Name of the NodeProfile, or "<owner>.*" to allow all NodeProfiles
+	// with the given owner prefix.
+	// +optional
+	Name string `json:"name,omitempty"`
+}
+
+// IsNodeProfileAllowed reports whether name is permitted by AllowedNodeProfiles. A nil
+// list means all NodeProfiles are allowed; an empty list means none are.
+func (s ProjectSpec) IsNodeProfileAllowed(name string) bool {
+	if s.AllowedNodeProfiles == nil {
+		return true
+	}
+	for _, a := range s.AllowedNodeProfiles {
+		if a.Name == name {
+			return true
+		}
+		if strings.HasSuffix(a.Name, ".*") && strings.HasPrefix(name, strings.TrimSuffix(a.Name, "*")) {
+			return true
+		}
+	}
+	return false
 }
 
 type ProjectStatus struct {

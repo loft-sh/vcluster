@@ -70,6 +70,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&NodeClaimList{},
 		&NodeEnvironment{},
 		&NodeEnvironmentList{},
+		&NodeProfile{},
+		&NodeProfileList{},
 		&NodeProvider{},
 		&NodeProviderList{},
 		&NodeProviderExec{},
@@ -269,6 +271,7 @@ var (
 			func() runtime.Object { return &NodeEnvironment{} },     // Register versioned resource
 			func() runtime.Object { return &NodeEnvironmentList{} }, // Register versioned resource list
 			management.NewNodeEnvironmentStatusREST),
+		management.ManagementNodeProfileStorage,
 		management.ManagementNodeProviderStorage,
 		builders.NewApiResourceWithStorage(
 			management.InternalNodeProviderStatus,
@@ -803,6 +806,14 @@ type NodeEnvironmentList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []NodeEnvironment `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type NodeProfileList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []NodeProfile `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

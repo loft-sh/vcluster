@@ -7,6 +7,8 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // ProjectMigrateVirtualClusterInstance holds project vclusterinstance migrate information
+//
+// Deprecated: migrating virtual cluster instances between projects is deprecated and will be removed in a future release.
 // +subresource-request
 type ProjectMigrateVirtualClusterInstance struct {
 	metav1.TypeMeta   `json:",inline"`

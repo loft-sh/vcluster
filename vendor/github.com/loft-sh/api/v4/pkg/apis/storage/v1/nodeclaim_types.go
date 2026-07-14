@@ -137,6 +137,12 @@ type NodeClaimSpec struct {
 	// +optional
 	KubeletArgs map[string]string `json:"kubeletArgs,omitempty"`
 
+	// ProfileRef is the name of a NodeProfile in the catalog to apply to the
+	// resulting node. The referenced profile must exist and must be permitted
+	// by the owning project's allowedNodeProfiles. Optional.
+	// +optional
+	ProfileRef string `json:"profileRef,omitempty"`
+
 	// DesiredCapacity specifies the resources requested by the NodeClaim.
 	DesiredCapacity corev1.ResourceList `json:"desiredCapacity,omitempty"`
 

@@ -1471,6 +1471,46 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
+	if err := s.AddGeneratedConversionFunc((*NodeProfile)(nil), (*management.NodeProfile)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_NodeProfile_To_management_NodeProfile(a.(*NodeProfile), b.(*management.NodeProfile), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*management.NodeProfile)(nil), (*NodeProfile)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_management_NodeProfile_To_v1_NodeProfile(a.(*management.NodeProfile), b.(*NodeProfile), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*NodeProfileList)(nil), (*management.NodeProfileList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_NodeProfileList_To_management_NodeProfileList(a.(*NodeProfileList), b.(*management.NodeProfileList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*management.NodeProfileList)(nil), (*NodeProfileList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_management_NodeProfileList_To_v1_NodeProfileList(a.(*management.NodeProfileList), b.(*NodeProfileList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*NodeProfileSpec)(nil), (*management.NodeProfileSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_NodeProfileSpec_To_management_NodeProfileSpec(a.(*NodeProfileSpec), b.(*management.NodeProfileSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*management.NodeProfileSpec)(nil), (*NodeProfileSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_management_NodeProfileSpec_To_v1_NodeProfileSpec(a.(*management.NodeProfileSpec), b.(*NodeProfileSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*NodeProfileStatus)(nil), (*management.NodeProfileStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_NodeProfileStatus_To_management_NodeProfileStatus(a.(*NodeProfileStatus), b.(*management.NodeProfileStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*management.NodeProfileStatus)(nil), (*NodeProfileStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_management_NodeProfileStatus_To_v1_NodeProfileStatus(a.(*management.NodeProfileStatus), b.(*NodeProfileStatus), scope)
+	}); err != nil {
+		return err
+	}
 	if err := s.AddGeneratedConversionFunc((*NodeProvider)(nil), (*management.NodeProvider)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_v1_NodeProvider_To_management_NodeProvider(a.(*NodeProvider), b.(*management.NodeProvider), scope)
 	}); err != nil {
@@ -3418,6 +3458,16 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*management.VirtualClusterInstanceJoinScriptList)(nil), (*VirtualClusterInstanceJoinScriptList)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_management_VirtualClusterInstanceJoinScriptList_To_v1_VirtualClusterInstanceJoinScriptList(a.(*management.VirtualClusterInstanceJoinScriptList), b.(*VirtualClusterInstanceJoinScriptList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*VirtualClusterInstanceJoinScriptSpec)(nil), (*management.VirtualClusterInstanceJoinScriptSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_VirtualClusterInstanceJoinScriptSpec_To_management_VirtualClusterInstanceJoinScriptSpec(a.(*VirtualClusterInstanceJoinScriptSpec), b.(*management.VirtualClusterInstanceJoinScriptSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*management.VirtualClusterInstanceJoinScriptSpec)(nil), (*VirtualClusterInstanceJoinScriptSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_management_VirtualClusterInstanceJoinScriptSpec_To_v1_VirtualClusterInstanceJoinScriptSpec(a.(*management.VirtualClusterInstanceJoinScriptSpec), b.(*VirtualClusterInstanceJoinScriptSpec), scope)
 	}); err != nil {
 		return err
 	}
@@ -7467,6 +7517,100 @@ func Convert_management_NodeEnvironmentStatus_To_v1_NodeEnvironmentStatus(in *ma
 	return autoConvert_management_NodeEnvironmentStatus_To_v1_NodeEnvironmentStatus(in, out, s)
 }
 
+func autoConvert_v1_NodeProfile_To_management_NodeProfile(in *NodeProfile, out *management.NodeProfile, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_v1_NodeProfileSpec_To_management_NodeProfileSpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	if err := Convert_v1_NodeProfileStatus_To_management_NodeProfileStatus(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1_NodeProfile_To_management_NodeProfile is an autogenerated conversion function.
+func Convert_v1_NodeProfile_To_management_NodeProfile(in *NodeProfile, out *management.NodeProfile, s conversion.Scope) error {
+	return autoConvert_v1_NodeProfile_To_management_NodeProfile(in, out, s)
+}
+
+func autoConvert_management_NodeProfile_To_v1_NodeProfile(in *management.NodeProfile, out *NodeProfile, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_management_NodeProfileSpec_To_v1_NodeProfileSpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	if err := Convert_management_NodeProfileStatus_To_v1_NodeProfileStatus(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_management_NodeProfile_To_v1_NodeProfile is an autogenerated conversion function.
+func Convert_management_NodeProfile_To_v1_NodeProfile(in *management.NodeProfile, out *NodeProfile, s conversion.Scope) error {
+	return autoConvert_management_NodeProfile_To_v1_NodeProfile(in, out, s)
+}
+
+func autoConvert_v1_NodeProfileList_To_management_NodeProfileList(in *NodeProfileList, out *management.NodeProfileList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]management.NodeProfile)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_v1_NodeProfileList_To_management_NodeProfileList is an autogenerated conversion function.
+func Convert_v1_NodeProfileList_To_management_NodeProfileList(in *NodeProfileList, out *management.NodeProfileList, s conversion.Scope) error {
+	return autoConvert_v1_NodeProfileList_To_management_NodeProfileList(in, out, s)
+}
+
+func autoConvert_management_NodeProfileList_To_v1_NodeProfileList(in *management.NodeProfileList, out *NodeProfileList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]NodeProfile)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_management_NodeProfileList_To_v1_NodeProfileList is an autogenerated conversion function.
+func Convert_management_NodeProfileList_To_v1_NodeProfileList(in *management.NodeProfileList, out *NodeProfileList, s conversion.Scope) error {
+	return autoConvert_management_NodeProfileList_To_v1_NodeProfileList(in, out, s)
+}
+
+func autoConvert_v1_NodeProfileSpec_To_management_NodeProfileSpec(in *NodeProfileSpec, out *management.NodeProfileSpec, s conversion.Scope) error {
+	out.NodeProfileSpec = in.NodeProfileSpec
+	return nil
+}
+
+// Convert_v1_NodeProfileSpec_To_management_NodeProfileSpec is an autogenerated conversion function.
+func Convert_v1_NodeProfileSpec_To_management_NodeProfileSpec(in *NodeProfileSpec, out *management.NodeProfileSpec, s conversion.Scope) error {
+	return autoConvert_v1_NodeProfileSpec_To_management_NodeProfileSpec(in, out, s)
+}
+
+func autoConvert_management_NodeProfileSpec_To_v1_NodeProfileSpec(in *management.NodeProfileSpec, out *NodeProfileSpec, s conversion.Scope) error {
+	out.NodeProfileSpec = in.NodeProfileSpec
+	return nil
+}
+
+// Convert_management_NodeProfileSpec_To_v1_NodeProfileSpec is an autogenerated conversion function.
+func Convert_management_NodeProfileSpec_To_v1_NodeProfileSpec(in *management.NodeProfileSpec, out *NodeProfileSpec, s conversion.Scope) error {
+	return autoConvert_management_NodeProfileSpec_To_v1_NodeProfileSpec(in, out, s)
+}
+
+func autoConvert_v1_NodeProfileStatus_To_management_NodeProfileStatus(in *NodeProfileStatus, out *management.NodeProfileStatus, s conversion.Scope) error {
+	out.NodeProfileStatus = in.NodeProfileStatus
+	return nil
+}
+
+// Convert_v1_NodeProfileStatus_To_management_NodeProfileStatus is an autogenerated conversion function.
+func Convert_v1_NodeProfileStatus_To_management_NodeProfileStatus(in *NodeProfileStatus, out *management.NodeProfileStatus, s conversion.Scope) error {
+	return autoConvert_v1_NodeProfileStatus_To_management_NodeProfileStatus(in, out, s)
+}
+
+func autoConvert_management_NodeProfileStatus_To_v1_NodeProfileStatus(in *management.NodeProfileStatus, out *NodeProfileStatus, s conversion.Scope) error {
+	out.NodeProfileStatus = in.NodeProfileStatus
+	return nil
+}
+
+// Convert_management_NodeProfileStatus_To_v1_NodeProfileStatus is an autogenerated conversion function.
+func Convert_management_NodeProfileStatus_To_v1_NodeProfileStatus(in *management.NodeProfileStatus, out *NodeProfileStatus, s conversion.Scope) error {
+	return autoConvert_management_NodeProfileStatus_To_v1_NodeProfileStatus(in, out, s)
+}
+
 func autoConvert_v1_NodeProvider_To_management_NodeProvider(in *NodeProvider, out *management.NodeProvider, s conversion.Scope) error {
 	out.ObjectMeta = in.ObjectMeta
 	if err := Convert_v1_NodeProviderSpec_To_management_NodeProviderSpec(&in.Spec, &out.Spec, s); err != nil {
@@ -8980,6 +9124,7 @@ func autoConvert_v1_ProjectNodeTypes_To_management_ProjectNodeTypes(in *ProjectN
 	out.ObjectMeta = in.ObjectMeta
 	out.NodeProviders = *(*[]storagev1.NodeProvider)(unsafe.Pointer(&in.NodeProviders))
 	out.NodeTypes = *(*[]storagev1.NodeType)(unsafe.Pointer(&in.NodeTypes))
+	out.NodeProfiles = *(*[]storagev1.NodeProfile)(unsafe.Pointer(&in.NodeProfiles))
 	out.OSImages = *(*[]storagev1.OSImage)(unsafe.Pointer(&in.OSImages))
 	return nil
 }
@@ -8993,6 +9138,7 @@ func autoConvert_management_ProjectNodeTypes_To_v1_ProjectNodeTypes(in *manageme
 	out.ObjectMeta = in.ObjectMeta
 	out.NodeProviders = *(*[]storagev1.NodeProvider)(unsafe.Pointer(&in.NodeProviders))
 	out.NodeTypes = *(*[]storagev1.NodeType)(unsafe.Pointer(&in.NodeTypes))
+	out.NodeProfiles = *(*[]storagev1.NodeProfile)(unsafe.Pointer(&in.NodeProfiles))
 	out.OSImages = *(*[]storagev1.OSImage)(unsafe.Pointer(&in.OSImages))
 	return nil
 }
@@ -12315,6 +12461,9 @@ func Convert_management_VirtualClusterInstanceDebugShellList_To_v1_VirtualCluste
 
 func autoConvert_v1_VirtualClusterInstanceJoinScript_To_management_VirtualClusterInstanceJoinScript(in *VirtualClusterInstanceJoinScript, out *management.VirtualClusterInstanceJoinScript, s conversion.Scope) error {
 	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_v1_VirtualClusterInstanceJoinScriptSpec_To_management_VirtualClusterInstanceJoinScriptSpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
 	if err := Convert_v1_VirtualClusterInstanceJoinScriptStatus_To_management_VirtualClusterInstanceJoinScriptStatus(&in.Status, &out.Status, s); err != nil {
 		return err
 	}
@@ -12328,6 +12477,9 @@ func Convert_v1_VirtualClusterInstanceJoinScript_To_management_VirtualClusterIns
 
 func autoConvert_management_VirtualClusterInstanceJoinScript_To_v1_VirtualClusterInstanceJoinScript(in *management.VirtualClusterInstanceJoinScript, out *VirtualClusterInstanceJoinScript, s conversion.Scope) error {
 	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_management_VirtualClusterInstanceJoinScriptSpec_To_v1_VirtualClusterInstanceJoinScriptSpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
 	if err := Convert_management_VirtualClusterInstanceJoinScriptStatus_To_v1_VirtualClusterInstanceJoinScriptStatus(&in.Status, &out.Status, s); err != nil {
 		return err
 	}
@@ -12359,6 +12511,26 @@ func autoConvert_management_VirtualClusterInstanceJoinScriptList_To_v1_VirtualCl
 // Convert_management_VirtualClusterInstanceJoinScriptList_To_v1_VirtualClusterInstanceJoinScriptList is an autogenerated conversion function.
 func Convert_management_VirtualClusterInstanceJoinScriptList_To_v1_VirtualClusterInstanceJoinScriptList(in *management.VirtualClusterInstanceJoinScriptList, out *VirtualClusterInstanceJoinScriptList, s conversion.Scope) error {
 	return autoConvert_management_VirtualClusterInstanceJoinScriptList_To_v1_VirtualClusterInstanceJoinScriptList(in, out, s)
+}
+
+func autoConvert_v1_VirtualClusterInstanceJoinScriptSpec_To_management_VirtualClusterInstanceJoinScriptSpec(in *VirtualClusterInstanceJoinScriptSpec, out *management.VirtualClusterInstanceJoinScriptSpec, s conversion.Scope) error {
+	out.ProfileRef = in.ProfileRef
+	return nil
+}
+
+// Convert_v1_VirtualClusterInstanceJoinScriptSpec_To_management_VirtualClusterInstanceJoinScriptSpec is an autogenerated conversion function.
+func Convert_v1_VirtualClusterInstanceJoinScriptSpec_To_management_VirtualClusterInstanceJoinScriptSpec(in *VirtualClusterInstanceJoinScriptSpec, out *management.VirtualClusterInstanceJoinScriptSpec, s conversion.Scope) error {
+	return autoConvert_v1_VirtualClusterInstanceJoinScriptSpec_To_management_VirtualClusterInstanceJoinScriptSpec(in, out, s)
+}
+
+func autoConvert_management_VirtualClusterInstanceJoinScriptSpec_To_v1_VirtualClusterInstanceJoinScriptSpec(in *management.VirtualClusterInstanceJoinScriptSpec, out *VirtualClusterInstanceJoinScriptSpec, s conversion.Scope) error {
+	out.ProfileRef = in.ProfileRef
+	return nil
+}
+
+// Convert_management_VirtualClusterInstanceJoinScriptSpec_To_v1_VirtualClusterInstanceJoinScriptSpec is an autogenerated conversion function.
+func Convert_management_VirtualClusterInstanceJoinScriptSpec_To_v1_VirtualClusterInstanceJoinScriptSpec(in *management.VirtualClusterInstanceJoinScriptSpec, out *VirtualClusterInstanceJoinScriptSpec, s conversion.Scope) error {
+	return autoConvert_management_VirtualClusterInstanceJoinScriptSpec_To_v1_VirtualClusterInstanceJoinScriptSpec(in, out, s)
 }
 
 func autoConvert_v1_VirtualClusterInstanceJoinScriptStatus_To_management_VirtualClusterInstanceJoinScriptStatus(in *VirtualClusterInstanceJoinScriptStatus, out *management.VirtualClusterInstanceJoinScriptStatus, s conversion.Scope) error {
