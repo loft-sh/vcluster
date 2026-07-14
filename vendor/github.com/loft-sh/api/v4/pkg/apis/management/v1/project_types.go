@@ -10,6 +10,7 @@ import (
 // +genclient:method=ListMembers,verb=get,subresource=members,result=github.com/loft-sh/api/v4/pkg/apis/management/v1.ProjectMembers
 // +genclient:method=ListTemplates,verb=get,subresource=templates,result=github.com/loft-sh/api/v4/pkg/apis/management/v1.ProjectTemplates
 // +genclient:method=ListClusters,verb=get,subresource=clusters,result=github.com/loft-sh/api/v4/pkg/apis/management/v1.ProjectClusters
+// Deprecated: MigrateVirtualClusterInstance is deprecated and will be removed in a future release.
 // +genclient:method=MigrateVirtualClusterInstance,verb=create,subresource=migratevirtualclusterinstance,input=github.com/loft-sh/api/v4/pkg/apis/management/v1.ProjectMigrateVirtualClusterInstance,result=github.com/loft-sh/api/v4/pkg/apis/management/v1.ProjectMigrateVirtualClusterInstance
 // +genclient:method=ImportSpace,verb=create,subresource=importspace,input=github.com/loft-sh/api/v4/pkg/apis/management/v1.ProjectImportSpace,result=github.com/loft-sh/api/v4/pkg/apis/management/v1.ProjectImportSpace
 // +genclient:method=MigrateSpaceInstance,verb=create,subresource=migratespaceinstance,input=github.com/loft-sh/api/v4/pkg/apis/management/v1.ProjectMigrateSpaceInstance,result=github.com/loft-sh/api/v4/pkg/apis/management/v1.ProjectMigrateSpaceInstance

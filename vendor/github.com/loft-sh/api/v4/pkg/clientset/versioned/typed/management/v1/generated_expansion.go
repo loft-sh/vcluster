@@ -46,6 +46,8 @@ type NodeClaimExpansion interface{}
 
 type NodeEnvironmentExpansion interface{}
 
+type NodeProfileExpansion interface{}
+
 type NodeProviderExpansion interface{}
 
 type NodeTypeExpansion interface{}

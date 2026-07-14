@@ -1,6 +1,6 @@
 module github.com/loft-sh/vcluster
 
-go 1.26.0
+go 1.26.3
 
 require (
 	github.com/blang/semver v3.5.1+incompatible
@@ -19,10 +19,10 @@ require (
 	github.com/hashicorp/go-plugin v1.6.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/invopop/jsonschema v0.12.0
-	github.com/loft-sh/admin-apis v0.0.0-20260601071241-26d546886c99
-	github.com/loft-sh/agentapi/v4 v4.11.0-alpha.2
+	github.com/loft-sh/admin-apis v0.0.0-20260707131545-11a67ade9341
+	github.com/loft-sh/agentapi/v4 v4.11.0-rc.1
 	github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e
-	github.com/loft-sh/api/v4 v4.11.0-alpha.2
+	github.com/loft-sh/api/v4 v4.11.0-rc.1
 	github.com/loft-sh/e2e-framework v0.0.0-20260423133544-5291e728f979
 	github.com/loft-sh/image v0.0.0-20250625154753-87447a6ad364
 	github.com/loft-sh/utils v0.0.29
@@ -145,7 +145,7 @@ require (
 	github.com/klauspost/pgzip v1.2.6 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/lithammer/dedent v1.1.0 // indirect
-	github.com/loft-sh/apiserver v0.0.0-20260424174643-365191901530 // indirect
+	github.com/loft-sh/apiserver v0.0.0-20260707184419-aef558a5ae8d // indirect
 	github.com/loft-sh/external-types v0.1.0-alpha.2.0.20260409132559-a38365a8cbf2 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/miekg/pkcs11 v1.1.1 // indirect

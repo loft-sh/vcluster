@@ -50,6 +50,31 @@ type SpaceInstanceProject struct {
 	Project       *managementv1.Project
 }
 
+// ResolveNodeProfile validates that the requested profile is allowed in the given project,
+// then fetches and returns the full NodeProfileSpec from the platform catalog.
+func ResolveNodeProfile(ctx context.Context, client Client, projectName, profileName string) (*storagev1.NodeProfileSpec, error) {
+	managementClient, err := client.Management()
+	if err != nil {
+		return nil, fmt.Errorf("get management client: %w", err)
+	}
+
+	proj, err := managementClient.Loft().ManagementV1().Projects().Get(ctx, projectName, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("get project %q: %w", projectName, err)
+	}
+
+	if !proj.Spec.IsNodeProfileAllowed(profileName) {
+		return nil, fmt.Errorf("node profile %q is not allowed in project %q", profileName, projectName)
+	}
+
+	nodeProfile, err := managementClient.Loft().ManagementV1().NodeProfiles().Get(ctx, profileName, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("get node profile %q: %w", profileName, err)
+	}
+
+	return &nodeProfile.Spec.NodeProfileSpec, nil
+}
+
 func SelectVirtualClusterTemplate(ctx context.Context, client Client, projectName, templateName string, log log.Logger) (*managementv1.VirtualClusterTemplate, error) {
 	managementClient, err := client.Management()
 	if err != nil {

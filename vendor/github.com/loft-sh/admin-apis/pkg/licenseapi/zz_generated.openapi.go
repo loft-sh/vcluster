@@ -21,6 +21,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		DomainToken{}.OpenAPIModelName():                      schema_loft_sh_admin_apis_pkg_licenseapi_DomainToken(ref),
 		Feature{}.OpenAPIModelName():                          schema_loft_sh_admin_apis_pkg_licenseapi_Feature(ref),
 		FeatureUsage{}.OpenAPIModelName():                     schema_loft_sh_admin_apis_pkg_licenseapi_FeatureUsage(ref),
+		GPUTypeUsage{}.OpenAPIModelName():                     schema_loft_sh_admin_apis_pkg_licenseapi_GPUTypeUsage(ref),
 		GenericRequestInput{}.OpenAPIModelName():              schema_loft_sh_admin_apis_pkg_licenseapi_GenericRequestInput(ref),
 		GenericRequestOutput{}.OpenAPIModelName():             schema_loft_sh_admin_apis_pkg_licenseapi_GenericRequestOutput(ref),
 		InstanceActivateInstanceInput{}.OpenAPIModelName():    schema_loft_sh_admin_apis_pkg_licenseapi_InstanceActivateInstanceInput(ref),
@@ -39,6 +40,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		LicenseAPIRoutes{}.OpenAPIModelName():                 schema_loft_sh_admin_apis_pkg_licenseapi_LicenseAPIRoutes(ref),
 		Limit{}.OpenAPIModelName():                            schema_loft_sh_admin_apis_pkg_licenseapi_Limit(ref),
 		Module{}.OpenAPIModelName():                           schema_loft_sh_admin_apis_pkg_licenseapi_Module(ref),
+		NodeGPUInfo{}.OpenAPIModelName():                      schema_loft_sh_admin_apis_pkg_licenseapi_NodeGPUInfo(ref),
 		NodeInfo{}.OpenAPIModelName():                         schema_loft_sh_admin_apis_pkg_licenseapi_NodeInfo(ref),
 		OfflineLicenseKeyClaims{}.OpenAPIModelName():          schema_loft_sh_admin_apis_pkg_licenseapi_OfflineLicenseKeyClaims(ref),
 		Plan{}.OpenAPIModelName():                             schema_loft_sh_admin_apis_pkg_licenseapi_Plan(ref),
@@ -406,6 +408,51 @@ func schema_loft_sh_admin_apis_pkg_licenseapi_FeatureUsage(ref common.ReferenceC
 					},
 				},
 				Required: []string{"used", "status"},
+			},
+		},
+	}
+}
+
+func schema_loft_sh_admin_apis_pkg_licenseapi_GPUTypeUsage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "GPUTypeUsage is an instance-deployment-wide aggregate accelerator count for a single type (vendor and model), summed across all nodes.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"vendor": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Vendor is a normalized accelerator vendor id, e.g. \"nvidia\", \"amd\", \"intel\", \"habana\", \"aws\", \"google\".",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"model": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Model is the hardware model when known, empty otherwise.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"allocatable": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Allocatable is the total number of schedulable units of this type across all nodes.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"physical": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Physical is the total number of physical accelerators of this type across all nodes, after normalizing sharing schemes. This is the value intended for metering.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+				},
+				Required: []string{"vendor", "allocatable", "physical"},
 			},
 		},
 	}
@@ -1266,6 +1313,59 @@ func schema_loft_sh_admin_apis_pkg_licenseapi_Module(ref common.ReferenceCallbac
 	}
 }
 
+func schema_loft_sh_admin_apis_pkg_licenseapi_NodeGPUInfo(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "NodeGPUInfo holds information about the accelerators of a single type (vendor and model) on a single node.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"vendor": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Vendor is a normalized accelerator vendor id, e.g. \"nvidia\", \"amd\", \"intel\", \"habana\", \"aws\", \"google\".",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"model": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Model is the hardware model when known (e.g. from the GPU vendor's node labels or a DRA device attribute). Empty when the model cannot be determined.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"source": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Source is how these accelerators were discovered: \"device-plugin\" or \"dra\".",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"allocatable": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Allocatable is the number of schedulable units advertised for this type on the node (the device-plugin capacity, or the count of DRA devices).",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"physical": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Physical is the number of physical accelerators of this type on the node after normalizing sharing schemes such as time-slicing and MIG. It equals Allocatable when those schemes are not normalized. This is the value intended for metering.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+				},
+				Required: []string{"vendor", "source", "allocatable", "physical"},
+			},
+		},
+	}
+}
+
 func schema_loft_sh_admin_apis_pkg_licenseapi_NodeInfo(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -1302,10 +1402,26 @@ func schema_loft_sh_admin_apis_pkg_licenseapi_NodeInfo(ref common.ReferenceCallb
 							},
 						},
 					},
+					"gpus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GPUs is the per-type accelerator breakdown for this node. It is derived from the node's advertised resources (and, in later iterations, DRA ResourceSlices) and is supplementary to Capacity, which is retained unchanged.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(NodeGPUInfo{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"machine_id", "creation_timestamp", "capacity"},
 			},
 		},
+		Dependencies: []string{
+			NodeGPUInfo{}.OpenAPIModelName()},
 	}
 }
 
@@ -1868,12 +1984,26 @@ func schema_loft_sh_admin_apis_pkg_licenseapi_UsageData(ref common.ReferenceCall
 							Ref:         ref(UsageDataDetails{}.OpenAPIModelName()),
 						},
 					},
+					"gpuUsage": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GPUUsage contains the instance-wide accelerator usage broken down by GPU type (vendor and model). It is supplementary to the aggregate GPU count reported in ResourceUsage and is intended for per-type insight.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(GPUTypeUsage{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"featureUsage", "resourceUsage", "details"},
 			},
 		},
 		Dependencies: []string{
-			FeatureUsage{}.OpenAPIModelName(), ResourceCount{}.OpenAPIModelName(), UsageDataDetails{}.OpenAPIModelName()},
+			FeatureUsage{}.OpenAPIModelName(), GPUTypeUsage{}.OpenAPIModelName(), ResourceCount{}.OpenAPIModelName(), UsageDataDetails{}.OpenAPIModelName()},
 	}
 }
 

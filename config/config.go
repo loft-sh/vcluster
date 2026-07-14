@@ -132,6 +132,9 @@ type PrivateNodes struct {
 
 	// Daemon holds configuration for the private nodes daemon that is deployed on the nodes.
 	Daemon PrivateNodesDaemon `json:"daemon,omitempty"`
+
+	// DefaultProfile is the name of a NodeProfile applied to nodes joining this vCluster that do not select one explicitly. Overridden by per-pool or per-node selection. Requires a platform connection to resolve.
+	DefaultProfile string `json:"defaultProfile,omitempty"`
 }
 
 type PrivateNodesDaemon struct {
@@ -232,6 +235,9 @@ type DynamicNodePool struct {
 
 	// Weight is the weight of this node pool.
 	Weight int `json:"weight,omitempty"`
+
+	// Profile references a NodeProfile applied to nodes created by this pool.
+	Profile string `json:"profile,omitempty"`
 }
 
 type DynamicNodePoolDisruption struct {
@@ -300,6 +306,9 @@ type StaticNodePool struct {
 
 	// Quantity is the number of desired nodes in this pool.
 	Quantity int `json:"quantity" jsonschema:"required"`
+
+	// Profile references a NodeProfile applied to nodes created by this pool.
+	Profile string `json:"profile,omitempty"`
 }
 
 // KarpenterRequirement defines a scheduling requirement for a dynamic node pool.

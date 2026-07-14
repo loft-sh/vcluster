@@ -3,6 +3,7 @@ package find
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"regexp"
@@ -13,10 +14,12 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/log/terminal"
+	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	vclusterconfig "github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/kube"
+	"github.com/loft-sh/vcluster/pkg/platform/kubeconfig"
 	"github.com/loft-sh/vcluster/pkg/platform/sleepmode"
 	standaloneutil "github.com/loft-sh/vcluster/pkg/util/standalone"
 	"k8s.io/apimachinery/pkg/types"
@@ -385,6 +388,91 @@ func VClusterPlatformFromContext(originalContext string) (name string, project s
 
 	// we don't know for sure, but most likely specified custom vcluster context name
 	return originalContext, "", ""
+}
+
+// ResolveConnectedProject derives the platform project from the current kubeconfig
+// connection and verifies it points at a valid platform vCluster.
+func ResolveConnectedProject(ctx context.Context, platformClient platform.Client, globalFlags *flags.GlobalFlags, log log.Logger) (string, error) {
+	project, vClusterName, err := DetectPlatformConnectionFromKubeconfig(globalFlags)
+	if err != nil {
+		return "", err
+	}
+	if project == "" {
+		return "", fmt.Errorf("current kubeconfig context is not a platform vCluster connection (connect via \"vcluster connect <name> --project <project>\")")
+	}
+	if vClusterName == "" {
+		return "", fmt.Errorf("cannot determine vCluster name from kubeconfig for project %q", project)
+	}
+
+	if _, err := GetPlatformVCluster(ctx, platformClient, vClusterName, project, log); err != nil {
+		return "", fmt.Errorf("get platform vCluster %s: %w", vClusterName, err)
+	}
+	return project, nil
+}
+
+// DetectPlatformConnectionFromKubeconfig resolves project and vCluster name from the active kubeconfig.
+// The platform proxy server URL is preferred over context name parsing.
+func DetectPlatformConnectionFromKubeconfig(globalFlags *flags.GlobalFlags) (project, vClusterName string, err error) {
+	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{
+		CurrentContext: globalFlags.Context,
+	})
+
+	rawConfig, err := kubeClientConfig.RawConfig()
+	if err != nil {
+		return "", "", fmt.Errorf("load kubeconfig: %w", err)
+	}
+
+	currentContext := rawConfig.CurrentContext
+	if globalFlags.Context != "" {
+		currentContext = globalFlags.Context
+	}
+
+	restConfig, err := kubeClientConfig.ClientConfig()
+	if err != nil {
+		return "", "", fmt.Errorf("load kubeconfig: %w", err)
+	}
+
+	if project, vClusterName, ok := parsePlatformVirtualClusterFromServer(restConfig.Host); ok {
+		return project, vClusterName, nil
+	}
+
+	if name, project, ok := kubeconfig.ParseVirtualClusterInstanceContextName(currentContext); ok {
+		return project, name, nil
+	}
+
+	name, project, _ := VClusterPlatformFromContext(currentContext)
+	if project != "" {
+		return project, name, nil
+	}
+
+	return "", "", nil
+}
+
+// parsePlatformVirtualClusterFromServer extracts project and vCluster name from a platform proxy URL:
+// .../kubernetes/project/{project}/virtualcluster/{name}
+func parsePlatformVirtualClusterFromServer(host string) (project, vClusterName string, ok bool) {
+	if host == "" {
+		return "", "", false
+	}
+
+	serverURL := host
+	if !strings.Contains(serverURL, "://") {
+		serverURL = "https://" + serverURL
+	}
+
+	u, err := url.Parse(serverURL)
+	if err != nil {
+		return "", "", false
+	}
+
+	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+	for i := 0; i+4 < len(parts); i++ {
+		if parts[i] == "kubernetes" && parts[i+1] == "project" && parts[i+3] == "virtualcluster" {
+			return parts[i+2], parts[i+4], true
+		}
+	}
+
+	return "", "", false
 }
 
 var NonAllowedCharactersRegEx = regexp.MustCompile(`[^a-zA-Z0-9\-_]+`)
