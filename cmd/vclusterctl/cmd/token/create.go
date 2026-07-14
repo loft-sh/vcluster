@@ -328,7 +328,7 @@ func getClient(flags *flags.GlobalFlags) (*kubernetes.Clientset, error) {
 
 // verifyConnectedProject ensures the kubeconfig points at a platform vCluster in --project.
 func (cmd *CreateCmd) verifyConnectedProject(ctx context.Context, platformClient platform.Client) error {
-	project, vclusterName, err := detectPlatformConnectionFromKubeconfig(cmd.GlobalFlags)
+	project, vClusterName, err := detectPlatformConnectionFromKubeconfig(cmd.GlobalFlags)
 	if err != nil {
 		return err
 	}
@@ -338,19 +338,19 @@ func (cmd *CreateCmd) verifyConnectedProject(ctx context.Context, platformClient
 	if project != cmd.Project {
 		return fmt.Errorf("connected vCluster belongs to project %q, but --project is %q", project, cmd.Project)
 	}
-	if vclusterName == "" {
+	if vClusterName == "" {
 		return fmt.Errorf("cannot verify virtual cluster in project %q: could not determine vCluster name from kubeconfig", cmd.Project)
 	}
 
-	if _, err := find.GetPlatformVCluster(ctx, platformClient, vclusterName, cmd.Project, cmd.Log); err != nil {
-		return fmt.Errorf("virtual cluster %q not found in project %q: %w", vclusterName, cmd.Project, err)
+	if _, err := find.GetPlatformVCluster(ctx, platformClient, vClusterName, cmd.Project, cmd.Log); err != nil {
+		return fmt.Errorf("get platform vCluster %s: %w", vClusterName, err)
 	}
 	return nil
 }
 
 // detectPlatformConnectionFromKubeconfig resolves project and vCluster name from the active kubeconfig.
 // The platform proxy server URL is preferred over context name parsing.
-func detectPlatformConnectionFromKubeconfig(globalFlags *flags.GlobalFlags) (project, vclusterName string, err error) {
+func detectPlatformConnectionFromKubeconfig(globalFlags *flags.GlobalFlags) (project, vClusterName string, err error) {
 	kubeClientConfig := newKubeClientConfig(globalFlags)
 
 	rawConfig, err := kubeClientConfig.RawConfig()
@@ -368,8 +368,8 @@ func detectPlatformConnectionFromKubeconfig(globalFlags *flags.GlobalFlags) (pro
 		return "", "", fmt.Errorf("load kubeconfig: %w", err)
 	}
 
-	if project, vclusterName, ok := parsePlatformVirtualClusterFromServer(restConfig.Host); ok {
-		return project, vclusterName, nil
+	if project, vClusterName, ok := parsePlatformVirtualClusterFromServer(restConfig.Host); ok {
+		return project, vClusterName, nil
 	}
 
 	if name, project, ok := kubeconfig.ParseVirtualClusterInstanceContextName(currentContext); ok {
@@ -386,7 +386,7 @@ func detectPlatformConnectionFromKubeconfig(globalFlags *flags.GlobalFlags) (pro
 
 // parsePlatformVirtualClusterFromServer extracts project and vCluster name from a platform proxy URL:
 // .../kubernetes/project/{project}/virtualcluster/{name}
-func parsePlatformVirtualClusterFromServer(host string) (project, vclusterName string, ok bool) {
+func parsePlatformVirtualClusterFromServer(host string) (project, vClusterName string, ok bool) {
 	if host == "" {
 		return "", "", false
 	}
