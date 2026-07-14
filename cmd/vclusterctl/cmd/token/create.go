@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"net/url"
-	"strings"
 	"time"
 
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
@@ -15,7 +14,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/platform"
-	"github.com/loft-sh/vcluster/pkg/platform/kubeconfig"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
@@ -23,6 +21,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	clientcmd "k8s.io/client-go/tools/clientcmd"
 	clientcertutil "k8s.io/client-go/util/cert"
+	"k8s.io/client-go/util/retry"
 	bootstrapapi "k8s.io/cluster-bootstrap/token/api"
 	bootstraputil "k8s.io/cluster-bootstrap/token/util"
 	kubeadmconfigv1beta4 "k8s.io/kubernetes/cmd/kubeadm/app/apis/kubeadm/v1beta4"
@@ -71,8 +70,8 @@ Create a new node bootstrap token for a vCluster with private nodes enabled.
 
 	createCmd.Flags().StringVar(&cmd.Expires, "expires", "1h", "The duration the token will be valid for. Format: 1h, 1d, 1w, 1m, 1y. If empty, the token will never expire.")
 	createCmd.Flags().BoolVar(&cmd.Kubeadm, "kubeadm", false, "If enabled shows the raw kubeadm join command.")
-	createCmd.Flags().BoolVar(&cmd.ControlPlane, "control-plane", false, "If set the created token will be used to join the control plane node. Mutually exclusive with --kubeadm")
-	createCmd.Flags().StringVar(&cmd.Profile, "profile", "", "The node profile to attach to the token. Validated against the project's allowedNodeProfiles. Mutually exclusive with --kubeadm")
+	createCmd.Flags().BoolVar(&cmd.ControlPlane, "control-plane", false, "If set the created token will be used to join the control plane node. Mutually exclusive with --kubeadm and --profile")
+	createCmd.Flags().StringVar(&cmd.Profile, "profile", "", "The node profile to attach to the token. Validated against the project's allowedNodeProfiles. Mutually exclusive with --kubeadm and --control-plane")
 	return createCmd
 }
 
@@ -84,6 +83,10 @@ func (cmd *CreateCmd) Run(ctx context.Context) error {
 			return fmt.Errorf("--kubeadm and --profile are mutually exclusive")
 		}
 	}
+	if cmd.ControlPlane && cmd.Profile != "" {
+		return fmt.Errorf("--control-plane and --profile are mutually exclusive")
+	}
+
 	var profileSpec *storagev1.NodeProfileSpec
 	if cmd.Profile != "" {
 		cfg := cmd.GlobalFlags.LoadedConfig(cmd.Log)
@@ -92,12 +95,12 @@ func (cmd *CreateCmd) Run(ctx context.Context) error {
 			return fmt.Errorf("connect to platform: %w", err)
 		}
 
-		project, err := cmd.resolveConnectedProject(ctx, platformClient)
+		project, err := find.ResolveConnectedProject(ctx, platformClient, cmd.GlobalFlags, cmd.Log)
 		if err != nil {
 			return err
 		}
 
-		profileSpec, err = cmd.resolveProfile(ctx, platformClient, project)
+		profileSpec, err = platform.ResolveNodeProfile(ctx, platformClient, project, cmd.Profile)
 		if err != nil {
 			return err
 		}
@@ -139,31 +142,6 @@ func (cmd *CreateCmd) Run(ctx context.Context) error {
 	return nil
 }
 
-// resolveProfile validates that the requested profile is allowed in the given project,
-// then fetches and returns the full NodeProfileSpec from the platform catalog.
-func (cmd *CreateCmd) resolveProfile(ctx context.Context, platformClient platform.Client, project string) (*storagev1.NodeProfileSpec, error) {
-	managementClient, err := platformClient.Management()
-	if err != nil {
-		return nil, fmt.Errorf("get management client: %w", err)
-	}
-
-	proj, err := managementClient.Loft().ManagementV1().Projects().Get(ctx, project, metav1.GetOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("get project %q: %w", project, err)
-	}
-
-	if !proj.Spec.IsNodeProfileAllowed(cmd.Profile) {
-		return nil, fmt.Errorf("node profile %q is not allowed in project %q", cmd.Profile, project)
-	}
-
-	nodeProfile, err := managementClient.Loft().ManagementV1().NodeProfiles().Get(ctx, cmd.Profile, metav1.GetOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("get node profile %q: %w", cmd.Profile, err)
-	}
-
-	return &nodeProfile.Spec.NodeProfileSpec, nil
-}
-
 // patchTokenWithProfile embeds the resolved NodeProfileSpec into the bootstrap token Secret
 // so that the join script renderer can apply labels, taints, and annotations to the node.
 // It also sets NodeProfileReferenceLabel to record which catalog profile was used.
@@ -173,23 +151,25 @@ func patchTokenWithProfile(ctx context.Context, vClient *kubernetes.Clientset, s
 		return fmt.Errorf("failed to marshal profile spec: %w", err)
 	}
 
-	secret, err := vClient.CoreV1().Secrets(metav1.NamespaceSystem).Get(ctx, secretName, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to load bootstrap token secret %s: %w", secretName, err)
-	}
-	if secret.Data == nil {
-		secret.Data = map[string][]byte{}
-	}
-	secret.Data[storagev1.NodeProfileConfigSecretKey] = payload
-	if secret.Labels == nil {
-		secret.Labels = map[string]string{}
-	}
-	secret.Labels[storagev1.NodeProfileReferenceLabel] = profileName
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		secret, err := vClient.CoreV1().Secrets(metav1.NamespaceSystem).Get(ctx, secretName, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to load bootstrap token secret %s: %w", secretName, err)
+		}
+		if secret.Data == nil {
+			secret.Data = map[string][]byte{}
+		}
+		secret.Data[storagev1.NodeProfileConfigSecretKey] = payload
+		if secret.Labels == nil {
+			secret.Labels = map[string]string{}
+		}
+		secret.Labels[storagev1.NodeProfileReferenceLabel] = profileName
 
-	if _, err := vClient.CoreV1().Secrets(metav1.NamespaceSystem).Update(ctx, secret, metav1.UpdateOptions{}); err != nil {
-		return fmt.Errorf("failed to patch bootstrap token secret %s with profile %s: %w", secretName, profileName, err)
-	}
-	return nil
+		if _, err := vClient.CoreV1().Secrets(metav1.NamespaceSystem).Update(ctx, secret, metav1.UpdateOptions{}); err != nil {
+			return fmt.Errorf("failed to patch bootstrap token secret %s with profile %s: %w", secretName, profileName, err)
+		}
+		return nil
+	})
 }
 
 // CreateBootstrapToken attempts to create a token with the given ID. Its public because it's used in e2e tests.
@@ -323,87 +303,4 @@ func getClient(flags *flags.GlobalFlags) (*kubernetes.Clientset, error) {
 	}
 
 	return kubernetes.NewForConfig(restConfig)
-}
-
-// resolveConnectedProject derives the platform project from the current kubeconfig
-// connection and verifies it points at a valid platform vCluster.
-func (cmd *CreateCmd) resolveConnectedProject(ctx context.Context, platformClient platform.Client) (string, error) {
-	project, vClusterName, err := detectPlatformConnectionFromKubeconfig(cmd.GlobalFlags)
-	if err != nil {
-		return "", err
-	}
-	if project == "" {
-		return "", fmt.Errorf("current kubeconfig context is not a platform vCluster connection (connect via \"vcluster connect <name> --project <project>\")")
-	}
-	if vClusterName == "" {
-		return "", fmt.Errorf("cannot determine vCluster name from kubeconfig for project %q", project)
-	}
-
-	if _, err := find.GetPlatformVCluster(ctx, platformClient, vClusterName, project, cmd.Log); err != nil {
-		return "", fmt.Errorf("get platform vCluster %s: %w", vClusterName, err)
-	}
-	return project, nil
-}
-
-// detectPlatformConnectionFromKubeconfig resolves project and vCluster name from the active kubeconfig.
-// The platform proxy server URL is preferred over context name parsing.
-func detectPlatformConnectionFromKubeconfig(globalFlags *flags.GlobalFlags) (project, vClusterName string, err error) {
-	kubeClientConfig := newKubeClientConfig(globalFlags)
-
-	rawConfig, err := kubeClientConfig.RawConfig()
-	if err != nil {
-		return "", "", fmt.Errorf("load kubeconfig: %w", err)
-	}
-
-	currentContext := rawConfig.CurrentContext
-	if globalFlags.Context != "" {
-		currentContext = globalFlags.Context
-	}
-
-	restConfig, err := kubeClientConfig.ClientConfig()
-	if err != nil {
-		return "", "", fmt.Errorf("load kubeconfig: %w", err)
-	}
-
-	if project, vClusterName, ok := parsePlatformVirtualClusterFromServer(restConfig.Host); ok {
-		return project, vClusterName, nil
-	}
-
-	if name, project, ok := kubeconfig.ParseVirtualClusterInstanceContextName(currentContext); ok {
-		return project, name, nil
-	}
-
-	name, project, _ := find.VClusterPlatformFromContext(currentContext)
-	if project != "" {
-		return project, name, nil
-	}
-
-	return "", "", nil
-}
-
-// parsePlatformVirtualClusterFromServer extracts project and vCluster name from a platform proxy URL:
-// .../kubernetes/project/{project}/virtualcluster/{name}
-func parsePlatformVirtualClusterFromServer(host string) (project, vClusterName string, ok bool) {
-	if host == "" {
-		return "", "", false
-	}
-
-	serverURL := host
-	if !strings.Contains(serverURL, "://") {
-		serverURL = "https://" + serverURL
-	}
-
-	u, err := url.Parse(serverURL)
-	if err != nil {
-		return "", "", false
-	}
-
-	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
-	for i := 0; i+4 < len(parts); i++ {
-		if parts[i] == "kubernetes" && parts[i+1] == "project" && parts[i+3] == "virtualcluster" {
-			return parts[i+2], parts[i+4], true
-		}
-	}
-
-	return "", "", false
 }
