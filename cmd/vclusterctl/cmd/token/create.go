@@ -73,14 +73,18 @@ Create a new node bootstrap token for a vCluster with private nodes enabled.
 	createCmd.Flags().StringVar(&cmd.Expires, "expires", "1h", "The duration the token will be valid for. Format: 1h, 1d, 1w, 1m, 1y. If empty, the token will never expire.")
 	createCmd.Flags().BoolVar(&cmd.Kubeadm, "kubeadm", false, "If enabled shows the raw kubeadm join command.")
 	createCmd.Flags().BoolVar(&cmd.ControlPlane, "control-plane", false, "If set the created token will be used to join the control plane node. Mutually exclusive with --kubeadm")
-	createCmd.Flags().StringVar(&cmd.Profile, "profile", "", "The node profile to attach to the token. Validated against the project's allowedNodeProfiles.")
+	createCmd.Flags().StringVar(&cmd.Profile, "profile", "", "The node profile to attach to the token. Validated against the project's allowedNodeProfiles. Mutually exclusive with --kubeadm")
 	createCmd.Flags().StringVar(&cmd.Project, "project", "", "Platform project for profile validation and connection verification. Required when --profile is set.")
 	return createCmd
 }
 
 func (cmd *CreateCmd) Run(ctx context.Context) error {
-	if cmd.Kubeadm && cmd.ControlPlane {
-		return fmt.Errorf("--kubeadm and --control-plane are mutually exclusive")
+	if cmd.Kubeadm {
+		if cmd.ControlPlane {
+			return fmt.Errorf("--kubeadm and --control-plane are mutually exclusive")
+		} else if cmd.Profile != "" {
+			return fmt.Errorf("--kubeadm and --profile are mutually exclusive")
+		}
 	}
 	var profileSpec *storagev1.NodeProfileSpec
 	if cmd.Profile != "" {
