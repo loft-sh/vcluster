@@ -43,7 +43,6 @@ type CreateCmd struct {
 	Kubeadm      bool
 	ControlPlane bool
 	Profile      string
-	Project      string
 	Log          log.Logger
 }
 
@@ -74,7 +73,6 @@ Create a new node bootstrap token for a vCluster with private nodes enabled.
 	createCmd.Flags().BoolVar(&cmd.Kubeadm, "kubeadm", false, "If enabled shows the raw kubeadm join command.")
 	createCmd.Flags().BoolVar(&cmd.ControlPlane, "control-plane", false, "If set the created token will be used to join the control plane node. Mutually exclusive with --kubeadm")
 	createCmd.Flags().StringVar(&cmd.Profile, "profile", "", "The node profile to attach to the token. Validated against the project's allowedNodeProfiles. Mutually exclusive with --kubeadm")
-	createCmd.Flags().StringVar(&cmd.Project, "project", "", "Platform project for profile validation and connection verification. Required when --profile is set.")
 	return createCmd
 }
 
@@ -88,21 +86,18 @@ func (cmd *CreateCmd) Run(ctx context.Context) error {
 	}
 	var profileSpec *storagev1.NodeProfileSpec
 	if cmd.Profile != "" {
-		if cmd.Project == "" {
-			return fmt.Errorf("--project is required when --profile is set")
-		}
-
 		cfg := cmd.GlobalFlags.LoadedConfig(cmd.Log)
 		platformClient, err := platform.InitClientFromConfig(ctx, cfg)
 		if err != nil {
 			return fmt.Errorf("connect to platform: %w", err)
 		}
 
-		if err := cmd.verifyConnectedProject(ctx, platformClient); err != nil {
+		project, err := cmd.resolveConnectedProject(ctx, platformClient)
+		if err != nil {
 			return err
 		}
 
-		profileSpec, err = cmd.resolveProfile(ctx, platformClient)
+		profileSpec, err = cmd.resolveProfile(ctx, platformClient, project)
 		if err != nil {
 			return err
 		}
@@ -146,19 +141,19 @@ func (cmd *CreateCmd) Run(ctx context.Context) error {
 
 // resolveProfile validates that the requested profile is allowed in the given project,
 // then fetches and returns the full NodeProfileSpec from the platform catalog.
-func (cmd *CreateCmd) resolveProfile(ctx context.Context, platformClient platform.Client) (*storagev1.NodeProfileSpec, error) {
+func (cmd *CreateCmd) resolveProfile(ctx context.Context, platformClient platform.Client, project string) (*storagev1.NodeProfileSpec, error) {
 	managementClient, err := platformClient.Management()
 	if err != nil {
 		return nil, fmt.Errorf("get management client: %w", err)
 	}
 
-	proj, err := managementClient.Loft().ManagementV1().Projects().Get(ctx, cmd.Project, metav1.GetOptions{})
+	proj, err := managementClient.Loft().ManagementV1().Projects().Get(ctx, project, metav1.GetOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("get project %q: %w", cmd.Project, err)
+		return nil, fmt.Errorf("get project %q: %w", project, err)
 	}
 
 	if !proj.Spec.IsNodeProfileAllowed(cmd.Profile) {
-		return nil, fmt.Errorf("node profile %q is not allowed in project %q", cmd.Profile, cmd.Project)
+		return nil, fmt.Errorf("node profile %q is not allowed in project %q", cmd.Profile, project)
 	}
 
 	nodeProfile, err := managementClient.Loft().ManagementV1().NodeProfiles().Get(ctx, cmd.Profile, metav1.GetOptions{})
@@ -330,26 +325,24 @@ func getClient(flags *flags.GlobalFlags) (*kubernetes.Clientset, error) {
 	return kubernetes.NewForConfig(restConfig)
 }
 
-// verifyConnectedProject ensures the kubeconfig points at a platform vCluster in --project.
-func (cmd *CreateCmd) verifyConnectedProject(ctx context.Context, platformClient platform.Client) error {
+// resolveConnectedProject derives the platform project from the current kubeconfig
+// connection and verifies it points at a valid platform vCluster.
+func (cmd *CreateCmd) resolveConnectedProject(ctx context.Context, platformClient platform.Client) (string, error) {
 	project, vClusterName, err := detectPlatformConnectionFromKubeconfig(cmd.GlobalFlags)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if project == "" {
-		return fmt.Errorf("cannot verify --project %q: current kubeconfig context is not a platform vCluster connection (connect via \"vcluster connect <name> --project %s\")", cmd.Project, cmd.Project)
-	}
-	if project != cmd.Project {
-		return fmt.Errorf("connected vCluster belongs to project %q, but --project is %q", project, cmd.Project)
+		return "", fmt.Errorf("current kubeconfig context is not a platform vCluster connection (connect via \"vcluster connect <name> --project <project>\")")
 	}
 	if vClusterName == "" {
-		return fmt.Errorf("cannot verify virtual cluster in project %q: could not determine vCluster name from kubeconfig", cmd.Project)
+		return "", fmt.Errorf("cannot determine vCluster name from kubeconfig for project %q", project)
 	}
 
-	if _, err := find.GetPlatformVCluster(ctx, platformClient, vClusterName, cmd.Project, cmd.Log); err != nil {
-		return fmt.Errorf("get platform vCluster %s: %w", vClusterName, err)
+	if _, err := find.GetPlatformVCluster(ctx, platformClient, vClusterName, project, cmd.Log); err != nil {
+		return "", fmt.Errorf("get platform vCluster %s: %w", vClusterName, err)
 	}
-	return nil
+	return project, nil
 }
 
 // detectPlatformConnectionFromKubeconfig resolves project and vCluster name from the active kubeconfig.
