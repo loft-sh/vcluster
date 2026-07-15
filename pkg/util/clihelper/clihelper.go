@@ -26,6 +26,14 @@ import (
 
 const MinHelmVersion = "v3.10.0"
 
+const ASCIIArt = `
+⢶⣶⣶⣶⣶⣶⣶⡖⠀⣠⣶⣿⠗⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠈⠛⠻⠿⠿⠿⠟⠀⣰⣿⣿⠏⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣤⣤⣀⠀⢠⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣤⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⢤⣤⣤⡀⠐⣿⣿⠋⠀⠀⠀⠀⢰⣦⠀⣰⡖⣸⡟⠉⠉⠙⠃⢸⡇⠀⣶⠀⠀⣶⡆⣴⡖⢶⠄⠰⣿⠶⠂⣴⠶⠲⣦⠀⣶⡴⠖
+⠀⠀⠀⠈⢿⣿⣷⡀⠘⠃⠀⠀⠀⠀⠀⠀⢻⣦⡿⠁⢹⣧⣀⢀⣠⡄⢸⣇⠀⣿⣄⢀⣿⡇⣈⡛⢳⣦⠀⣿⡀⠸⣿⡒⠛⣋⠀⣿⠀⠀
+⠀⠀⠀⠀⠀⢻⣿⣷⠀⠀⠀⠀⠀⠀⠀⠀⠈⠛⠃⠀⠀⠉⠛⠛⠉⠀⠈⠛⠃⠈⠛⠋⠙⠃⠈⠛⠛⠁⠀⠙⠛⠃⠈⠛⠛⠉⠀⠛⠀⠀
+⠀⠀⠀⠀⠀⠀⠻⠟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀`
+
 // CriticalStatus container status
 var CriticalStatus = map[string]bool{
 	"Error":                      true,
@@ -88,7 +96,7 @@ func GetKubeConfig(ctx context.Context, kubeClient *kubernetes.Clientset, vclust
 		if err != nil {
 			return false, nil
 		}
-		log.Done("vCluster is up and running")
+		log.Done("vCluster is up and running" + ASCIIArt)
 		return true, nil
 	})
 	if err != nil {
