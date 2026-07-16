@@ -194,6 +194,14 @@ func (s *Server) ServeOnListenerTLS(ctx *synccontext.ControllerContext) error {
 			return true
 		}
 
+		// private nodes bundle downloads stream >100MB and must not be killed
+		// by the default 60s request timeout
+		if !requestInfo.IsResourceRequest &&
+			(strings.HasPrefix(requestInfo.Path, "/node/download/") ||
+				strings.HasPrefix(requestInfo.Path, "/node/control-plane-download/")) {
+			return true
+		}
+
 		// use the default long running check
 		return genericfilters.BasicLongRunningRequestCheck(
 			sets.NewString("watch", "proxy"),
