@@ -54,19 +54,20 @@ const (
 )
 
 type Cluster struct {
-	path                 string
-	name                 string
-	kubecfgFile          string // kubeconfig file for the vcluster
-	version              string
-	namespace            string // namespace to create the vcluster in
-	hostKubeCfg          string // kubeconfig file for the host cluster
-	hostKubeContext      string // kubeconfig context for the host cluster
-	upgrade              bool
-	add                  *bool // nil = default CLI behavior, non-nil = explicit --add=true/false
-	localChartDir        string
+	path                    string
+	name                    string
+	kubecfgFile             string // kubeconfig file for the vcluster
+	version                 string
+	namespace               string // namespace to create the vcluster in
+	hostKubeCfg             string // kubeconfig file for the host cluster
+	hostKubeContext         string // kubeconfig context for the host cluster
+	upgrade                 bool
+	add                     *bool // nil = default CLI behavior, non-nil = explicit --add=true/false
+	localChartDir           string
 	backgroundProxyImage    string
 	driver                  string
 	skipWaitForControlPlane bool
+	ignoreNotFoundOnDestroy bool
 	rc                      *rest.Config
 }
 
@@ -167,6 +168,19 @@ func WithSkipWaitForControlPlane() support.ClusterOpts {
 		v, ok := c.(*Cluster)
 		if ok {
 			v.skipWaitForControlPlane = true
+		}
+	}
+}
+
+// WithIgnoreNotFoundOnDestroy makes Destroy() pass --ignore-not-found, so tearing
+// down an already-deleted vcluster succeeds instead of erroring. Opt-in: use for
+// specs that delete the vcluster themselves (e.g. delete-mid-join), where the
+// suite teardown would otherwise double-delete and fail.
+func WithIgnoreNotFoundOnDestroy() support.ClusterOpts {
+	return func(c support.E2EClusterProvider) {
+		v, ok := c.(*Cluster)
+		if ok {
+			v.ignoreNotFoundOnDestroy = true
 		}
 	}
 }
@@ -404,6 +418,9 @@ func (c *Cluster) Destroy(ctx context.Context) error {
 	}
 
 	command := fmt.Sprintf("%s delete %s", c.path, c.name)
+	if c.ignoreNotFoundOnDestroy {
+		command = fmt.Sprintf("%s --ignore-not-found", command)
+	}
 	if len(args) > 0 {
 		command = fmt.Sprintf("%s %s", command, strings.Join(args, " "))
 	}
@@ -510,16 +527,16 @@ const Type = "vcluster"
 // The rest.Config field (rc) is excluded from serialization as it contains non-serializable
 // runtime configuration.
 type clusterJSON struct {
-	Type                 string `json:"type"`
-	Path                 string `json:"path"`
-	Name                 string `json:"name"`
-	KubecfgFile          string `json:"kubecfgFile"`
-	Version              string `json:"version"`
-	Namespace            string `json:"namespace"`
-	HostKubeCfg          string `json:"hostKubeCfg"`
-	HostKubeContext      string `json:"hostKubeContext"`
-	Upgrade              bool   `json:"upgrade"`
-	Add                  *bool  `json:"add,omitempty"`
+	Type                    string `json:"type"`
+	Path                    string `json:"path"`
+	Name                    string `json:"name"`
+	KubecfgFile             string `json:"kubecfgFile"`
+	Version                 string `json:"version"`
+	Namespace               string `json:"namespace"`
+	HostKubeCfg             string `json:"hostKubeCfg"`
+	HostKubeContext         string `json:"hostKubeContext"`
+	Upgrade                 bool   `json:"upgrade"`
+	Add                     *bool  `json:"add,omitempty"`
 	LocalChartDir           string `json:"localChartDir"`
 	BackgroundProxyImage    string `json:"backgroundProxyImage"`
 	SkipWaitForControlPlane bool   `json:"skipWaitForControlPlane,omitempty"`
@@ -557,16 +574,16 @@ func (c *Cluster) UnmarshalJSON(data []byte) error {
 
 func (c *Cluster) MarshalJSON() ([]byte, error) {
 	return json.Marshal(clusterJSON{
-		Type:                 Type,
-		Path:                 c.path,
-		Name:                 c.name,
-		KubecfgFile:          c.kubecfgFile,
-		Version:              c.version,
-		Namespace:            c.namespace,
-		HostKubeCfg:          c.hostKubeCfg,
-		HostKubeContext:      c.hostKubeContext,
-		Upgrade:              c.upgrade,
-		Add:                  c.add,
+		Type:                    Type,
+		Path:                    c.path,
+		Name:                    c.name,
+		KubecfgFile:             c.kubecfgFile,
+		Version:                 c.version,
+		Namespace:               c.namespace,
+		HostKubeCfg:             c.hostKubeCfg,
+		HostKubeContext:         c.hostKubeContext,
+		Upgrade:                 c.upgrade,
+		Add:                     c.add,
 		LocalChartDir:           c.localChartDir,
 		BackgroundProxyImage:    c.backgroundProxyImage,
 		SkipWaitForControlPlane: c.skipWaitForControlPlane,

@@ -24,7 +24,7 @@ require (
 	github.com/loft-sh/agentapi/v4 v4.10.0-rc.3
 	github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e
 	github.com/loft-sh/api/v4 v4.10.0-rc.3
-	github.com/loft-sh/e2e-framework v0.0.0-20260423133544-5291e728f979
+	github.com/loft-sh/e2e-framework v0.0.0-20260717104111-3d76694dc267
 	github.com/loft-sh/image v0.0.0-20250625154753-87447a6ad364
 	github.com/loft-sh/utils v0.0.29
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d

@@ -87,6 +87,9 @@ func Create(ctx context.Context, spec Spec) context.Context {
 	var err error
 	//nolint:defercleanupcluster // teardown is conditional on spec failure; see DeferCleanupCtx below.
 	ctx, err = cluster.Create(createOpts...)(ctx)
+	if err != nil {
+		DumpDiagnostics(ctx, spec.HostClusterName, spec.Name, spec.ConfigFile)
+	}
 	Expect(err).To(Succeed(), "vcluster %q create", spec.Name)
 
 	name, hostName, configFile := spec.Name, spec.HostClusterName, spec.ConfigFile

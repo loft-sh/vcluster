@@ -2,8 +2,10 @@ package e2e
 
 // Stack is a generic stack implementation using a slice.
 type Stack[T any] struct {
-	items []T
-	last  *T
+	items          []T
+	last           *T
+	generation     uint64
+	lastGeneration uint64
 }
 
 // NewStack creates a new empty stack.
@@ -29,6 +31,7 @@ func (s *Stack[T]) Pop() (T, bool) {
 	item := s.items[idx]
 	s.items = s.items[:idx]
 	s.last = &item
+	s.lastGeneration = s.generation
 	return item, true
 }
 
@@ -44,13 +47,21 @@ func (s *Stack[T]) Peek() (T, bool) {
 }
 
 // Last returns the most recently popped item.
-// Returns the zero value of T and false if no item has been popped yet.
+// Returns the zero value of T and false if no item has been popped yet or if
+// the last popped item was invalidated by NextGeneration.
 func (s *Stack[T]) Last() (T, bool) {
-	if s.last == nil {
+	if s.last == nil || s.lastGeneration != s.generation {
 		var zero T
 		return zero, false
 	}
 	return *s.last, true
+}
+
+// NextGeneration invalidates the most recently popped item so that Last no
+// longer returns it. Callers use this to mark a boundary (e.g. a new spec)
+// across which previously popped items must not be observable.
+func (s *Stack[T]) NextGeneration() {
+	s.generation++
 }
 
 // IsEmpty returns true if the stack is empty.

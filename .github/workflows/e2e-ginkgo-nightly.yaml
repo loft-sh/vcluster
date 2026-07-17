@@ -106,6 +106,24 @@ jobs:
         if: steps.gcp-auth.outcome == 'success'
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Download spec duration stats
+        continue-on-error: true
+        env:
+          E2E_INSIGHTS_BUCKET: ${{ vars.E2E_INSIGHTS_BUCKET }}
+        run: |
+          slug="${GITHUB_REPOSITORY//\//-}"
+          src="gs://${E2E_INSIGHTS_BUCKET}/stats/specs/v1/latest/${slug}.json.gz"
+          if gcloud storage cp "$src" "$RUNNER_TEMP/spec-stats.json.gz"; then
+            gunzip -f "$RUNNER_TEMP/spec-stats.json.gz"
+            echo "E2E_SPEC_STATS_FILE=$RUNNER_TEMP/spec-stats.json" >> "$GITHUB_ENV"
+            # Per-run seed: identical across the parallel ginkgo processes of this
+            # run (so spec ordering is consistent), but different between runs so
+            # the spread reshuffles and flakes surface in new combinations.
+            echo "E2E_SPEC_SPREAD_SEED=${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_ENV"
+          else
+            echo "no spec stats available; running with default ordering"
+          fi
+
       - name: Run e2e-next tests
         id: run-tests
         uses: loft-sh/github-actions/.github/actions/run-ginkgo@run-ginkgo/v1
