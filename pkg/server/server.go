@@ -189,8 +189,12 @@ func (s *Server) ServeOnListenerTLS(ctx *synccontext.ControllerContext) error {
 		GrouplessAPIPrefixes: sets.NewString("api"),
 	}
 	serverConfig.LongRunningFunc = func(r *http.Request, requestInfo *request.RequestInfo) bool {
-		// internal registry requests are long running
-		if !requestInfo.IsResourceRequest && strings.HasPrefix(requestInfo.Path, "/v2") {
+		// Exempt long-running requests from the default RequestTimeout (60s):
+		// the internal image registry and private-node bundle downloads that
+		// stream (potentially large) tar.gz binaries.
+		if !requestInfo.IsResourceRequest && (strings.HasPrefix(requestInfo.Path, "/v2") ||
+			strings.HasPrefix(requestInfo.Path, "/node/download") ||
+			strings.HasPrefix(requestInfo.Path, "/node/control-plane-download")) {
 			return true
 		}
 
