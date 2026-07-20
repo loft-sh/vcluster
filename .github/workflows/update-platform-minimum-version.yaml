@@ -1,7 +1,14 @@
 name: Update MinimumVersionTag from Platform
 
+# A platform release is coupled 1:1 with a vCluster release branch: the branch
+# whose pkg/platform/version.go carries that platform minor as MinimumVersionTag
+# (e.g. platform v4.10.x <-> the v0.35 branch). This workflow routes a platform
+# version bump to that coupled release branch instead of always targeting main,
+# lets a caller pin an explicit branch, and closes older bump PRs it supersedes.
+
 on:
   repository_dispatch:
+    # client_payload: { tag: "v4.10.5", branch?: "v0.35" }
     types: [update-platform-version]
   workflow_dispatch:
     inputs:
@@ -9,20 +16,52 @@ on:
         description: "Platform version tag to set as MinimumVersionTag (e.g. v4.10.0 or v4.10.0-rc.5)"
         required: true
         type: string
+      branch:
+        description: "Optional: target this branch directly instead of deriving the coupled release branch from the tag (e.g. main or v0.36). Use when cutting a platform+vCluster release together, before the branch carries the tag."
+        required: false
+        type: string
+        default: ""
+  pull_request:
+    # Run the decision-logic unit tests when the workflow or its script change.
+    paths:
+      - .github/workflows/update-platform-minimum-version.yaml
+      - .github/scripts/platform-version-bump.sh
+      - .github/tests/test-platform-version-bump.sh
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
-  update-minimum-version-tag:
+  test:
+    name: Unit test decision logic
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Run tests
+        run: bash .github/tests/test-platform-version-bump.sh
+
+  decide:
+    name: Resolve target branch and stale PRs
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      tag: ${{ steps.decide.outputs.tag }}
+      target: ${{ steps.decide.outputs.target }}
+      skip: ${{ steps.decide.outputs.skip }}
+      stale_prs: ${{ steps.decide.outputs.stale_prs }}
     steps:
       - name: Checkout repo
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          # create-pull-request authenticates with GH_ACCESS_TOKEN, so the
-          # default checkout credentials don't need to persist.
+          # The decision script only reads via gh; it needs no push credentials.
           persist-credentials: false
 
       - name: Resolve incoming tag
@@ -32,10 +71,10 @@ jobs:
           TAG: ${{ inputs.tag || github.event.client_payload.tag }}
         run: |
           if [[ -z "$TAG" ]]; then
-            printf "Error: no tag provided via workflow_dispatch input or repository_dispatch client_payload.\n"
+            echo "::error::no tag provided via workflow_dispatch input or repository_dispatch client_payload."
             exit 1
           fi
-          printf "tag=%s\n" "$TAG" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Validate tag is semver
         id: semver
@@ -49,51 +88,68 @@ jobs:
           TAG: ${{ steps.resolve.outputs.tag }}
           ERR: ${{ steps.semver.outputs.error_message }}
         run: |
-          printf "Error: tag '%s' is not valid semver: %s\n" "$TAG" "$ERR"
+          echo "::error::tag '$TAG' is not valid semver: $ERR"
           exit 1
 
-      - name: Compare versions
-        id: version-check
+      - name: Decide target branch and stale PRs
+        id: decide
         env:
-          TAG: ${{ steps.resolve.outputs.tag }}
-        run: |
-          CURRENT=$(grep -oP 'MinimumVersionTag\s*=\s*"\Kv[^"]+' pkg/platform/version.go)
-          if [[ -z "$CURRENT" ]]; then
-            printf "Error: could not extract current MinimumVersionTag from pkg/platform/version.go.\n"
-            exit 1
-          fi
+          INCOMING_TAG: ${{ steps.resolve.outputs.tag }}
+          # Empty unless the caller pinned a branch; then derivation is skipped.
+          EXPLICIT_BRANCH: ${{ inputs.branch || github.event.client_payload.branch }}
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/platform-version-bump.sh
 
-          printf "Current MinimumVersionTag: %s\n" "$CURRENT"
-          printf "Incoming tag: %s\n" "$TAG"
-
-          # Normalize the semver pre-release separator '-' to '~' before sorting:
-          # GNU `sort -V` ranks 'v4.10.0-rc.5' above 'v4.10.0', which is backwards.
-          # '~' sorts before everything in `sort -V`, so this restores semver
-          # precedence (pre-release < final). Restore '-' afterwards for comparison.
-          HIGHEST=$(printf '%s\n%s\n' "${CURRENT//-/\~}" "${TAG//-/\~}" | sort -V | tail -n1)
-          HIGHEST=${HIGHEST//\~/-}
-          if [[ "$HIGHEST" == "$CURRENT" ]]; then
-            printf "Skipping: incoming tag %s is not newer than current %s.\n" "$TAG" "$CURRENT"
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
+  apply:
+    name: Open bump PR and close stale PRs
+    needs: decide
+    if: needs.decide.outputs.skip == 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.decide.outputs.target }}
+          # create-pull-request authenticates with GH_ACCESS_TOKEN, so the
+          # default checkout credentials don't need to persist.
+          persist-credentials: false
 
       - name: Update MinimumVersionTag
-        if: steps.version-check.outputs.skip != 'true'
         env:
-          TAG: ${{ steps.resolve.outputs.tag }}
+          TAG: ${{ needs.decide.outputs.tag }}
         run: |
           sed -i 's/MinimumVersionTag = "[^"]*"/MinimumVersionTag = "'"$TAG"'"/' pkg/platform/version.go
 
       - name: Create Pull Request
-        if: steps.version-check.outputs.skip != 'true'
-        uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0  # v8.1.0
+        id: cpr
+        uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0 # v8.1.0
         with:
           token: ${{ secrets.GH_ACCESS_TOKEN }}
           committer: Loft Bot <loft-bot@users.noreply.github.com>
-          base: main
-          branch: update-platform-version-tag/${{ steps.resolve.outputs.tag }}
-          title: "chore(deps): bump platform MinimumVersionTag to ${{ steps.resolve.outputs.tag }}"
-          body: "Bumps MinimumVersionTag to the new Platform release ${{ steps.resolve.outputs.tag }}."
+          base: ${{ needs.decide.outputs.target }}
+          branch: update-platform-version-tag/${{ needs.decide.outputs.target }}/${{ needs.decide.outputs.tag }}
+          title: "chore(deps): bump platform MinimumVersionTag to ${{ needs.decide.outputs.tag }}"
+          body: |
+            Bumps `MinimumVersionTag` to the new Platform release ${{ needs.decide.outputs.tag }} on `${{ needs.decide.outputs.target }}`.
           delete-branch: true
+
+      - name: Close stale bump PRs
+        if: needs.decide.outputs.stale_prs != ''
+        env:
+          GH_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+          REPO: ${{ github.repository }}
+          STALE_PRS: ${{ needs.decide.outputs.stale_prs }}
+          TAG: ${{ needs.decide.outputs.tag }}
+          TARGET: ${{ needs.decide.outputs.target }}
+          NEW_PR: ${{ steps.cpr.outputs.pull-request-number }}
+        run: |
+          for pr in $STALE_PRS; do
+            echo "Closing stale PR #$pr (superseded by $TAG on $TARGET)"
+            gh pr close "$pr" --repo "$REPO" \
+              --comment "Superseded by the newer platform bump ${TAG} (#${NEW_PR}) on \`${TARGET}\`. Closing this stale bump PR." \
+              || echo "::warning::could not close PR #$pr"
+          done
