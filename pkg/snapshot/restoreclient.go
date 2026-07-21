@@ -546,7 +546,8 @@ func newRestoreEtcdClient(ctx context.Context, vConfig *config.VirtualClusterCon
 	// * embedded etcd: delete the files locally and make sure revision is not decreasing, this is important as otherwise watches will not work correctly
 	// * deploy etcd: range delete request
 	// * embedded database: delete the files locally and make sure revision is not decreasing, this is important as otherwise watches will not work correctly
-	// * external database: we can't so we skip and then check later if there are any already
+	// * external etcd: range delete request
+	// * external database: range delete request (reached through kine, which handles delete-by-prefix)
 	if vConfig.BackingStoreType() == vclusterconfig.StoreTypeEmbeddedDatabase {
 		// get latest revision from database
 		latestRevision, err := getLatestRevisionSQLite(ctx, constants.K8sSqliteDatabase)
@@ -621,9 +622,9 @@ func newRestoreEtcdClient(ctx context.Context, vConfig *config.VirtualClusterCon
 		return nil, revertBackup, err
 	}
 
-	// delete contents in external etcd
-	if vConfig.BackingStoreType() == vclusterconfig.StoreTypeDeployedEtcd || vConfig.BackingStoreType() == vclusterconfig.StoreTypeExternalEtcd {
-		klog.FromContext(ctx).Info("Delete existing etcd data before restore...")
+	// delete contents in stores we reach over the etcd protocol but don't own on disk
+	if shouldDeleteBeforeRestore(vConfig.BackingStoreType()) {
+		klog.FromContext(ctx).Info("Delete existing data before restore...")
 		err = etcdClient.DeletePrefix(ctx, "/")
 		if err != nil {
 			return nil, revertBackup, err
@@ -631,6 +632,22 @@ func newRestoreEtcdClient(ctx context.Context, vConfig *config.VirtualClusterCon
 	}
 
 	return etcdClient, revertBackup, nil
+}
+
+// shouldDeleteBeforeRestore reports whether the backing store's existing data
+// must be cleared with an etcd range delete before restore (as opposed to
+// deleting local files). True for stores vCluster reaches over the etcd
+// protocol but does not own on disk: deployed etcd, external etcd, and
+// external database (via kine).
+func shouldDeleteBeforeRestore(storeType vclusterconfig.StoreType) bool {
+	switch storeType {
+	case vclusterconfig.StoreTypeDeployedEtcd,
+		vclusterconfig.StoreTypeExternalEtcd,
+		vclusterconfig.StoreTypeExternalDatabase:
+		return true
+	default:
+		return false
+	}
 }
 
 func setLatestRevisionSQLite(ctx context.Context, file string, revision int64) error {

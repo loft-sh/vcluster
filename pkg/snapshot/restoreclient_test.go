@@ -9,7 +9,50 @@ import (
 	"testing"
 
 	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
+	vclusterconfig "github.com/loft-sh/vcluster/config"
 )
+
+func TestShouldDeleteBeforeRestore(t *testing.T) {
+	tests := []struct {
+		name      string
+		storeType vclusterconfig.StoreType
+		expected  bool
+	}{
+		{
+			name:      "embedded etcd deletes files, not via range delete",
+			storeType: vclusterconfig.StoreTypeEmbeddedEtcd,
+			expected:  false,
+		},
+		{
+			name:      "embedded database deletes files, not via range delete",
+			storeType: vclusterconfig.StoreTypeEmbeddedDatabase,
+			expected:  false,
+		},
+		{
+			name:      "deployed etcd uses range delete",
+			storeType: vclusterconfig.StoreTypeDeployedEtcd,
+			expected:  true,
+		},
+		{
+			name:      "external etcd uses range delete",
+			storeType: vclusterconfig.StoreTypeExternalEtcd,
+			expected:  true,
+		},
+		{
+			name:      "external database uses range delete",
+			storeType: vclusterconfig.StoreTypeExternalDatabase,
+			expected:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := shouldDeleteBeforeRestore(tt.storeType); got != tt.expected {
+				t.Errorf("shouldDeleteBeforeRestore(%q) = %v; want %v", tt.storeType, got, tt.expected)
+			}
+		})
+	}
+}
 
 func TestSnapshotRestoreBumpRevision(t *testing.T) {
 	tests := []struct {
