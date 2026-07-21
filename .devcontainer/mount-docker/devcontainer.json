@@ -1,0 +1,25 @@
+{
+  "name": "Mount Docker",
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "context": ".."
+  },
+
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+  },
+
+  "mounts": [
+    {
+      "type": "bind",
+      "source": "${localEnv:HOME}/.kube",
+      "target": "/home/vscode/.kube"
+    }
+  ],
+
+  "customizations": {
+    "devpod": {
+      "prebuildRepository": "fdog239/prebuilds"
+    }
+  }
+}

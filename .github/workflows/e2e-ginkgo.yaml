@@ -1,0 +1,295 @@
+name: vCluster E2E CI (Ginkgo)
+
+permissions:
+  contents: read
+  pull-requests: write
+
+on:
+  release:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      ginkgo-label:
+        description: "Ginkgo label filter for test execution"
+        required: false
+        default: "pr"
+        type: string
+      debug_enabled:
+        type: boolean
+        description: "Run the build with upterm debugging enabled (https://github.com/lhotari/action-upterm/)"
+        required: false
+        default: false
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+    branches:
+      - main
+      - release-*
+      - v*
+concurrency:
+  # Separate concurrency groups for code pushes vs PR description edits.
+  # Without this, editing a PR description cancels the running test suite
+  # (triggered by the previous push), and the edited run skips tests because
+  # the label-filter didn't change - leaving CI green with no tests run.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.event.action == 'edited' && 'edited' || 'code' }}
+  cancel-in-progress: true
+
+env:
+  # The docker image to use for testing. It should be the same as the one used in the e2e tests.
+  REPOSITORY_NAME: ghcr.io/loft-sh/vcluster
+  TAG_NAME: dev-next
+  VCLUSTER_SUFFIX: vcluster
+  VCLUSTER_NAME: vcluster
+  VCLUSTER_NAMESPACE: vcluster
+
+jobs:
+  parse_label-filter:
+    name: Parse label filter and check if tests should run
+    if: github.repository_owner == 'loft-sh' # do not run on forks
+    runs-on: ubuntu-22.04
+
+    outputs:
+      label-filter: ${{ steps.parse.outputs.label-filter }}
+      skip-edited: ${{ steps.parse.outputs.skip-edited }}
+
+    steps:
+      # Parses the ```label-filter``` block from the PR body, resolves the
+      # Ginkgo label filter, and returns skip-edited=true for a no-op `edited`
+      # event (e.g. a cursor[bot] description edit on the same head SHA with an
+      # unchanged label-filter). Logic and tests live in loft-sh/github-actions
+      # so it isn't duplicated across the e2e workflows. See DEVOPS-1057.
+      - name: Parse label filter
+        id: parse
+        uses: loft-sh/github-actions/.github/actions/parse-label-filter@parse-label-filter/v1
+        with:
+          pr-body: ${{ github.event.pull_request.body }}
+          previous-pr-body: ${{ github.event.changes.body.from }}
+          event-name: ${{ github.event_name }}
+          event-action: ${{ github.event.action }}
+          label-filter-input: ${{ inputs.ginkgo-label }}
+
+  detect_changes:
+    needs: [parse_label-filter]
+    uses: loft-sh/github-actions/.github/workflows/detect-changes.yaml@detect-changes/v1
+    with:
+      paths: |
+        - "go.mod"
+        - "go.sum"
+        - "**.go"
+        - "!**_test.go" # exclude test files to ignore unit test changes
+        - "test/**" # include test files in e2e again
+        - "e2e/**" # include e2e test files
+        - "!**.md"
+        - "Dockerfile.release"
+        - ".github/workflows/e2e.yaml"
+        - "chart/**"
+        - "manifests/**"
+
+  build:
+    runs-on: ubuntu-latest
+    if: github.repository_owner == 'loft-sh' && needs.detect_changes.outputs.has_changed == 'true'
+    needs: detect_changes
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - run: git fetch --force --tags
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Setup GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          install-only: true
+          version: latest
+
+      - name: Build and save syncer image
+        run: |
+          set -x
+          # Build syncer
+          TELEMETRY_PRIVATE_KEY="" goreleaser build --single-target --snapshot --id vcluster --clean --output ./vcluster
+          docker build -t "${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}" -f Dockerfile.release --build-arg TARGETARCH=amd64 --build-arg TARGETOS=linux .
+          docker save -o vcluster_syncer "${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}"
+          # Build cli
+          TELEMETRY_PRIVATE_KEY="" goreleaser build --single-target --snapshot --id vcluster-cli --clean --output ./vcluster
+
+      - name: Upload syncer image to artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: vcluster_syncer
+          path: ./vcluster_syncer
+          retention-days: 1
+
+      - name: Upload vcluster cli to artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: vcluster
+          path: ./vcluster
+          retention-days: 1
+
+
+  download-latest-cli:
+    needs: detect_changes
+    if: needs.detect_changes.outputs.has_changed == 'true'
+    name: Download the latest vCluster cli
+    runs-on: ubuntu-latest
+    steps:
+      - name: download current cli
+        run: |
+          curl -L -o vcluster-current "https://github.com/loft-sh/vcluster/releases/latest/download/vcluster-linux-amd64"
+      - name: Upload vcluster cli to artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: vcluster-current
+          path: ./vcluster-current
+          retention-days: 7
+
+  ginkgo-e2e-tests:
+    name: Execute test suites
+    needs:
+      - build
+      - parse_label-filter
+      - detect_changes
+    if: >
+      needs.parse_label-filter.outputs.skip-edited != 'true' &&
+      needs.detect_changes.outputs.has_changed == 'true'
+    runs-on: large-8_32
+    permissions:
+      id-token: write        # needed for OIDC → AWS
+      contents: read
+      pull-requests: write   # needed for sticky-pr-comment upsert
+      actions: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - run: git fetch --force --tags
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - uses: azure/setup-helm@v4
+        name: Setup Helm
+        with:
+          version: "v3.19.0"
+
+      - name: Download vcluster cli
+        uses: actions/download-artifact@v6
+        with:
+          name: vcluster
+
+      - name: Download syncer image
+        uses: actions/download-artifact@v6
+        with:
+          name: vcluster_syncer
+
+      - name: Load syncer image and install vcluster CLI
+        run: |
+          docker load --input vcluster_syncer
+          chmod +x vcluster && sudo mv vcluster /usr/bin
+          docker image ls --all
+
+      - name: Ensure bridge netfilter modules are loaded
+        run: |
+          if [[ ! -f /proc/sys/net/bridge/bridge-nf-call-iptables ]]; then
+            sudo modprobe -va bridge br_netfilter
+            echo "Enabled bridge netfilter modules successfully"
+          else
+            echo "Bridge netfilter modules are already enabled"
+          fi
+
+      - name: GCP Login
+        id: gcp-auth
+        continue-on-error: true
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+
+      - name: Set up gcloud
+        if: steps.gcp-auth.outcome == 'success'
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Run vCluster Ginkgo E2E Tests
+        id: execute-e2e-tests
+        uses: loft-sh/github-actions/.github/actions/run-ginkgo@run-ginkgo/v1
+        with:
+          test-dir: e2e
+          upload-report: "true"
+          reports-bucket: ${{ vars.E2E_INSIGHTS_BUCKET }}
+          workflow-file: e2e-ginkgo.yaml
+          ginkgo-label: "${{ needs.parse_label-filter.outputs.label-filter }} || pr"
+          additional-args: "--vcluster-image=${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }} --teardown=false"
+          additional-ginkgo-flags: "-v --show-node-events"
+        continue-on-error: true
+
+      - name: Upload Ginkgo JSON report
+        if: success() || failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: ginkgo-report
+          path: test-reports/report.json
+          if-no-files-found: ignore
+
+      - name: Collect debug info on failure
+        if: steps.execute-e2e-tests.outcome == 'failure'
+        run: |
+          set +e
+
+          echo "=== All pods ==="
+          kubectl get pods -A
+
+          echo ""
+          echo "=== vCluster instances ==="
+          for NS in $(kubectl get pods -A -l app=vcluster \
+              -o jsonpath='{range .items[*]}{.metadata.namespace}{"\n"}{end}' 2>/dev/null | sort -u); do
+            echo ""
+            echo "--- vCluster namespace: $NS ---"
+
+            NOT_READY=$(kubectl get pods -n "$NS" -l app=vcluster \
+              -o jsonpath='{range .items[*]}{range .status.conditions[?(@.type=="Ready")]}{.status}{"\n"}{end}{end}' \
+              2>/dev/null | grep -c "^False$" || true)
+
+            if [ "$NOT_READY" -gt 0 ]; then
+              echo "Pods NOT ready — describing:"
+              kubectl describe pods -n "$NS" -l app=vcluster || true
+              echo ""
+              kubectl get events -n "$NS" --sort-by='.lastTimestamp' || true
+              echo ""
+              echo "Syncer logs (current):"
+              kubectl logs -n "$NS" -l app=vcluster -c syncer --tail=500 2>/dev/null || \
+                kubectl logs -n "$NS" -l app=vcluster --tail=500 2>/dev/null || true
+              echo ""
+              echo "Syncer logs (previous):"
+              kubectl logs -n "$NS" -l app=vcluster -c syncer --previous --tail=200 2>/dev/null || true
+            else
+              echo "Pods ready — collecting syncer logs:"
+              kubectl logs -n "$NS" -l app=vcluster -c syncer --tail=500 2>/dev/null || \
+                kubectl logs -n "$NS" -l app=vcluster --tail=500 2>/dev/null || true
+            fi
+          done
+
+          exit 1
+
+      - name: Upsert sticky e2e status comment
+        # Skip on fork PRs: GITHUB_TOKEN is read-only for forks regardless of
+        # the permissions block, so the upsert would 403.
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: loft-sh/github-actions/.github/actions/sticky-pr-comment@sticky-pr-comment/v1
+        with:
+          marker: '<!-- e2e-ginkgo-status -->'
+          body: |
+            ### E2E Ginkgo Tests
+
+            | Status | Commit | Run |
+            | --- | --- | --- |
+            | ${{ job.status == 'success' && 'Passed' || (job.status == 'cancelled' && 'Cancelled' || 'Failed') }} | `${{ github.event.pull_request.head.sha }}` | [View run #${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |
+          github-token: ${{ secrets.GITHUB_TOKEN }}

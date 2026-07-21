@@ -1,0 +1,53 @@
+# Keep the entries sorted and optionally grouped.
+
+* @loft-sh/eng-dev-vcluster-platform
+
+/.github/workflows/e2e*.yaml @loft-sh/eng-qa @loft-sh/eng-tech-leads
+/.github/workflows/release.yaml @loft-sh/eng-devops @loft-sh/eng-tech-leads
+/.github/CODEOWNERS @loft-sh/eng-tech-leads
+
+/chart/templates/ @loft-sh/eng-tech-leads
+
+/cmd/vcluster/ @loft-sh/eng-tech-leads
+
+/config/ @loft-sh/eng-tech-leads
+
+/docs/ @loft-sh/Eng-Docs-Admin
+
+/test/ @loft-sh/eng-qa @loft-sh/eng-dev-vcluster-platform
+/e2e/ @loft-sh/eng-qa
+/e2e/test_core/lifecycle/   @loft-sh/eng-control-plane
+/e2e/test_storage/snapshot/ @loft-sh/eng-control-plane
+
+/hack/email/ @zerbitx
+
+/pkg/authentication/ @loft-sh/eng-tech-leads
+/pkg/authorization/ @loft-sh/eng-tech-leads
+
+/pkg/config/config.go @loft-sh/eng-tech-leads
+
+/pkg/controllers/k8sdefaultendpoint/ @loft-sh/eng-tech-leads
+/pkg/controllers/register.go @loft-sh/eng-tech-leads
+/pkg/controllers/resources/configmaps/ @loft-sh/eng-tech-leads
+/pkg/controllers/resources/endpoints/ @loft-sh/eng-tech-leads
+/pkg/controllers/resources/events/ @loft-sh/eng-tech-leads
+/pkg/controllers/resources/pods/ @loft-sh/eng-tech-leads
+/pkg/controllers/resources/secrets/ @loft-sh/eng-tech-leads
+/pkg/controllers/resources/services/ @loft-sh/eng-tech-leads
+
+/pkg/k8s/ @loft-sh/eng-tech-leads
+/pkg/mappings/ @loft-sh/eng-tech-leads
+/pkg/platform/ @loft-sh/eng-tech-leads
+/pkg/plugin/ @loft-sh/eng-tech-leads
+/pkg/server/ @loft-sh/eng-tech-leads
+/pkg/setup/ @loft-sh/eng-tech-leads
+/pkg/syncer/ @loft-sh/eng-tech-leads
+/pkg/util/portforward/ @loft-sh/eng-tech-leads @lizardruss
+/pkg/util/servicecidr/ @loft-sh/eng-tech-leads @lizardruss
+/pkg/util/translate/ @loft-sh/eng-tech-leads
+
+Dockerfile @loft-sh/eng-tech-leads
+Dockerfile.release @loft-sh/eng-tech-leads
+go.mod @loft-sh/eng-tech-leads
+
+netlify.toml @loft-sh/Eng-Docs-Admin

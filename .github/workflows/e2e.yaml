@@ -1,0 +1,279 @@
+name: E2E CI
+
+on:
+  release:
+    types: [created]
+  pull_request:
+    branches:
+      - main
+      - v*
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  REPOSITORY_NAME: ghcr.io/${{ github.repository }}-ci
+  TAG_NAME: PR${{ github.event.number }}
+  VCLUSTER_SUFFIX: vcluster
+  VCLUSTER_NAME: vcluster
+  VCLUSTER_NAMESPACE: vcluster
+
+jobs:
+  detect_changes:
+    uses: loft-sh/github-actions/.github/workflows/detect-changes.yaml@detect-changes/v1
+    with:
+      paths: |
+        - "go.mod"
+        - "go.sum"
+        - "**.go"
+        - "!**_test.go" # exclude test files to ignore unit test changes
+        - "test/**" # include test files in e2e again
+        - "!e2e/**" # exclude e2e tests
+        - "!**.md"
+        - "Dockerfile.release"
+        - ".github/workflows/e2e.yaml"
+        - "chart/**"
+        - "manifests/**"
+  build:
+    runs-on: ubuntu-latest
+    if: github.repository_owner == 'loft-sh' && needs.detect_changes.outputs.has_changed == 'true'
+    needs: detect_changes
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - run: git fetch --force --tags
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Setup GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          install-only: true
+          version: latest
+
+      - name: Build and save syncer image
+        run: |
+          set -x
+          # Build syncer
+          TELEMETRY_PRIVATE_KEY="" goreleaser build --single-target --snapshot --id vcluster --clean --output ./vcluster
+          docker build -t "${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}" -f Dockerfile.release --build-arg TARGETARCH=amd64 --build-arg TARGETOS=linux .
+          docker save -o vcluster_syncer "${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}"
+          # Build cli
+          TELEMETRY_PRIVATE_KEY="" goreleaser build --single-target --snapshot --id vcluster-cli --clean --output ./vcluster
+
+      - name: Upload syncer image to artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: vcluster_syncer
+          path: ./vcluster_syncer
+          retention-days: 7
+
+      - name: Upload vcluster cli to artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: vcluster
+          path: ./vcluster
+          retention-days: 7
+
+  get-testsuites-dir:
+    needs: detect_changes
+    if: needs.detect_changes.outputs.has_changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      - id: set-paths-matrix
+        run: |
+          set -x
+          sudo apt-get install -y jq
+          EXCLUDE="e2e e2e_ha e2e_isolation_mode e2e_metrics_proxy e2e_node e2e_rootless e2e_scheduler"
+          paths=()
+          for dir in ./test/e2e*; do
+            suite_name=$(basename "$dir")
+            if echo "$EXCLUDE" | grep -qw "$suite_name"; then
+              continue
+            fi
+            paths+=("$dir")
+          done
+          echo "matrix=$(printf '%s\n' "${paths[@]}" | jq -R . | jq -cs .)" >> "$GITHUB_OUTPUT"
+    outputs:
+      matrix: ${{ steps.set-paths-matrix.outputs.matrix }}
+
+  vcluster-install-delete:
+    name: Install and delete virtual cluster
+    needs:
+      - build
+      - detect_changes
+    if: needs.detect_changes.outputs.has_changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - uses: azure/setup-helm@v4
+        name: Setup Helm
+        with:
+          version: "v3.11.0"
+
+      - name: Set up vind cluster
+        uses: loft-sh/setup-vind@v1
+        with:
+          version: "v0.33.0"
+          skipClusterLogsExport: "true"
+          skipClusterDeletion: "true"
+
+      - name: Reset driver to helm
+        run: vcluster use driver helm
+
+      - name: Testing cluster set-up
+        run: |
+          set -x
+          kubectl cluster-info
+          kubectl get pods -n kube-system
+          echo "kubectl config current-context: $(kubectl config current-context)"
+          echo "KUBECONFIG env var: ${KUBECONFIG}"
+
+      - name: Download vcluster cli
+        uses: actions/download-artifact@v7
+        with:
+          name: vcluster
+
+      - name: Download syncer image
+        uses: actions/download-artifact@v7
+        with:
+          name: vcluster_syncer
+
+      - name: Setup environment
+        run: |
+          docker load -i vcluster_syncer
+          docker save "${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}" | docker exec -i vcluster.cp.vind ctr -n k8s.io images import -
+          chmod +x vcluster && sudo mv vcluster /usr/bin
+
+      - name: Run tests - install and delete virtual cluster using kubectl
+        run: |
+          set -x
+          ./hack/vcluster-install-scripts/test-kubectl-install.sh
+
+      - name: Run tests - install and delete virtual cluster using helm
+        run: |
+          set -x
+          ./hack/vcluster-install-scripts/test-helm-install.sh
+
+  download-latest-cli:
+    needs: detect_changes
+    if: needs.detect_changes.outputs.has_changed == 'true'
+    name: Download the latest vCluster cli
+    runs-on: ubuntu-latest
+    steps:
+      - name: download current cli
+        run: |
+          curl -L -o vcluster-current "https://github.com/loft-sh/vcluster/releases/latest/download/vcluster-linux-amd64"
+      - name: Upload vcluster cli to artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: vcluster-current
+          path: ./vcluster-current
+          retention-days: 7
+
+  upgrade-test:
+    name: test if we can upgrade from older version
+    needs:
+      - build
+      - download-latest-cli
+      - detect_changes
+    if: needs.detect_changes.outputs.has_changed == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        distribution: ["k8s"]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - uses: azure/setup-helm@v4
+        name: Setup Helm
+        with:
+          version: "v3.11.0"
+
+      - name: Set up vind cluster
+        uses: loft-sh/setup-vind@v1
+        with:
+          version: "v0.33.0"
+          skipClusterLogsExport: "true"
+          skipClusterDeletion: "true"
+
+      - name: Reset driver to helm
+        run: vcluster use driver helm
+
+      - name: Testing cluster set-up
+        id: cluster-info
+        run: |
+          set -x
+          kubectl cluster-info
+          kubectl get pods -n kube-system
+          kubectl get nodes
+          echo "kubectl config current-context: $(kubectl config current-context)"
+          echo "KUBECONFIG env var: ${KUBECONFIG}"
+          echo "HOST_NODE_NAME=$(kubectl get nodes -o jsonpath='{.items[0].metadata.name}')" >> "$GITHUB_OUTPUT"
+
+      - name: Download vcluster cli
+        uses: actions/download-artifact@v7
+        with:
+          name: vcluster
+          path: vcluster-dev
+
+      - name: Download current cli
+        uses: actions/download-artifact@v7
+        with:
+          name: vcluster-current
+
+      - name: Download syncer image
+        uses: actions/download-artifact@v7
+        with:
+          name: vcluster_syncer
+
+      - name: Install yq@v4
+        run: go install github.com/mikefarah/yq/v4@latest
+
+      - name: create vcluster with current cli
+        run: |
+          chmod +x ./vcluster-current
+
+          docker load --input vcluster_syncer
+          docker save "${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}" | docker exec -i vcluster.cp.vind ctr -n k8s.io images import -
+          yq eval '.controlPlane.distro.${{ matrix.distribution }}.enabled = true' > ./test/vcluster-current.yaml
+
+          ./vcluster-current create ${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }} \
+          --create-namespace \
+          --debug \
+          --connect=false \
+          -f ./test/vcluster-current.yaml
+
+          ./hack/wait-for-pod.sh -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }}
+
+      - name: upgrade with the dev cli
+        run: |
+          chmod +x ./vcluster-dev/vcluster
+          set -x
+
+          sed -i "s|REPLACE_REPOSITORY_NAME|${{ env.REPOSITORY_NAME }}|g" test/commonValues.yaml
+          sed -i "s|REPLACE_TAG_NAME|${{ env.TAG_NAME }}|g" test/commonValues.yaml
+          sed -i "s|kind-control-plane|${{ steps.cluster-info.outputs.HOST_NODE_NAME }}|g" test/commonValues.yaml
+          yq eval -i '.controlPlane.distro.${{ matrix.distribution }}.enabled = true' test/commonValues.yaml
+
+          ./vcluster-dev/vcluster create vcluster \
+          --connect=false \
+          --upgrade \
+          --local-chart-dir ./chart \
+          -f ./test/commonValues.yaml
+
+          ./hack/wait-for-pod.sh -l app=${{ env.VCLUSTER_SUFFIX }} -n ${{ env.VCLUSTER_NAMESPACE }}

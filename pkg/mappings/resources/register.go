@@ -1,0 +1,81 @@
+package resources
+
+import (
+	"fmt"
+
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	gatewayapiutil "github.com/loft-sh/vcluster/pkg/util/gatewayapi"
+)
+
+// ExtraMappers that will be started as well
+var ExtraMappers []BuildMapper
+
+// BuildMapper is a function to build a new mapper
+type BuildMapper func(ctx *synccontext.RegisterContext) (synccontext.Mapper, error)
+
+func getMappers(ctx *synccontext.RegisterContext) []BuildMapper {
+	return append([]BuildMapper{
+		CreateSecretsMapper,
+		CreateConfigMapsMapper,
+		CreateEndpointsMapper,
+		CreateEndpointSlicesMapper,
+		CreateEventsMapper,
+		isEnabled(ctx.Config.Sync.ToHost.Ingresses.Enabled, CreateIngressesMapper),
+		isEnabled(gatewayapiutil.GatewaysEnabled(ctx.Config) || ctx.Config.Sync.FromHost.Gateways.Enabled, CreateGatewayMapper),
+		isEnabled(gatewayapiutil.HTTPRoutesEnabled(ctx.Config), CreateHTTPRouteMapper),
+		isEnabled(gatewayapiutil.TLSRoutesEnabled(ctx.Config), CreateTLSRouteMapper),
+		isEnabled(gatewayapiutil.BackendTLSPoliciesEnabled(ctx.Config), CreateBackendTLSPolicyMapper),
+		isEnabled(gatewayapiutil.ReferenceGrantSyncEnabled(ctx.Config), CreateReferenceGrantMapper),
+		CreateNamespacesMapper,
+		isEnabled(ctx.Config.Sync.ToHost.NetworkPolicies.Enabled, CreateNetworkPoliciesMapper),
+		CreateNodesMapper,
+		CreatePersistentVolumeClaimsMapper,
+		isEnabled(ctx.Config.Sync.ToHost.ServiceAccounts.Enabled, CreateServiceAccountsMapper),
+		CreateServiceMapper,
+		isEnabled(ctx.Config.Sync.ToHost.PriorityClasses.Enabled || ctx.Config.Sync.FromHost.PriorityClasses.Enabled, CreatePriorityClassesMapper),
+		CreatePersistentVolumesMapper,
+		CreatePodsMapper,
+		CreateStorageClassesMapper,
+		isEnabled(ctx.Config.Sync.ToHost.ResourceClaims.Enabled, CreateResourceClaimsMapper),
+		isEnabled(ctx.Config.Sync.ToHost.ResourceClaimTemplates.Enabled, CreateResourceClaimTemplatesMapper),
+		isEnabled(ctx.Config.Sync.FromHost.DeviceClasses.Enabled, CreateDeviceClassesMapper),
+	}, ExtraMappers...)
+}
+
+func MustRegisterMappings(ctx *synccontext.RegisterContext) {
+	err := RegisterMappings(ctx)
+	if err != nil {
+		panic(err.Error())
+	}
+}
+
+func RegisterMappings(ctx *synccontext.RegisterContext) error {
+	// create mappers
+	for _, createFunc := range getMappers(ctx) {
+		if createFunc == nil {
+			continue
+		}
+
+		mapper, err := createFunc(ctx)
+		if err != nil {
+			return fmt.Errorf("create mapper: %w", err)
+		} else if mapper == nil {
+			continue
+		}
+
+		err = ctx.Mappings.AddMapper(mapper)
+		if err != nil {
+			return fmt.Errorf("add mapper %s: %w", mapper.GroupVersionKind().String(), err)
+		}
+	}
+
+	return nil
+}
+
+func isEnabled[T any](enabled bool, fn T) T {
+	if enabled {
+		return fn
+	}
+	var ret T
+	return ret
+}

@@ -1,0 +1,3 @@
+- query: apiserver_request_duration_seconds_bucket{resource="secrets",le=~"0.05|0.1|0.2|0.4|0.8|0.6|1|2|3|4|5|10",verb="POST"}
+  metricName: apiserver_latency_by_bucket
+  instant: true
