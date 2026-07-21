@@ -777,10 +777,33 @@ func translateDNSClusterFirstConfig(pPod *corev1.Pod, vPod *corev1.Pod, clusterD
 	if existingDNSConfig != nil {
 		dnsConfig.Nameservers = deleteDuplicates(append(dnsConfig.Nameservers, existingDNSConfig.Nameservers...))
 		dnsConfig.Searches = deleteDuplicates(append(dnsConfig.Searches, existingDNSConfig.Searches...))
+		dnsConfig.Options = mergeDNSOptions(dnsConfig.Options, existingDNSConfig.Options)
 	}
 
 	pPod.Spec.DNSPolicy = corev1.DNSNone
 	pPod.Spec.DNSConfig = dnsConfig
+}
+
+// mergeDNSOptions merges the pod's own DNS options into the injected defaults.
+// An option set on the pod takes precedence over a default with the same name,
+// so an explicit ndots replaces the injected one instead of being dropped.
+func mergeDNSOptions(defaults, existing []corev1.PodDNSConfigOption) []corev1.PodDNSConfigOption {
+	if len(existing) == 0 {
+		return defaults
+	}
+
+	overridden := make(map[string]bool, len(existing))
+	for _, option := range existing {
+		overridden[option.Name] = true
+	}
+
+	options := make([]corev1.PodDNSConfigOption, 0, len(defaults)+len(existing))
+	for _, option := range defaults {
+		if !overridden[option.Name] {
+			options = append(options, option)
+		}
+	}
+	return append(options, existing...)
 }
 
 func deleteDuplicates(strs []string) []string {
