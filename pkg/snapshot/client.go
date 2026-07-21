@@ -243,17 +243,30 @@ func (c *Client) writeEtcdSnapshot(ctx context.Context, etcdClient etcd.Client, 
 	return nil
 }
 
-func (c *Client) writeKeyValueSnapshot(ctx context.Context, etcdClient etcd.Client, objectStore types.Storage) error {
+// writeKeyValueSnapshot streams etcd key/value pairs into objectStore as a
+// gzipped tar archive. err is a named return so the deferred cleanup below
+// can abort the in-flight upload with the real failure (instead of a clean
+// EOF that would look like a successful, truncated upload) on every early
+// return, and always drain the upload goroutine's result.
+func (c *Client) writeKeyValueSnapshot(ctx context.Context, etcdClient etcd.Client, objectStore types.Storage) (err error) {
 	// now stream objects from etcd to object store
-	errChan := make(chan error)
-	reader, writer, err := os.Pipe()
-	if err != nil {
-		return fmt.Errorf("failed to create pipe: %w", err)
-	}
-	defer writer.Close()
+	errChan := make(chan error, 1)
+	reader, writer := io.Pipe()
 	go func() {
 		defer reader.Close()
 		errChan <- objectStore.PutObject(ctx, reader)
+	}()
+	// uploadResultReceived tracks whether the select loop below already
+	// consumed errChan's single buffered value, so the cleanup defer never
+	// tries to receive from it a second time (which would block forever).
+	uploadResultReceived := false
+	defer func() {
+		_ = writer.CloseWithError(err)
+		if !uploadResultReceived {
+			if uploadErr := <-errChan; uploadErr != nil && err == nil {
+				err = fmt.Errorf("failed to write snapshot: %w", uploadErr)
+			}
+		}
 	}()
 
 	// pin the revision before listing so it reflects the state being snapshotted
@@ -311,9 +324,10 @@ func (c *Client) writeKeyValueSnapshot(ctx context.Context, etcdClient etcd.Clie
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("context: %w", ctx.Err())
-		case err := <-errChan:
-			if err != nil {
-				return fmt.Errorf("failed to write snapshot: %w", err)
+		case uploadErr := <-errChan:
+			uploadResultReceived = true
+			if uploadErr != nil {
+				return fmt.Errorf("failed to write snapshot: %w", uploadErr)
 			}
 			return nil
 		case obj := <-listChan:
@@ -343,11 +357,11 @@ func (c *Client) writeKeyValueSnapshot(ctx context.Context, etcdClient etcd.Clie
 			} else {
 				klog.Infof("Successfully backed up %d etcd keys", backedUpKeys)
 
-				// close the writer to signal we are done, but wait until object store has finished writing
+				// flush the archive; the deferred cleanup closes the pipe
+				// writer and waits for the upload to finish
 				_ = tarWriter.Close()
 				_ = gzipWriter.Close()
-				_ = writer.Close()
-				return <-errChan
+				return nil
 			}
 		}
 	}

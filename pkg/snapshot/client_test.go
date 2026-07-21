@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"runtime"
 	"testing"
+	"time"
 
 	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/loft-sh/api/v4/pkg/snapshot/storage/container"
@@ -20,6 +22,7 @@ type fakeEtcdClient struct {
 	revision    int64
 	revisionErr error
 	values      []etcd.Value
+	listErr     error
 }
 
 func (f *fakeEtcdClient) CurrentRevision(context.Context) (int64, error) {
@@ -27,9 +30,12 @@ func (f *fakeEtcdClient) CurrentRevision(context.Context) (int64, error) {
 }
 
 func (f *fakeEtcdClient) ListStream(context.Context, string) <-chan *etcd.ValueOrError {
-	ch := make(chan *etcd.ValueOrError, len(f.values))
+	ch := make(chan *etcd.ValueOrError, len(f.values)+1)
 	for _, v := range f.values {
 		ch <- &etcd.ValueOrError{Value: v}
+	}
+	if f.listErr != nil {
+		ch <- &etcd.ValueOrError{Error: f.listErr}
 	}
 	close(ch)
 	return ch
@@ -106,5 +112,59 @@ func TestWriteKeyValueSnapshot_CurrentRevisionError(t *testing.T) {
 	err := c.writeKeyValueSnapshot(context.Background(), fake, objectStore)
 	if !errors.Is(err, sentinel) {
 		t.Fatalf("expected CurrentRevision error to propagate, got: %v", err)
+	}
+}
+
+func TestWriteKeyValueSnapshot_ListStreamError(t *testing.T) {
+	t.Parallel()
+
+	sentinel := errors.New("boom")
+	fake := &fakeEtcdClient{
+		revision: 1,
+		values:   []etcd.Value{{Key: []byte("/registry/a"), Data: []byte("va1")}},
+		listErr:  sentinel,
+	}
+
+	storePath := filepath.Join(t.TempDir(), "snapshot.tar.gz")
+	objectStore := container.NewStore(&snapshotapi.ContainerOptions{Path: storePath})
+
+	c := &Client{}
+	err := c.writeKeyValueSnapshot(context.Background(), fake, objectStore)
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("expected ListStream error to propagate, got: %v", err)
+	}
+}
+
+// TestWriteKeyValueSnapshot_NoGoroutineLeakOnEarlyError guards against the
+// upload goroutine blocking forever on an unbuffered errChan send when
+// writeKeyValueSnapshot returns early (e.g. before etcd is even listed).
+// Deliberately not run in parallel with other tests: it compares
+// process-wide goroutine counts and needs a quiet baseline to be reliable.
+func TestWriteKeyValueSnapshot_NoGoroutineLeakOnEarlyError(t *testing.T) {
+	sentinel := errors.New("boom")
+	fake := &fakeEtcdClient{revisionErr: sentinel}
+
+	storePath := filepath.Join(t.TempDir(), "snapshot.tar.gz")
+	objectStore := container.NewStore(&snapshotapi.ContainerOptions{Path: storePath})
+
+	c := &Client{}
+
+	runtime.GC()
+	before := runtime.NumGoroutine()
+
+	if err := c.writeKeyValueSnapshot(context.Background(), fake, objectStore); !errors.Is(err, sentinel) {
+		t.Fatalf("expected CurrentRevision error to propagate, got: %v", err)
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		after := runtime.NumGoroutine()
+		if after <= before {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("upload goroutine appears leaked: goroutines before=%d, after=%d", before, after)
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }
