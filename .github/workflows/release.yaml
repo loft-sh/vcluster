@@ -1,8 +1,14 @@
 name: Release
 
+# Builder for the vCluster release pipeline (DEVOPS-1050). The GitHub Release is
+# a pipeline OUTPUT, not a trigger: goreleaser creates it at the end of a green
+# build. This workflow is dispatched by the loft-sh/github-actions
+# vcluster-release action via `gh workflow run release.yaml --ref <tag>`, so
+# github.ref is refs/tags/<version> and github.ref_name is the version. It no
+# longer triggers on release:created, so a monorepo-created OSS release can never
+# re-trigger this builder.
 on:
-  release:
-    types: [created]
+  workflow_dispatch:
 
 jobs:
   check_minimum_version_tag:
@@ -10,11 +16,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        if: ${{ !contains(github.event.release.tag_name, '-') }}
+        if: ${{ !contains(github.ref_name, '-') }}
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ github.ref_name }}
       - name: Validate MinimumVersionTag is stable
-        if: ${{ !contains(github.event.release.tag_name, '-') }}
+        if: ${{ !contains(github.ref_name, '-') }}
         run: |
           MINIMUM_VERSION_TAG=$(grep -oP 'MinimumVersionTag\s*=\s*"\Kv[^"]+' pkg/platform/version.go)
           if [[ ! "$MINIMUM_VERSION_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -72,7 +78,10 @@ jobs:
         run: |
           RELEASE_VERSION=$(echo "$GITHUB_REF" | sed -nE 's!refs/tags/!!p')
           echo "release_version=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
-          echo "previous_tag=$(git describe --abbrev=0 --tags "$(git rev-list --tags --skip=1 --max-count=1)")" >> "$GITHUB_OUTPUT"
+          # Branch-local previous tag: the tag reachable from this commit's
+          # parent on THIS branch, not the global latest tag (which would be
+          # wrong on a release branch). See DEVOPS-1050.
+          echo "previous_tag=$(git describe --tags --abbrev=0 --match 'v*' "${GITHUB_SHA}^" 2>/dev/null || true)" >> "$GITHUB_OUTPUT"
       - name: Validate semver
         id: semver
         uses: loft-sh/github-actions/.github/actions/semver-validation@semver-validation/v1
@@ -228,6 +237,30 @@ jobs:
           github-token: ${{ secrets.GH_ACCESS_TOKEN }}
           linear-token: ${{ secrets.LINEAR_TOKEN }}
 
+  trigger-validators:
+    needs: [publish]
+    if: ${{ success() && github.repository_owner == 'loft-sh' && !contains(needs.publish.outputs.release_version, '-next') }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Dispatch release validators at the built tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.publish.outputs.release_version }}
+        run: |
+          # Run each validator's OWN version at the built tag (per-line consistent).
+          # Each validator exists on the default branch (dispatchable) and carries a
+          # workflow_dispatch trigger in the tag's tree (true for lines cut from main).
+          for wf in e2e.yaml e2e-ginkgo.yaml unit-tests.yaml; do
+            if gh workflow run "$wf" --repo "$GITHUB_REPOSITORY" --ref "$VERSION"; then
+              echo "dispatched $wf @ $VERSION"
+            else
+              echo "::warning::could not dispatch $wf @ $VERSION (missing or no workflow_dispatch at tag)"
+            fi
+          done
+
   notify_failure:
     if: ${{ always() && contains(needs.*.result, 'failure') && github.repository_owner == 'loft-sh' }}
     needs:
@@ -239,7 +272,7 @@ jobs:
       contents: read
     uses: loft-sh/github-actions/.github/workflows/notify-release.yaml@release-notification/v2
     with:
-      release_version: ${{ github.event.release.tag_name }}
+      release_version: ${{ github.ref_name }}
       target_repo: ${{ github.repository }}
       product: vCluster
       status: failure
