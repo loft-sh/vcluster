@@ -55,17 +55,17 @@ func ConvertEtcdSnapshotToKeyValueSnapshot(ctx context.Context, tempDir string, 
 		return fmt.Errorf("source snapshot is not an etcd snapshot (kind: %s)", kind)
 	}
 
-	dbPath, releaseBytes, requestKey, requestBytes, skipKeys, err := parseEtcdSnapshotArchive(srcPath, tempDir)
+	parsed, err := parseEtcdSnapshotArchive(srcPath, tempDir)
 	if err != nil {
 		return err
 	}
-	defer os.Remove(dbPath)
+	defer os.Remove(parsed.DBPath)
 
 	lg := zap.NewNop()
 
 	// the snapshot's own recorded revision - captured for parity with live KV
 	// snapshots; using it as a restore-time floor is separate, later work.
-	status, err := snapshot.NewV3(lg).Status(dbPath)
+	status, err := snapshot.NewV3(lg).Status(parsed.DBPath)
 	if err != nil {
 		return fmt.Errorf("failed to get snapshot status: %w", err)
 	}
@@ -81,7 +81,7 @@ func ConvertEtcdSnapshotToKeyValueSnapshot(ctx context.Context, tempDir string, 
 		scratchPeerURL = "https://127.0.0.1:2380"
 	)
 	if err := snapshot.NewV3(lg).Restore(snapshot.RestoreConfig{
-		SnapshotPath:        dbPath,
+		SnapshotPath:        parsed.DBPath,
 		Name:                scratchName,
 		OutputDataDir:       scratchDir,
 		OutputWALDir:        datadir.ToWALDir(scratchDir),
@@ -117,13 +117,13 @@ func ConvertEtcdSnapshotToKeyValueSnapshot(ctx context.Context, tempDir string, 
 	tarWriter := tar.NewWriter(gzipWriter)
 	defer tarWriter.Close()
 
-	if releaseBytes != nil {
-		if err := writeArchiveEntry(tarWriter, []byte(snapshotapi.SnapshotReleaseKey), releaseBytes); err != nil {
+	if parsed.ReleaseBytes != nil {
+		if err := writeArchiveEntry(tarWriter, []byte(snapshotapi.SnapshotReleaseKey), parsed.ReleaseBytes); err != nil {
 			return fmt.Errorf("failed to write release: %w", err)
 		}
 	}
-	if requestBytes != nil {
-		if err := writeArchiveEntry(tarWriter, []byte(requestKey), requestBytes); err != nil {
+	if parsed.RequestBytes != nil {
+		if err := writeArchiveEntry(tarWriter, []byte(parsed.RequestKey), parsed.RequestBytes); err != nil {
 			return fmt.Errorf("failed to write request: %w", err)
 		}
 	}
@@ -131,7 +131,7 @@ func ConvertEtcdSnapshotToKeyValueSnapshot(ctx context.Context, tempDir string, 
 		return fmt.Errorf("failed to write revision: %w", err)
 	}
 
-	if err := writeLiveKeyValues(ctx, tarWriter, store, skipKeys); err != nil {
+	if err := writeLiveKeyValues(ctx, tarWriter, store, parsed.SkipKeys); err != nil {
 		return err
 	}
 
@@ -145,24 +145,35 @@ func ConvertEtcdSnapshotToKeyValueSnapshot(ctx context.Context, tempDir string, 
 	return nil
 }
 
+// parsedEtcdSnapshotArchive is the result of parseEtcdSnapshotArchive. DBPath
+// names a temp file under the caller-supplied tempDir - the caller must
+// remove it.
+type parsedEtcdSnapshotArchive struct {
+	DBPath       string
+	ReleaseBytes []byte
+	RequestKey   string
+	RequestBytes []byte
+	SkipKeys     map[string]struct{}
+}
+
 // parseEtcdSnapshotArchive extracts the raw etcd db file (to a temp file under
 // tempDir - caller must remove it), the optional release/request passthrough
 // entries, and the optional skip-keys set from an EtcdSnapshotKind archive.
-func parseEtcdSnapshotArchive(srcPath, tempDir string) (dbPath string, releaseBytes []byte, requestKey string, requestBytes []byte, skipKeys map[string]struct{}, err error) {
+func parseEtcdSnapshotArchive(srcPath, tempDir string) (result parsedEtcdSnapshotArchive, err error) {
 	reader, err := os.Open(srcPath)
 	if err != nil {
-		return "", nil, "", nil, nil, fmt.Errorf("failed to open source snapshot: %w", err)
+		return parsedEtcdSnapshotArchive{}, fmt.Errorf("failed to open source snapshot: %w", err)
 	}
 	defer reader.Close()
 
 	gzipReader, err := gzip.NewReader(reader)
 	if err != nil {
-		return "", nil, "", nil, nil, fmt.Errorf("failed to create gzip reader: %w", err)
+		return parsedEtcdSnapshotArchive{}, fmt.Errorf("failed to create gzip reader: %w", err)
 	}
 	defer gzipReader.Close()
 
-	// dbFile tracks the temp file written for DBStoreKey independently of the
-	// named dbPath return, which every error path below blanks to "" - without
+	// dbFile tracks the temp file written for DBStoreKey independently of
+	// result.DBPath, which every error path below leaves unset - without
 	// this, a failure on a later tar entry would lose the path to a file that
 	// already exists on disk, leaking it.
 	var dbFile string
@@ -179,43 +190,44 @@ func parseEtcdSnapshotArchive(srcPath, tempDir string) (dbPath string, releaseBy
 			if errors.Is(nextErr, io.EOF) {
 				break
 			}
-			return "", nil, "", nil, nil, fmt.Errorf("failed to read tar header: %w", nextErr)
+			return parsedEtcdSnapshotArchive{}, fmt.Errorf("failed to read tar header: %w", nextErr)
 		}
 
 		switch {
 		case header.Name == snapshotapi.SnapshotReleaseKey:
-			releaseBytes, err = io.ReadAll(tarReader)
+			result.ReleaseBytes, err = io.ReadAll(tarReader)
 			if err != nil {
-				return "", nil, "", nil, nil, fmt.Errorf("failed to read release: %w", err)
+				return parsedEtcdSnapshotArchive{}, fmt.Errorf("failed to read release: %w", err)
 			}
 		case strings.HasPrefix(header.Name, RequestStoreKey):
-			requestKey = header.Name
-			requestBytes, err = io.ReadAll(tarReader)
+			result.RequestKey = header.Name
+			result.RequestBytes, err = io.ReadAll(tarReader)
 			if err != nil {
-				return "", nil, "", nil, nil, fmt.Errorf("failed to read request: %w", err)
+				return parsedEtcdSnapshotArchive{}, fmt.Errorf("failed to read request: %w", err)
 			}
 		case header.Name == DBStoreKey:
 			dbFile, err = writeTempFile(tempDir, tarReader)
 			if err != nil {
-				return "", nil, "", nil, nil, fmt.Errorf("failed to write etcd snapshot to temp file: %w", err)
+				return parsedEtcdSnapshotArchive{}, fmt.Errorf("failed to write etcd snapshot to temp file: %w", err)
 			}
 		case header.Name == SkipKeysStoreKey:
 			skipKeysBytes, readErr := io.ReadAll(tarReader)
 			if readErr != nil {
-				return "", nil, "", nil, nil, fmt.Errorf("failed to read skipKeys: %w", readErr)
+				return parsedEtcdSnapshotArchive{}, fmt.Errorf("failed to read skipKeys: %w", readErr)
 			}
-			skipKeys = make(map[string]struct{})
-			if err := json.Unmarshal(skipKeysBytes, &skipKeys); err != nil {
-				return "", nil, "", nil, nil, fmt.Errorf("failed to unmarshal skipKeys: %w", err)
+			result.SkipKeys = make(map[string]struct{})
+			if err := json.Unmarshal(skipKeysBytes, &result.SkipKeys); err != nil {
+				return parsedEtcdSnapshotArchive{}, fmt.Errorf("failed to unmarshal skipKeys: %w", err)
 			}
 		}
 	}
 
 	if dbFile == "" {
-		return "", nil, "", nil, nil, fmt.Errorf("failed to find etcd snapshot in source archive")
+		return parsedEtcdSnapshotArchive{}, fmt.Errorf("failed to find etcd snapshot in source archive")
 	}
 
-	return dbFile, releaseBytes, requestKey, requestBytes, skipKeys, nil
+	result.DBPath = dbFile
+	return result, nil
 }
 
 // writeLiveKeyValues pages through every live key/value in store (tombstoned/

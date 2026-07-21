@@ -258,7 +258,7 @@ func TestParseEtcdSnapshotArchive_CleansUpDBFileOnLaterError(t *testing.T) {
 	)
 
 	tempDir := t.TempDir()
-	_, _, _, _, _, err := parseEtcdSnapshotArchive(srcPath, tempDir)
+	_, err := parseEtcdSnapshotArchive(srcPath, tempDir)
 	if err == nil {
 		t.Fatal("expected an error from a malformed skipKeys entry")
 	}

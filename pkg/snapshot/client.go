@@ -269,7 +269,9 @@ func (c *Client) writeKeyValueSnapshot(ctx context.Context, etcdClient etcd.Clie
 		}
 	}()
 
-	// pin the revision before listing so it reflects the state being snapshotted
+	// pin a revision before listing; this is a lower bound on the state being
+	// snapshotted, since CurrentRevision and ListStream are separate etcd
+	// reads and a write landing between them isn't reflected here
 	revision, err := etcdClient.CurrentRevision(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get current revision: %w", err)
