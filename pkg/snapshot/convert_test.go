@@ -7,12 +7,16 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 
 	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
+	"github.com/loft-sh/vcluster/pkg/etcd"
+	"go.etcd.io/etcd/etcdutl/v3/snapshot"
 	"go.etcd.io/etcd/pkg/v3/traceutil"
 	"go.etcd.io/etcd/server/v3/lease"
 	"go.etcd.io/etcd/server/v3/storage/backend"
@@ -121,12 +125,21 @@ func TestConvertEtcdSnapshotToKeyValueSnapshot(t *testing.T) {
 		}
 	}
 
+	wantStatus, err := snapshot.NewV3(zap.NewNop()).Status(writeBytesToTempFile(t, dbBytes))
+	if err != nil {
+		t.Fatalf("failed to get expected snapshot status: %v", err)
+	}
+
 	revBytes, ok := entries[RevisionStoreKey]
 	if !ok {
 		t.Fatal("expected a RevisionStoreKey entry in the output archive")
 	}
-	if string(revBytes) == "" {
-		t.Fatal("expected a non-empty recorded revision")
+	gotRevision, err := strconv.ParseInt(string(revBytes), 10, 64)
+	if err != nil {
+		t.Fatalf("failed to parse recorded revision %q: %v", revBytes, err)
+	}
+	if gotRevision != wantStatus.Revision {
+		t.Errorf("expected recorded revision %d, got %d", wantStatus.Revision, gotRevision)
 	}
 }
 
@@ -226,20 +239,75 @@ func TestConvertEtcdSnapshotToKeyValueSnapshot_AlreadyKeyValueKind(t *testing.T)
 	}
 }
 
-func TestConvertEtcdSnapshotToKeyValueSnapshot_MissingDBStoreKey(t *testing.T) {
+// TestParseEtcdSnapshotArchive_MissingDBStoreKey exercises parseEtcdSnapshotArchive's
+// dbFile == "" sentinel directly. Going through the public
+// ConvertEtcdSnapshotToKeyValueSnapshot entry point can't reach this: any
+// archive lacking DBStoreKey makes getSnapshotArchiveKind return
+// KeyValueSnapshotKind, so the caller's kind != EtcdSnapshotKind guard errors
+// out first - the same path TestConvertEtcdSnapshotToKeyValueSnapshot_AlreadyKeyValueKind
+// already covers.
+func TestParseEtcdSnapshotArchive_MissingDBStoreKey(t *testing.T) {
 	t.Parallel()
 
-	// no DBStoreKey entry at all, but also no ordinary key either - forces
-	// getSnapshotArchiveKind down the EtcdSnapshotKind-only path is not
-	// possible without DBStoreKey, so use a release-only archive to still
-	// exercise the "malformed etcd snapshot" error from parseEtcdSnapshotArchive
-	// by asserting kind detection directly instead.
-	srcBytes := newTestArchiveBytes(t, archiveEntry{key: snapshotapi.SnapshotReleaseKey, value: []byte("{}")})
+	srcPath := newTestArchive(t, archiveEntry{key: snapshotapi.SnapshotReleaseKey, value: []byte("{}")})
 
-	var out bytes.Buffer
-	err := ConvertEtcdSnapshotToKeyValueSnapshot(context.Background(), t.TempDir(), bytes.NewReader(srcBytes), &out)
+	_, err := parseEtcdSnapshotArchive(srcPath, t.TempDir())
 	if err == nil {
 		t.Fatal("expected an error for an archive without a DBStoreKey entry")
+	}
+	if !strings.Contains(err.Error(), "failed to find etcd snapshot in source archive") {
+		t.Errorf("expected the missing-db sentinel error, got: %v", err)
+	}
+}
+
+// TestConvertEtcdSnapshotToKeyValueSnapshot_Pagination exercises
+// writeLiveKeyValues' multi-page path: startKey advancement via
+// lastKey+0x00, cross-page pinnedRev pinning, and the exact-limit boundary
+// (len(result.KVs) < etcd.EtcdPaginationLimit) - none of which any
+// single-page test (every other case here seeds a handful of keys) reaches.
+func TestConvertEtcdSnapshotToKeyValueSnapshot_Pagination(t *testing.T) {
+	t.Parallel()
+
+	for _, n := range []int{etcd.EtcdPaginationLimit - 1, etcd.EtcdPaginationLimit, etcd.EtcdPaginationLimit + 1} {
+		t.Run(fmt.Sprintf("%d_keys", n), func(t *testing.T) {
+			t.Parallel()
+
+			ops := make([]struct{ key, value string }, n)
+			for i := range n {
+				key := fmt.Sprintf("/registry/pagination/%05d", i)
+				ops[i] = struct{ key, value string }{key: key, value: key + "-value"}
+			}
+			dbBytes := buildRawEtcdSnapshot(t, ops)
+			srcBytes := newTestArchiveBytes(t, archiveEntry{key: DBStoreKey, value: dbBytes})
+
+			var out bytes.Buffer
+			if err := ConvertEtcdSnapshotToKeyValueSnapshot(context.Background(), t.TempDir(), bytes.NewReader(srcBytes), &out); err != nil {
+				t.Fatalf("ConvertEtcdSnapshotToKeyValueSnapshot failed: %v", err)
+			}
+
+			entries := readAllArchiveEntries(t, writeBytesToTempFile(t, out.Bytes()))
+			liveKeys := 0
+			for k := range entries {
+				if k != RevisionStoreKey {
+					liveKeys++
+				}
+			}
+			if liveKeys != n {
+				t.Fatalf("expected %d live keys, got %d", n, liveKeys)
+			}
+			for i := range n {
+				key := fmt.Sprintf("/registry/pagination/%05d", i)
+				want := key + "-value"
+				got, ok := entries[key]
+				if !ok {
+					t.Errorf("missing key %s", key)
+					continue
+				}
+				if string(got) != want {
+					t.Errorf("key %s: expected %q, got %q", key, want, got)
+				}
+			}
+		})
 	}
 }
 
