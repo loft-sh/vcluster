@@ -9,6 +9,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"strings"
 	"testing"
 
 	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
@@ -239,6 +240,37 @@ func TestConvertEtcdSnapshotToKeyValueSnapshot_MissingDBStoreKey(t *testing.T) {
 	err := ConvertEtcdSnapshotToKeyValueSnapshot(context.Background(), t.TempDir(), bytes.NewReader(srcBytes), &out)
 	if err == nil {
 		t.Fatal("expected an error for an archive without a DBStoreKey entry")
+	}
+}
+
+func TestParseEtcdSnapshotArchive_CleansUpDBFileOnLaterError(t *testing.T) {
+	t.Parallel()
+
+	dbBytes := buildRawEtcdSnapshot(t, []struct{ key, value string }{{"/registry/a", "v1"}})
+
+	// DBStoreKey is written to a temp file successfully, then the malformed
+	// SkipKeysStoreKey entry that follows it fails - this exercises the leak
+	// that used to occur when an error on a later archive entry discarded the
+	// path to the already-written db temp file.
+	srcPath := newTestArchive(t,
+		archiveEntry{key: DBStoreKey, value: dbBytes},
+		archiveEntry{key: SkipKeysStoreKey, value: []byte("not-json")},
+	)
+
+	tempDir := t.TempDir()
+	_, _, _, _, _, err := parseEtcdSnapshotArchive(srcPath, tempDir)
+	if err == nil {
+		t.Fatal("expected an error from a malformed skipKeys entry")
+	}
+
+	entries, err := os.ReadDir(tempDir)
+	if err != nil {
+		t.Fatalf("failed to read temp dir: %v", err)
+	}
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), "snapshot-") {
+			t.Errorf("expected the db temp file to be cleaned up on error, found leaked file %q", e.Name())
+		}
 	}
 }
 

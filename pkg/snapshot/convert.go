@@ -161,6 +161,17 @@ func parseEtcdSnapshotArchive(srcPath, tempDir string) (dbPath string, releaseBy
 	}
 	defer gzipReader.Close()
 
+	// dbFile tracks the temp file written for DBStoreKey independently of the
+	// named dbPath return, which every error path below blanks to "" - without
+	// this, a failure on a later tar entry would lose the path to a file that
+	// already exists on disk, leaking it.
+	var dbFile string
+	defer func() {
+		if err != nil && dbFile != "" {
+			_ = os.Remove(dbFile)
+		}
+	}()
+
 	tarReader := tar.NewReader(gzipReader)
 	for {
 		header, nextErr := tarReader.Next()
@@ -184,7 +195,7 @@ func parseEtcdSnapshotArchive(srcPath, tempDir string) (dbPath string, releaseBy
 				return "", nil, "", nil, nil, fmt.Errorf("failed to read request: %w", err)
 			}
 		case header.Name == DBStoreKey:
-			dbPath, err = writeTempFile(tempDir, tarReader)
+			dbFile, err = writeTempFile(tempDir, tarReader)
 			if err != nil {
 				return "", nil, "", nil, nil, fmt.Errorf("failed to write etcd snapshot to temp file: %w", err)
 			}
@@ -200,11 +211,11 @@ func parseEtcdSnapshotArchive(srcPath, tempDir string) (dbPath string, releaseBy
 		}
 	}
 
-	if dbPath == "" {
+	if dbFile == "" {
 		return "", nil, "", nil, nil, fmt.Errorf("failed to find etcd snapshot in source archive")
 	}
 
-	return dbPath, releaseBytes, requestKey, requestBytes, skipKeys, nil
+	return dbFile, releaseBytes, requestKey, requestBytes, skipKeys, nil
 }
 
 // writeLiveKeyValues pages through every live key/value in store (tombstoned/
