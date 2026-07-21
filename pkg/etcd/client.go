@@ -39,6 +39,7 @@ type Client interface {
 	Compact(ctx context.Context, revision int64) error
 	Close() error
 	SnapshotWithVersion(ctx context.Context) (*clientv3.SnapshotResponse, error)
+	CurrentRevision(ctx context.Context) (int64, error)
 }
 
 type client struct {
@@ -179,6 +180,24 @@ func listStream(
 	}()
 
 	return retChan
+}
+
+func (c *client) CurrentRevision(ctx context.Context) (int64, error) {
+	return currentRevision(ctx, c.c.Get)
+}
+
+// currentRevision reads the store's current revision off a response header,
+// without transferring any key data (WithCountOnly).
+func currentRevision(
+	ctx context.Context,
+	getFn func(ctx context.Context, key string, opts ...clientv3.OpOption) (*clientv3.GetResponse, error),
+) (int64, error) {
+	resp, err := getFn(ctx, "/", clientv3.WithPrefix(), clientv3.WithCountOnly())
+	if err != nil {
+		return 0, err
+	}
+
+	return resp.Header.Revision, nil
 }
 
 func (c *client) Compact(ctx context.Context, revision int64) error {

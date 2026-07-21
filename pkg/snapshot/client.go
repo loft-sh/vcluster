@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 
 	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/loft-sh/api/v4/pkg/snapshot/storage/types"
@@ -29,6 +30,9 @@ const (
 	RequestStoreKey  = "/vcluster/snapshot/request"
 	DBStoreKey       = "/vcluster/snapshot/db"
 	SkipKeysStoreKey = "/vcluster/snapshot/skipkeys"
+	// RevisionStoreKey holds the backing store's revision at the time the
+	// snapshot was taken (decimal-encoded int64).
+	RevisionStoreKey = "/vcluster/snapshot/revision"
 )
 
 type Client struct {
@@ -252,6 +256,12 @@ func (c *Client) writeKeyValueSnapshot(ctx context.Context, etcdClient etcd.Clie
 		errChan <- objectStore.PutObject(ctx, reader)
 	}()
 
+	// pin the revision before listing so it reflects the state being snapshotted
+	revision, err := etcdClient.CurrentRevision(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get current revision: %w", err)
+	}
+
 	// start listing the keys
 	listChan := etcdClient.ListStream(ctx, "/")
 
@@ -287,6 +297,12 @@ func (c *Client) writeKeyValueSnapshot(ctx context.Context, etcdClient etcd.Clie
 		if err != nil {
 			return fmt.Errorf("failed to snapshot request: %w", err)
 		}
+	}
+
+	// write the pinned revision
+	err = writeArchiveEntry(tarWriter, []byte(RevisionStoreKey), []byte(strconv.FormatInt(revision, 10)))
+	if err != nil {
+		return fmt.Errorf("failed to snapshot revision: %w", err)
 	}
 
 	// now write the snapshot

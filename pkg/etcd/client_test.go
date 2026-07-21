@@ -197,6 +197,39 @@ func TestListStream_ErrorAfterFirstPage(t *testing.T) {
 	assert.Equal(t, 2, callCount, "error on second page should stop pagination")
 }
 
+// This test verifies CurrentRevision reads the revision off the response header
+// without requiring any keys to be returned.
+func TestCurrentRevision(t *testing.T) {
+	t.Parallel()
+
+	const wantRev = int64(4242)
+
+	var gotOp clientv3.Op
+	get := func(_ context.Context, key string, opts ...clientv3.OpOption) (*clientv3.GetResponse, error) {
+		gotOp = clientv3.OpGet(key, opts...)
+		return &clientv3.GetResponse{
+			Header: &etcdserverpb.ResponseHeader{Revision: wantRev},
+		}, nil
+	}
+
+	gotRev, err := currentRevision(context.Background(), get)
+	assert.NilError(t, err)
+	assert.Equal(t, wantRev, gotRev)
+	assert.Assert(t, gotOp.IsCountOnly(), "current-revision read must not transfer key data")
+}
+
+func TestCurrentRevision_Error(t *testing.T) {
+	t.Parallel()
+
+	sentinel := errors.New("boom")
+	get := func(_ context.Context, _ string, _ ...clientv3.OpOption) (*clientv3.GetResponse, error) {
+		return nil, sentinel
+	}
+
+	_, err := currentRevision(context.Background(), get)
+	assert.ErrorIs(t, err, sentinel)
+}
+
 func makeKVs(prefix string, start, end int, modRevStart int64) []*mvccpb.KeyValue {
 	kvs := make([]*mvccpb.KeyValue, 0, end-start)
 	for i := start; i < end; i++ {
