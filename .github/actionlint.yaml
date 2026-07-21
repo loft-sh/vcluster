@@ -42,3 +42,10 @@ paths:
     ignore:
       - 'unexpected key "background" for step'
       - 'step must run script with "run" section or run action with "uses" section'
+  # DEVOPS-1029: the release workflow uses `parallel:` blocks of the same
+  # feature; actionlint reports each `parallel:` step as missing a `run`/`uses`
+  # section. Suppress only that message for this one file until native support
+  # lands; then delete this entry.
+  .github/workflows/release.yaml:
+    ignore:
+      - 'step must run script with "run" section or run action with "uses" section'
