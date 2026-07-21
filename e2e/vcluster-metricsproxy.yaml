@@ -1,0 +1,10 @@
+controlPlane:
+  statefulSet:
+    image:
+      registry: ""
+      repository: {{.Repository}}
+      tag: {{.Tag}}
+
+integrations:
+  metricsServer:
+    enabled: true

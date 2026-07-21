@@ -1,0 +1,157 @@
+suite: ControlPlane TLSRoute
+templates:
+  - tlsroute.yaml
+
+tests:
+  - it: should not create tlsroute by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: tlsroute defaults
+    set:
+      controlPlane:
+        tlsRoute:
+          enabled: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: apiVersion
+          value: gateway.networking.k8s.io/v1
+      - equal:
+          path: kind
+          value: TLSRoute
+      - equal:
+          path: metadata.name
+          value: my-release
+      - equal:
+          path: metadata.namespace
+          value: my-namespace
+      - equal:
+          path: metadata.labels.app
+          value: vcluster
+      - equal:
+          path: spec.hostnames[0]
+          value: "my-host.com"
+      - equal:
+          path: spec.rules[0].backendRefs[0].name
+          value: my-release
+      - equal:
+          path: spec.rules[0].backendRefs[0].port
+          value: 443
+
+  - it: custom host
+    set:
+      controlPlane:
+        tlsRoute:
+          enabled: true
+          host: "custom.example.com"
+    asserts:
+      - equal:
+          path: spec.hostnames[0]
+          value: "custom.example.com"
+
+  - it: custom labels and annotations
+    set:
+      controlPlane:
+        tlsRoute:
+          enabled: true
+          labels:
+            custom-label: label-value
+          annotations:
+            custom-annotation: annotation-value
+    asserts:
+      - equal:
+          path: metadata.labels.custom-label
+          value: label-value
+      - equal:
+          path: metadata.annotations.custom-annotation
+          value: annotation-value
+
+  - it: global metadata annotations are merged
+    set:
+      controlPlane:
+        tlsRoute:
+          enabled: true
+          annotations:
+            route-annotation: route-value
+        advanced:
+          globalMetadata:
+            annotations:
+              global-annotation: global-value
+    asserts:
+      - equal:
+          path: metadata.annotations.route-annotation
+          value: route-value
+      - equal:
+          path: metadata.annotations.global-annotation
+          value: global-value
+
+  - it: parentRefs from top-level field
+    set:
+      controlPlane:
+        tlsRoute:
+          enabled: true
+          parentRefs:
+            - name: my-gateway
+              namespace: gateway-ns
+              sectionName: my-section
+    asserts:
+      - equal:
+          path: spec.parentRefs[0].name
+          value: my-gateway
+      - equal:
+          path: spec.parentRefs[0].namespace
+          value: gateway-ns
+
+  - it: overwrite spec completely
+    set:
+      controlPlane:
+        tlsRoute:
+          enabled: true
+          spec:
+            hostnames:
+              - "override.example.com"
+            rules:
+              - backendRefs:
+                  - name: custom-backend
+                    port: 8443
+            parentRefs:
+              - name: custom-gateway
+    asserts:
+      - equal:
+          path: spec.hostnames[0]
+          value: "override.example.com"
+      - equal:
+          path: spec.rules[0].backendRefs[0].name
+          value: custom-backend
+      - equal:
+          path: spec.rules[0].backendRefs[0].port
+          value: 8443
+      - equal:
+          path: spec.parentRefs[0].name
+          value: custom-gateway
+
+  - it: template spec values
+    set:
+      controlPlane:
+        tlsRoute:
+          enabled: true
+          spec:
+            hostnames:
+              - '{{ .Release.Name }}.example.com'
+            rules:
+              - backendRefs:
+                  - name: '{{ .Release.Name }}-backend'
+                    port: 443
+    asserts:
+      - equal:
+          path: spec.hostnames[0]
+          value: "RELEASE-NAME.example.com"
+      - equal:
+          path: spec.rules[0].backendRefs[0].name
+          value: RELEASE-NAME-backend

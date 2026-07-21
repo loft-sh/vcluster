@@ -1,0 +1,37 @@
+controlPlane:
+  statefulSet:
+    image:
+      registry: ""
+      repository: {{.Repository}}
+      tag: {{.Tag}}
+  advanced:
+    virtualScheduler:
+      enabled: true
+  distro:
+    k8s:
+      scheduler:
+        enabled: true
+
+sync:
+  toHost:
+    pods:
+      useSecretsForSATokens: true
+    networkPolicies:
+      enabled: true
+    persistentVolumeClaims:
+      enabled: true
+    persistentVolumes:
+      enabled: true
+  fromHost:
+    nodes:
+      enabled: true
+      selector:
+        all: true
+    runtimeClasses:
+      enabled: true
+    storageClasses:
+      enabled: true
+
+policies:
+  networkPolicy:
+    enabled: true

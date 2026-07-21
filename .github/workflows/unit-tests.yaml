@@ -1,0 +1,61 @@
+name: Unit tests
+
+on:
+  release:
+    types: [created]
+  pull_request:
+    branches:
+      - main
+      - v*
+    paths:
+      - go.mod
+      - go.sum
+      - "**.go"
+      - "!test/**" # exclude changes in e2e tests
+      - ".github/workflows/unit-tests.yaml"
+      - "hack/test.sh"
+      - "chart/**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  helm-unit-tests:
+    name: Execute all helm tests
+    if: github.repository_owner == 'loft-sh' # do not run on forks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Install Helm Unit Test Plugin
+        run: |
+          helm plugin install https://github.com/helm-unittest/helm-unittest --version v0.4.4
+      - name: Run Helm Unit Tests
+        run: |
+          helm unittest chart
+
+  go-unit-test:
+    name: Execute all go tests
+    if: github.repository_owner == 'loft-sh' # do not run on forks
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v6
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Execute unit tests
+        run: ./hack/test.sh
+
+      # vcluster is a public repo, so Codecov uploads tokenless. Codecov's
+      # GitHub App posts the coverage comment; no workflow write permission is
+      # needed here.
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          files: ./coverage.out
+          disable_search: true
+          fail_ci_if_error: false

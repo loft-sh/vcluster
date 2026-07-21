@@ -1,0 +1,44 @@
+controlPlane:
+  statefulSet:
+    image:
+      registry: ""
+      repository: {{.Repository}}
+      tag: {{.Tag}}
+    security:
+      containerSecurityContext:
+        runAsUser: 12345
+        runAsNonRoot: true
+      podSecurityContext:
+        fsGroup: 12345
+  backingStore:
+    etcd:
+      deploy:
+        statefulSet:
+          security:
+            podSecurityContext:
+              fsGroup: 12345
+
+sync:
+  toHost:
+    pods:
+      useSecretsForSATokens: true
+    networkPolicies:
+      enabled: true
+    persistentVolumeClaims:
+      enabled: true
+    persistentVolumes:
+      enabled: true
+  fromHost:
+    nodes:
+      enabled: true
+      selector:
+        labels:
+          kubernetes.io/hostname: "{{.HostClusterName}}-control-plane"
+    runtimeClasses:
+      enabled: true
+    storageClasses:
+      enabled: true
+
+policies:
+  networkPolicy:
+    enabled: true

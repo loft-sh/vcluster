@@ -1,0 +1,116 @@
+name: Lint
+
+on:
+  pull_request:
+    branches:
+      - main
+      - v*
+    paths:
+      - go.mod
+      - go.sum
+      - "**.go"
+      - .custom-gcl.yml
+      - ".github/workflows/lint.yaml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  golangci:
+    name: lint
+    runs-on: ubuntu-latest
+    env:
+      # Use vendored dependencies so fork PRs (which lack access to
+      # GH_ACCESS_TOKEN) can still compile against private modules.
+      GOFLAGS: -mod=vendor
+      GOPRIVATE: "github.com/loft-sh/*"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: ./go.mod
+          cache: false
+
+      - name: Configure git
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        run: git config --global url.https://"$GH_ACCESS_TOKEN"@github.com/.insteadOf https://github.com/
+        env:
+          GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+
+      - name: Generate Embedded Helm Chart
+        run: |
+          go generate ./...
+
+      - name: Verify schema changes
+        run: |
+          VALUES_SHA=$(cat chart/values.yaml | sha256sum)
+          VALUES_SCHEMA_SHA=$(cat chart/values.schema.json | sha256sum)
+
+          go run hack/schema/main.go
+
+          VALUES_SHA_AFTER=$(cat chart/values.yaml | sha256sum)
+          VALUES_SCHEMA_SHA_AFTER=$(cat chart/values.schema.json | sha256sum)
+
+          # if there are changes, tell developer to run script
+          if [ "$VALUES_SHA" != "$VALUES_SHA_AFTER" ] || [ "$VALUES_SCHEMA_SHA" != "$VALUES_SCHEMA_SHA_AFTER" ]; then
+            echo "Seems like you forgot to run 'go run hack/schema/main.go' before committing your changes!"
+            exit 1
+          fi
+
+      - name: Verify go mod tidy and vendor
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          go mod tidy
+          go mod vendor
+          if [ -n "$(git status --porcelain go.mod go.sum vendor/)" ]; then
+            echo "❌ ERROR: go.mod, go.sum, or vendor/ directory is out of sync."
+            echo "Please run 'go mod tidy && go mod vendor' and commit the changes."
+            echo ""
+            echo "Changed files:"
+            git status --porcelain go.mod go.sum vendor/
+            echo ""
+            echo "Diff (go.mod and go.sum):"
+            git diff go.mod go.sum
+            echo ""
+            echo "💡 TIP: If this works locally but fails in CI, check for gitignored"
+            echo "   directories (e.g. licenses/) that may affect dependency resolution."
+            echo "   Run 'git status --ignored' locally to see ignored files."
+            exit 1
+          fi
+        env:
+          GOFLAGS: ""
+
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.7.0
+        env:
+          GOFLAGS: ""
+
+      - name: Build custom golangci-lint with plugins
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        run: golangci-lint custom
+        env:
+          GOFLAGS: ""
+
+      - name: Run golangci-lint (with custom linters)
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        run: ./tools/golangci-lint run --timeout 15m -- ./...
+
+      - name: Generate config without custom linters (fork PRs)
+        if: github.event.pull_request.head.repo.full_name != github.repository
+        run: |
+          # Remove custom plugin definitions and their enable/exclusion entries
+          # so stock golangci-lint can run without the compiled plugin binary.
+          CUSTOM_LINTERS=$(yq '.linters.settings.custom | keys | .[]' .golangci.yml)
+          cp .golangci.yml .golangci-fork.yml
+          for linter in $CUSTOM_LINTERS; do
+            yq -i "del(.linters.settings.custom.\"$linter\")" .golangci-fork.yml
+            yq -i ".linters.enable -= [\"$linter\"]" .golangci-fork.yml
+            yq -i "del(.linters.exclusions.rules[] | select(.linters[] == \"$linter\"))" .golangci-fork.yml
+          done
+
+      - name: Run golangci-lint (fork PRs, without custom linters)
+        if: github.event.pull_request.head.repo.full_name != github.repository
+        run: golangci-lint run --timeout 15m --config .golangci-fork.yml -- ./...
