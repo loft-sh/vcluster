@@ -63,7 +63,20 @@ func (s *persistentVolumeClaimSyncer) translateSelector(ctx *synccontext.SyncCon
 				vPvc.Spec.Selector = translate.HostLabelSelector(vPvc.Spec.Selector)
 			}
 			if vPvc.Spec.VolumeName != "" {
-				vPvc.Spec.VolumeName = translate.Default.HostNameCluster(vPvc.Spec.VolumeName)
+				// If the PV was synced from host, its name is already physical.
+				// Otherwise, check if a PV with this name exists on the host.
+				// If neither, translate the virtual name to the host name.
+				vPV := &corev1.PersistentVolume{}
+				err := ctx.VirtualClient.Get(ctx, types.NamespacedName{Name: vPvc.Spec.VolumeName}, vPV)
+				if err == nil && vPV.Annotations != nil && vPV.Annotations[constants.HostClusterPersistentVolumeAnnotation] != "" {
+					vPvc.Spec.VolumeName = vPV.Annotations[constants.HostClusterPersistentVolumeAnnotation]
+				} else {
+					pPV := &corev1.PersistentVolume{}
+					err := ctx.HostClient.Get(ctx, types.NamespacedName{Name: vPvc.Spec.VolumeName}, pPV)
+					if err != nil {
+						vPvc.Spec.VolumeName = translate.Default.HostNameCluster(vPvc.Spec.VolumeName)
+					}
+				}
 			}
 			// check if the storage class exists in the physical cluster
 			if !s.storageClassesEnabled && storageClassName != "" {
