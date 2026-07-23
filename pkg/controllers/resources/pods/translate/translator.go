@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilversion "k8s.io/apimachinery/pkg/util/version"
-	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/events"
@@ -53,12 +52,22 @@ var (
 	FieldPathAnnotationRegEx = regexp.MustCompile(`^metadata\.annotations\['(.+)'\]$`)
 	False                    = false
 	maxPriority              = int32(1000000000)
+
+	// k8sPodObservedGenerationMinVersion is the first Kubernetes version where the
+	// PodObservedGenerationTracking feature gate is on by default (beta in 1.34; alpha and
+	// off in 1.33, absent before that). Below it, the apiserver strips ObservedGeneration on
+	// write (see virtualClusterStripsObservedGeneration).
+	k8sPodObservedGenerationMinVersion = utilversion.MustParseSemantic("1.34.0")
+	// k8sPodResourcesMinVersion is the first Kubernetes version where pod spec.resources
+	// is supported (in beta).
+	k8sPodResourcesMinVersion = utilversion.MustParseSemantic("1.34.0")
 )
 
 type Translator interface {
 	Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error)
 	Diff(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Pod]) error
 	TranslateContainerEnv(ctx *synccontext.SyncContext, envVar []corev1.EnvVar, envFrom []corev1.EnvFromSource, vPod *corev1.Pod, serviceEnvMap map[string]string) ([]corev1.EnvVar, []corev1.EnvFromSource, error)
+	StripUnpersistedObservedGeneration(status *corev1.PodStatus)
 }
 
 func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder events.EventRecorder) (Translator, error) {
@@ -101,12 +110,25 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder events.EventR
 		"docker.io",
 	)
 
-	hostClusterVersion, err := ctx.Config.HostClient.Discovery().ServerVersion()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get virtual cluster version : %w", err)
+	// The host and virtual cluster versions are discovered once at startup and carried on the
+	// context. They are nil in unit tests, which callers treat as "version unknown".
+	var hostClusterVersion *utilversion.Version
+	if ctx.HostClusterVersion != nil {
+		hostClusterVersion, err = utilversion.ParseSemantic(ctx.HostClusterVersion.String())
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse host cluster version: %w", err)
+		}
 	}
 
-	return &translator{
+	var virtualClusterVersion *utilversion.Version
+	if ctx.VirtualClusterVersion != nil {
+		virtualClusterVersion, err = utilversion.ParseSemantic(ctx.VirtualClusterVersion.String())
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse virtual cluster version: %w", err)
+		}
+	}
+
+	t := &translator{
 		vClientConfig: ctx.VirtualManager.GetConfig(),
 		vClient:       ctx.VirtualManager.GetClient(),
 
@@ -134,13 +156,22 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder events.EventR
 		virtualPodLogsPath:    filepath.Join(virtualLogsPath, "pods"),
 		virtualKubeletPodPath: filepath.Join(virtualKubeletPath, "pods"),
 
-		hostClusterVersion: hostClusterVersion,
+		hostClusterVersion:    hostClusterVersion,
+		virtualClusterVersion: virtualClusterVersion,
 
 		resourceClaimEnabled:         ctx.Config.Sync.ToHost.ResourceClaims.Enabled,
 		resourceClaimTemplateEnabled: ctx.Config.Sync.ToHost.ResourceClaimTemplates.Enabled,
 
 		enforcedTolerations: parseEnforcedTolerations(ctx.Config.Sync.ToHost.Pods.EnforceTolerations),
-	}, nil
+	}
+
+	// Log when ObservedGeneration suppression is active, to aid debugging pod conditions on a
+	// mixed-version cluster (virtual < 1.34, host >= 1.34).
+	if t.virtualClusterStripsObservedGeneration() {
+		t.log.Infof("virtual cluster version %s strips ObservedGeneration on write; suppressing phantom pod condition diffs", virtualClusterVersion)
+	}
+
+	return t, nil
 }
 
 type translator struct {
@@ -169,7 +200,8 @@ type translator struct {
 	virtualPodLogsPath    string
 	virtualKubeletPodPath string
 
-	hostClusterVersion *version.Info
+	hostClusterVersion    *utilversion.Version
+	virtualClusterVersion *utilversion.Version
 
 	resourceClaimEnabled         bool
 	resourceClaimTemplateEnabled bool
@@ -339,15 +371,9 @@ func (t *translator) Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, s
 	}
 
 	// translate pod resources
-	if t.hostClusterVersion != nil {
-		parsedVersion, err := utilversion.ParseSemantic(t.hostClusterVersion.String())
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse host cluster version : %w", err)
-		}
-		// spec.resources is only supported in beta from Kubernetes 1.34.0
-		if parsedVersion.LessThan(utilversion.MustParseSemantic("1.34.0")) {
-			pPod.Spec.Resources = nil
-		}
+	// spec.resources is only supported in beta from Kubernetes 1.34.0
+	if t.hostClusterVersion != nil && t.hostClusterVersion.LessThan(k8sPodResourcesMinVersion) {
+		pPod.Spec.Resources = nil
 	}
 
 	// translate containers

@@ -3,6 +3,7 @@ package translate
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/mappings"
@@ -20,8 +21,9 @@ import (
 )
 
 func (t *translator) Diff(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Pod]) error {
-	// sync conditions
-	event.Virtual.Status.Conditions, event.Host.Status.Conditions = patcher.CopyBidirectional(
+	// Sync conditions. We only keep the reconciled host side; the virtual conditions are
+	// recomputed below when vPod.Status is overwritten with the host status.
+	_, event.Host.Status.Conditions = t.conditionsCopyBidirectional(
 		event.VirtualOld.Status.Conditions,
 		event.Virtual.Status.Conditions,
 		event.HostOld.Status.Conditions,
@@ -32,11 +34,19 @@ func (t *translator) Diff(ctx *synccontext.SyncContext, event *synccontext.SyncE
 	vPod := event.Virtual
 	pPod := event.Host
 
-	// We have to reset the QOSClass to the original value, otherwise we might get an error
-	// that the field is immutable
+	// Copy the host status onto the virtual pod, but keep a few virtual values that the host
+	// must not overwrite:
+	//   - QOSClass: the host treats it as immutable (since K8s 1.32), so it can't be changed.
+	//   - ObservedGeneration: a virtual cluster on K8s < 1.34 doesn't store it, so copying the
+	//     host value would keep looking like a change and patch the status on every reconcile.
 	originalQOSClass := vPod.Status.QOSClass
+	originalObservedGeneration := vPod.Status.ObservedGeneration
 	vPod.Status = *pPod.Status.DeepCopy()
 	vPod.Status.QOSClass = originalQOSClass
+	if t.virtualClusterStripsObservedGeneration() {
+		vPod.Status.ObservedGeneration = originalObservedGeneration
+		vPod.Status.Conditions = stripConditionObservedGenerations(vPod.Status.Conditions)
+	}
 	err := t.convertResourceClaimStatuses(ctx, vPod, pPod.GetNamespace())
 	if err != nil {
 		return err
@@ -280,4 +290,52 @@ func hasToleration(tolerations []corev1.Toleration, tol corev1.Toleration) bool 
 		}
 	}
 	return false
+}
+
+// virtualClusterStripsObservedGeneration reports whether the virtual apiserver throws away
+// ObservedGeneration when a pod status is written. This happens on K8s < 1.34, where the
+// PodObservedGenerationTracking feature gate is off by default.
+func (t *translator) virtualClusterStripsObservedGeneration() bool {
+	return t.virtualClusterVersion != nil &&
+		t.virtualClusterVersion.LessThan(k8sPodObservedGenerationMinVersion)
+}
+
+// conditionsCopyBidirectional works like patcher.CopyBidirectional for pod conditions. On
+// K8s < 1.34 the virtual cluster does not store ObservedGeneration, so this function ignores that field
+// when checking for changes to avoid reacting to a value that was never saved. It does not
+// change the conditions, so a real ObservedGeneration from the host is still synced.
+func (t *translator) conditionsCopyBidirectional(
+	virtualOld, virtual, hostOld, host []corev1.PodCondition,
+) (newVirtual, newHost []corev1.PodCondition) {
+	if !t.virtualClusterStripsObservedGeneration() {
+		return patcher.CopyBidirectional(virtualOld, virtual, hostOld, host)
+	}
+
+	return patcher.CopyBidirectionalWithEq(virtualOld, virtual, hostOld, host, func(a, b []corev1.PodCondition) bool {
+		return apiequality.Semantic.DeepEqual(
+			stripConditionObservedGenerations(a),
+			stripConditionObservedGenerations(b),
+		)
+	})
+}
+
+// StripUnpersistedObservedGeneration zeroes ObservedGeneration on the pod status and its
+// conditions when the virtual cluster drops that field on write (K8s < 1.34), so callers can
+// compare against what the virtual apiserver will actually store.
+func (t *translator) StripUnpersistedObservedGeneration(status *corev1.PodStatus) {
+	if !t.virtualClusterStripsObservedGeneration() {
+		return
+	}
+	status.ObservedGeneration = 0
+	status.Conditions = stripConditionObservedGenerations(status.Conditions)
+}
+
+// stripConditionObservedGenerations returns a copy of the conditions with ObservedGeneration
+// set to zero on each one. It is only used to compare conditions while ignoring that field.
+func stripConditionObservedGenerations(conditions []corev1.PodCondition) []corev1.PodCondition {
+	out := slices.Clone(conditions)
+	for i := range out {
+		out[i].ObservedGeneration = 0
+	}
+	return out
 }

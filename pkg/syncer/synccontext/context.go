@@ -21,6 +21,7 @@ type ControllerContext struct {
 	VirtualManager        ctrl.Manager
 	VirtualRawConfig      *clientcmdapi.Config
 	VirtualClusterVersion *version.Info
+	HostClusterVersion    *version.Info
 
 	EtcdClient etcd.Client
 
@@ -52,6 +53,9 @@ type RegisterContext struct {
 
 	VirtualManager ctrl.Manager
 	HostManager    ctrl.Manager
+
+	VirtualClusterVersion *version.Info
+	HostClusterVersion    *version.Info
 }
 
 type Filter func(http.Handler, *ControllerContext) http.Handler
@@ -69,6 +73,9 @@ func (c *ControllerContext) ToRegisterContext() *RegisterContext {
 
 		VirtualManager: c.VirtualManager,
 		HostManager:    c.HostManager,
+
+		VirtualClusterVersion: c.VirtualClusterVersion,
+		HostClusterVersion:    c.HostClusterVersion,
 
 		Mappings: c.Mappings,
 	}
