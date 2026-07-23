@@ -145,3 +145,169 @@ func TestDiffTolerationSync(t *testing.T) {
 		})
 	}
 }
+
+func TestDiffSchedulingGateSync(t *testing.T) {
+	pClient := testingutil.NewFakeClient(scheme.Scheme)
+	vClient := testingutil.NewFakeClient(scheme.Scheme)
+
+	imageTranslator, err := NewImageTranslator(map[string]string{})
+	assert.NilError(t, err)
+
+	tr := &translator{
+		vClient:         vClient,
+		imageTranslator: imageTranslator,
+		log:             loghelper.New("diff-test"),
+	}
+
+	registerCtx := generictesting.NewFakeRegisterContext(testingutil.NewFakeConfig(), pClient, vClient)
+	syncCtx := registerCtx.ToSyncContext("test")
+	vNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "testns"}}
+	assert.NilError(t, vClient.Create(syncCtx.Context, vNamespace))
+
+	virtualGate := corev1.PodSchedulingGate{Name: "virtual.example.com/gate"}
+	externalGate := corev1.PodSchedulingGate{Name: "kueue.x-k8s.io/admission"}
+	lateExternalGate := corev1.PodSchedulingGate{Name: "external.example.com/late-gate"}
+
+	tests := []struct {
+		name                      string
+		virtualOldGates           []corev1.PodSchedulingGate
+		virtualNewGates           []corev1.PodSchedulingGate
+		hostGates                 []corev1.PodSchedulingGate
+		hostLiveGates             []corev1.PodSchedulingGate
+		hostAnnotations           map[string]string
+		expectedHostGates         []corev1.PodSchedulingGate
+		expectedHostAnnotationVal string // expected value for ManagedSchedulingGatesAnnotation; "" means deleted
+	}{
+		{
+			name:                      "preserves an externally injected host gate",
+			virtualOldGates:           nil,
+			virtualNewGates:           nil,
+			hostGates:                 []corev1.PodSchedulingGate{externalGate},
+			expectedHostGates:         []corev1.PodSchedulingGate{externalGate},
+			expectedHostAnnotationVal: "",
+		},
+		{
+			name:                      "adds a virtual gate while preserving an external host gate",
+			virtualOldGates:           nil,
+			virtualNewGates:           []corev1.PodSchedulingGate{virtualGate},
+			hostGates:                 []corev1.PodSchedulingGate{externalGate},
+			expectedHostGates:         []corev1.PodSchedulingGate{virtualGate, externalGate},
+			expectedHostAnnotationVal: `["virtual.example.com/gate"]`,
+		},
+		{
+			name:                      "removes a gate explicitly removed from the virtual pod",
+			virtualOldGates:           []corev1.PodSchedulingGate{virtualGate},
+			virtualNewGates:           nil,
+			hostGates:                 []corev1.PodSchedulingGate{virtualGate, externalGate},
+			expectedHostGates:         []corev1.PodSchedulingGate{externalGate},
+			expectedHostAnnotationVal: "",
+		},
+		{
+			name:            "preserves a host gate added after the old host snapshot",
+			virtualOldGates: []corev1.PodSchedulingGate{virtualGate},
+			virtualNewGates: []corev1.PodSchedulingGate{virtualGate},
+			hostGates:       []corev1.PodSchedulingGate{virtualGate},
+			hostLiveGates:   []corev1.PodSchedulingGate{virtualGate, lateExternalGate},
+			expectedHostGates: []corev1.PodSchedulingGate{
+				virtualGate,
+				lateExternalGate,
+			},
+			expectedHostAnnotationVal: `["virtual.example.com/gate"]`,
+		},
+		{
+			// When VirtualOld is not available (cache miss / restart) and there is
+			// no annotation, all host gates are treated as externally-injected.
+			name:                      "treats all host gates as external when VirtualOld gates are empty and no annotation (cache miss / restart)",
+			virtualOldGates:           nil,
+			virtualNewGates:           nil,
+			hostGates:                 []corev1.PodSchedulingGate{externalGate},
+			expectedHostGates:         []corev1.PodSchedulingGate{externalGate},
+			expectedHostAnnotationVal: "",
+		},
+		{
+			// After a restart, the annotation on the host Pod serves as the fallback
+			// for VirtualOld, allowing the syncer to correctly remove a previously
+			// vCluster-managed gate that has been removed from the virtual Pod.
+			name:                      "after restart, annotation allows correct removal of previously vCluster-managed gate",
+			virtualOldGates:           nil,
+			virtualNewGates:           nil,
+			hostGates:                 []corev1.PodSchedulingGate{virtualGate, externalGate},
+			hostAnnotations:           map[string]string{ManagedSchedulingGatesAnnotation: `["virtual.example.com/gate"]`},
+			expectedHostGates:         []corev1.PodSchedulingGate{externalGate},
+			expectedHostAnnotationVal: "",
+		},
+		{
+			// After a restart, if the virtual Pod still has the gate, it stays.
+			// The annotation is just the fallback — the live virtualGates take priority.
+			name:                      "after restart, annotation is fallback but live virtual gates take priority",
+			virtualOldGates:           nil,
+			virtualNewGates:           []corev1.PodSchedulingGate{virtualGate},
+			hostGates:                 []corev1.PodSchedulingGate{virtualGate, externalGate},
+			hostAnnotations:           map[string]string{ManagedSchedulingGatesAnnotation: `["virtual.example.com/gate"]`},
+			expectedHostGates:         []corev1.PodSchedulingGate{virtualGate, externalGate},
+			expectedHostAnnotationVal: `["virtual.example.com/gate"]`,
+		},
+		{
+			// If the annotation contains invalid JSON, it is ignored and all host
+			// gates are treated as externally-injected (conservative fallback).
+			name:                      "after restart, invalid annotation falls back to treating all host gates as external",
+			virtualOldGates:           nil,
+			virtualNewGates:           nil,
+			hostGates:                 []corev1.PodSchedulingGate{virtualGate, externalGate},
+			hostAnnotations:           map[string]string{ManagedSchedulingGatesAnnotation: `not-valid-json`},
+			expectedHostGates:         []corev1.PodSchedulingGate{virtualGate, externalGate},
+			expectedHostAnnotationVal: "",
+		},
+		{
+			// After a restart, if the annotation lists a gate as vCluster-managed but
+			// that gate is NOT present on the host, nothing goes wrong — the gate is
+			// simply not in the merged result because it isn't in hostGates either.
+			name:                      "after restart, annotation gate not on host is ignored",
+			virtualOldGates:           nil,
+			virtualNewGates:           nil,
+			hostGates:                 []corev1.PodSchedulingGate{externalGate},
+			hostAnnotations:           map[string]string{ManagedSchedulingGatesAnnotation: `["virtual.example.com/gate"]`},
+			expectedHostGates:         []corev1.PodSchedulingGate{externalGate},
+			expectedHostAnnotationVal: "",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			vOld := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: "testpod", Namespace: "testns"},
+				Spec:       corev1.PodSpec{SchedulingGates: tc.virtualOldGates},
+			}
+			vNew := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: "testpod", Namespace: "testns"},
+				Spec:       corev1.PodSpec{SchedulingGates: tc.virtualNewGates},
+			}
+			liveGates := tc.hostLiveGates
+			if liveGates == nil {
+				liveGates = tc.hostGates
+			}
+			pOld := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: "testpod-x-testns", Namespace: "test"},
+				Spec:       corev1.PodSpec{SchedulingGates: tc.hostGates},
+			}
+			pNew := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "testpod-x-testns",
+					Namespace:   "test",
+					Annotations: tc.hostAnnotations,
+				},
+				Spec: corev1.PodSpec{SchedulingGates: liveGates},
+			}
+	
+			event := synccontext.NewSyncEventWithOld(pOld, pNew, vOld, vNew)
+			assert.NilError(t, tr.Diff(syncCtx, event))
+			assert.Assert(t, cmp.DeepEqual(pNew.Spec.SchedulingGates, tc.expectedHostGates),
+				"test case %q: unexpected host scheduling gates after Diff", tc.name)
+	
+			// Verify the annotation value on the host pod
+			actualAnnVal, _ := pNew.Annotations[ManagedSchedulingGatesAnnotation]
+			assert.Equal(t, actualAnnVal, tc.expectedHostAnnotationVal,
+				"test case %q: unexpected ManagedSchedulingGatesAnnotation value", tc.name)
+		})
+	}
+}
