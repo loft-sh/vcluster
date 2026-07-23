@@ -1321,6 +1321,8 @@ type GatewayAPIEnableSwitchWithPatches struct {
 	HTTPRoutes EnableSwitchWithPatches `json:"httpRoutes,omitempty"`
 
 	// Gateways configures tenant-created Gateway sync to the control plane cluster.
+	// Gateway spec.infrastructure.parametersRef names are translated for core ConfigMap and Secret refs.
+	// Referenced objects must also be synced to the host, for example with a pod reference or sync.toHost.configMaps.all / sync.toHost.secrets.all.
 	Gateways EnableSwitchWithPatches `json:"gateways,omitempty"`
 
 	// TLSRoutes configures TLSRoute sync to the control plane cluster.

@@ -2590,7 +2590,7 @@
         },
         "gateways": {
           "$ref": "#/$defs/EnableSwitchWithPatches",
-          "description": "Gateways configures tenant-created Gateway sync to the control plane cluster."
+          "description": "Gateways configures tenant-created Gateway sync to the control plane cluster.\nGateway spec.infrastructure.parametersRef names are translated for core ConfigMap and Secret refs.\nReferenced objects must also be synced to the host, for example with a pod reference or sync.toHost.configMaps.all / sync.toHost.secrets.all."
         },
         "tlsRoutes": {
           "$ref": "#/$defs/EnableSwitchWithPatches",
