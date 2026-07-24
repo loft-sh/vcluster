@@ -1,8 +1,6 @@
 name: E2E CI
 
 on:
-  release:
-    types: [created]
   pull_request:
     branches:
       - main
@@ -22,6 +20,10 @@ env:
 
 jobs:
   detect_changes:
+    # PR-only: the release path is a workflow_dispatch --ref <tag> dispatch that
+    # always validates, so it bypasses change detection. Entry jobs break the
+    # skip-propagation with !cancelled().
+    if: github.event_name == 'pull_request'
     uses: loft-sh/github-actions/.github/workflows/detect-changes.yaml@detect-changes/v1
     with:
       paths: |
@@ -38,8 +40,13 @@ jobs:
         - "manifests/**"
   build:
     runs-on: ubuntu-latest
-    if: github.repository_owner == 'loft-sh' && needs.detect_changes.outputs.has_changed == 'true'
-    needs: detect_changes
+    if: >-
+      !cancelled() && github.repository_owner == 'loft-sh' &&
+      (
+        (github.event_name == 'pull_request' && needs.detect_changes.outputs.has_changed == 'true') ||
+        github.event_name == 'workflow_dispatch'
+      )
+    needs: [detect_changes]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -84,8 +91,13 @@ jobs:
           retention-days: 7
 
   get-testsuites-dir:
-    needs: detect_changes
-    if: needs.detect_changes.outputs.has_changed == 'true'
+    needs: [detect_changes]
+    if: >-
+      !cancelled() &&
+      (
+        (github.event_name == 'pull_request' && needs.detect_changes.outputs.has_changed == 'true') ||
+        github.event_name == 'workflow_dispatch'
+      )
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -112,7 +124,12 @@ jobs:
     needs:
       - build
       - detect_changes
-    if: needs.detect_changes.outputs.has_changed == 'true'
+    if: >-
+      !cancelled() && needs.build.result == 'success' &&
+      (
+        (github.event_name == 'pull_request' && needs.detect_changes.outputs.has_changed == 'true') ||
+        github.event_name == 'workflow_dispatch'
+      )
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -168,8 +185,13 @@ jobs:
           ./hack/vcluster-install-scripts/test-helm-install.sh
 
   download-latest-cli:
-    needs: detect_changes
-    if: needs.detect_changes.outputs.has_changed == 'true'
+    needs: [detect_changes]
+    if: >-
+      !cancelled() &&
+      (
+        (github.event_name == 'pull_request' && needs.detect_changes.outputs.has_changed == 'true') ||
+        github.event_name == 'workflow_dispatch'
+      )
     name: Download the latest vCluster cli
     runs-on: ubuntu-latest
     steps:
@@ -189,7 +211,12 @@ jobs:
       - build
       - download-latest-cli
       - detect_changes
-    if: needs.detect_changes.outputs.has_changed == 'true'
+    if: >-
+      !cancelled() && needs.build.result == 'success' && needs.download-latest-cli.result == 'success' &&
+      (
+        (github.event_name == 'pull_request' && needs.detect_changes.outputs.has_changed == 'true') ||
+        github.event_name == 'workflow_dispatch'
+      )
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

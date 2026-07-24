@@ -68,6 +68,11 @@ const (
 	StatusUnknown          Status = "Unknown"
 )
 
+// IsRunning returns true if the status of the VCluster object is equal to `Running`
+func (v *VCluster) IsRunning() bool {
+	return v.Status == StatusRunning
+}
+
 type VClusterNotFoundError struct {
 	Name string
 }
@@ -832,10 +837,7 @@ func GetStandaloneVCluster() (*VCluster, error) {
 	created := metav1.NewTime(fi.ModTime())
 
 	// Check if the systemd service is actually running.
-	status := StatusUnknown
-	if standaloneutil.IsServiceActive() {
-		status = StatusRunning
-	}
+	status := systemdActiveStatus(standaloneutil.IsServiceActive())
 
 	return &VCluster{
 		Name:          vConfig.Name,
@@ -846,6 +848,15 @@ func GetStandaloneVCluster() (*VCluster, error) {
 		Status:        status,
 		IsStandalone:  true,
 	}, nil
+}
+
+// systemdActiveStatus maps the standalone service probe result to a status:
+// StatusRunning when the unit is active, StatusUnknown otherwise.
+func systemdActiveStatus(active bool) Status {
+	if active {
+		return StatusRunning
+	}
+	return StatusUnknown
 }
 
 // isVirtualClusterInstanceResourceAvailable checks if VirtualClusterInstance resources from storage.loft.sh/v1 exist

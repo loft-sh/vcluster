@@ -45,7 +45,7 @@ func Rotate(ctx context.Context, vClusterName string, rotationCmd RotationCmd, g
 	}
 
 	// abort in case the virtual cluster has a non-running status.
-	if vCluster.Status != find.StatusRunning {
+	if !vCluster.IsRunning() {
 		return fmt.Errorf("aborting operation because virtual cluster %q has status %q", vCluster.Name, vCluster.Status)
 	}
 

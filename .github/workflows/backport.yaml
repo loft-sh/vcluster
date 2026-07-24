@@ -4,8 +4,12 @@ on:
   pull_request_target:
     types: ["labeled", "closed"]
 
+permissions:
+  contents: read
+
 jobs:
   backport:
-    uses: loft-sh/github-actions/.github/workflows/backport.yaml@36bd60efa4d72d6195f9222b67b1c633044bf90a # backport/v1
+    uses: loft-sh/github-actions/.github/workflows/backport.yaml@2de17e8ed0da1b3063a7959d309478f00f094449 # backport/v1
     secrets:
       gh-access-token: ${{ secrets.GH_ACCESS_TOKEN }}
+      linear-token: ${{ secrets.LINEAR_TOKEN }}

@@ -5,8 +5,6 @@ permissions:
   pull-requests: write
 
 on:
-  release:
-    types: [created]
   workflow_dispatch:
     inputs:
       ginkgo-label:
@@ -44,7 +42,9 @@ env:
 jobs:
   parse_label-filter:
     name: Parse label filter and check if tests should run
-    if: github.repository_owner == 'loft-sh' # do not run on forks
+    # do not run on forks
+    if: >-
+      !cancelled() && github.repository_owner == 'loft-sh'
     runs-on: ubuntu-22.04
 
     outputs:
@@ -63,11 +63,19 @@ jobs:
         with:
           pr-body: ${{ github.event.pull_request.body }}
           previous-pr-body: ${{ github.event.changes.body.from }}
-          event-name: ${{ github.event_name }}
+          # A release-validation dispatch runs at refs/tags/<version>; treat it
+          # like the old release:created path so the label filter resolves
+          # identically. A manual branch dispatch uses the ginkgo-label input;
+          # a PR uses pull_request.
+          event-name: ${{ startsWith(github.ref, 'refs/tags/') && 'release' || github.event_name }}
           event-action: ${{ github.event.action }}
           label-filter-input: ${{ inputs.ginkgo-label }}
 
   detect_changes:
+    # PR-only: the release path is a workflow_dispatch --ref <tag> dispatch that
+    # always validates and bypasses change detection; entry jobs break
+    # skip-propagation with !cancelled().
+    if: github.event_name == 'pull_request'
     needs: [parse_label-filter]
     uses: loft-sh/github-actions/.github/workflows/detect-changes.yaml@detect-changes/v1
     with:
@@ -86,8 +94,13 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
-    if: github.repository_owner == 'loft-sh' && needs.detect_changes.outputs.has_changed == 'true'
-    needs: detect_changes
+    if: >-
+      !cancelled() && github.repository_owner == 'loft-sh' &&
+      (
+        (github.event_name == 'pull_request' && needs.detect_changes.outputs.has_changed == 'true') ||
+        github.event_name == 'workflow_dispatch'
+      )
+    needs: [detect_changes]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -133,8 +146,13 @@ jobs:
 
 
   download-latest-cli:
-    needs: detect_changes
-    if: needs.detect_changes.outputs.has_changed == 'true'
+    needs: [detect_changes]
+    if: >-
+      !cancelled() &&
+      (
+        (github.event_name == 'pull_request' && needs.detect_changes.outputs.has_changed == 'true') ||
+        github.event_name == 'workflow_dispatch'
+      )
     name: Download the latest vCluster cli
     runs-on: ubuntu-latest
     steps:
@@ -154,9 +172,13 @@ jobs:
       - build
       - parse_label-filter
       - detect_changes
-    if: >
+    if: >-
+      !cancelled() && needs.build.result == 'success' &&
       needs.parse_label-filter.outputs.skip-edited != 'true' &&
-      needs.detect_changes.outputs.has_changed == 'true'
+      (
+        (github.event_name == 'pull_request' && needs.detect_changes.outputs.has_changed == 'true') ||
+        github.event_name == 'workflow_dispatch'
+      )
     runs-on: large-8_32
     permissions:
       id-token: write        # needed for OIDC → AWS

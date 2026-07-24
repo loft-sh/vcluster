@@ -29,7 +29,11 @@ const (
 
 func CreateSnapshot(ctx context.Context, args []string, globalFlags *flags.GlobalFlags, snapshotOpts *snapshotapi.Options, podOptions *pod.Options, log log.Logger, delegateFromCLIToCluster, standalone bool) error {
 	// init kube client and vCluster
-	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log, delegateFromCLIToCluster, standalone)
+	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log, initSnapshotOptions{
+		CredentialsRequiredInCluster: delegateFromCLIToCluster,
+		Standalone:                   standalone,
+		RequireRunning:               true,
+	})
 	if err != nil {
 		return err
 	}
@@ -82,7 +86,10 @@ func GetSnapshots(ctx context.Context, args []string, globalFlags *flags.GlobalF
 	// command runs on a local machine.
 	credentialsRequiredInCluster := parsedURL.Scheme == "container"
 	// init kube client and vCluster
-	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log, credentialsRequiredInCluster, standalone)
+	vCluster, kubeClient, restConfig, err := initSnapshotCommand(ctx, args, globalFlags, snapshotOpts, log, initSnapshotOptions{
+		CredentialsRequiredInCluster: credentialsRequiredInCluster,
+		Standalone:                   standalone,
+	})
 	if err != nil {
 		return fmt.Errorf("failed to init snapshot command: %w", err)
 	}
@@ -105,28 +112,28 @@ func GetSnapshots(ctx context.Context, args []string, globalFlags *flags.GlobalF
 	return nil
 }
 
+type initSnapshotOptions struct {
+	CredentialsRequiredInCluster bool
+	Standalone                   bool
+	RequireRunning               bool
+}
+
 func initSnapshotCommand(
 	ctx context.Context,
 	args []string,
 	globalFlags *flags.GlobalFlags,
 	snapshotOptions *snapshotapi.Options,
 	log log.Logger,
-	credentialsRequiredInCluster bool,
-	standalone bool,
+	opts initSnapshotOptions,
 ) (*find.VCluster, *kubernetes.Clientset, *rest.Config, error) {
-	vClusterName, snapshotURL, err := resolveSnapshotArgs(args, standalone)
+	vClusterName, snapshotURL, err := resolveSnapshotArgs(args, opts.Standalone)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	err = snapshot.SetURLAndFillCredentials(ctx, snapshotOptions, snapshotURL, credentialsRequiredInCluster)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to set snapshot url and fill credentials: %w", err)
-	}
-
 	// find the vCluster
 	var vCluster *find.VCluster
-	if standalone {
+	if opts.Standalone {
 		vCluster, err = find.GetStandaloneVCluster()
 		if err != nil {
 			return nil, nil, nil, err
@@ -150,6 +157,17 @@ func initSnapshotCommand(
 		}
 	}
 
+	if opts.RequireRunning {
+		if err := validateVClusterIsRunning(vCluster); err != nil {
+			return nil, nil, nil, err
+		}
+	}
+
+	err = snapshot.SetURLAndFillCredentials(ctx, snapshotOptions, snapshotURL, opts.CredentialsRequiredInCluster)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to set snapshot url and fill credentials: %w", err)
+	}
+
 	// build kubernetes client
 	restClient, err := vCluster.ClientFactory.ClientConfig()
 	if err != nil {
@@ -161,6 +179,19 @@ func initSnapshotCommand(
 	}
 
 	return vCluster, kubeClient, restClient, nil
+}
+
+func validateVClusterIsRunning(vCluster *find.VCluster) error {
+	if vCluster.IsRunning() {
+		return nil
+	}
+
+	status := vCluster.Status
+	if status == "" {
+		// this can happen when the status is not yet known (e.g. no pods running yet right after its creation)
+		status = find.StatusUnknown
+	}
+	return fmt.Errorf("cannot snapshot vCluster %q because it is not running (current status: %q)", vCluster.Name, status)
 }
 
 func createSnapshotRequest(ctx context.Context, vCluster *find.VCluster, kubeClient *kubernetes.Clientset, snapshotOpts *snapshotapi.Options, log log.Logger) error {

@@ -1,8 +1,7 @@
 name: Unit tests
 
 on:
-  release:
-    types: [created]
+  workflow_dispatch:
   pull_request:
     branches:
       - main
@@ -23,7 +22,8 @@ concurrency:
 jobs:
   helm-unit-tests:
     name: Execute all helm tests
-    if: github.repository_owner == 'loft-sh' # do not run on forks
+    # do not run on forks
+    if: github.repository_owner == 'loft-sh'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -37,7 +37,8 @@ jobs:
 
   go-unit-test:
     name: Execute all go tests
-    if: github.repository_owner == 'loft-sh' # do not run on forks
+    # do not run on forks
+    if: github.repository_owner == 'loft-sh'
     runs-on: ubuntu-22.04
     steps:
       - name: Check out code into the Go module directory
