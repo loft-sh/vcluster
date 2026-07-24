@@ -2135,8 +2135,8 @@ func (i *Image) String() (ref string) {
 	if i.Registry != "" {
 		ref = i.Registry + "/"
 	}
-
-	if i.Registry != "" && i.Repository != "" && !strings.ContainsRune(i.Repository, '/') {
+	
+	if isDockerHub(i.Registry) && i.Repository != "" && !strings.ContainsRune(i.Repository, '/') {
 		ref += "library/"
 	}
 	ref += i.Repository
@@ -2146,6 +2146,18 @@ func (i *Image) String() (ref string) {
 	}
 
 	return ref
+}
+
+const (
+	dockerHubRegistry      = "index.docker.io"
+	dockerHubRegistryAlias = "docker.io"
+)
+
+// isDockerHub reports whether the registry refers to Docker Hub. The
+// "library/" namespace is a Docker Hub implementation detail and must not be
+// applied to any other registry
+func isDockerHub(registry string) bool {
+	return registry == dockerHubRegistry || registry == dockerHubRegistryAlias
 }
 
 type ImagePullSecretName struct {
