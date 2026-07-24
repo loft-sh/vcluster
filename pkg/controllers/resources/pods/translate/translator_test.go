@@ -1048,3 +1048,55 @@ func TestTranslateEnforcedTolerationDedup(t *testing.T) {
 	}
 	assert.Equal(t, count, 1, "enforced toleration must appear exactly once on the physical pod, got %d", count)
 }
+
+func TestTranslateDNSClusterFirstConfigOptions(t *testing.T) {
+	tests := []struct {
+		name        string
+		existing    *corev1.PodDNSConfig
+		wantOptions []corev1.PodDNSConfigOption
+	}{
+		{
+			name:        "no existing dns config keeps the injected default",
+			existing:    nil,
+			wantOptions: []corev1.PodDNSConfigOption{{Name: "ndots", Value: ptr.To("5")}},
+		},
+		{
+			name: "pod options are preserved alongside the injected default",
+			existing: &corev1.PodDNSConfig{
+				Options: []corev1.PodDNSConfigOption{{Name: "single-request-reopen"}},
+			},
+			wantOptions: []corev1.PodDNSConfigOption{
+				{Name: "ndots", Value: ptr.To("5")},
+				{Name: "single-request-reopen"},
+			},
+		},
+		{
+			name: "pod ndots overrides the injected default",
+			existing: &corev1.PodDNSConfig{
+				Options: []corev1.PodDNSConfigOption{{Name: "ndots", Value: ptr.To("2")}},
+			},
+			wantOptions: []corev1.PodDNSConfigOption{{Name: "ndots", Value: ptr.To("2")}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pPod := &corev1.Pod{Spec: corev1.PodSpec{DNSConfig: tt.existing}}
+			vPod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Namespace: "testns"}}
+
+			translateDNSClusterFirstConfig(pPod, vPod, "cluster.local", "10.0.0.10")
+
+			assert.Equal(t, pPod.Spec.DNSPolicy, corev1.DNSNone)
+			assert.Equal(t, len(pPod.Spec.DNSConfig.Options), len(tt.wantOptions))
+			for i, want := range tt.wantOptions {
+				got := pPod.Spec.DNSConfig.Options[i]
+				assert.Equal(t, got.Name, want.Name)
+				if want.Value == nil {
+					assert.Assert(t, cmp.Nil(got.Value))
+				} else {
+					assert.Equal(t, ptr.Deref(got.Value, ""), *want.Value)
+				}
+			}
+		})
+	}
+}
