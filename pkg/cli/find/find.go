@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"os/exec"
 	"regexp"
 	"strings"
 	"time"
@@ -834,8 +833,7 @@ func GetStandaloneVCluster() (*VCluster, error) {
 
 	// Check if the systemd service is actually running.
 	status := StatusUnknown
-	out, err := exec.Command("systemctl", "is-active", constants.VClusterStandaloneSystemdServiceName).Output()
-	if err == nil && strings.TrimSpace(string(out)) == "active" {
+	if standaloneutil.IsServiceActive() {
 		status = StatusRunning
 	}
 
