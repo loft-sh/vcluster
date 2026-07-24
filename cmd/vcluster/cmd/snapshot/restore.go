@@ -15,6 +15,10 @@ var (
 	newVCluster bool
 )
 
+// isServiceActive reports whether the standalone vcluster systemd unit is
+// active on this host. Package-level so tests can stub the probe.
+var isServiceActive = standaloneutil.IsServiceActive
+
 func NewRestoreCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "restore",
@@ -38,7 +42,7 @@ the backing store.`,
 			// invocations that skipped that envelope. On hosts without systemd
 			// (e.g. the in-pod restore path) this reports not-active and the
 			// restore proceeds.
-			if standaloneutil.IsServiceActive() {
+			if isServiceActive() {
 				return fmt.Errorf(
 					"refusing to restore: %s.service is active on this host; use the vcluster CLI (%q), which stops and restarts the service around the restore, or stop it first with %q",
 					constants.VClusterStandaloneSystemdServiceName,
