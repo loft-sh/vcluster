@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"os/exec"
 	"regexp"
 	"strings"
 	"time"
@@ -838,8 +837,7 @@ func GetStandaloneVCluster() (*VCluster, error) {
 	created := metav1.NewTime(fi.ModTime())
 
 	// Check if the systemd service is actually running.
-	cmdOut, err := exec.Command("systemctl", "is-active", constants.VClusterStandaloneSystemdServiceName).Output()
-	status := parseSystemdActiveStatus(cmdOut, err)
+	status := systemdActiveStatus(standaloneutil.IsServiceActive())
 
 	return &VCluster{
 		Name:          vConfig.Name,
@@ -852,11 +850,10 @@ func GetStandaloneVCluster() (*VCluster, error) {
 	}, nil
 }
 
-// parseSystemdActiveStatus interprets the output of `systemctl is-active` and
-// returns StatusRunning only when the command succeeded and reported "active".
-// Any error or other output is treated as StatusUnknown.
-func parseSystemdActiveStatus(cmdOut []byte, err error) Status {
-	if err == nil && strings.TrimSpace(string(cmdOut)) == "active" {
+// systemdActiveStatus maps the standalone service probe result to a status:
+// StatusRunning when the unit is active, StatusUnknown otherwise.
+func systemdActiveStatus(active bool) Status {
+	if active {
 		return StatusRunning
 	}
 	return StatusUnknown

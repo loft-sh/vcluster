@@ -3,7 +3,10 @@ package standalone
 import (
 	"errors"
 	"runtime"
+	"slices"
 	"testing"
+
+	"github.com/loft-sh/vcluster/pkg/constants"
 )
 
 func fakeRunner(catErr, stopErr, startErr error) systemctlRunner {
@@ -71,6 +74,28 @@ func TestServiceManager_StopStart(t *testing.T) {
 	}
 	if got := sm.Start(); !errors.Is(got, startErr) {
 		t.Errorf("Start() = %v, want %v", got, startErr)
+	}
+}
+
+// TestIsServiceActive verifies the is-active probe: an affirmative systemctl
+// exit reports active, any failure (stopped unit, unknown unit, no systemd)
+// reports not-active. isServiceActive has no GOOS gate, so this runs anywhere.
+func TestIsServiceActive(t *testing.T) {
+	var gotArgs []string
+	active := isServiceActive(func(args ...string) error {
+		gotArgs = args
+		return nil
+	})
+	if !active {
+		t.Fatal("expected active when systemctl is-active succeeds")
+	}
+	wantArgs := []string{"is-active", "--quiet", constants.VClusterStandaloneSystemdServiceName}
+	if !slices.Equal(gotArgs, wantArgs) {
+		t.Fatalf("systemctl args = %v, want %v", gotArgs, wantArgs)
+	}
+
+	if isServiceActive(func(...string) error { return errors.New("inactive") }) {
+		t.Fatal("expected not-active when systemctl is-active fails")
 	}
 }
 
