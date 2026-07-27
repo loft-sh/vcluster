@@ -122,7 +122,13 @@ changelog:
       - "^test:"
 
 release:
-  prerelease: auto
+  # DEVOPS-1083: every release (including stable) starts as a GitHub
+  # pre-release. Promoting to stable/Latest is a deliberate human edit
+  # (uncheck "pre-release") on the release, which is what fires the
+  # release:released event that vcluster-pro's promote-release workflow
+  # listens for. A pre-release publish only ever emits `prereleased`, so the
+  # build cannot self-trigger promotion.
+  prerelease: true
   make_latest: false
   # Re-runs of this workflow against the same tag re-upload assets to an
   # already-populated GitHub Release and 422 with `already_exists`. This
@@ -156,7 +162,13 @@ brews:
     commit_author:
       name: loft-bot
       email: 73976634+loft-bot@users.noreply.github.com
-    skip_upload: auto
+    # DEVOPS-1083: the stable vcluster formula is never uploaded at build
+    # time now (was `auto`, which still uploaded stable vX.Y.Z). Updating it
+    # is a promotion-time step: vcluster-pro's promote-release workflow
+    # patches Formula/vcluster.rb from the OSS release checksums when a human
+    # promotes the release, matching the docker moving-tag behavior.
+    # vcluster-experimental below is unchanged - it tracks every build.
+    skip_upload: true
   - name: vcluster-experimental
     ids:
       - vcluster_cli_archives
@@ -180,13 +192,13 @@ brews:
       name: loft-bot
       email: 73976634+loft-bot@users.noreply.github.com
 
+# DEVOPS-1083: each image_templates list below builds only the immutable
+# {{ .Version }} tag. The moving tags it used to build alongside it are now
+# applied at promotion time instead - see the docker_manifests note below.
 dockers:
   # --- Vcluster images ---
   - image_templates:
       - ghcr.io/loft-sh/vcluster-oss:{{ .Version }}-amd64
-      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster-oss:latest-amd64{{ end }}'
-      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster-oss:{{ .Major }}-amd64{{ end }}'
-      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster-oss:{{ .Major }}.{{ .Minor }}-amd64{{ end }}'
     use: buildx
     dockerfile: Dockerfile.release
     ids:
@@ -201,9 +213,6 @@ dockers:
 
   - image_templates:
       - ghcr.io/loft-sh/vcluster-oss:{{ .Version }}-arm64v8
-      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster-oss:latest-arm64v8{{ end }}'
-      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster-oss:{{ .Major }}-arm64v8{{ end }}'
-      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster-oss:{{ .Major }}.{{ .Minor }}-arm64v8{{ end }}'
     use: buildx
     goarch: arm64
     dockerfile: Dockerfile.release
@@ -220,9 +229,6 @@ dockers:
   # --- Vcluster-cli images ---
   - image_templates:
       - ghcr.io/loft-sh/vcluster-cli:{{ .Version }}-amd64
-      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster-cli:latest-amd64{{ end }}'
-      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster-cli:{{ .Major }}-amd64{{ end }}'
-      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster-cli:{{ .Major }}.{{ .Minor }}-amd64{{ end }}'
     use: buildx
     dockerfile: Dockerfile.cli.release
     ids:
@@ -237,9 +243,6 @@ dockers:
 
   - image_templates:
       - ghcr.io/loft-sh/vcluster-cli:{{ .Version }}-arm64v8
-      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster-cli:latest-arm64v8{{ end }}'
-      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster-cli:{{ .Major }}-arm64v8{{ end }}'
-      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster-cli:{{ .Major }}.{{ .Minor }}-arm64v8{{ end }}'
     use: buildx
     goarch: arm64
     dockerfile: Dockerfile.cli.release
@@ -253,6 +256,11 @@ dockers:
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
       - "--label=org.opencontainers.image.version={{.Version}}"
 
+# DEVOPS-1083: only the immutable {{ .Version }} manifest is built and pushed
+# here. The moving tags (:latest, :{{ .Major }}, :{{ .Major }}.{{ .Minor }})
+# are retagged onto this manifest's digest by vcluster-pro's promote-release
+# workflow when a human promotes the release, which is a digest-preserving
+# copy rather than a rebuild.
 docker_manifests:
   # --- Vcluster multi arch ---
   - name_template: ghcr.io/loft-sh/vcluster-oss:{{ .Version }}
@@ -260,53 +268,11 @@ docker_manifests:
       - ghcr.io/loft-sh/vcluster-oss:{{ .Version }}-amd64
       - ghcr.io/loft-sh/vcluster-oss:{{ .Version }}-arm64v8
 
-  - name_template: ghcr.io/loft-sh/vcluster-oss:latest
-    image_templates:
-      - ghcr.io/loft-sh/vcluster-oss:latest-amd64
-      - ghcr.io/loft-sh/vcluster-oss:latest-arm64v8
-    skip_push: auto
-
-  - name_template: ghcr.io/loft-sh/vcluster-oss:{{ .Major }}
-    image_templates:
-      - ghcr.io/loft-sh/vcluster-oss:{{ .Major }}-amd64
-      - ghcr.io/loft-sh/vcluster-oss:{{ .Major }}-arm64v8
-    skip_push: auto
-
-  - name_template: ghcr.io/loft-sh/vcluster-oss:{{ .Major }}.{{ .Minor }}
-    image_templates:
-      - ghcr.io/loft-sh/vcluster-oss:{{ .Major }}.{{ .Minor }}-amd64
-      - ghcr.io/loft-sh/vcluster-oss:{{ .Major }}.{{ .Minor }}-arm64v8
-    skip_push: auto
-
   # --- Vcluster-cli multi arch ---
   - name_template: ghcr.io/loft-sh/vcluster-cli:{{ .Version }}
     image_templates:
       - ghcr.io/loft-sh/vcluster-cli:{{ .Version }}-amd64
       - ghcr.io/loft-sh/vcluster-cli:{{ .Version }}-arm64v8
-
-  - name_template: ghcr.io/loft-sh/vcluster-cli:latest
-    image_templates:
-      - ghcr.io/loft-sh/vcluster-cli:latest-amd64
-      - ghcr.io/loft-sh/vcluster-cli:latest-arm64v8
-    skip_push: auto
-
-  - name_template: ghcr.io/loft-sh/vcluster-cli:{{ .Major }}
-    image_templates:
-      - ghcr.io/loft-sh/vcluster-cli:{{ .Major }}-amd64
-      - ghcr.io/loft-sh/vcluster-cli:{{ .Major }}-arm64v8
-    skip_push: auto
-
-  - name_template: ghcr.io/loft-sh/vcluster-cli:{{ .Major }}.{{ .Minor }}
-    image_templates:
-      - ghcr.io/loft-sh/vcluster-cli:{{ .Major }}.{{ .Minor }}-amd64
-      - ghcr.io/loft-sh/vcluster-cli:{{ .Major }}.{{ .Minor }}-arm64v8
-    skip_push: auto
-
-  - name_template: loftsh/vcluster-cli:{{ .Major }}
-    image_templates:
-      - loftsh/vcluster-cli:{{ .Major }}-amd64
-      - loftsh/vcluster-cli:{{ .Major }}-arm64v8
-    skip_push: auto
 
 docker_signs:
   - cmd: cosign
