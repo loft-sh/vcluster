@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
+	"strings"
 
 	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/loft-sh/api/v4/pkg/snapshot/storage/types"
@@ -26,9 +28,19 @@ const (
 	EtcdSnapshotKind     SnapshotKind = "EtcdSnapshot"
 	KeyValueSnapshotKind SnapshotKind = "KeyValueSnapshot"
 
-	RequestStoreKey  = "/vcluster/snapshot/request"
-	DBStoreKey       = "/vcluster/snapshot/db"
-	SkipKeysStoreKey = "/vcluster/snapshot/skipkeys"
+	// SnapshotMetadataPrefix is the key prefix shared by all snapshot metadata
+	// entries below. These are archive-level bookkeeping, never real cluster
+	// state, so they are written explicitly and must not round-trip through
+	// etcd on restore. Derive every metadata key from this prefix so the skip
+	// guards in the backup/restore paths stay correct as keys are added.
+	SnapshotMetadataPrefix = "/vcluster/snapshot/"
+
+	RequestStoreKey  = SnapshotMetadataPrefix + "request"
+	DBStoreKey       = SnapshotMetadataPrefix + "db"
+	SkipKeysStoreKey = SnapshotMetadataPrefix + "skipkeys"
+	// RevisionStoreKey holds the backing store's revision at the time the
+	// snapshot was taken (decimal-encoded int64).
+	RevisionStoreKey = SnapshotMetadataPrefix + "revision"
 )
 
 type Client struct {
@@ -239,18 +251,39 @@ func (c *Client) writeEtcdSnapshot(ctx context.Context, etcdClient etcd.Client, 
 	return nil
 }
 
-func (c *Client) writeKeyValueSnapshot(ctx context.Context, etcdClient etcd.Client, objectStore types.Storage) error {
+// writeKeyValueSnapshot streams etcd key/value pairs into objectStore as a
+// gzipped tar archive. err is a named return so the deferred cleanup below
+// can abort the in-flight upload with the real failure (instead of a clean
+// EOF that would look like a successful, truncated upload) on every early
+// return, and always drain the upload goroutine's result.
+func (c *Client) writeKeyValueSnapshot(ctx context.Context, etcdClient etcd.Client, objectStore types.Storage) (err error) {
 	// now stream objects from etcd to object store
-	errChan := make(chan error)
-	reader, writer, err := os.Pipe()
-	if err != nil {
-		return fmt.Errorf("failed to create pipe: %w", err)
-	}
-	defer writer.Close()
+	errChan := make(chan error, 1)
+	reader, writer := io.Pipe()
 	go func() {
 		defer reader.Close()
 		errChan <- objectStore.PutObject(ctx, reader)
 	}()
+	// uploadResultReceived tracks whether the select loop below already
+	// consumed errChan's single buffered value, so the cleanup defer never
+	// tries to receive from it a second time (which would block forever).
+	uploadResultReceived := false
+	defer func() {
+		_ = writer.CloseWithError(err)
+		if !uploadResultReceived {
+			if uploadErr := <-errChan; uploadErr != nil && err == nil {
+				err = fmt.Errorf("failed to write snapshot: %w", uploadErr)
+			}
+		}
+	}()
+
+	// pin a revision before listing; this is a lower bound on the state being
+	// snapshotted, since CurrentRevision and ListStream are separate etcd
+	// reads and a write landing between them isn't reflected here
+	revision, err := etcdClient.CurrentRevision(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get current revision: %w", err)
+	}
 
 	// start listing the keys
 	listChan := etcdClient.ListStream(ctx, "/")
@@ -289,49 +322,58 @@ func (c *Client) writeKeyValueSnapshot(ctx context.Context, etcdClient etcd.Clie
 		}
 	}
 
+	// write the pinned revision
+	err = writeArchiveEntry(tarWriter, []byte(RevisionStoreKey), []byte(strconv.FormatInt(revision, 10)))
+	if err != nil {
+		return fmt.Errorf("failed to snapshot revision: %w", err)
+	}
+
 	// now write the snapshot
 	backedUpKeys := 0
 	for {
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("context: %w", ctx.Err())
-		case err := <-errChan:
-			if err != nil {
-				return fmt.Errorf("failed to write snapshot: %w", err)
+		case uploadErr := <-errChan:
+			uploadResultReceived = true
+			if uploadErr != nil {
+				return fmt.Errorf("failed to write snapshot: %w", uploadErr)
 			}
 			return nil
 		case obj := <-listChan:
-			// check if error or object to write
-			if obj != nil {
-				if obj.Error != nil {
-					return fmt.Errorf("failed to retrieve etcd items: %w", obj.Error)
-				}
-
-				key := string(obj.Value.Key)
-				if _, ok := c.skipKeys[key]; ok {
-					klog.Infof("Skipping key %s", key)
-					continue
-				}
-				// write the object into the store
-				klog.V(1).Infof("Snapshot key %s", key)
-				err := writeArchiveEntry(tarWriter, obj.Value.Key, obj.Value.Data)
-				if err != nil {
-					return fmt.Errorf("failed to snapshot key %s: %w", key, err)
-				}
-
-				// print status update
-				backedUpKeys++
-				if backedUpKeys%100 == 0 {
-					klog.Infof("Backed up %d keys", backedUpKeys)
-				}
-			} else {
+			if obj == nil {
 				klog.Infof("Successfully backed up %d etcd keys", backedUpKeys)
+				// deferred cleanup flushes and closes the archive + pipe writer,
+				// then waits for the upload to finish
+				return nil
+			}
 
-				// close the writer to signal we are done, but wait until object store has finished writing
-				_ = tarWriter.Close()
-				_ = gzipWriter.Close()
-				_ = writer.Close()
-				return <-errChan
+			if obj.Error != nil {
+				return fmt.Errorf("failed to retrieve etcd items: %w", obj.Error)
+			}
+
+			key := string(obj.Value.Key)
+			if strings.HasPrefix(key, SnapshotMetadataPrefix) {
+				// metadata is written explicitly above; skip any copy a
+				// previous restore persisted into etcd so the archive holds
+				// exactly one entry per metadata key
+				continue
+			}
+			if _, ok := c.skipKeys[key]; ok {
+				klog.Infof("Skipping key %s", key)
+				continue
+			}
+			// write the object into the store
+			klog.V(1).Infof("Snapshot key %s", key)
+			err := writeArchiveEntry(tarWriter, obj.Value.Key, obj.Value.Data)
+			if err != nil {
+				return fmt.Errorf("failed to snapshot key %s: %w", key, err)
+			}
+
+			// print status update
+			backedUpKeys++
+			if backedUpKeys%100 == 0 {
+				klog.Infof("Backed up %d keys", backedUpKeys)
 			}
 		}
 	}

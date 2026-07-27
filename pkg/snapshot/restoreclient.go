@@ -468,6 +468,13 @@ func (o *RestoreClient) restoreKeyValueSnapshot(ctx context.Context, vConfig *co
 			break
 		}
 
+		// snapshot metadata (release, request, revision, ...) is archive-level
+		// bookkeeping, not cluster state; never restore it into etcd or the next
+		// backup would re-emit it as a duplicate entry
+		if strings.HasPrefix(string(key), SnapshotMetadataPrefix) {
+			continue
+		}
+
 		// transform value if we are restoring to a new vCluster
 		if o.NewVCluster {
 			// skip mappings
@@ -502,6 +509,12 @@ func (o *RestoreClient) restoreKeyValueSnapshot(ctx context.Context, vConfig *co
 		if restoredKeys%100 == 0 {
 			klog.Infof("Restored %d keys", restoredKeys)
 		}
+	}
+
+	// rather unlikely but a compaction of 0 returns an error
+	if restoredKeys == 0 {
+		klog.Info("Skipping compaction because of 0 etcd keys restored from snapshot")
+		return nil
 	}
 
 	// compact the database until that revision
