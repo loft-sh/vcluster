@@ -2,7 +2,12 @@ name: E2E CI
 
 on:
   release:
-    types: [created]
+    # published, not created: goreleaser creates the release as a draft, uploads
+    # the assets, then publishes it. GitHub does not deliver `created` for draft
+    # releases, so `created` stopped firing once releases stopped being made by
+    # hand, and this workflow silently stopped validating releases altogether.
+    # See DEVOPS-1185.
+    types: [published]
   pull_request:
     branches:
       - main

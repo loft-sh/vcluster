@@ -2,7 +2,14 @@ name: Unit tests
 
 on:
   release:
-    types: [created]
+    # published, not created: goreleaser creates the release as a draft, uploads
+    # the assets, then publishes it. GitHub does not deliver `created` for draft
+    # releases, so `created` stopped firing once releases stopped being made by
+    # hand, and this workflow silently stopped validating releases altogether.
+    # See DEVOPS-1185.
+    types: [published]
+  # Lets a release be re-validated at its tag without re-cutting it.
+  workflow_dispatch:
   pull_request:
     branches:
       - main
