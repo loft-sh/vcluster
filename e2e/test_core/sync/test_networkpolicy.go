@@ -77,7 +77,7 @@ func NetworkPolicySyncSpec() {
 							networkingv1.PolicyTypeIngress,
 							networkingv1.PolicyTypeEgress,
 						), "synced policy should preserve policy types")
-					}).
+					}).WithContext(ctx).
 						WithPolling(constants.PollingInterval).
 						WithTimeout(constants.PollingTimeout).
 						Should(Succeed())

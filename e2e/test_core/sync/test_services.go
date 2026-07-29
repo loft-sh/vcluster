@@ -97,7 +97,7 @@ func ServiceBasicSyncSpec() {
 						var err error
 						pService, err = hostClient.CoreV1().Services(hostNS).Get(ctx, pServiceName, metav1.GetOptions{})
 						g.Expect(err).NotTo(HaveOccurred(), "host service %s/%s not yet available", hostNS, pServiceName)
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
 				By("refreshing the vCluster service to get the assigned ClusterIP and node ports", func() {
@@ -165,14 +165,14 @@ func ServiceBasicSyncSpec() {
 					Eventually(func(g Gomega) {
 						_, err := vClusterClient.CoreV1().Services(nsName).Get(ctx, svcName, metav1.GetOptions{})
 						g.Expect(err).NotTo(HaveOccurred(), "vCluster service %s/%s not yet available", nsName, svcName)
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
 				By("waiting for the service to be synced to the host cluster", func() {
 					Eventually(func(g Gomega) {
 						_, err := hostClient.CoreV1().Services(hostNS).Get(ctx, pServiceName, metav1.GetOptions{})
 						g.Expect(err).NotTo(HaveOccurred(), "host service %s/%s not yet available", hostNS, pServiceName)
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 			})
 
@@ -222,7 +222,7 @@ func ServiceBasicSyncSpec() {
 					Eventually(func(g Gomega) {
 						_, err := vClusterClient.CoreV1().Services(nsName).Get(ctx, svcName, metav1.GetOptions{})
 						g.Expect(err).NotTo(HaveOccurred(), "service %s/%s not yet available", nsName, svcName)
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
 				By("getting /status via dynamic client", func() {
@@ -252,7 +252,7 @@ func ServiceBasicSyncSpec() {
 						g.Expect(err).NotTo(HaveOccurred(), "service %s/%s not yet available", nsName, svcName)
 						g.Expect(svc.Annotations).To(HaveKeyWithValue("patchedstatus", "true"),
 							"expected patchedstatus annotation on service %s/%s, got annotations: %v", nsName, svcName, svc.Annotations)
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
 				// The vCluster syncer overwrites virtual service status with host status on
@@ -311,7 +311,7 @@ func ServiceBasicSyncSpec() {
 						g.Expect(err).NotTo(HaveOccurred(), "service %s/%s not yet available", nsName, svcName)
 						g.Expect(svc.Labels).To(HaveKeyWithValue("test-service-"+suffix, "patched"),
 							"expected patched label on service %s/%s, got labels: %v", nsName, svcName, svc.Labels)
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
 				By("deleting the service", func() {
@@ -324,7 +324,7 @@ func ServiceBasicSyncSpec() {
 						_, err := vClusterClient.CoreV1().Services(nsName).Get(ctx, svcName, metav1.GetOptions{})
 						g.Expect(kerrors.IsNotFound(err)).To(BeTrue(),
 							"service %s/%s should be deleted, got err: %v", nsName, svcName, err)
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 			})
 
@@ -371,7 +371,7 @@ func ServiceBasicSyncSpec() {
 					Eventually(func(g Gomega) {
 						_, err := hostClient.CoreV1().Services(hostNS).Get(ctx, pServiceName, metav1.GetOptions{})
 						g.Expect(err).NotTo(HaveOccurred(), "host service %s/%s not yet available", hostNS, pServiceName)
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
 				By("updating the host service to add a new annotation and label", func() {
@@ -392,7 +392,7 @@ func ServiceBasicSyncSpec() {
 						_, err = hostClient.CoreV1().Services(hostNS).Update(ctx, pService, metav1.UpdateOptions{})
 						// Any error (including conflict) causes Eventually to retry.
 						g.Expect(err).NotTo(HaveOccurred(), "failed to update host service %s/%s", hostNS, pServiceName)
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
 				By("waiting for the host-cluster annotation and label to be synced back into the vCluster service", func() {
@@ -406,7 +406,7 @@ func ServiceBasicSyncSpec() {
 							"original vCluster annotation should be preserved, annotations: %v", updatedVService.Annotations)
 						g.Expect(updatedVService.Labels).To(HaveKeyWithValue("host-cluster-label", "some_host_label_value"),
 							"expected vService to have host-cluster-label synced back, labels: %v", updatedVService.Labels)
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
 				By("updating the vCluster service to add a new annotation and label", func() {
@@ -427,7 +427,7 @@ func ServiceBasicSyncSpec() {
 						_, err = vClusterClient.CoreV1().Services(nsName).Update(ctx, updatedVService, metav1.UpdateOptions{})
 						// Any error (including conflict) causes Eventually to retry.
 						g.Expect(err).NotTo(HaveOccurred(), "failed to update vCluster service %s/%s", nsName, svcName)
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
 				By("waiting for the vCluster annotation and label to be synced to the host service", func() {
@@ -441,7 +441,7 @@ func ServiceBasicSyncSpec() {
 							"host-annotation should be preserved after vCluster update, annotations: %v", updatedPService.Annotations)
 						g.Expect(updatedPService.Labels).To(HaveKeyWithValue("vcluster-label", "some_vcluster_value"),
 							"expected pService to have vcluster-label synced, labels: %v", updatedPService.Labels)
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 			})
 		})

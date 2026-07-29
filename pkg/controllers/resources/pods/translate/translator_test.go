@@ -21,7 +21,7 @@ import (
 	resourcev1 "k8s.io/api/resource/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/version"
+	utilversion "k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/client-go/tools/events"
 	"k8s.io/utils/ptr"
 )
@@ -551,11 +551,7 @@ func TestPodResourcesTranslation(t *testing.T) {
 			}
 
 			if tc.hostVersion != "" {
-				tr.hostClusterVersion = &version.Info{
-					GitVersion: tc.hostVersion,
-					Major:      "1",
-					Minor:      "34",
-				}
+				tr.hostClusterVersion = utilversion.MustParseSemantic(tc.hostVersion)
 			}
 
 			// We need a context
