@@ -20,9 +20,11 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/clihelper"
 	"github.com/loft-sh/vcluster/pkg/util/osutil"
 	"github.com/loft-sh/vcluster/pkg/util/podhelper"
+	"github.com/loft-sh/vcluster/pkg/util/random"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -99,7 +101,7 @@ func SnapshotExec(
 func RunSnapshotPod(
 	ctx context.Context,
 	kubeConfig *rest.Config,
-	kubeClient *kubernetes.Clientset,
+	kubeClient kubernetes.Interface,
 	command []string,
 	vCluster *find.VCluster,
 	podOptions *Options,
@@ -111,6 +113,47 @@ func RunSnapshotPod(
 		return SnapshotExec(ctx, kubeConfig, command, vCluster, podOptions, snapshotOptions)
 	}
 
+	// Names are picked client-side so cleanup can be armed before anything exists:
+	// a kill during a create would otherwise orphan an object whose
+	// server-generated name we never learned. One suffix keeps the two correlated.
+	suffix := random.String(6)
+	podName := "vcluster-snapshot-" + suffix
+	secretName := "vcluster-snapshot-options-" + suffix
+
+	// create interrupt channel. Armed before the first create so an interrupt
+	// there still cleans up; Go's default disposition would just kill us.
+	sigint := make(chan os.Signal, 1)
+	// interrupt signal sent from terminal, sigterm signal sent from kubernetes
+	signal.Notify(sigint, os.Interrupt, syscall.SIGTERM)
+	defer func() {
+		// make sure we won't interfere with interrupts anymore
+		signal.Stop(sigint)
+
+		// delete the pod and the options secret when we are done
+		deleteSnapshotPod(ctx, kubeClient, vCluster.Namespace, podName)
+		deleteOptionsSecret(ctx, kubeClient, vCluster.Namespace, secretName)
+	}()
+
+	// also delete on interrupt
+	go func() {
+		// wait until we get killed
+		<-sigint
+
+		// cleanup pod and options secret. osutil.Exit below skips the defers, so
+		// they are deleted here explicitly. If we were killed mid-create, our
+		// delete can still lose the race against that create.
+		deleteSnapshotPod(ctx, kubeClient, vCluster.Namespace, podName)
+		deleteOptionsSecret(ctx, kubeClient, vCluster.Namespace, secretName)
+		osutil.Exit(1)
+	}()
+
+	// store the snapshot options (which may contain object store credentials) in a
+	// Secret instead of the Pod spec, injected into the pod via a secretKeyRef.
+	optionsSecret, err := createOptionsSecret(ctx, kubeClient, vCluster, secretName, snapshotOptions)
+	if err != nil {
+		return err
+	}
+
 	// create snapshot pod
 	snapshotPod, err := CreateSnapshotPod(
 		ctx,
@@ -118,6 +161,8 @@ func RunSnapshotPod(
 		command,
 		vCluster,
 		podOptions,
+		podName,
+		secretName,
 		snapshotOptions,
 		log,
 	)
@@ -125,35 +170,9 @@ func RunSnapshotPod(
 		return err
 	}
 
-	// create interrupt channel
-	sigint := make(chan os.Signal, 1)
-	defer func() {
-		// make sure we won't interfere with interrupts anymore
-		signal.Stop(sigint)
-
-		// delete the pod when we are done
-		_ = kubeClient.CoreV1().Pods(snapshotPod.Namespace).Delete(ctx, snapshotPod.Name, metav1.DeleteOptions{})
-	}()
-
-	// also delete on interrupt
-	go func() {
-		// interrupt signal sent from terminal
-		signal.Notify(sigint, os.Interrupt)
-		// sigterm signal sent from kubernetes
-		signal.Notify(sigint, syscall.SIGTERM)
-
-		// wait until we get killed
-		<-sigint
-
-		// cleanup pod
-		err = kubeClient.CoreV1().Pods(snapshotPod.Namespace).Delete(ctx, snapshotPod.Name, metav1.DeleteOptions{
-			GracePeriodSeconds: ptr.To(int64(1)),
-		})
-		if err != nil {
-			klog.Warningf("Error deleting snapshot pod: %v", err)
-		}
-		osutil.Exit(1)
-	}()
+	// make the pod own the secret so a hard kill (where neither the defer nor the
+	// signal handler runs) still lets Kubernetes garbage-collect it.
+	setSecretOwner(ctx, kubeClient, optionsSecret, snapshotPod)
 
 	// wait for pod to become ready
 	err = WaitForReadyPod(ctx, kubeClient, snapshotPod.Namespace, snapshotPod.Name, "snapshot", log)
@@ -193,10 +212,12 @@ func RunSnapshotPod(
 
 func CreateSnapshotPod(
 	ctx context.Context,
-	kubeClient *kubernetes.Clientset,
+	kubeClient kubernetes.Interface,
 	command []string,
 	vCluster *find.VCluster,
 	podOptions *Options,
+	podName string,
+	optionsSecretName string,
 	snapshotOptions *snapshotapi.Options,
 	log log.Logger,
 ) (*corev1.Pod, error) {
@@ -221,15 +242,17 @@ func CreateSnapshotPod(
 		return nil, fmt.Errorf("couldn't find syncer container")
 	}
 
-	// build args
+	// build args. The snapshot options (which may contain object store credentials)
+	// are injected from a Secret via secretKeyRef so they never appear in the Pod spec.
 	env := syncerContainer.Env
-	optionsString, err := ToOptionsString(snapshotOptions)
-	if err != nil {
-		return nil, err
-	}
 	env = append(env, corev1.EnvVar{
-		Name:  constants.VClusterStorageOptionsEnv,
-		Value: optionsString,
+		Name: constants.VClusterStorageOptionsEnv,
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{Name: optionsSecretName},
+				Key:                  constants.VClusterStorageOptionsEnv,
+			},
+		},
 	})
 
 	// this is needed for embedded etcd as it otherwise wouldn't
@@ -283,11 +306,9 @@ func CreateSnapshotPod(
 	// build the pod spec
 	newPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "vcluster-snapshot-",
-			Namespace:    vCluster.Namespace,
-			Labels: map[string]string{
-				"app": "vcluster-snapshot",
-			},
+			Name:      podName,
+			Namespace: vCluster.Namespace,
+			Labels:    map[string]string{"app": "vcluster-snapshot"},
 		},
 		Spec: corev1.PodSpec{
 			RestartPolicy:                 corev1.RestartPolicyNever,
@@ -396,6 +417,62 @@ func ToOptionsString(options *snapshotapi.Options) (string, error) {
 	return base64.StdEncoding.EncodeToString(jsonBytes), nil
 }
 
+// createOptionsSecret stores the snapshot options (which may include object store
+// credentials) in a Secret so they don't appear as plaintext in the snapshot Pod
+// spec. The stored value is the same base64 string the in-pod reader expects.
+func createOptionsSecret(ctx context.Context, kubeClient kubernetes.Interface, vCluster *find.VCluster, name string, snapshotOptions *snapshotapi.Options) (*corev1.Secret, error) {
+	optionsString, err := ToOptionsString(snapshotOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: vCluster.Namespace,
+			Labels:    map[string]string{"app": "vcluster-snapshot"},
+		},
+		Data: map[string][]byte{
+			constants.VClusterStorageOptionsEnv: []byte(optionsString),
+		},
+	}
+
+	return kubeClient.CoreV1().Secrets(vCluster.Namespace).Create(ctx, secret, metav1.CreateOptions{})
+}
+
+// deleteOptionsSecret removes the snapshot options Secret. WithoutCancel keeps
+// cleanup working on a cancelled ctx; a not-found is fine (never created, GC may
+// have won, or cleanup ran twice).
+func deleteOptionsSecret(ctx context.Context, kubeClient kubernetes.Interface, namespace, name string) {
+	if err := kubeClient.CoreV1().Secrets(namespace).Delete(context.WithoutCancel(ctx), name, metav1.DeleteOptions{}); err != nil && !kerrors.IsNotFound(err) {
+		klog.Warningf("Error deleting snapshot options secret: %v", err)
+	}
+}
+
+// deleteSnapshotPod removes the snapshot worker pod, with the same tolerances as
+// deleteOptionsSecret. The pod is short-lived, so don't wait on graceful shutdown.
+func deleteSnapshotPod(ctx context.Context, kubeClient kubernetes.Interface, namespace, name string) {
+	err := kubeClient.CoreV1().Pods(namespace).Delete(context.WithoutCancel(ctx), name, metav1.DeleteOptions{
+		GracePeriodSeconds: ptr.To(int64(1)),
+	})
+	if err != nil && !kerrors.IsNotFound(err) {
+		klog.Warningf("Error deleting snapshot pod: %v", err)
+	}
+}
+
+// setSecretOwner makes the snapshot Pod own the options Secret so Kubernetes
+// garbage-collects it on a hard kill where the deferred cleanup doesn't run.
+// Best-effort: a failure is logged, not fatal, since the defer covers graceful paths.
+func setSecretOwner(ctx context.Context, kubeClient kubernetes.Interface, secret *corev1.Secret, pod *corev1.Pod) {
+	ref := metav1.NewControllerRef(pod, corev1.SchemeGroupVersion.WithKind("Pod"))
+	// We only need GC of the secret, not owner-deletion blocking.
+	ref.BlockOwnerDeletion = ptr.To(false)
+	secret.OwnerReferences = []metav1.OwnerReference{*ref}
+	if _, err := kubeClient.CoreV1().Secrets(secret.Namespace).Update(ctx, secret, metav1.UpdateOptions{}); err != nil {
+		klog.Warningf("Error setting owner reference on snapshot options secret: %v", err)
+	}
+}
+
 func parseExtraEnv(env []string) ([]corev1.EnvVar, error) {
 	extraEnv := make([]corev1.EnvVar, 0, len(env))
 	for _, envVar := range env {
@@ -413,7 +490,7 @@ func parseExtraEnv(env []string) ([]corev1.EnvVar, error) {
 	return extraEnv, nil
 }
 
-func parseExtraVolumes(ctx context.Context, kubeClient *kubernetes.Clientset, vCluster *find.VCluster, volumes []string) ([]corev1.Volume, []corev1.VolumeMount, error) {
+func parseExtraVolumes(ctx context.Context, kubeClient kubernetes.Interface, vCluster *find.VCluster, volumes []string) ([]corev1.Volume, []corev1.VolumeMount, error) {
 	extraVolumes := make([]corev1.Volume, 0, len(volumes))
 	extraVolumeMounts := make([]corev1.VolumeMount, 0, len(volumes))
 	for idx, volume := range volumes {
@@ -567,7 +644,7 @@ func WaitForReadyPod(ctx context.Context, kubeClient kubernetes.Interface, names
 	return nil
 }
 
-func WaitForCompletedPod(ctx context.Context, kubeClient *kubernetes.Clientset, namespace, name, container string, timeout time.Duration) (int32, error) {
+func WaitForCompletedPod(ctx context.Context, kubeClient kubernetes.Interface, namespace, name, container string, timeout time.Duration) (int32, error) {
 	exitCode := int32(-1)
 	err := wait.PollUntilContextTimeout(ctx, time.Second*2, timeout, true, func(ctx context.Context) (bool, error) {
 		pod, err := kubeClient.CoreV1().Pods(namespace).Get(ctx, name, metav1.GetOptions{})
