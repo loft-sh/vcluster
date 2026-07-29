@@ -13,6 +13,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	utilversion "k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/pod-security-admission/api"
 	"k8s.io/utils/ptr"
 
@@ -806,4 +808,116 @@ func TestBuildResizePatch(t *testing.T) {
 		assert.Equal(t, len(patch.Spec.Containers), 1)
 		assert.Equal(t, patch.Spec.Containers[0].Name, "c1")
 	})
+}
+
+func TestResizeSkipsOldOrUnknownHostVersion(t *testing.T) {
+	makePod := func(memory string) *corev1.Pod {
+		return &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-pod",
+				Namespace: "default",
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:  "c1",
+						Image: "nginx",
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse(memory),
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	testCases := []struct {
+		name        string
+		hostVersion *utilversion.Version
+	}{
+		{name: "unknown host version", hostVersion: nil},
+		{name: "host below 1.35", hostVersion: utilversion.MustParseSemantic("1.34.9")},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			vPod := makePod("30Mi")
+			pPod := makePod("20Mi")
+
+			// the resources differ, so a resize patch would be built if the
+			// version guard did not return first
+			patchBytes, err := buildHostPodContainersResourcesResizePatch(vPod, pPod)
+			assert.NilError(t, err)
+			assert.Assert(t, patchBytes != nil)
+
+			s := &podSyncer{hostClusterVersion: tc.hostVersion}
+			// the nil SyncContext proves the guard returns before anything is
+			// patched: reaching the resize call would panic
+			err = s.resizeHostPodContainerResourcesInPlace(nil, synccontext.NewSyncEventWithOld(pPod, pPod, vPod, vPod))
+			assert.NilError(t, err)
+		})
+	}
+}
+
+// While the host pod is deleting, its status must still reach the virtual pod,
+// without touching virtual-only fields and without repeating unchanged writes.
+func TestSyncTerminatingHostPodStatus(t *testing.T) {
+	now := metav1.Now()
+	gracePeriod := int64(30)
+
+	vPod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:                       "test-pod",
+			Namespace:                  "default",
+			DeletionTimestamp:          &now,
+			DeletionGracePeriodSeconds: &gracePeriod,
+			Finalizers:                 []string{"vcluster.loft.sh/test"},
+		},
+		Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "c1", Image: "nginx"}}},
+		Status: corev1.PodStatus{
+			Phase:    corev1.PodRunning,
+			QOSClass: corev1.PodQOSBestEffort,
+		},
+	}
+	pPod := vPod.DeepCopy()
+	pPod.Name = "test-pod-x-default-x-suffix"
+	pPod.Namespace = testingutil.DefaultTestTargetNamespace
+	pPod.Status = corev1.PodStatus{
+		Phase:    corev1.PodFailed,
+		QOSClass: corev1.PodQOSBurstable,
+	}
+
+	test := syncertesting.SyncTest{
+		Name:                 "terminating host pod status",
+		InitialVirtualState:  []runtime.Object{vPod.DeepCopy()},
+		InitialPhysicalState: []runtime.Object{pVclusterService.DeepCopy(), pDNSService.DeepCopy(), pPod.DeepCopy()},
+	}
+	pClient, vClient, vConfig := test.Setup()
+	registerContext := syncertesting.NewFakeRegisterContext(vConfig, pClient, vClient)
+	syncCtx, syncer := syncertesting.FakeStartSyncer(t, registerContext, New)
+
+	_, err := syncer.(*podSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(
+		pPod.DeepCopy(), pPod.DeepCopy(), vPod.DeepCopy(), vPod.DeepCopy(),
+	))
+	assert.NilError(t, err)
+
+	updated := &corev1.Pod{}
+	assert.NilError(t, vClient.Get(syncCtx, types.NamespacedName{Name: vPod.Name, Namespace: vPod.Namespace}, updated))
+	assert.Equal(t, updated.Status.Phase, corev1.PodFailed,
+		"the host phase must keep propagating while the host pod is deleting")
+	assert.Equal(t, updated.Status.QOSClass, corev1.PodQOSBestEffort,
+		"the virtual QOS class must not be overwritten with the host value")
+
+	// a second sync with the already-propagated status must not write again
+	_, err = syncer.(*podSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(
+		pPod.DeepCopy(), pPod.DeepCopy(), updated.DeepCopy(), updated.DeepCopy(),
+	))
+	assert.NilError(t, err)
+
+	unchanged := &corev1.Pod{}
+	assert.NilError(t, vClient.Get(syncCtx, types.NamespacedName{Name: vPod.Name, Namespace: vPod.Namespace}, unchanged))
+	assert.Equal(t, unchanged.ResourceVersion, updated.ResourceVersion,
+		"an unchanged status must not trigger another virtual pod update")
 }

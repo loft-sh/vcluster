@@ -897,19 +897,20 @@ func PodSyncSpec() {
 			})
 
 			It("should preserve virtual pod QOS class", func(ctx context.Context) {
-				// Regression test for https://github.com/loft-sh/vcluster/issues/3578, where pods
-				// got stuck at Ready=False. The syncer used to copy the virtual QOS class onto the
-				// host pod, so a later status update tried to change the host's QOS class. K8s 1.32+
-				// treats that field as immutable and rejects the update.
+				// Regression test for https://github.com/loft-sh/vcluster/issues/3578: the syncer
+				// copied the QOS class between pods, which K8s 1.32+ rejects because the field
+				// cannot change. Setting spec.subdomain gives the host pod a different QOS class
+				// than the virtual pod; the bug only shows when the two differ.
 				suffix := random.String(6)
 				ns := "pod-qos-test-" + suffix
 				createTestNamespace(ctx, ns)
 
 				podName := "qos-" + suffix
-				By("Creating a pod with no resource requests (virtual QOS class: BestEffort)", func() {
+				By("Creating a pod without resource requests and with a subdomain", func() {
 					_, err := vClusterClient.CoreV1().Pods(ns).Create(ctx, &corev1.Pod{
 						ObjectMeta: metav1.ObjectMeta{Name: podName},
 						Spec: corev1.PodSpec{
+							Subdomain: "pod-qos",
 							Containers: []corev1.Container{{
 								Name:            testingContainerName,
 								Image:           testingContainerImage,
@@ -921,44 +922,20 @@ func PodSyncSpec() {
 					Expect(err).To(Succeed())
 				})
 
-				By("Waiting for the pod to be Running", func() {
-					waitPodRunning(ctx, podName, ns)
-				})
+				hostNS := vClusterHostNamespace(vClusterName)
+				pPodName := translate.SingleNamespaceHostName(podName, ns, vClusterName)
+				By("Waiting for the QOS classes to diverge: virtual BestEffort, host Burstable", func() {
+					Eventually(func(g Gomega) {
+						pPod, err := hostClient.CoreV1().Pods(hostNS).Get(ctx, pPodName, metav1.GetOptions{})
+						g.Expect(err).To(Succeed(), "failed to get host pod %s/%s", hostNS, pPodName)
+						g.Expect(pPod.Status.QOSClass).To(Equal(corev1.PodQOSBurstable),
+							"host pod QOS class is %s, expected the injected rewrite-hosts init container to make it Burstable", pPod.Status.QOSClass)
 
-				By("Verifying the virtual pod QOS class is BestEffort (not overwritten from host)", func() {
-					vpod, err := vClusterClient.CoreV1().Pods(ns).Get(ctx, podName, metav1.GetOptions{})
-					Expect(err).To(Succeed())
-					Expect(vpod.Status.QOSClass).To(Equal(corev1.PodQOSBestEffort),
-						"virtual pod QOS class should reflect the virtual apiserver's computation (BestEffort for no resource requests), not the host pod's QOS class")
-				})
-			})
-
-			It("should keep pod Ready condition stable after reaching Ready=True", func(ctx context.Context) {
-				// Regression test for https://github.com/loft-sh/vcluster/issues/3578, where pods
-				// kept switching back to Ready=False because the syncer wrongly thought their
-				// conditions had changed on every reconcile.
-				//
-				// This only happens when the host runs K8s >= 1.34 and the virtual cluster runs
-				// < 1.34. On a same-version cluster the bug can't reproduce, so the real check
-				// lives in the unit test TestDiffPodStatusObservedGeneration.
-				suffix := random.String(6)
-				ns := "pod-cond-stable-test-" + suffix
-				createTestNamespace(ctx, ns)
-
-				podName := "cond-stable-" + suffix
-				By("Creating a pod", func() {
-					_, err := vClusterClient.CoreV1().Pods(ns).Create(ctx, &corev1.Pod{
-						ObjectMeta: metav1.ObjectMeta{Name: podName},
-						Spec: corev1.PodSpec{
-							Containers: []corev1.Container{{
-								Name:            testingContainerName,
-								Image:           testingContainerImage,
-								ImagePullPolicy: corev1.PullIfNotPresent,
-								SecurityContext: defaultSecurityContext(),
-							}},
-						},
-					}, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
+						vPod, err := vClusterClient.CoreV1().Pods(ns).Get(ctx, podName, metav1.GetOptions{})
+						g.Expect(err).To(Succeed(), "failed to get pod %s/%s", ns, podName)
+						g.Expect(vPod.Status.QOSClass).To(Equal(corev1.PodQOSBestEffort),
+							"virtual pod QOS class is %s, expected BestEffort", vPod.Status.QOSClass)
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
 				})
 
 				readyCondition := And(
@@ -966,22 +943,44 @@ func PodSyncSpec() {
 					HaveField("Status", corev1.ConditionTrue),
 				)
 
-				By("Waiting for the pod to reach Running phase with Ready=True", func() {
+				By("Waiting for the pod to be Running with Ready=True despite the divergence", func() {
 					waitPodRunning(ctx, podName, ns)
 					Eventually(func(g Gomega) {
 						pod, err := vClusterClient.CoreV1().Pods(ns).Get(ctx, podName, metav1.GetOptions{})
-						g.Expect(err).To(Succeed())
+						g.Expect(err).To(Succeed(), "failed to get pod %s/%s", ns, podName)
 						g.Expect(pod.Status.Conditions).To(ContainElement(readyCondition),
 							"pod Ready condition is not yet True: %v", pod.Status.Conditions)
 					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
-				By("Verifying Ready condition stays True and does not flap", func() {
+				By("Verifying both sides keep their own QOS class, the pod stays Ready, and no immutable-field sync errors occur", func() {
 					Consistently(func(g Gomega) {
-						pod, err := vClusterClient.CoreV1().Pods(ns).Get(ctx, podName, metav1.GetOptions{})
-						g.Expect(err).To(Succeed())
-						g.Expect(pod.Status.Conditions).To(ContainElement(readyCondition),
-							"pod Ready condition flapped away from True: %v", pod.Status.Conditions)
+						vPod, err := vClusterClient.CoreV1().Pods(ns).Get(ctx, podName, metav1.GetOptions{})
+						g.Expect(err).To(Succeed(), "failed to get pod %s/%s", ns, podName)
+						g.Expect(vPod.Status.QOSClass).To(Equal(corev1.PodQOSBestEffort),
+							"virtual pod QOS class was overwritten to %s", vPod.Status.QOSClass)
+						g.Expect(vPod.Status.Conditions).To(ContainElement(readyCondition),
+							"pod Ready condition flapped away from True: %v", vPod.Status.Conditions)
+
+						pPod, err := hostClient.CoreV1().Pods(hostNS).Get(ctx, pPodName, metav1.GetOptions{})
+						g.Expect(err).To(Succeed(), "failed to get host pod %s/%s", hostNS, pPodName)
+						g.Expect(pPod.Status.QOSClass).To(Equal(corev1.PodQOSBurstable),
+							"host pod QOS class was overwritten to %s", pPod.Status.QOSClass)
+
+						// Guards against the syncer's QOS preservation being removed: the
+						// apiserver rejects the write, so the stored values above stay correct
+						// either way and only the sync error event reveals it.
+						events, err := vClusterClient.CoreV1().Events(ns).List(ctx, metav1.ListOptions{
+							FieldSelector: "involvedObject.name=" + podName,
+						})
+						g.Expect(err).To(Succeed(), "failed to list events for pod %s/%s", ns, podName)
+						for _, event := range events.Items {
+							if event.Reason != "SyncError" {
+								continue
+							}
+							g.Expect(event.Message).NotTo(ContainSubstring("qosClass"),
+								"the syncer tried to overwrite the immutable QOS class: %s", event.Message)
+						}
 					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutShort).Should(Succeed())
 				})
 			})
