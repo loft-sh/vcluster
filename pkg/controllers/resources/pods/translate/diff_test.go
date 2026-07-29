@@ -230,7 +230,7 @@ func TestConditionsCopyBidirectionalObservedGeneration(t *testing.T) {
 			// Version not yet discovered (startup): the strip path is not taken, so with the same
 			// inputs as the v1.33 case the observedGeneration delta is treated as a real change
 			// (wantNewHost is ready, not readyGen1).
-			name:           "nil version: defaults to preserve, not strip-path",
+			name:           "nil version: defaults to preserve, not the strip path",
 			version:        nil,
 			virtualOld:     []corev1.PodCondition{readyGen1},
 			virtual:        []corev1.PodCondition{ready},
@@ -326,6 +326,83 @@ func TestDiffPodStatusObservedGeneration(t *testing.T) {
 				"test case %q: expected one virtual condition", tc.name)
 			assert.Equal(t, tc.wantVirtualObservedGen, event.Virtual.Status.Conditions[0].ObservedGeneration,
 				"test case %q: unexpected virtual condition ObservedGeneration after Diff", tc.name)
+		})
+	}
+}
+
+// TestDiffConditionsCacheInformerDivergence covers issue 3578: the syncer wrote a condition
+// with ObservedGeneration 1, but an older virtual apiserver dropped the field and stored 0.
+// When Diff reads that back, it must see no change.
+func TestDiffConditionsCacheInformerDivergence(t *testing.T) {
+	pClient := testingutil.NewFakeClient(scheme.Scheme)
+	vClient := testingutil.NewFakeClient(scheme.Scheme)
+
+	imageTranslator, err := NewImageTranslator(map[string]string{})
+	assert.NilError(t, err)
+
+	registerCtx := generictesting.NewFakeRegisterContext(testingutil.NewFakeConfig(), pClient, vClient)
+	syncCtx := registerCtx.ToSyncContext("test")
+
+	assert.NilError(t, vClient.Create(syncCtx.Context, &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "testns"},
+	}))
+
+	ready := corev1.PodCondition{Type: corev1.PodReady, Status: corev1.ConditionTrue}
+	readyGen1 := corev1.PodCondition{Type: corev1.PodReady, Status: corev1.ConditionTrue, ObservedGeneration: 1}
+
+	tests := []struct {
+		name               string
+		version            *utilversion.Version
+		wantHostConditions []corev1.PodCondition
+	}{
+		{
+			// The virtual apiserver strips ObservedGeneration, so the divergence is an echo of
+			// our own write and must not overwrite the host condition's kubelet-set value.
+			name:               "v1.33: stripped echo is no change, host condition keeps ObservedGeneration",
+			version:            utilversion.MustParseSemantic("1.33.0"),
+			wantHostConditions: []corev1.PodCondition{readyGen1},
+		},
+		{
+			// The virtual apiserver preserves ObservedGeneration, so the same divergence is a
+			// genuine virtual change and wins over the host condition.
+			name:               "v1.34: divergence is a real change, virtual condition wins on host",
+			version:            utilversion.MustParseSemantic("1.34.0"),
+			wantHostConditions: []corev1.PodCondition{ready},
+		},
+		{
+			// Version not yet discovered (startup): defaults to the preserve path, same as 1.34.
+			name:               "nil version: divergence treated as a real change",
+			version:            nil,
+			wantHostConditions: []corev1.PodCondition{ready},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tr := &translator{
+				vClient:               vClient,
+				imageTranslator:       imageTranslator,
+				log:                   loghelper.New("diff-test"),
+				virtualClusterVersion: tc.version,
+			}
+
+			// cache: what the syncer sent; informer: what the virtual apiserver stored
+			vOld := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "testpod", Namespace: "testns"}}
+			vOld.Status.Conditions = []corev1.PodCondition{readyGen1}
+			vNew := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "testpod", Namespace: "testns"}}
+			vNew.Status.Conditions = []corev1.PodCondition{ready}
+
+			// the host condition carries the kubelet-set ObservedGeneration and did not change
+			pOld := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "testpod-x-testns", Namespace: "test"}}
+			pOld.Status.Conditions = []corev1.PodCondition{readyGen1}
+			pNew := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "testpod-x-testns", Namespace: "test"}}
+			pNew.Status.Conditions = []corev1.PodCondition{readyGen1}
+
+			event := synccontext.NewSyncEventWithOld(pOld, pNew, vOld, vNew)
+			assert.NilError(t, tr.Diff(syncCtx, event))
+
+			assert.Assert(t, cmp.DeepEqual(event.Host.Status.Conditions, tc.wantHostConditions),
+				"test case %q: unexpected host conditions after Diff", tc.name)
 		})
 	}
 }

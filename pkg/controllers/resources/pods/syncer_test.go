@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	utilversion "k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/pod-security-admission/api"
 	"k8s.io/utils/ptr"
 
@@ -806,4 +807,55 @@ func TestBuildResizePatch(t *testing.T) {
 		assert.Equal(t, len(patch.Spec.Containers), 1)
 		assert.Equal(t, patch.Spec.Containers[0].Name, "c1")
 	})
+}
+
+func TestResizeSkipsOldOrUnknownHostVersion(t *testing.T) {
+	makePod := func(memory string) *corev1.Pod {
+		return &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-pod",
+				Namespace: "default",
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:  "c1",
+						Image: "nginx",
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse(memory),
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	testCases := []struct {
+		name        string
+		hostVersion *utilversion.Version
+	}{
+		{name: "unknown host version", hostVersion: nil},
+		{name: "host below 1.35", hostVersion: utilversion.MustParseSemantic("1.34.9")},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			vPod := makePod("30Mi")
+			pPod := makePod("20Mi")
+
+			// the resources differ, so a resize patch would be built if the
+			// version guard did not return first
+			patchBytes, err := buildHostPodContainersResourcesResizePatch(vPod, pPod)
+			assert.NilError(t, err)
+			assert.Assert(t, patchBytes != nil)
+
+			s := &podSyncer{hostClusterVersion: tc.hostVersion}
+			// the nil SyncContext proves the guard returns before anything is
+			// patched: reaching the resize call would panic
+			err = s.resizeHostPodContainerResourcesInPlace(nil, synccontext.NewSyncEventWithOld(pPod, pPod, vPod, vPod))
+			assert.NilError(t, err)
+		})
+	}
 }
