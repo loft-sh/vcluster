@@ -230,7 +230,11 @@ func TestConditionsCopyBidirectionalObservedGeneration(t *testing.T) {
 			// Version not yet discovered (startup): the strip path is not taken, so with the same
 			// inputs as the v1.33 case the observedGeneration delta is treated as a real change
 			// (wantNewHost is ready, not readyGen1).
+<<<<<<< ours
 			name:           "nil version: defaults to preserve, not the strip path",
+=======
+			name:           "nil version: defaults to preserve, not strip-path",
+>>>>>>> theirs
 			version:        nil,
 			virtualOld:     []corev1.PodCondition{readyGen1},
 			virtual:        []corev1.PodCondition{ready},
@@ -330,6 +334,7 @@ func TestDiffPodStatusObservedGeneration(t *testing.T) {
 	}
 }
 
+<<<<<<< ours
 // TestDiffConditionsCacheInformerDivergence covers issue 3578: the syncer wrote a condition
 // with ObservedGeneration 1, but an older virtual apiserver dropped the field and stored 0.
 // When Diff reads that back, it must see no change.
@@ -407,6 +412,8 @@ func TestDiffConditionsCacheInformerDivergence(t *testing.T) {
 	}
 }
 
+=======
+>>>>>>> theirs
 func TestDiffQOSClassPreservation(t *testing.T) {
 	pClient := testingutil.NewFakeClient(scheme.Scheme)
 	vClient := testingutil.NewFakeClient(scheme.Scheme)
