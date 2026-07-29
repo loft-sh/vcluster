@@ -7,6 +7,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/etcd"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
+	utilversion "k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/apimachinery/pkg/version"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -21,7 +22,9 @@ type ControllerContext struct {
 	VirtualManager        ctrl.Manager
 	VirtualRawConfig      *clientcmdapi.Config
 	VirtualClusterVersion *version.Info
-	HostClusterVersion    *version.Info
+	// HostClusterVersion is the host cluster version discovered once at startup.
+	// It is only nil with private nodes and in test contexts.
+	HostClusterVersion *utilversion.Version
 
 	EtcdClient etcd.Client
 
@@ -54,8 +57,10 @@ type RegisterContext struct {
 	VirtualManager ctrl.Manager
 	HostManager    ctrl.Manager
 
+	// The cluster versions discovered once at startup. HostClusterVersion is only nil
+	// with private nodes and in test contexts.
 	VirtualClusterVersion *version.Info
-	HostClusterVersion    *version.Info
+	HostClusterVersion    *utilversion.Version
 }
 
 type Filter func(http.Handler, *ControllerContext) http.Handler

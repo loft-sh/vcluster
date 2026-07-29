@@ -372,3 +372,89 @@ func TestDiffQOSClassPreservation(t *testing.T) {
 	assert.Equal(t, corev1.PodQOSBurstable, event.Host.Status.QOSClass,
 		"host pod QOS class must not be overwritten by virtual QOS class")
 }
+
+func TestDesiredVirtualStatus(t *testing.T) {
+	hostStatus := corev1.PodStatus{
+		Phase:              corev1.PodRunning,
+		QOSClass:           corev1.PodQOSBurstable,
+		ObservedGeneration: 5,
+		Conditions: []corev1.PodCondition{{
+			Type:               corev1.PodReady,
+			Status:             corev1.ConditionTrue,
+			ObservedGeneration: 5,
+		}},
+	}
+	virtualStatus := corev1.PodStatus{
+		Phase:              corev1.PodPending,
+		QOSClass:           corev1.PodQOSGuaranteed,
+		ObservedGeneration: 2,
+	}
+
+	tests := []struct {
+		name                     string
+		version                  *utilversion.Version
+		wantObservedGeneration   int64
+		wantConditionObservedGen int64
+	}{
+		{
+			name:                     "v1.33: virtual apiserver strips ObservedGeneration, keep the virtual values",
+			version:                  utilversion.MustParseSemantic("1.33.0"),
+			wantObservedGeneration:   2,
+			wantConditionObservedGen: 0,
+		},
+		{
+			name:                     "v1.34: virtual apiserver persists ObservedGeneration, take the host values",
+			version:                  utilversion.MustParseSemantic("1.34.0"),
+			wantObservedGeneration:   5,
+			wantConditionObservedGen: 5,
+		},
+		{
+			name:                     "nil version: unknown version defaults to taking the host values",
+			version:                  nil,
+			wantObservedGeneration:   5,
+			wantConditionObservedGen: 5,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tr := &translator{virtualClusterVersion: tc.version}
+
+			desired := tr.DesiredVirtualStatus(*hostStatus.DeepCopy(), *virtualStatus.DeepCopy())
+
+			// host status is adopted
+			assert.Equal(t, corev1.PodRunning, desired.Phase)
+			assert.Assert(t, len(desired.Conditions) == 1)
+			assert.Equal(t, corev1.PodReady, desired.Conditions[0].Type)
+
+			// the virtual QOS class is always kept, it is immutable on the virtual pod
+			assert.Equal(t, corev1.PodQOSGuaranteed, desired.QOSClass)
+
+			assert.Equal(t, tc.wantObservedGeneration, desired.ObservedGeneration)
+			assert.Equal(t, tc.wantConditionObservedGen, desired.Conditions[0].ObservedGeneration)
+		})
+	}
+}
+
+func TestDesiredVirtualStatusDoesNotMutateInputs(t *testing.T) {
+	tr := &translator{virtualClusterVersion: utilversion.MustParseSemantic("1.33.0")}
+
+	hostStatus := corev1.PodStatus{
+		QOSClass:           corev1.PodQOSBurstable,
+		ObservedGeneration: 5,
+		Conditions: []corev1.PodCondition{{
+			Type:               corev1.PodReady,
+			ObservedGeneration: 5,
+		}},
+	}
+	virtualStatus := corev1.PodStatus{QOSClass: corev1.PodQOSGuaranteed, ObservedGeneration: 2}
+
+	desired := tr.DesiredVirtualStatus(hostStatus, virtualStatus)
+	desired.Conditions[0].Status = corev1.ConditionFalse
+
+	assert.Equal(t, corev1.PodQOSBurstable, hostStatus.QOSClass)
+	assert.Equal(t, int64(5), hostStatus.ObservedGeneration)
+	assert.Equal(t, int64(5), hostStatus.Conditions[0].ObservedGeneration)
+	assert.Equal(t, corev1.ConditionStatus(""), hostStatus.Conditions[0].Status)
+	assert.Equal(t, int64(2), virtualStatus.ObservedGeneration)
+}

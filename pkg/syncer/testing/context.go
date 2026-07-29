@@ -14,6 +14,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	utilversion "k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/rest"
 
@@ -63,10 +64,19 @@ func FakeStartSyncer(t *testing.T, ctx *synccontext.RegisterContext, create func
 func NewFakeRegisterContext(vConfig *config.VirtualClusterConfig, pClient *testingutil.FakeIndexClient, vClient *testingutil.FakeIndexClient) *synccontext.RegisterContext {
 	ctx := context.Background()
 
-	// mirror production, where the host version is fetched once and carried on the context
+	// mirror production, where the host version is fetched and parsed once and carried on
+	// the context
 	var hostClusterVersion *version.Info
 	if vConfig.HostClient != nil {
 		hostClusterVersion, _ = vConfig.HostClient.Discovery().ServerVersion()
+	}
+	var parsedHostClusterVersion *utilversion.Version
+	if hostClusterVersion != nil {
+		var err error
+		parsedHostClusterVersion, err = synccontext.ParseClusterVersion(hostClusterVersion)
+		if err != nil {
+			panic(err.Error())
+		}
 	}
 
 	// create register context
@@ -78,7 +88,7 @@ func NewFakeRegisterContext(vConfig *config.VirtualClusterConfig, pClient *testi
 		CurrentNamespaceClient: pClient,
 		VirtualManager:         testingutil.NewFakeManager(vClient),
 		HostManager:            testingutil.NewFakeManager(pClient),
-		HostClusterVersion:     hostClusterVersion,
+		HostClusterVersion:     parsedHostClusterVersion,
 	}
 
 	// create new store

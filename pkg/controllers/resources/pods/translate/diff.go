@@ -34,19 +34,9 @@ func (t *translator) Diff(ctx *synccontext.SyncContext, event *synccontext.SyncE
 	vPod := event.Virtual
 	pPod := event.Host
 
-	// Copy the host status onto the virtual pod, but keep a few virtual values that the host
-	// must not overwrite:
-	//   - QOSClass: the host treats it as immutable (since K8s 1.32), so it can't be changed.
-	//   - ObservedGeneration: a virtual cluster on K8s < 1.34 doesn't store it, so copying the
-	//     host value would keep looking like a change and patch the status on every reconcile.
-	originalQOSClass := vPod.Status.QOSClass
-	originalObservedGeneration := vPod.Status.ObservedGeneration
-	vPod.Status = *pPod.Status.DeepCopy()
-	vPod.Status.QOSClass = originalQOSClass
-	if t.virtualClusterStripsObservedGeneration() {
-		vPod.Status.ObservedGeneration = originalObservedGeneration
-		vPod.Status.Conditions = stripConditionObservedGenerations(vPod.Status.Conditions)
-	}
+	// copy the host status onto the virtual pod, keeping the virtual values the host
+	// must not overwrite
+	vPod.Status = t.DesiredVirtualStatus(pPod.Status, vPod.Status)
 	err := t.convertResourceClaimStatuses(ctx, vPod, pPod.GetNamespace())
 	if err != nil {
 		return err
@@ -319,15 +309,17 @@ func (t *translator) conditionsCopyBidirectional(
 	})
 }
 
-// StripUnpersistedObservedGeneration zeroes ObservedGeneration on the pod status and its
-// conditions when the virtual cluster drops that field on write (K8s < 1.34), so callers can
-// compare against what the virtual apiserver will actually store.
-func (t *translator) StripUnpersistedObservedGeneration(status *corev1.PodStatus) {
-	if !t.virtualClusterStripsObservedGeneration() {
-		return
+// DesiredVirtualStatus returns the host status with the virtual values kept that the
+// virtual apiserver can't change (QOSClass) or won't persist (ObservedGeneration on
+// K8s < 1.34).
+func (t *translator) DesiredVirtualStatus(hostStatus, virtualStatus corev1.PodStatus) corev1.PodStatus {
+	desired := *hostStatus.DeepCopy()
+	desired.QOSClass = virtualStatus.QOSClass
+	if t.virtualClusterStripsObservedGeneration() {
+		desired.ObservedGeneration = virtualStatus.ObservedGeneration
+		desired.Conditions = stripConditionObservedGenerations(desired.Conditions)
 	}
-	status.ObservedGeneration = 0
-	status.Conditions = stripConditionObservedGenerations(status.Conditions)
+	return desired
 }
 
 // stripConditionObservedGenerations returns a copy of the conditions with ObservedGeneration

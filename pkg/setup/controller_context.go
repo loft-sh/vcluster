@@ -378,11 +378,6 @@ func initControllerContext(
 	nodes.FakeNodesVersion = virtualClusterVersion.GitVersion
 	klog.FromContext(ctx).Info("Can connect to virtual cluster", "version", virtualClusterVersion.GitVersion)
 
-	hostClusterVersion, err := vClusterOptions.HostClient.Discovery().ServerVersion()
-	if err != nil {
-		return nil, errors.Wrap(err, "get host cluster version")
-	}
-
 	// create a new current namespace client
 	var currentNamespaceClient client.Client
 	if !vClusterOptions.ControlPlane.Standalone.Enabled {
@@ -405,7 +400,6 @@ func initControllerContext(
 		VirtualManager:        virtualManager,
 		VirtualRawConfig:      virtualRawConfig,
 		VirtualClusterVersion: virtualClusterVersion,
-		HostClusterVersion:    hostClusterVersion,
 
 		HostNamespaceClient: currentNamespaceClient,
 
@@ -422,6 +416,11 @@ func initControllerContext(
 	if vClusterOptions.PrivateNodes.Enabled {
 		// for private nodes, we don't need to store mappings
 		return controllerContext, nil
+	}
+
+	err = setHostClusterVersion(controllerContext, vClusterOptions)
+	if err != nil {
+		return nil, err
 	}
 
 	var localClient client.Client
@@ -441,4 +440,27 @@ func initControllerContext(
 	}
 	controllerContext.Mappings = mappings.NewMappingsRegistry(mappingStore)
 	return controllerContext, nil
+}
+
+// setHostClusterVersion fetches the host cluster version and sets it on the controller
+// context. The version is only needed when syncing pods to the host cluster, so this is
+// skipped for private nodes (and standalone, which implies private nodes) where there
+// might not be a reachable host cluster at all.
+func setHostClusterVersion(controllerContext *synccontext.ControllerContext, vClusterOptions *config.VirtualClusterConfig) error {
+	if vClusterOptions.PrivateNodes.Enabled {
+		return nil
+	}
+	if vClusterOptions.HostClient == nil {
+		return errors.New("nil HostClient")
+	}
+
+	hostClusterVersion, err := vClusterOptions.HostClient.Discovery().ServerVersion()
+	if err != nil {
+		return errors.Wrap(err, "get host cluster version")
+	}
+	controllerContext.HostClusterVersion, err = synccontext.ParseClusterVersion(hostClusterVersion)
+	if err != nil {
+		return errors.Wrap(err, "parse host cluster version")
+	}
+	return nil
 }

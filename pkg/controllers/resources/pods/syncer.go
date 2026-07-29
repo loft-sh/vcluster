@@ -93,16 +93,6 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		return nil, fmt.Errorf("failed to create scheduling config: %w", err)
 	}
 
-	// The host cluster version is discovered once at startup and carried on the context.
-	// It is nil in unit tests, which callers treat as "version unknown".
-	var hostClusterVersion *utilversion.Version
-	if ctx.HostClusterVersion != nil {
-		hostClusterVersion, err = utilversion.ParseSemantic(ctx.HostClusterVersion.String())
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse host cluster version: %w", err)
-		}
-	}
-
 	return &podSyncer{
 		GenericTranslator: genericTranslator,
 		Importer:          pro.NewImporter(podsMapper),
@@ -117,7 +107,9 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		podTranslator:         podTranslator,
 		nodeSelector:          nodeSelector,
 
-		hostClusterVersion: hostClusterVersion,
+		// nil when the host version is unknown; version gates fall back to
+		// version-independent behavior
+		hostClusterVersion: ctx.HostClusterVersion,
 
 		podSecurityStandard: ctx.Config.Policies.PodSecurityStandard,
 	}, nil
@@ -309,12 +301,9 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 		// A controller may wait for the pod to reach Succeeded or Failed before removing it, so
 		// without this the virtual pod stays Running and can never be deleted (dangling pods).
 		//
-		// Compare against the status we actually want the virtual pod to have, not the raw host
-		// status: QOSClass is immutable and ObservedGeneration is dropped by virtual apiservers
-		// on K8s < 1.34, so those fields legitimately differ and must not trigger an update.
-		desiredStatus := *event.Host.Status.DeepCopy()
-		desiredStatus.QOSClass = event.Virtual.Status.QOSClass
-		s.podTranslator.StripUnpersistedObservedGeneration(&desiredStatus)
+		// Compare against the status we actually want the virtual pod to have, not the raw
+		// host status: some fields legitimately differ and must not trigger an update.
+		desiredStatus := s.podTranslator.DesiredVirtualStatus(event.Host.Status, event.Virtual.Status)
 
 		if !equality.Semantic.DeepEqual(event.Virtual.Status, desiredStatus) {
 			updated := event.Virtual.DeepCopy()

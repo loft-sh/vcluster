@@ -67,7 +67,7 @@ type Translator interface {
 	Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error)
 	Diff(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Pod]) error
 	TranslateContainerEnv(ctx *synccontext.SyncContext, envVar []corev1.EnvVar, envFrom []corev1.EnvFromSource, vPod *corev1.Pod, serviceEnvMap map[string]string) ([]corev1.EnvVar, []corev1.EnvFromSource, error)
-	StripUnpersistedObservedGeneration(status *corev1.PodStatus)
+	DesiredVirtualStatus(hostStatus, virtualStatus corev1.PodStatus) corev1.PodStatus
 }
 
 func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder events.EventRecorder) (Translator, error) {
@@ -112,19 +112,12 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder events.EventR
 
 	// The host and virtual cluster versions are discovered once at startup and carried on the
 	// context. They are nil in unit tests, which callers treat as "version unknown".
-	var hostClusterVersion *utilversion.Version
-	if ctx.HostClusterVersion != nil {
-		hostClusterVersion, err = utilversion.ParseSemantic(ctx.HostClusterVersion.String())
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse host cluster version: %w", err)
-		}
-	}
-
+	hostClusterVersion := ctx.HostClusterVersion
 	var virtualClusterVersion *utilversion.Version
 	if ctx.VirtualClusterVersion != nil {
-		virtualClusterVersion, err = utilversion.ParseSemantic(ctx.VirtualClusterVersion.String())
+		virtualClusterVersion, err = synccontext.ParseClusterVersion(ctx.VirtualClusterVersion)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse virtual cluster version: %w", err)
+			return nil, fmt.Errorf("parse virtual cluster version: %w", err)
 		}
 	}
 
