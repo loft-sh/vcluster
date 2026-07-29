@@ -1,0 +1,293 @@
+package e2e
+
+import (
+	"cmp"
+	"context"
+	"reflect"
+
+	e2econtext "github.com/loft-sh/e2e-framework/pkg/context"
+	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/ginkgo/v2/types"
+)
+
+var (
+	setupOnly    = false
+	teardown     = true
+	teardownOnly = false
+
+	suiteContextStack    = NewStack[context.Context]()
+	process1ContextStack = NewStack[context.Context]()
+)
+
+func SetSetupOnly(b bool) {
+	setupOnly = b
+}
+
+func SetTeardown(b bool) {
+	teardown = b
+}
+
+func SetTeardownOnly(b bool) {
+	teardownOnly = b
+}
+
+type ContextMiddleware func(context.Context) context.Context
+
+// DeferCleanupCtx registers a cleanup function that receives the caller's
+// context values merged into the Ginkgo defer context. This ensures that values
+// on ctx at the call site (e.g. clients added in BeforeAll or resources created
+// in It) are available when the cleanup runs.
+//
+// Usage:
+//
+//	e2e.DeferCleanupCtx(ctx, cluster.Destroy(name))
+func DeferCleanupCtx(ctx context.Context, fn func(context.Context) (context.Context, error)) {
+	ginkgo.DeferCleanup(func(deferCtx context.Context) (context.Context, error) {
+		return fn(e2econtext.WithValues(deferCtx, ctx))
+	})
+}
+
+func ContextualAroundNode(ctx context.Context) context.Context {
+	report := ginkgo.CurrentSpecReport()
+	events := report.SpecEvents.WithType(types.SpecEventNodeStart)
+	event := events[len(events)-1]
+
+	switch event.NodeType {
+	case types.NodeTypeSynchronizedAfterSuite:
+		return ctx
+	case types.NodeTypeReportAfterSuite:
+		fallthrough
+	case types.NodeTypeCleanupAfterEach:
+		last, _ := suiteContextStack.Last()
+		current, _ := suiteContextStack.Peek()
+		if last != nil && current != nil {
+			return e2econtext.WithValues(ctx, e2econtext.WithValues(last, current))
+		}
+		return e2econtext.WithValues(ctx, cmp.Or(last, current))
+	case types.NodeTypeCleanupAfterSuite:
+		fallthrough
+	case types.NodeTypeCleanupAfterAll:
+		fallthrough
+	case types.NodeTypeCleanupInvalid:
+		last, _ := suiteContextStack.Last()
+		current, _ := suiteContextStack.Peek()
+		return e2econtext.WithValues(ctx, cmp.Or(last, current))
+	default:
+		current, _ := suiteContextStack.Peek()
+		return e2econtext.WithValues(ctx, current)
+	}
+}
+
+func ContextualNodeTransformer(nodeType types.NodeType, _ ginkgo.Offset, text string, args []any) (string, []any, []error) {
+	var newArgs []any
+
+	for idx, arg := range args {
+		isFn := reflect.TypeOf(arg).Kind() == reflect.Func
+		if !isFn {
+			newArgs = append(newArgs, arg)
+			continue
+		}
+
+		switch x := arg.(type) {
+		case func(context.Context) context.Context:
+			contextStack := suiteContextStack
+			if nodeType == types.NodeTypeSynchronizedBeforeSuite && idx == 0 {
+				contextStack = process1ContextStack
+			}
+			newArgs = append(newArgs, func(ctx context.Context) {
+				parentCtx, _ := suiteContextStack.Peek()
+				if parentCtx != nil {
+					ctx = e2econtext.WithValues(ctx, parentCtx)
+				}
+				ctx = getFnCtxCtxCallback(nodeType, x)(ctx)
+				contextStack.Push(ctx)
+				ginkgo.DeferCleanup(func() {
+					contextStack.Pop()
+				})
+			})
+		case func(context.Context) (context.Context, []byte):
+			contextStack := suiteContextStack
+			if nodeType == types.NodeTypeSynchronizedBeforeSuite && idx == 0 {
+				contextStack = process1ContextStack
+			}
+			newArgs = append(newArgs, func(ctx context.Context) []byte {
+				parentCtx, _ := suiteContextStack.Peek()
+				if parentCtx != nil {
+					ctx = e2econtext.WithValues(ctx, parentCtx)
+				}
+				var data []byte
+				ctx, data = x(ctx)
+				contextStack.Push(ctx)
+				ginkgo.DeferCleanup(func() {
+					contextStack.Pop()
+				})
+
+				return data
+			})
+		case func(context.Context, []byte) context.Context:
+			contextStack := suiteContextStack
+			if nodeType == types.NodeTypeSynchronizedBeforeSuite && idx == 0 {
+				contextStack = process1ContextStack
+			}
+			newArgs = append(newArgs, func(ctx context.Context, data []byte) {
+				parentCtx, _ := suiteContextStack.Peek()
+				if parentCtx != nil {
+					ctx = e2econtext.WithValues(ctx, parentCtx)
+				}
+				ctx = x(ctx, data)
+				contextStack.Push(ctx)
+				ginkgo.DeferCleanup(func() {
+					contextStack.Pop()
+				})
+			})
+		case func(context.Context):
+			fn := getFnCtxCallback(nodeType, x)
+			if nodeType == types.NodeTypeSynchronizedAfterSuite {
+				newArgs = append(newArgs, func(ctx context.Context) {
+					contextStack := suiteContextStack
+					if idx == 1 {
+						contextStack = process1ContextStack
+					}
+					last, _ := contextStack.Last()
+					current, _ := contextStack.Peek()
+					fn(e2econtext.WithValues(ctx, cmp.Or(last, current)))
+				})
+			} else {
+				newArgs = append(newArgs, fn)
+			}
+		case func():
+			newArgs = append(newArgs, getFnCallback(nodeType, x))
+		default:
+			newArgs = append(newArgs, arg)
+		}
+	}
+
+	return text, newArgs, nil
+}
+
+func getFnCallback(nodeType types.NodeType, fn func()) func() {
+	switch nodeType {
+	case types.NodeTypeBeforeEach:
+		return func() {
+			if setupOnly {
+				ginkgo.By("[" + nodeType.String() + "] skipped")
+			} else {
+				fn()
+			}
+		}
+	case types.NodeTypeAfterSuite:
+		fallthrough
+	case types.NodeTypeSynchronizedAfterSuite:
+		fallthrough
+	case types.NodeTypeAfterAll:
+		return func() {
+			if !teardown || setupOnly {
+				ginkgo.By("[" + nodeType.String() + "] skipped")
+			} else {
+				fn()
+			}
+		}
+	case types.NodeTypeAfterEach:
+		fallthrough
+	case types.NodeTypeIt:
+		return func() {
+			if teardownOnly || setupOnly {
+				ginkgo.By("[" + nodeType.String() + "] skipped")
+			} else {
+				fn()
+			}
+		}
+	case types.NodeTypeContainer:
+		return func() {
+			if setupOnly {
+				// Insert a case to focus so all other specs are skipped.
+				ginkgo.It("[Setup]", ginkgo.Focus, func() {
+					ginkgo.By("Setting up environment")
+				})
+			}
+
+			if teardownOnly {
+				// Insert a case to focus so all other specs are skipped.
+				ginkgo.It("[Teardown]", ginkgo.Focus, func() {
+					ginkgo.By("Tearing down environment")
+				})
+			}
+
+			fn()
+		}
+	}
+	return fn
+}
+
+func getFnCtxCallback(nodeType types.NodeType, fn func(context.Context)) func(context.Context) {
+	switch nodeType {
+	case types.NodeTypeBeforeEach:
+		return func(ctx context.Context) {
+			if setupOnly {
+				ginkgo.By("[" + nodeType.String() + "] skipped")
+			} else {
+				fn(ctx)
+			}
+		}
+	case types.NodeTypeAfterSuite:
+		fallthrough
+	case types.NodeTypeSynchronizedAfterSuite:
+		fallthrough
+	case types.NodeTypeAfterAll:
+		return func(ctx context.Context) {
+			if !teardown || setupOnly {
+				ginkgo.By("[" + nodeType.String() + "] skipped")
+			} else {
+				fn(ctx)
+			}
+		}
+	case types.NodeTypeAfterEach:
+		fallthrough
+	case types.NodeTypeIt:
+		return func(ctx context.Context) {
+			if teardownOnly || setupOnly {
+				ginkgo.By("[" + nodeType.String() + "] skipped")
+			} else {
+				fn(ctx)
+			}
+		}
+	}
+	return fn
+}
+
+func getFnCtxCtxCallback(nodeType types.NodeType, fn func(context.Context) context.Context) func(context.Context) context.Context {
+	switch nodeType {
+	case types.NodeTypeBeforeEach:
+		return func(ctx context.Context) context.Context {
+			if setupOnly {
+				ginkgo.By("[" + nodeType.String() + "] skipped")
+				return ctx
+			} else {
+				return fn(ctx)
+			}
+		}
+	case types.NodeTypeAfterSuite:
+		fallthrough
+	case types.NodeTypeAfterAll:
+		return func(ctx context.Context) context.Context {
+			if !teardown || setupOnly {
+				ginkgo.By("[" + nodeType.String() + "] skipped")
+				return ctx
+			} else {
+				return fn(ctx)
+			}
+		}
+	case types.NodeTypeAfterEach:
+		fallthrough
+	case types.NodeTypeIt:
+		return func(ctx context.Context) context.Context {
+			if teardownOnly || setupOnly {
+				ginkgo.By("[" + nodeType.String() + "] skipped")
+				return ctx
+			} else {
+				return fn(ctx)
+			}
+		}
+	}
+	return fn
+}
