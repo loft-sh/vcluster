@@ -46,6 +46,7 @@ const (
 	ClusterAutoScalerDaemonSetAnnotation = "cluster-autoscaler.kubernetes.io/daemonset-pod"
 	ServiceAccountNameAnnotation         = "vcluster.loft.sh/service-account-name"
 	ServiceAccountTokenAnnotation        = "vcluster.loft.sh/token-"
+	ManagedSchedulingGatesAnnotation     = "vcluster.loft.sh/managed-scheduling-gates"
 )
 
 var (
