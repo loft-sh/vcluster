@@ -167,7 +167,11 @@ jobs:
           retention-days: 7
 
   ginkgo-e2e-tests:
-    name: Execute test suites
+    # A no-op `edited` run must not publish a check under the same name as the
+    # run that actually executed the suite. GitHub surfaces only the newest run
+    # per check name, so the skip silently overwrote the real pass/fail and the
+    # PR showed "skipping" for a suite that had already gone red. DEVOPS-1203.
+    name: "${{ needs.parse_label-filter.outputs.skip-edited == 'true' && 'Execute test suites (skipped, PR description edit)' || 'Execute test suites' }}"
     needs:
       - build
       - parse_label-filter
