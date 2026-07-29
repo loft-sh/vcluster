@@ -93,17 +93,6 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		return nil, fmt.Errorf("failed to create scheduling config: %w", err)
 	}
 
-	hostClusterVersionInfo, err := ctx.Config.HostClient.Discovery().ServerVersion()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get virtual cluster version : %w", err)
-	}
-
-	hostClusterVersion, err := utilversion.ParseSemantic(hostClusterVersionInfo.String())
-	if err != nil {
-		// This should never happen
-		return nil, fmt.Errorf("failed to parse host cluster version : %w", err)
-	}
-
 	return &podSyncer{
 		GenericTranslator: genericTranslator,
 		Importer:          pro.NewImporter(podsMapper),
@@ -118,7 +107,9 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		podTranslator:         podTranslator,
 		nodeSelector:          nodeSelector,
 
-		hostClusterVersion: hostClusterVersion,
+		// nil when the host version is unknown; version gates fall back to
+		// version-independent behavior
+		hostClusterVersion: ctx.HostClusterVersion,
 
 		podSecurityStandard: ctx.Config.Policies.PodSecurityStandard,
 	}, nil
@@ -306,18 +297,17 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 			}
 		}
 
-		// propagate pod status changes from host cluster to vcluster when the host pod
-		// is being deleted. We need this because there is a possibility that pod is owned
-		// by a controller which wants the pod status to be either succeeded or failed before
-		// deleting it. But because these status changes are not propagated
-		// to vcluster pod when the host pod is being deleted, vcluster pod's status still
-		// shows as running, hence it cannot be deleted until it has failed or succeeded. This
-		// results in dangling pods on vcluster
-		if !equality.Semantic.DeepEqual(event.Virtual.Status, event.Host.Status) {
+		// Keep propagating the host status to the virtual pod while the host pod is deleting.
+		// A controller may wait for the pod to reach Succeeded or Failed before removing it, so
+		// without this the virtual pod stays Running and can never be deleted (dangling pods).
+		//
+		// Compare against the status we actually want the virtual pod to have, not the raw
+		// host status: some fields legitimately differ and must not trigger an update.
+		desiredStatus := s.podTranslator.DesiredVirtualStatus(event.Host.Status, event.Virtual.Status)
+
+		if !equality.Semantic.DeepEqual(event.Virtual.Status, desiredStatus) {
 			updated := event.Virtual.DeepCopy()
-			updated.Status = *event.Host.Status.DeepCopy()
-			// QOSClass is immutable in newer Kubernetes versions; preserve the existing value.
-			updated.Status.QOSClass = event.Virtual.Status.QOSClass
+			updated.Status = desiredStatus
 			ctx.Log.Infof("update virtual pod %s, because status has changed", event.Virtual.Name)
 			err := ctx.VirtualClient.Status().Update(ctx, updated)
 			if err != nil && !kerrors.IsNotFound(err) {
@@ -370,16 +360,6 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 		return ctrl.Result{}, err
 	}
 
-	// ignore the QOSClass field while updating pod status when there is a
-	// mismatch in this field value on vcluster and host. This field
-	// has become immutable from k8s 1.32 version and patch fails if
-	// syncer tries to update this field.
-	// This needs to be done before patch object is created when
-	// NewSyncerPatcher() is called so that there are no
-	// differences found in host QOSClass and virtual QOSClass and
-	// a patch event for this field is not created
-	event.Host.Status.QOSClass = event.Virtual.Status.QOSClass
-
 	// patch objects
 	patch, err := patcher.NewSyncerPatcher(ctx, event.Host, event.Virtual, patcher.TranslatePatches(ctx.Config.Sync.ToHost.Pods.Patches, false))
 	if err != nil {
@@ -431,7 +411,9 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 }
 
 func (s *podSyncer) resizeHostPodContainerResourcesInPlace(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Pod]) error {
-	if s.hostClusterVersion.LessThan(utilversion.MustParseSemantic("1.35.0")) {
+	// in-place pod resize is only available on the host from K8s 1.35; skip it when the host
+	// version is older or not known.
+	if s.hostClusterVersion == nil || s.hostClusterVersion.LessThan(utilversion.MustParseSemantic("1.35.0")) {
 		return nil
 	}
 
