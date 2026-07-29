@@ -418,6 +418,11 @@ func initControllerContext(
 		return controllerContext, nil
 	}
 
+	err = setHostClusterVersion(controllerContext, vClusterOptions)
+	if err != nil {
+		return nil, err
+	}
+
 	var localClient client.Client
 	if localManager != nil {
 		localClient = localManager.GetClient()
@@ -435,4 +440,27 @@ func initControllerContext(
 	}
 	controllerContext.Mappings = mappings.NewMappingsRegistry(mappingStore)
 	return controllerContext, nil
+}
+
+// setHostClusterVersion fetches the host cluster version and sets it on the controller
+// context. The version is only needed when syncing pods to the host cluster, so this is
+// skipped for private nodes (and standalone, which implies private nodes) where there
+// might not be a reachable host cluster at all.
+func setHostClusterVersion(controllerContext *synccontext.ControllerContext, vClusterOptions *config.VirtualClusterConfig) error {
+	if vClusterOptions.PrivateNodes.Enabled {
+		return nil
+	}
+	if vClusterOptions.HostClient == nil {
+		return errors.New("nil HostClient")
+	}
+
+	hostClusterVersion, err := vClusterOptions.HostClient.Discovery().ServerVersion()
+	if err != nil {
+		return errors.Wrap(err, "get host cluster version")
+	}
+	controllerContext.HostClusterVersion, err = synccontext.ParseClusterVersion(hostClusterVersion)
+	if err != nil {
+		return errors.Wrap(err, "parse host cluster version")
+	}
+	return nil
 }
