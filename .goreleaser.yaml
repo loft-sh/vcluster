@@ -1,5 +1,24 @@
 version: 2
 
+# Only the `builds:` section of this file is live. Since the monorepo merge
+# (DEVOPS-1013) the OSS release halves -- `vcluster-oss`/`vcluster-cli` images,
+# the GitHub release, and both Homebrew formulas -- are produced by the root
+# .goreleaser.yaml of this repo, not by this file. Nothing dispatches a builder
+# against it: loft-sh/vcluster carries no release.yaml, and this tree mirrors
+# there as a pure source mirror.
+#
+# What still uses it: `goreleaser build --snapshot --id vcluster|vcluster-cli`
+# in the OSS e2e workflows (e2e.yaml, e2e-ginkgo.yaml, e2e-ginkgo-nightly.yaml),
+# which is why the file is not deleted.
+#
+# The `release:`, `dockers:`, `docker_manifests:` and `brews:` blocks below are
+# therefore inert, and they still carry the pre-DEVOPS-1083 shape:
+# `prerelease: auto`, build-time moving tags, and `skip_upload: auto` on the
+# vcluster formula. Do NOT treat them as the current release contract, and do
+# not wire a release pipeline back to this file without first porting the
+# DEVOPS-1083 promotion gating from the root config -- otherwise a build would
+# move :latest and the stable formula again, bypassing human promotion.
+
 project_name: vcluster
 
 before:
