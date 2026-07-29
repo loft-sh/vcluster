@@ -4,17 +4,17 @@
 //	the version skew handling of the pod syncer (issue #3578).
 //
 // Run:      just run-e2e 'sync'
-package e2e
+package e2e_next
 
 import (
 	"context"
 	_ "embed"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
-	"github.com/loft-sh/vcluster/e2e/clusters"
-	"github.com/loft-sh/vcluster/e2e/labels"
-	"github.com/loft-sh/vcluster/e2e/setup/lazyvcluster"
-	test_core "github.com/loft-sh/vcluster/e2e/test_core/sync"
+	"github.com/loft-sh/vcluster/e2e-next/clusters"
+	"github.com/loft-sh/vcluster/e2e-next/labels"
+	"github.com/loft-sh/vcluster/e2e-next/setup/lazyvcluster"
+	test_core "github.com/loft-sh/vcluster/e2e-next/test_core/sync"
 	. "github.com/onsi/ginkgo/v2"
 )
 
