@@ -1,0 +1,194 @@
+name: vCluster E2E Nightly (Ginkgo)
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+    inputs:
+      notify:
+        description: "Send Slack notifications"
+        type: boolean
+        default: true
+      ginkgo-label:
+        description: 'Ginkgo label filter. Defaults to empty (all tests).'
+        type: string
+        default: ""
+
+concurrency:
+  group: e2e-ginkgo-nightly-${{ github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: read
+  id-token: write
+  actions: read
+
+env:
+  REPOSITORY_NAME: ghcr.io/loft-sh/vcluster
+  TAG_NAME: dev-next
+
+jobs:
+  e2e-tests:
+    name: Run Ginkgo E2E Tests
+    if: github.repository_owner == 'loft-sh'
+    runs-on: large-8_32
+    timeout-minutes: 180
+
+    outputs:
+      failure-summary: ${{ steps.run-tests.outputs.failure-summary }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - run: git fetch --force --tags
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Setup GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          install-only: true
+          version: latest
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: "v3.19.0"
+
+      - name: Build vcluster image and CLI
+        run: |
+          set -x
+          TELEMETRY_PRIVATE_KEY="" goreleaser build \
+            --single-target --snapshot --id vcluster --clean --output ./vcluster
+          docker build \
+            -t "${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }}" \
+            -f Dockerfile.release \
+            --build-arg TARGETARCH=amd64 \
+            --build-arg TARGETOS=linux .
+          docker image ls
+          TELEMETRY_PRIVATE_KEY="" goreleaser build \
+            --single-target --snapshot --id vcluster-cli --clean --output ./vcluster
+
+      - name: Set up vCluster CLI in GOBIN
+        run: |
+          GOBIN=$(go env GOPATH)/bin
+          mkdir -p "$GOBIN"
+          chmod +x vcluster
+          cp vcluster "$GOBIN/vcluster"
+          echo "GOBIN=$GOBIN" >> "$GITHUB_ENV"
+
+      - name: Ensure bridge netfilter modules are loaded
+        run: |
+          if [[ ! -f /proc/sys/net/bridge/bridge-nf-call-iptables ]]; then
+            sudo modprobe -va bridge br_netfilter
+            echo "Enabled bridge netfilter modules successfully"
+          else
+            echo "Bridge netfilter modules are already enabled"
+          fi
+
+      - name: GCP Login
+        id: gcp-auth
+        continue-on-error: true
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+
+      - name: Set up gcloud
+        if: steps.gcp-auth.outcome == 'success'
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Run e2e tests
+        id: run-tests
+        uses: loft-sh/github-actions/.github/actions/run-ginkgo@run-ginkgo/v1
+        with:
+          test-dir: e2e
+          upload-report: "true"
+          reports-bucket: ${{ vars.E2E_INSIGHTS_BUCKET }}
+          workflow-file: e2e-ginkgo-nightly.yaml
+          ginkgo-label: ${{ inputs.ginkgo-label }}
+          timeout: "60m"
+          additional-args: "--vcluster-image=${{ env.REPOSITORY_NAME }}:${{ env.TAG_NAME }} --teardown=false"
+          additional-ginkgo-flags: "-v"
+
+      - name: Upload Ginkgo JSON report
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: ginkgo-report
+          path: test-reports/report.json
+          if-no-files-found: ignore
+
+      - name: Collect debug info on failure
+        if: failure()
+        run: |
+          set +e
+
+          echo "=== All pods ==="
+          kubectl get pods -A
+
+          echo ""
+          echo "=== vCluster instances ==="
+          for NS in $(kubectl get pods -A -l app=vcluster \
+              -o jsonpath='{range .items[*]}{.metadata.namespace}{"\n"}{end}' 2>/dev/null | sort -u); do
+            echo ""
+            echo "--- vCluster namespace: $NS ---"
+
+            NOT_READY=$(kubectl get pods -n "$NS" -l app=vcluster \
+              -o jsonpath='{range .items[*]}{range .status.conditions[?(@.type=="Ready")]}{.status}{"\n"}{end}{end}' \
+              2>/dev/null | grep -c "^False$" || true)
+
+            if [ "$NOT_READY" -gt 0 ]; then
+              echo "Pods NOT ready — describing:"
+              kubectl describe pods -n "$NS" -l app=vcluster || true
+              echo ""
+              kubectl get events -n "$NS" --sort-by='.lastTimestamp' || true
+              echo ""
+              echo "Syncer logs (current):"
+              kubectl logs -n "$NS" -l app=vcluster -c syncer --tail=500 2>/dev/null || \
+                kubectl logs -n "$NS" -l app=vcluster --tail=500 2>/dev/null || true
+              echo ""
+              echo "Syncer logs (previous):"
+              kubectl logs -n "$NS" -l app=vcluster -c syncer --previous --tail=200 2>/dev/null || true
+            else
+              echo "Pods ready — collecting syncer logs:"
+              kubectl logs -n "$NS" -l app=vcluster -c syncer --tail=500 2>/dev/null || \
+                kubectl logs -n "$NS" -l app=vcluster --tail=500 2>/dev/null || true
+            fi
+          done
+
+  notify:
+    name: Send Slack Notifications
+    if: always() && github.repository_owner == 'loft-sh' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.notify))
+    needs: [e2e-tests]
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Notify ci-tests-alerts
+        uses: loft-sh/github-actions/.github/actions/ci-test-notify@b5a50da8a53ca1021b783290630061078bdb12cf # ci-test-notify/v1
+        with:
+          test-name: "vCluster E2E Nightly"
+          status: ${{ needs.e2e-tests.result }}
+          details: |
+            E2E Tests Job: ${{ needs.e2e-tests.result }}
+            ${{ needs.e2e-tests.result == 'failure' && needs.e2e-tests.outputs.failure-summary || '' }}
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL_CI_TESTS_ALERTS }}
+
+      - name: Notify dev-vcluster
+        if: always() && needs.e2e-tests.result != 'success'
+        uses: loft-sh/github-actions/.github/actions/ci-test-notify@b5a50da8a53ca1021b783290630061078bdb12cf # ci-test-notify/v1
+        with:
+          test-name: "vCluster E2E Nightly"
+          status: ${{ needs.e2e-tests.result }}
+          details: |
+            E2E Tests Job: ${{ needs.e2e-tests.result }}
+            ${{ needs.e2e-tests.outputs.failure-summary || 'No detailed failure summary available. Check the build logs for more details.' }}
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL_DEV_VCLUSTER }}

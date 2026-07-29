@@ -1,0 +1,319 @@
+version: 2
+
+project_name: vcluster
+
+before:
+  hooks:
+    - '{{ if not .IsSnapshot }}just embed-chart {{ .Version }}{{ else }}echo "Skipping embed-chart"{{ end }}'
+    - '{{ if not .IsSnapshot }}just clean-release{{ else }}echo "Skipping clean-release"{{ end }}'
+    - '{{ if not .IsSnapshot }}just copy-assets{{ else }}echo "Skipping copy-assets"{{ end }}'
+    - '{{ if not .IsSnapshot }}just generate-vcluster-latest-images {{ .Version }}{{ else }}echo "Skipping generate-vcluster-latest-images"{{ end }}'
+    - '{{ if not .IsSnapshot }}just generate-vcluster-optional-images {{ .Version }}{{ else }}echo "Skipping generate-vcluster-optional-images"{{ end }}'
+    - '{{ if not .IsSnapshot }}just generate-matrix-specific-images {{ .Version }}{{ else }}echo "Skipping generate-matrix-specific-images"{{ end }}'
+
+source:
+  format: tar.gz
+
+builds:
+  - id: vcluster
+    env:
+      - CGO_ENABLED=0
+      - GO111MODULE=on
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    binary: vcluster
+    main: ./cmd/vcluster
+    dir: .
+    flags:
+      - -trimpath
+      - -mod
+      - vendor
+    tags:
+      - embed_chart
+    ldflags:
+      - -s -w
+      - -X github.com/loft-sh/vcluster/pkg/telemetry.SyncerVersion={{.Version}}
+      - -X github.com/loft-sh/vcluster/pkg/telemetry.telemetryPrivateKey={{ with index .Env "TELEMETRY_PRIVATE_KEY" }}{{ . }}{{ end }}
+
+  - id: vcluster-cli
+    env:
+      - CGO_ENABLED=0
+      - GO111MODULE=on
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    binary: vcluster
+    main: ./cmd/vclusterctl
+    dir: .
+    flags:
+      - -trimpath
+      - -mod
+      - vendor
+    tags:
+      - embed_chart
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X github.com/loft-sh/vcluster/pkg/telemetry.SyncerVersion={{.Version}}
+      - -X github.com/loft-sh/vcluster/pkg/telemetry.telemetryPrivateKey={{ with index .Env "TELEMETRY_PRIVATE_KEY" }}{{ . }}{{ end }}
+
+archives:
+  - id: vcluster_cli_archives
+    format: binary
+    builds:
+      - vcluster-cli
+    name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
+    builds_info:
+      group: root
+      owner: root
+  - id: syncer_archives
+    format: binary
+    builds:
+      - vcluster
+    name_template: "syncer-{{ .Os }}-{{ .Arch }}"
+    builds_info:
+      group: root
+      owner: root
+
+sboms:
+  - id: vcluster_sbom
+    artifacts: binary
+    documents:
+      - '{{ if eq .ArtifactName "vcluster" }}syncer-{{ .Os }}-{{ .Arch }}.sbom{{ else }}{{ .ArtifactName }}.sbom{{ end }}'
+
+checksum:
+  name_template: "checksums.txt"
+  extra_files:
+    - glob: ./release/*
+    - glob: ./chart/values.schema.json
+
+signs:
+  - cmd: cosign
+    env:
+      - COSIGN_EXPERIMENTAL=1
+    certificate: "${artifact}.pem"
+    args:
+      - sign-blob
+      - "--output-certificate=${certificate}"
+      - "--output-signature=${signature}"
+      - "${artifact}"
+      - "--yes" # needed on cosign 2.0.0+
+    artifacts: checksum
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+release:
+  prerelease: auto
+  make_latest: false
+  # Re-runs of this workflow against the same tag re-upload assets to an
+  # already-populated GitHub Release and 422 with `already_exists`. This
+  # tells goreleaser to fetch+delete the conflicting asset and retry the
+  # upload only when it sees that 422, so first-run cost is unchanged.
+  replace_existing_artifacts: true
+
+  extra_files:
+    - glob: ./chart/values.schema.json
+
+brews:
+  - name: vcluster
+    ids:
+      - vcluster_cli_archives
+    dependencies:
+      - name: helm
+      - name: kubernetes-cli
+    repository:
+      owner: loft-sh
+      name: homebrew-tap
+    directory: Formula
+    homepage: https://www.vcluster.com
+    license: Apache-2.0
+    description: "Creates fully functional virtual k8s cluster inside host k8s cluster's namespace"
+    conflicts:
+      - vcluster
+      - loft-sh/tap/vcluster-experimental
+    test: |
+      help_output = "vcluster root command"
+      assert_match help_output, shell_output("#{bin}/vcluster --help")
+    commit_author:
+      name: loft-bot
+      email: 73976634+loft-bot@users.noreply.github.com
+    skip_upload: auto
+  - name: vcluster-experimental
+    ids:
+      - vcluster_cli_archives
+    dependencies:
+      - name: helm
+      - name: kubernetes-cli
+    repository:
+      owner: loft-sh
+      name: homebrew-tap
+    directory: Formula
+    homepage: https://www.vcluster.com
+    license: Apache-2.0
+    description: "Creates fully functional virtual k8s cluster inside host k8s cluster's namespace"
+    conflicts:
+      - vcluster
+      - loft-sh/tap/vcluster
+    test: |
+      help_output = "vcluster root command"
+      assert_match help_output, shell_output("#{bin}/vcluster --help")
+    commit_author:
+      name: loft-bot
+      email: 73976634+loft-bot@users.noreply.github.com
+
+dockers:
+  # --- Vcluster images ---
+  - image_templates:
+      - ghcr.io/loft-sh/vcluster-oss:{{ .Version }}-amd64
+      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster-oss:latest-amd64{{ end }}'
+      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster-oss:{{ .Major }}-amd64{{ end }}'
+      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster-oss:{{ .Major }}.{{ .Minor }}-amd64{{ end }}'
+    use: buildx
+    dockerfile: Dockerfile.release
+    ids:
+      - vcluster
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+
+  - image_templates:
+      - ghcr.io/loft-sh/vcluster-oss:{{ .Version }}-arm64v8
+      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster-oss:latest-arm64v8{{ end }}'
+      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster-oss:{{ .Major }}-arm64v8{{ end }}'
+      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster-oss:{{ .Major }}.{{ .Minor }}-arm64v8{{ end }}'
+    use: buildx
+    goarch: arm64
+    dockerfile: Dockerfile.release
+    ids:
+      - vcluster
+    build_flag_templates:
+      - "--platform=linux/arm64/v8"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+
+  # --- Vcluster-cli images ---
+  - image_templates:
+      - ghcr.io/loft-sh/vcluster-cli:{{ .Version }}-amd64
+      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster-cli:latest-amd64{{ end }}'
+      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster-cli:{{ .Major }}-amd64{{ end }}'
+      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster-cli:{{ .Major }}.{{ .Minor }}-amd64{{ end }}'
+    use: buildx
+    dockerfile: Dockerfile.cli.release
+    ids:
+      - vcluster-cli
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+
+  - image_templates:
+      - ghcr.io/loft-sh/vcluster-cli:{{ .Version }}-arm64v8
+      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster-cli:latest-arm64v8{{ end }}'
+      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster-cli:{{ .Major }}-arm64v8{{ end }}'
+      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/vcluster-cli:{{ .Major }}.{{ .Minor }}-arm64v8{{ end }}'
+    use: buildx
+    goarch: arm64
+    dockerfile: Dockerfile.cli.release
+    ids:
+      - vcluster-cli
+    build_flag_templates:
+      - "--platform=linux/arm64/v8"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+
+docker_manifests:
+  # --- Vcluster multi arch ---
+  - name_template: ghcr.io/loft-sh/vcluster-oss:{{ .Version }}
+    image_templates:
+      - ghcr.io/loft-sh/vcluster-oss:{{ .Version }}-amd64
+      - ghcr.io/loft-sh/vcluster-oss:{{ .Version }}-arm64v8
+
+  - name_template: ghcr.io/loft-sh/vcluster-oss:latest
+    image_templates:
+      - ghcr.io/loft-sh/vcluster-oss:latest-amd64
+      - ghcr.io/loft-sh/vcluster-oss:latest-arm64v8
+    skip_push: auto
+
+  - name_template: ghcr.io/loft-sh/vcluster-oss:{{ .Major }}
+    image_templates:
+      - ghcr.io/loft-sh/vcluster-oss:{{ .Major }}-amd64
+      - ghcr.io/loft-sh/vcluster-oss:{{ .Major }}-arm64v8
+    skip_push: auto
+
+  - name_template: ghcr.io/loft-sh/vcluster-oss:{{ .Major }}.{{ .Minor }}
+    image_templates:
+      - ghcr.io/loft-sh/vcluster-oss:{{ .Major }}.{{ .Minor }}-amd64
+      - ghcr.io/loft-sh/vcluster-oss:{{ .Major }}.{{ .Minor }}-arm64v8
+    skip_push: auto
+
+  # --- Vcluster-cli multi arch ---
+  - name_template: ghcr.io/loft-sh/vcluster-cli:{{ .Version }}
+    image_templates:
+      - ghcr.io/loft-sh/vcluster-cli:{{ .Version }}-amd64
+      - ghcr.io/loft-sh/vcluster-cli:{{ .Version }}-arm64v8
+
+  - name_template: ghcr.io/loft-sh/vcluster-cli:latest
+    image_templates:
+      - ghcr.io/loft-sh/vcluster-cli:latest-amd64
+      - ghcr.io/loft-sh/vcluster-cli:latest-arm64v8
+    skip_push: auto
+
+  - name_template: ghcr.io/loft-sh/vcluster-cli:{{ .Major }}
+    image_templates:
+      - ghcr.io/loft-sh/vcluster-cli:{{ .Major }}-amd64
+      - ghcr.io/loft-sh/vcluster-cli:{{ .Major }}-arm64v8
+    skip_push: auto
+
+  - name_template: ghcr.io/loft-sh/vcluster-cli:{{ .Major }}.{{ .Minor }}
+    image_templates:
+      - ghcr.io/loft-sh/vcluster-cli:{{ .Major }}.{{ .Minor }}-amd64
+      - ghcr.io/loft-sh/vcluster-cli:{{ .Major }}.{{ .Minor }}-arm64v8
+    skip_push: auto
+
+  - name_template: loftsh/vcluster-cli:{{ .Major }}
+    image_templates:
+      - loftsh/vcluster-cli:{{ .Major }}-amd64
+      - loftsh/vcluster-cli:{{ .Major }}-arm64v8
+    skip_push: auto
+
+docker_signs:
+  - cmd: cosign
+    env:
+      - COSIGN_EXPERIMENTAL=1
+    artifacts: all
+    args:
+      - "sign"
+      - "${artifact}"
+      - "--yes" # needed on cosign 2.0.0+
