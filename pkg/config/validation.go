@@ -905,6 +905,9 @@ func validatePrivatedNodesMode(vConfig *VirtualClusterConfig) error {
 		if vConfig.ControlPlane.Endpoint != "" {
 			return fmt.Errorf("endpoint is only supported in private nodes mode")
 		}
+		if vConfig.Deploy.CSI.KubeVirt.Enabled {
+			return fmt.Errorf("kubevirt csi is only supported in private nodes mode")
+		}
 
 		return nil
 	}

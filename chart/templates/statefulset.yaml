@@ -1,5 +1,6 @@
 {{- include "vcluster.exportKubeConfig.validate" . }}
 {{- include "vcluster.legacy.volumeSnapshots.validate" . }}
+{{- include "vcluster.kubeVirtCSI.validate" . }}
 apiVersion: apps/v1
 kind: {{ include "vcluster.kind" . }}
 metadata:

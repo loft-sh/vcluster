@@ -337,6 +337,9 @@ type Deploy struct {
 	// CNI holds dedicated CNI configuration.
 	CNI CNI `json:"cni,omitempty"`
 
+	// CSI holds dedicated CSI configuration.
+	CSI CSI `json:"csi,omitempty"`
+
 	// LocalPathProvisioner holds dedicated local path provisioner configuration.
 	LocalPathProvisioner LocalPathProvisioner `json:"localPathProvisioner,omitempty"`
 
@@ -353,6 +356,59 @@ type Deploy struct {
 
 	// ArgoCD holds dedicated configuration for argoCD Apps to deploy
 	ArgoCD vclusterconfig.ArgoCDDeploy `json:"argoCD,omitempty"`
+}
+
+type CSI struct {
+	// KubeVirt holds dedicated kubevirt CSI configuration.
+	KubeVirt CSIKubeVirt `json:"kubeVirt,omitempty"`
+}
+
+type CSIKubeVirt struct {
+	// Enabled defines if kubevirt CSI should be enabled. This allows workloads within this virtual cluster to use
+	// persistent volumes that vCluster provisions within its own namespace in the host cluster and hot plugs into
+	// the kubevirt virtual machines that back the nodes of this virtual cluster. The virtual machines have to run
+	// within the same namespace as this virtual cluster and vCluster annotates the nodes with the virtual machine
+	// they run on, which the CSI node plugin needs. The volumes are provisioned as CDI data volumes, so CDI has to
+	// be installed within the host cluster. This is only supported in private nodes mode.
+	Enabled bool `json:"enabled,omitempty"`
+
+	// Image is the image for the kubevirt CSI node plugin. The controller side is part of the vCluster control
+	// plane, so this is the only image that is deployed.
+	Image string `json:"image,omitempty"`
+
+	// ImagePullPolicy is the policy how to pull the image.
+	ImagePullPolicy string `json:"imagePullPolicy,omitempty"`
+
+	// HostLabels are additional labels vCluster adds to the persistent volume claims it creates within the
+	// namespace of this virtual cluster in the host cluster.
+	HostLabels map[string]string `json:"hostLabels,omitempty"`
+
+	// StorageClass holds configuration for the storage class that is created within this virtual cluster.
+	StorageClass CSIKubeVirtStorageClass `json:"storageClass,omitempty"`
+}
+
+type CSIKubeVirtStorageClass struct {
+	// Enabled defines if the storage class should be created within this virtual cluster.
+	Enabled bool `json:"enabled,omitempty"`
+
+	// Name is the name of the storage class.
+	Name string `json:"name,omitempty"`
+
+	// Default defines if the storage class should be the default storage class of this virtual cluster. This is not
+	// allowed while deploy.localPathProvisioner is enabled, because that creates a default storage class as well and
+	// two default storage classes leave it to Kubernetes which provisioner a claim without a storage class ends up on.
+	Default bool `json:"default,omitempty"`
+
+	// HostStorageClassName is the storage class within the host cluster that is used to provision the volumes.
+	// If empty, the default storage class of the host cluster is used.
+	HostStorageClassName string `json:"hostStorageClassName,omitempty"`
+
+	// HostVolumeMode pins the volume mode of the volumes that are created within the host cluster. If empty, the
+	// storage profile CDI keeps for the storage class of the host cluster decides.
+	HostVolumeMode string `json:"hostVolumeMode,omitempty"`
+
+	// Bus is the bus the volumes are attached with to the virtual machine.
+	Bus string `json:"bus,omitempty"`
 }
 
 type DeployMetricsServer struct {

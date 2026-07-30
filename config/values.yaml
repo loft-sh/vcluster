@@ -493,6 +493,19 @@ deploy:
   cni:
     flannel:
       enabled: true
+  csi:
+    kubeVirt:
+      enabled: false
+      image: ""
+      imagePullPolicy: ""
+      hostLabels: {}
+      storageClass:
+        enabled: true
+        name: kubevirt
+        default: true
+        hostStorageClassName: ""
+        hostVolumeMode: ""
+        bus: scsi
   kubeProxy:
     enabled: true
     image: ""

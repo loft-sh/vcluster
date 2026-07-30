@@ -60,6 +60,27 @@
 {{- end -}}
 
 {{/*
+  Role rules the control plane needs to provision volumes for the kubevirt CSI driver and to hot plug them into the
+  virtual machines that back the nodes of this virtual cluster.
+*/}}
+{{- define "vcluster.rbac.kubeVirtCSIRoleRules" -}}
+{{- if .Values.deploy.csi.kubeVirt.enabled }}
+- apiGroups: [""]
+  resources: ["persistentvolumeclaims"]
+  verbs: ["create", "delete", "get", "list", "watch"]
+- apiGroups: ["cdi.kubevirt.io"]
+  resources: ["datavolumes"]
+  verbs: ["create", "delete", "get", "list", "watch"]
+- apiGroups: ["kubevirt.io"]
+  resources: ["virtualmachines", "virtualmachineinstances"]
+  verbs: ["get", "list"]
+- apiGroups: ["subresources.kubevirt.io"]
+  resources: ["virtualmachines/addvolume", "virtualmachines/removevolume"]
+  verbs: ["update"]
+{{- end }}
+{{- end -}}
+
+{{/*
   Role rules defined on global level
 */}}
 {{- define "vcluster.rbac.roleExtraRules" -}}

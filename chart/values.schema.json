@@ -193,6 +193,75 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "CSI": {
+      "properties": {
+        "kubeVirt": {
+          "$ref": "#/$defs/CSIKubeVirt",
+          "description": "KubeVirt holds dedicated kubevirt CSI configuration."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "CSIKubeVirt": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if kubevirt CSI should be enabled. This allows workloads within this virtual cluster to use\npersistent volumes that vCluster provisions within its own namespace in the host cluster and hot plugs into\nthe kubevirt virtual machines that back the nodes of this virtual cluster. The virtual machines have to run\nwithin the same namespace as this virtual cluster and vCluster annotates the nodes with the virtual machine\nthey run on, which the CSI node plugin needs. The volumes are provisioned as CDI data volumes, so CDI has to\nbe installed within the host cluster. This is only supported in private nodes mode."
+        },
+        "image": {
+          "type": "string",
+          "description": "Image is the image for the kubevirt CSI node plugin. The controller side is part of the vCluster control\nplane, so this is the only image that is deployed."
+        },
+        "imagePullPolicy": {
+          "type": "string",
+          "description": "ImagePullPolicy is the policy how to pull the image."
+        },
+        "hostLabels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "HostLabels are additional labels vCluster adds to the persistent volume claims it creates within the\nnamespace of this virtual cluster in the host cluster."
+        },
+        "storageClass": {
+          "$ref": "#/$defs/CSIKubeVirtStorageClass",
+          "description": "StorageClass holds configuration for the storage class that is created within this virtual cluster."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "CSIKubeVirtStorageClass": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the storage class should be created within this virtual cluster."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name is the name of the storage class."
+        },
+        "default": {
+          "type": "boolean",
+          "description": "Default defines if the storage class should be the default storage class of this virtual cluster. This is not\nallowed while deploy.localPathProvisioner is enabled, because that creates a default storage class as well and\ntwo default storage classes leave it to Kubernetes which provisioner a claim without a storage class ends up on."
+        },
+        "hostStorageClassName": {
+          "type": "string",
+          "description": "HostStorageClassName is the storage class within the host cluster that is used to provision the volumes.\nIf empty, the default storage class of the host cluster is used."
+        },
+        "hostVolumeMode": {
+          "type": "string",
+          "description": "HostVolumeMode pins the volume mode of the volumes that are created within the host cluster. If empty, the\nstorage profile CDI keeps for the storage class of the host cluster decides."
+        },
+        "bus": {
+          "type": "string",
+          "description": "Bus is the bus the volumes are attached with to the virtual machine."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "CentralAdmission": {
       "properties": {
         "validatingWebhooks": {
@@ -1297,6 +1366,10 @@
         "cni": {
           "$ref": "#/$defs/CNI",
           "description": "CNI holds dedicated CNI configuration."
+        },
+        "csi": {
+          "$ref": "#/$defs/CSI",
+          "description": "CSI holds dedicated CSI configuration."
         },
         "localPathProvisioner": {
           "$ref": "#/$defs/LocalPathProvisioner",
