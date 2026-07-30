@@ -341,6 +341,10 @@ func metricsAuthNonResources() []delegatingauthorizer.PathVerb {
 			Path: "/metrics/kine",
 			Verb: "*",
 		},
+		{
+			Path: "/metrics/syncer",
+			Verb: "*",
+		},
 	}
 
 	return pathVerbs

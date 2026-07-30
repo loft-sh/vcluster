@@ -10,6 +10,7 @@ func TestMetricsAuthNonResources(t *testing.T) {
 		"/metrics/scheduler":          {},
 		"/metrics/etcd":               {},
 		"/metrics/kine":               {},
+		"/metrics/syncer":             {},
 	}
 
 	got := metricsAuthNonResources()

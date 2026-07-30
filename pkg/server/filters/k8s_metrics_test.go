@@ -1,12 +1,17 @@
 package filters
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	rawconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	vtesting "github.com/loft-sh/vcluster/pkg/util/testing"
+	"github.com/prometheus/client_golang/prometheus"
+	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
 func TestMetricsRestConfig(t *testing.T) {
@@ -143,5 +148,43 @@ func TestMetricsRestConfig(t *testing.T) {
 				t.Fatalf("expected host %q, got %q", tt.wantHost, got.Host)
 			}
 		})
+	}
+}
+
+func TestWithK8sMetricsSyncerRoute(t *testing.T) {
+	probe := prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "vcluster_syncer_metrics_route_probe_total",
+		Help: "Probe metric asserting /metrics/syncer serves the controller-runtime registry.",
+	})
+	ctrlmetrics.Registry.MustRegister(probe)
+	defer ctrlmetrics.Registry.Unregister(probe)
+	probe.Inc()
+
+	registerCtx := &synccontext.RegisterContext{
+		Config:         &config.VirtualClusterConfig{},
+		VirtualManager: vtesting.NewFakeManager(nil),
+	}
+
+	nextCalled := false
+	h := WithK8sMetrics(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		nextCalled = true
+	}), registerCtx)
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/metrics/syncer", nil))
+	if nextCalled {
+		t.Fatal("expected /metrics/syncer to be served in-process, but the request fell through")
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "vcluster_syncer_metrics_route_probe_total 1") {
+		t.Fatalf("expected body to contain the probe metric from the controller-runtime registry, got:\n%s", rec.Body.String())
+	}
+
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	if !nextCalled {
+		t.Fatal("expected unrelated path to fall through to the next handler")
 	}
 }

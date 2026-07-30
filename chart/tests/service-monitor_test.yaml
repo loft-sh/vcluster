@@ -30,15 +30,21 @@ tests:
           value: vcluster
       - lengthEqual:
           path: spec.endpoints
-          count: 3
+          count: 4
       - equal:
           path: spec.endpoints[1].path
           value: /metrics/controller-manager
       - equal:
           path: spec.endpoints[2].path
-          value: /metrics/kine
+          value: /metrics/syncer
       - equal:
           path: spec.endpoints[2].relabelings[0].replacement
+          value: syncer
+      - equal:
+          path: spec.endpoints[3].path
+          value: /metrics/kine
+      - equal:
+          path: spec.endpoints[3].relabelings[0].replacement
           value: kine
 
   - it: override release label
@@ -76,12 +82,15 @@ tests:
         count: 1
     - lengthEqual:
         path: spec.endpoints
-        count: 4
+        count: 5
     - equal:
         path: spec.endpoints[2].path
-        value: /metrics/scheduler
+        value: /metrics/syncer
     - equal:
         path: spec.endpoints[3].path
+        value: /metrics/scheduler
+    - equal:
+        path: spec.endpoints[4].path
         value: /metrics/kine
 
   - it: check virtual scheduler (deprecated)
@@ -100,12 +109,15 @@ tests:
           count: 1
       - lengthEqual:
           path: spec.endpoints
-          count: 4
+          count: 5
       - equal:
           path: spec.endpoints[2].path
-          value: /metrics/scheduler
+          value: /metrics/syncer
       - equal:
           path: spec.endpoints[3].path
+          value: /metrics/scheduler
+      - equal:
+          path: spec.endpoints[4].path
           value: /metrics/kine
 
   - it: check embedded etcd
@@ -125,9 +137,12 @@ tests:
           count: 1
       - lengthEqual:
           path: spec.endpoints
-          count: 3
+          count: 4
       - equal:
           path: spec.endpoints[2].path
+          value: /metrics/syncer
+      - equal:
+          path: spec.endpoints[3].path
           value: /metrics/etcd
       - notContains:
           path: spec.endpoints
@@ -151,9 +166,12 @@ tests:
           count: 1
       - lengthEqual:
           path: spec.endpoints
-          count: 3
+          count: 4
       - equal:
           path: spec.endpoints[2].path
+          value: /metrics/syncer
+      - equal:
+          path: spec.endpoints[3].path
           value: /metrics/kine
 
   - it: check deployed etcd omits kine endpoint
@@ -173,7 +191,10 @@ tests:
           count: 1
       - lengthEqual:
           path: spec.endpoints
-          count: 2
+          count: 3
+      - equal:
+          path: spec.endpoints[2].path
+          value: /metrics/syncer
       - notContains:
           path: spec.endpoints
           content:
@@ -196,7 +217,10 @@ tests:
           count: 1
       - lengthEqual:
           path: spec.endpoints
-          count: 2
+          count: 3
+      - equal:
+          path: spec.endpoints[2].path
+          value: /metrics/syncer
       - notContains:
           path: spec.endpoints
           content:

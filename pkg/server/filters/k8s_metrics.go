@@ -8,7 +8,9 @@ import (
 	"github.com/loft-sh/vcluster/pkg/server/handler"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	requestpkg "github.com/loft-sh/vcluster/pkg/util/request"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/client-go/rest"
+	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
 const (
@@ -18,7 +20,15 @@ const (
 )
 
 func WithK8sMetrics(h http.Handler, registerCtx *synccontext.RegisterContext) http.Handler {
+	// syncer metrics live in this process's controller-runtime registry, so
+	// they are served directly instead of proxied to a local endpoint.
+	syncerMetricsHandler := promhttp.HandlerFor(ctrlmetrics.Registry, promhttp.HandlerOpts{ErrorHandling: promhttp.HTTPErrorOnError})
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.URL.Path == "/metrics/syncer" {
+			syncerMetricsHandler.ServeHTTP(w, req)
+			return
+		}
+
 		restConfig := metricsRestConfig(req.URL.Path, registerCtx)
 		if restConfig != nil {
 			metricsHandler, err := handler.Handler("", restConfig, nil)
