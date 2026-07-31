@@ -1,10 +1,10 @@
 ---
 paths:
-  - "e2e-next/**/*.go"
+  - "e2e/**/*.go"
 ---
 <!-- Generic core: e2e-tdd-workflow plugin references/e2e-test-structure-core.md -->
 
-# e2e-next Test Structure Rules
+# e2e Test Structure Rules
 
 | Do | Don't |
 |---|---|

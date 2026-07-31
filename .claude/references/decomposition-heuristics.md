@@ -121,7 +121,7 @@ When multiple sub-problems need shared infrastructure (a new builder, a new labe
 
 ```
 SP-0: [infra] Create setup builder for {resource}
-  - New file: e2e-next/setup/{resource}/{resource}.go
+  - New file: e2e/setup/{resource}/{resource}.go
   - Options: WithGenerateName, With{Feature}
   - CRUD: Create, Delete
   - Context accessors: LastFrom, From

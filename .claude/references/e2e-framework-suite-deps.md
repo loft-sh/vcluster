@@ -37,7 +37,7 @@ AfterAll(func(ctx context.Context) {
 
 **Why `AfterAll` and not `DeferCleanup`**: `DeferCleanup` in `BeforeAll` runs after all specs, which is equivalent here — but `AfterAll` is explicit and survives `--setup-only` runs where you want the service to persist between dev iterations.
 
-**Chart constants**: Add a `e2e-next/constants/<service>.go` with `Get<Service>HelmOptions()` following the pattern in existing constants files.
+**Chart constants**: Add a `e2e/constants/<service>.go` with `Get<Service>HelmOptions()` following the pattern in existing constants files.
 
 ---
 
@@ -47,11 +47,11 @@ Use this for: tests that need a full ephemeral Kubernetes cluster or vCluster, n
 
 **Two-layer model:**
 
-1. **Host kind cluster** - eagerly provisioned once in `SynchronizedBeforeSuite` via the framework's `cluster.Define` + `cluster.Setup`. Defined in `e2e-next/clusters/registry.go` as `clusters.HostCluster`. Reused by every per-test vCluster.
+1. **Host kind cluster** - eagerly provisioned once in `SynchronizedBeforeSuite` via the framework's `cluster.Define` + `cluster.Setup`. Defined in `e2e/clusters/registry.go` as `clusters.HostCluster`. Reused by every per-test vCluster.
 2. **Per-test vClusters** - created lazily, one per `suite_*_test.go`, in the suite's outer `BeforeAll` via `setup/lazyvcluster.LazyVCluster`. The helper is a thin wrapper over the framework's `vcluster.Create` (see `github.com/loft-sh/e2e-framework/pkg/setup/vcluster`). Peak concurrent vClusters is bounded by `ginkgo --procs`, not by the number of suite files.
 
 ```go
-// e2e-next/suite_myfeature_test.go
+// e2e/suite_myfeature_test.go
 //go:embed vcluster-myfeature.yaml
 var myFeatureYAML string
 
