@@ -43,7 +43,7 @@ This saves 2+ minutes vs discovering errors after a full test run. Do this after
 **Note:** `compile-check` runs `go build` + `go vet` only. It does NOT run the full `golangci-lint` suite (formatting, static analysis, 28+ linters). Before declaring work done, always also run:
 
 ```bash
-just -f Justfile.agent lint ./e2e-next/...
+just -f Justfile.agent lint ./e2e/...
 ```
 
 ### Scoping test runs: focus first, verify at the end
@@ -125,12 +125,12 @@ just -f Justfile.agent test-focus "<label>" "<context>"
 ## 4. Writing New E2E Tests
 
 ### File placement
-- Place in `e2e-next/test_<area>/` (e.g., `test_sync/`, `test_core/`)
+- Place in `e2e/test_<area>/` (e.g., `test_sync/`, `test_core/`)
 - Package name matches sibling files in that directory
-- If new package, add blank import in `e2e-next/e2e_suite_test.go`
+- If new package, add blank import in `e2e/e2e_suite_test.go`
 
 ### Labels
-- Every `Describe` gets at least one label from `e2e-next/labels/labels.go`
+- Every `Describe` gets at least one label from `e2e/labels/labels.go`
 - Labels are simple strings like `"pr"`, `"core"`, `"sync"` — no slash wrappers
 - Add `labels.PR` to `It` blocks that should gate PRs
 - Add `labels.NonDefault` for tests requiring special infrastructure
@@ -194,7 +194,7 @@ Follow top-to-bottom. Stop when root cause is found.
 | 3. Pod logs (targeted) | See pod log patterns below | ~300 |
 | 4. Namespace events | `jq '.[0].SpecReports[] \| select(.State == "failed") \| .ReportEntries[] \| select(.Name == "Namespace Events") \| .Value.Representation' /tmp/e2e-report*.json` | ~250 |
 | 5. Live cluster | `kubectl --context kind-kind-cluster get/describe <resource>` | ~300 |
-| 6. Verbose re-run | `ginkgo -timeout=0 -v --no-color --focus='test name' ./e2e-next -- --vcluster-image="ghcr.io/loft-sh/vcluster:dev-next" --teardown=false 2>&1 \| tail -100` | ~3000 |
+| 6. Verbose re-run | `ginkgo -timeout=0 -v --no-color --focus='test name' ./e2e -- --vcluster-image="ghcr.io/loft-sh/vcluster:dev-next" --teardown=false 2>&1 \| tail -100` | ~3000 |
 
 ### Pod log patterns (step 3)
 
@@ -244,7 +244,7 @@ All agents share the same Kind cluster, so `push` (rebuild + kind load) operatio
 2. Label filters — run only relevant specs. Succinct mode output is already minimal (one line per run).
 3. Compile check before push — `just -f Justfile.agent compile-check` catches errors early.
 4. Read only the failing test file, not the whole suite.
-5. Use `./e2e-next` (no `...` suffix) — avoids walking sub-packages.
+5. Use `./e2e` (no `...` suffix) — avoids walking sub-packages.
 
 ## Quick Reference
 

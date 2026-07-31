@@ -117,8 +117,8 @@ linters:
         text: 'SA1019: (.+)Secret is deprecated: Use AdditionalSecrets instead.'
       - path: pkg/config/validation.go
         text: 'SA1019: (.+)Secret is deprecated: Use AdditionalSecrets instead.'
-      # Skip ST1003 (package name with underscores) for e2e-next folder
-      - path: ^e2e-next/
+      # Skip ST1003 (package name with underscores) for the e2e test_* subpackages
+      - path: ^e2e/
         linters: [staticcheck]
         text: 'ST1003: should not use underscores in package names'
       # The following exceptions apply only to existing packages that need refactoring.
@@ -126,16 +126,16 @@ linters:
       - path: ^pkg/(cli/util|server/types|snapshot/types|syncer/types|util|plugin/types)/[^/]+\.go$
         linters: [revive]
         text: avoid meaningless package names
-      - path-except: 'e2e-next/'
+      - path-except: 'e2e/'
         linters:
           - defercleanupcluster
-      - path-except: 'e2e-next/'
+      - path-except: 'e2e/'
         linters:
           - defercleanupctx
-      - path-except: 'e2e-next/'
+      - path-except: 'e2e/'
         linters:
           - ginkgoreturnctx
-      - path-except: 'e2e-next/'
+      - path-except: 'e2e/'
         linters:
           - describefunc
     paths:

@@ -106,10 +106,11 @@ jobs:
         if: steps.gcp-auth.outcome == 'success'
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Run e2e-next tests
+      - name: Run e2e tests
         id: run-tests
         uses: loft-sh/github-actions/.github/actions/run-ginkgo@run-ginkgo/v1
         with:
+          test-dir: e2e
           upload-report: "true"
           reports-bucket: ${{ vars.E2E_INSIGHTS_BUCKET }}
           workflow-file: e2e-ginkgo-nightly.yaml

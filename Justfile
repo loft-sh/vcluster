@@ -110,9 +110,9 @@ lint *ARGS: _ensure-linters
 build-linters:
   golangci-lint custom
 
-# Run custom linters against e2e-next (with autofix)
+# Run custom linters against e2e (with autofix)
 lint-e2e: _ensure-linters
-  ./tools/golangci-lint run --fix -- ./e2e-next/...
+  ./tools/golangci-lint run --fix -- ./e2e/...
 
 setup-csi-volume-snapshots:
   # Deploy upstream CSI volume snapshot CRDs and snapshot-controller
@@ -132,23 +132,23 @@ setup-csi-volume-snapshots:
   # wait for snapshot-controller to be ready
   kubectl wait --for=condition=Available -n kube-system deploy/snapshot-controller --timeout=60s
 
-#e2e-next tests
+#e2e tests
 @dev-e2e label-filter="core" image="ghcr.io/loft-sh/vcluster:dev-next" *ARGS='': \
   (setup label-filter image) \
   (run-e2e label-filter image "false") \
   (teardown label-filter)
 
 @run-e2e label-filter="core" image="ghcr.io/loft-sh/vcluster:dev-next" teardown="true":
-  ginkgo -timeout=0 -v --procs=8 --label-filter="{{label-filter}}" ./e2e-next -- --vcluster-image="{{image}}" --teardown={{teardown}}
+  ginkgo -timeout=0 -v --procs=8 --label-filter="{{label-filter}}" ./e2e -- --vcluster-image="{{image}}" --teardown={{teardown}}
 
 @iterate-e2e label-filter="core" image="ghcr.io/loft-sh/vcluster:dev-next": \
   (run-e2e label-filter image "false")
 
 @setup label-filter="core" image="ghcr.io/loft-sh/vcluster:dev-next":
-  GINKGO_EDITOR_INTEGRATION=just ginkgo -timeout=0 -v --label-filter="{{label-filter}}" --silence-skips ./e2e-next -- --vcluster-image="{{image}}" --setup-only
+  GINKGO_EDITOR_INTEGRATION=just ginkgo -timeout=0 -v --label-filter="{{label-filter}}" --silence-skips ./e2e -- --vcluster-image="{{image}}" --setup-only
 
 @teardown label-filter="core":
-  GINKGO_EDITOR_INTEGRATION=just ginkgo -timeout=0 -v --label-filter="{{label-filter}}" --silence-skips ./e2e-next -- --teardown-only
+  GINKGO_EDITOR_INTEGRATION=just ginkgo -timeout=0 -v --label-filter="{{label-filter}}" --silence-skips ./e2e -- --teardown-only
 
 cli version="0.0.0" *ARGS="":
   RELEASE_VERSION={{ version }} go generate -tags embed_chart ./...
