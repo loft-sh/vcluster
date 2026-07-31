@@ -3,7 +3,6 @@ package webhook
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	"github.com/loft-sh/vcluster/e2e/constants"
@@ -250,14 +249,18 @@ func (w *webhookInfra) registerWebhook(ctx context.Context, configName string) {
 	// Wait for webhook to be ready via marker requests
 	Eventually(func(g Gomega) {
 		marker := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{GenerateName: "marker-", Labels: map[string]string{w.uniqueName: "true"}}}
-		_, err := w.client.CoreV1().ConfigMaps(w.markersNS).Create(ctx, marker, metav1.CreateOptions{})
-		if err != nil && strings.Contains(err.Error(), "denied") {
+		created, err := w.client.CoreV1().ConfigMaps(w.markersNS).Create(ctx, marker, metav1.CreateOptions{})
+		if err != nil {
+			g.Expect(err.Error()).To(ContainSubstring("denied"), "unexpected error creating the marker configmap")
 			return
 		}
-		if err == nil {
-			_ = w.client.CoreV1().ConfigMaps(w.markersNS).Delete(ctx, marker.Name, metav1.DeleteOptions{})
+		err = w.client.CoreV1().ConfigMaps(w.markersNS).Delete(ctx, created.Name, metav1.DeleteOptions{})
+		if !kerrors.IsNotFound(err) {
+			g.Expect(err).To(Succeed())
 		}
-		g.Expect(true).To(BeFalse(), "webhook not yet ready")
+		// This webhook fails open, so an admitted marker means the apiserver never got
+		// a verdict from the webhook service - the reason is only in the apiserver log.
+		g.Expect(true).To(BeFalse(), "marker admitted instead of denied - apiserver could not reach webhook service %s/%s:%d", w.ns, w.svcName, w.servicePort)
 	}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 }
 

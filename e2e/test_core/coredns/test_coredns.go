@@ -201,13 +201,14 @@ func CoreDNSSpec() {
 
 						url := fmt.Sprintf("https://%s:%d/healthz", hostname, node.Status.DaemonEndpoints.KubeletEndpoint.Port)
 						cmd := []string{"curl", "-k", "-s", "--show-error", url}
-						// CoreDNS reloads NodeHosts every 15s; retry until the hostname resolves
+						// The NodeHosts entry has to be written, propagated into the CoreDNS
+						// volume and reloaded, which on a busy host outlasts PollingTimeout.
 						Eventually(func(g Gomega) {
 							stdout, stderr, err := podhelper.ExecBuffered(ctx, vClusterConfig, nsName, curlPodName, "curl", cmd, nil)
 							g.Expect(err).NotTo(HaveOccurred(), "curl to kubelet failed for node %s: stderr=%s", node.Name, string(stderr))
 							g.Expect(string(stderr)).To(BeEmpty(), "unexpected stderr from kubelet healthz on node %s", node.Name)
 							g.Expect(string(stdout)).To(Equal("ok"), "expected 'ok' from kubelet healthz on node %s, got %q", node.Name, string(stdout))
-						}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+						}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 					}
 				})
 			})
