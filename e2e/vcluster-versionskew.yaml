@@ -1,0 +1,14 @@
+controlPlane:
+  statefulSet:
+    image:
+      registry: ""
+      repository: {{.Repository}}
+      tag: {{.Tag}}
+  distro:
+    k8s:
+      # Pin the virtual cluster below K8s 1.34 while the host runs 1.34+, the setup from
+      # https://github.com/loft-sh/vcluster/issues/3578: the host kubelet sets
+      # status.observedGeneration but the virtual apiserver strips it on write.
+      # Bump this within the supported version range as old versions drop out; the
+      # version skew tests fail loudly when the skew is gone.
+      version: v1.33.5
