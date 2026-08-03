@@ -4,9 +4,17 @@ on:
   pull_request:
     types: [opened, synchronize]
 
+# checks/statuses are what the shared workflow's CI poll reads. They must be
+# granted here, not there: a reusable workflow can only downgrade the caller's
+# GITHUB_TOKEN permissions, never elevate them, and anything omitted defaults to
+# none. GITHUB_TOKEN is scoped strictly by this block whatever the repository's
+# visibility, so omitting them makes the poll fail and the bot silently never
+# approve, while both the check and the job still report success.
 permissions:
   contents: read
   pull-requests: write
+  checks: read
+  statuses: read
 
 jobs:
   auto-approve:
