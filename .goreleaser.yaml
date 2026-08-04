@@ -122,13 +122,17 @@ changelog:
       - "^test:"
 
 release:
-  # DEVOPS-1083: every release (including stable) starts as a GitHub
-  # pre-release. Promoting to stable/Latest is a deliberate human edit
-  # (uncheck "pre-release") on the release, which is what fires the
-  # release:released event that vcluster-pro's promote-release workflow
-  # listens for. A pre-release publish only ever emits `prereleased`, so the
-  # build cannot self-trigger promotion.
-  prerelease: true
+  # DEVOPS-1083: the GitHub label is decided by the tag alone. `auto` flags a
+  # release as a pre-release exactly when the tag carries a semver prerelease
+  # suffix, so a stable vX.Y.Z plus make_latest: false lands with the GitHub
+  # "None" label - published and downloadable at its exact tag, but not Latest.
+  # Promotion (Latest, the moving image tags, the stable Homebrew formula) is the
+  # Promote release workflow in vcluster-pro, dispatched by hand with the version
+  # to promote. It is deliberately NOT triggered by a release event: `released`
+  # fires the moment a stable cut is published, and a `release:` trigger resolves
+  # its workflow file from the release's own tag ref - which on this maintenance
+  # line predates that file, so it would never fire here at all.
+  prerelease: auto
   make_latest: false
   # Re-runs of this workflow against the same tag re-upload assets to an
   # already-populated GitHub Release and 422 with `already_exists`. This
