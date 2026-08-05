@@ -8,8 +8,10 @@ on:
 # granted here, not there: a reusable workflow can only downgrade the caller's
 # GITHUB_TOKEN permissions, never elevate them, and anything omitted defaults to
 # none. GITHUB_TOKEN is scoped strictly by this block whatever the repository's
-# visibility, so omitting them makes the poll fail and the bot silently never
-# approve, while both the check and the job still report success.
+# visibility, so a public repo does not get them for free either. Omitting them
+# does not just break the poll at run time: the called job requests both scopes
+# explicitly, so GitHub rejects the call before anything starts and the run ends
+# as a startup failure, with no jobs and no logs to read.
 permissions:
   contents: read
   pull-requests: write
