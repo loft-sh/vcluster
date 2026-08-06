@@ -12,12 +12,12 @@ version: 2
 # which is why the file is not deleted.
 #
 # The `release:`, `dockers:`, `docker_manifests:` and `brews:` blocks below are
-# therefore inert, and they still carry the pre-DEVOPS-1083 shape:
-# `prerelease: auto`, build-time moving tags, and `skip_upload: auto` on the
-# vcluster formula. Do NOT treat them as the current release contract, and do
-# not wire a release pipeline back to this file without first porting the
-# DEVOPS-1083 promotion gating from the root config -- otherwise a build would
-# move :latest and the stable formula again, bypassing human promotion.
+# therefore inert, and they still carry the pre-DEVOPS-1083 shape: build-time
+# moving tags and `skip_upload: auto` on the vcluster formula. Do NOT treat them
+# as the current release contract, and do not wire a release pipeline back to
+# this file without first porting the DEVOPS-1083 promotion gating from the root
+# config -- otherwise a build would move :latest and the stable formula again,
+# bypassing the promotion.
 
 project_name: vcluster
 
@@ -141,6 +141,13 @@ changelog:
       - "^test:"
 
 release:
+  # Inert, like the rest of this block - see the header. The value now happens
+  # to coincide with the root .goreleaser.yaml, which does decide the OSS
+  # release's GitHub label, but nothing reads it here and changing it has no
+  # release effect. The header's warning still stands: the `dockers:`,
+  # `docker_manifests:` and `brews:` blocks below were NOT brought into line
+  # with root, so wiring a pipeline back to this file would still reinstate
+  # build-time moving tags and an ungated stable formula.
   prerelease: auto
   make_latest: false
   # Re-runs of this workflow against the same tag re-upload assets to an

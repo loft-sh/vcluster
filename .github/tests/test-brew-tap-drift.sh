@@ -13,6 +13,7 @@ FAIL=0
 assert_drift() {
   local release="$1" tap="$2" expected_drifted="$3" description="$4"
 
+  reset_drift
   compare_versions "$release" "$tap"
 
   if [[ "$DRIFTED" == "$expected_drifted" ]]; then
@@ -29,6 +30,7 @@ assert_drift() {
 assert_experimental_drift() {
   local release="$1" tap="$2" experimental="$3" expected_drifted="$4" description="$5"
 
+  reset_drift
   compare_versions "$release" "$tap" "$experimental"
 
   if [[ "$DRIFTED" == "$expected_drifted" ]]; then
@@ -36,6 +38,54 @@ assert_experimental_drift() {
     PASS=$((PASS + 1))
   else
     printf "  FAIL: %s (expected=%s got=%s)\n" "$description" "$expected_drifted" "$DRIFTED"
+    FAIL=$((FAIL + 1))
+  fi
+}
+
+assert_pointer_drift() {
+  local oss="$1" pro="$2" expected_drifted="$3" description="$4"
+
+  reset_drift
+  compare_release_pointers "$oss" "$pro"
+
+  if [[ "$DRIFTED" == "$expected_drifted" ]]; then
+    printf "  PASS: %s (pro=%s oss=%s drifted=%s)\n" \
+      "$description" "$(normalize_version "$pro")" "$(normalize_version "$oss")" "$DRIFTED"
+    PASS=$((PASS + 1))
+  else
+    printf "  FAIL: %s (pro=%s oss=%s expected=%s got=%s)\n" \
+      "$description" "$(normalize_version "$pro")" "$(normalize_version "$oss")" "$expected_drifted" "$DRIFTED"
+    FAIL=$((FAIL + 1))
+  fi
+}
+
+# The Slack body is the only output of this monitor, so the message matters as
+# much as the boolean. Runs the same two comparisons the entrypoint runs, in the
+# same order, and asserts every expected line is present.
+# Args: release tap_vcluster tap_experimental pro_release description line...
+assert_details() {
+  local release="$1" tap="$2" experimental="$3" pro="$4" description="$5"
+  shift 5
+
+  reset_drift
+  compare_versions "$release" "$tap" "$experimental"
+  compare_release_pointers "$release" "$pro"
+
+  local expanded missing=() line
+  # $DRIFT_DETAILS holds literal \n that the entrypoint expands with echo -e
+  # before writing $GITHUB_OUTPUT; expand it the same way so the assertions see
+  # what Slack receives.
+  expanded=$(echo -e "$DRIFT_DETAILS")
+
+  for line in "$@"; do
+    grep -qxF -- "$line" <<<"$expanded" || missing+=("$line")
+  done
+
+  if [[ ${#missing[@]} -eq 0 ]]; then
+    printf "  PASS: %s\n" "$description"
+    PASS=$((PASS + 1))
+  else
+    printf "  FAIL: %s (missing %s in: %s)\n" "$description" "${missing[*]}" "${expanded//$'\n'/ | }"
     FAIL=$((FAIL + 1))
   fi
 }
@@ -87,6 +137,32 @@ assert_experimental_drift "v0.33.0" "0.33.0" "0.33.0" "false" "all match — no 
 assert_experimental_drift "v0.33.0" "0.33.0" "0.32.0" "true"  "experimental behind — drift"
 assert_experimental_drift "v0.33.0" "0.32.0" "0.33.0" "true"  "vcluster behind — drift"
 assert_experimental_drift "v0.33.0" "0.33.0" ""        "false" "empty experimental — no drift"
+
+printf "\n=== compare_release_pointers (coordinated promotion) ===\n\n"
+
+assert_pointer_drift "v0.36.1" "v0.36.1" "false" "matching Pro and OSS Latest pointers show no drift"
+assert_pointer_drift "v0.36.1" "v0.37.0" "true" "Pro ahead of OSS is drift"
+assert_pointer_drift "v0.37.0" "v0.36.1" "true" "OSS ahead of Pro is drift"
+assert_pointer_drift "v0.36.1" "" "false" "absent Pro pointer is not drift"
+
+printf "\n=== DRIFT_DETAILS (the Slack body) ===\n\n"
+
+assert_details "v0.23.0" "v0.22.0" "" "" "tap drift alone names the formula" \
+  "vcluster: release=0.23.0 tap=0.22.0"
+
+assert_details "v0.23.0" "v0.23.0" "" "v0.24.0" "pointer split alone names both repos" \
+  "release pointers: pro=0.24.0 oss=0.23.0"
+
+# Two dimensions at once: the second record_drift must append rather than
+# overwrite, which a boolean-only assertion cannot see.
+assert_details "v0.23.0" "v0.22.0" "" "v0.24.0" "tap drift and pointer split both appear" \
+  "vcluster: release=0.23.0 tap=0.22.0" \
+  "release pointers: pro=0.24.0 oss=0.23.0"
+
+assert_details "v0.23.0" "v0.22.0" "v0.21.0" "v0.24.0" "all three dimensions appear" \
+  "vcluster: release=0.23.0 tap=0.22.0" \
+  "vcluster-experimental: release=0.23.0 tap=0.21.0" \
+  "release pointers: pro=0.24.0 oss=0.23.0"
 
 printf "\nResults: %d passed, %d failed\n" "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]]
