@@ -138,7 +138,12 @@ jobs:
       - uses: "goreleaser/goreleaser-action@v6"
         with:
           args: release --clean --timeout 60m ${{ steps.check_latest_stable.outputs.skip_homebrew == 'true' && '--skip=homebrew' || '' }}
-          version: "~> v2"
+          # Pinned to the minor, not the major: the GitHub label a release
+          # gets is decided by goreleaser internals (release.prerelease: auto
+          # reads ctx.Semver.Prerelease; make_latest is applied on publish), and
+          # this config still uses deprecated properties. A floating "~> v2"
+          # could change either out from under this maintenance line.
+          version: "~> v2.17"
         env:
           GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
           TELEMETRY_PRIVATE_KEY: ${{ secrets.VCLUSTER_TELEMETRY_PRIVATE_KEY }}
