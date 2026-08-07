@@ -49,6 +49,62 @@ type Client struct {
 	skipKeys map[string]struct{}
 }
 
+// keyValueSource is the read surface writeKeyValueSnapshot needs. etcd.Client
+// satisfies it, and so does a store built over a restored etcd snapshot.
+type keyValueSource interface {
+	CurrentRevision(ctx context.Context) (int64, error)
+	ListStream(ctx context.Context, key string) <-chan *etcd.ValueOrError
+}
+
+// objectPutter is the write surface writeKeyValueSnapshot needs.
+type objectPutter interface {
+	PutObject(ctx context.Context, body io.Reader) error
+}
+
+// putObjectFunc adapts a plain function to objectPutter.
+type putObjectFunc func(ctx context.Context, body io.Reader) error
+
+func (f putObjectFunc) PutObject(ctx context.Context, body io.Reader) error {
+	return f(ctx, body)
+}
+
+// archiveMetadata holds the entries written ahead of the key/value pairs.
+// Release and request are pre-marshaled bytes so a converted snapshot can pass
+// the source archive's entries through verbatim, instead of losing unknown
+// fields to an unmarshal/marshal round trip.
+type archiveMetadata struct {
+	ReleaseBytes []byte
+	RequestKey   string
+	RequestBytes []byte
+	SkipKeys     map[string]struct{}
+}
+
+// buildArchiveMetadata marshals the live snapshot path's metadata upfront, so
+// a marshal failure surfaces before the archive is started rather than midway
+// through it.
+func (c *Client) buildArchiveMetadata() (archiveMetadata, error) {
+	meta := archiveMetadata{SkipKeys: c.skipKeys}
+
+	if c.Options.Release != nil {
+		releaseBytes, err := json.Marshal(c.Options.Release)
+		if err != nil {
+			return archiveMetadata{}, fmt.Errorf("failed to marshal vCluster release: %w", err)
+		}
+		meta.ReleaseBytes = releaseBytes
+	}
+
+	if c.Request != nil {
+		requestBytes, err := json.Marshal(c.Request)
+		if err != nil {
+			return archiveMetadata{}, fmt.Errorf("failed to marshal snapshot request: %w", err)
+		}
+		meta.RequestKey = fmt.Sprintf("%s/%s", RequestStoreKey, snapshotapi.APIVersion)
+		meta.RequestBytes = requestBytes
+	}
+
+	return meta, nil
+}
+
 func (c *Client) Run(ctx context.Context, vConfig *config.VirtualClusterConfig) error {
 	if vConfig == nil {
 		return fmt.Errorf("snapshot client requires vCluster config")
@@ -91,7 +147,12 @@ func (c *Client) Run(ctx context.Context, vConfig *config.VirtualClusterConfig) 
 			return err
 		}
 	} else {
-		err = c.writeKeyValueSnapshot(ctx, etcdClient, objectStore)
+		meta, err := c.buildArchiveMetadata()
+		if err != nil {
+			return err
+		}
+
+		err = writeKeyValueSnapshot(ctx, etcdClient, objectStore, meta)
 		if err != nil {
 			return err
 		}
@@ -251,18 +312,18 @@ func (c *Client) writeEtcdSnapshot(ctx context.Context, etcdClient etcd.Client, 
 	return nil
 }
 
-// writeKeyValueSnapshot streams etcd key/value pairs into objectStore as a
-// gzipped tar archive. err is a named return so the deferred cleanup below
-// can abort the in-flight upload with the real failure (instead of a clean
-// EOF that would look like a successful, truncated upload) on every early
-// return, and always drain the upload goroutine's result.
-func (c *Client) writeKeyValueSnapshot(ctx context.Context, etcdClient etcd.Client, objectStore types.Storage) (err error) {
-	// now stream objects from etcd to object store
+// writeKeyValueSnapshot streams src's key/value pairs into out as a gzipped
+// tar archive. err is a named return so the deferred cleanup below can abort
+// the in-flight upload with the real failure (instead of a clean EOF that
+// would look like a successful, truncated upload) on every early return, and
+// always drain the upload goroutine's result.
+func writeKeyValueSnapshot(ctx context.Context, src keyValueSource, out objectPutter, meta archiveMetadata) (err error) {
+	// now stream objects from the source to the object store
 	errChan := make(chan error, 1)
 	reader, writer := io.Pipe()
 	go func() {
 		defer reader.Close()
-		errChan <- objectStore.PutObject(ctx, reader)
+		errChan <- out.PutObject(ctx, reader)
 	}()
 	// uploadResultReceived tracks whether the select loop below already
 	// consumed errChan's single buffered value, so the cleanup defer never
@@ -280,13 +341,13 @@ func (c *Client) writeKeyValueSnapshot(ctx context.Context, etcdClient etcd.Clie
 	// pin a revision before listing; this is a lower bound on the state being
 	// snapshotted, since CurrentRevision and ListStream are separate etcd
 	// reads and a write landing between them isn't reflected here
-	revision, err := etcdClient.CurrentRevision(ctx)
+	revision, err := src.CurrentRevision(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get current revision: %w", err)
 	}
 
 	// start listing the keys
-	listChan := etcdClient.ListStream(ctx, "/")
+	listChan := src.ListStream(ctx, "/")
 
 	// don't compress with default level as this can get quite cpu heavy
 	gzipWriter, _ := gzip.NewWriterLevel(writer, 3)
@@ -297,26 +358,16 @@ func (c *Client) writeKeyValueSnapshot(ctx context.Context, etcdClient etcd.Clie
 	defer tarWriter.Close()
 
 	// write the vCluster config as first thing
-	if c.Options.Release != nil {
-		releaseBytes, err := json.Marshal(c.Options.Release)
-		if err != nil {
-			return fmt.Errorf("failed to marshal vCluster release: %w", err)
-		}
-
-		err = writeArchiveEntry(tarWriter, []byte(snapshotapi.SnapshotReleaseKey), releaseBytes)
+	if meta.ReleaseBytes != nil {
+		err = writeArchiveEntry(tarWriter, []byte(snapshotapi.SnapshotReleaseKey), meta.ReleaseBytes)
 		if err != nil {
 			return fmt.Errorf("failed to snapshot vCluster release: %w", err)
 		}
 	}
 
 	// write the snapshot request
-	if c.Request != nil {
-		requestBytes, err := json.Marshal(c.Request)
-		if err != nil {
-			return fmt.Errorf("failed to marshal snapshot request: %w", err)
-		}
-		key := fmt.Sprintf("%s/%s", RequestStoreKey, snapshotapi.APIVersion)
-		err = writeArchiveEntry(tarWriter, []byte(key), requestBytes)
+	if meta.RequestBytes != nil {
+		err = writeArchiveEntry(tarWriter, []byte(meta.RequestKey), meta.RequestBytes)
 		if err != nil {
 			return fmt.Errorf("failed to snapshot request: %w", err)
 		}
@@ -342,6 +393,11 @@ func (c *Client) writeKeyValueSnapshot(ctx context.Context, etcdClient etcd.Clie
 			return nil
 		case obj := <-listChan:
 			if obj == nil {
+				// an aborted source just closes its channel, which is
+				// indistinguishable from a complete listing without this check
+				if ctxErr := ctx.Err(); ctxErr != nil {
+					return fmt.Errorf("context: %w", ctxErr)
+				}
 				klog.Infof("Successfully backed up %d etcd keys", backedUpKeys)
 				// deferred cleanup flushes and closes the archive + pipe writer,
 				// then waits for the upload to finish
@@ -359,7 +415,7 @@ func (c *Client) writeKeyValueSnapshot(ctx context.Context, etcdClient etcd.Clie
 				// exactly one entry per metadata key
 				continue
 			}
-			if _, ok := c.skipKeys[key]; ok {
+			if _, ok := meta.SkipKeys[key]; ok {
 				klog.Infof("Skipping key %s", key)
 				continue
 			}

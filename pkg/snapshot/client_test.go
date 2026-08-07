@@ -16,25 +16,21 @@ import (
 	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/loft-sh/api/v4/pkg/snapshot/storage/container"
 	"github.com/loft-sh/vcluster/pkg/etcd"
-	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
-// fakeEtcdClient is a minimal etcd.Client fake for testing code that only
-// needs a handful of methods - unimplemented methods panic if called, so a
-// test that exercises them accidentally fails loudly instead of silently
-// returning zero values.
-type fakeEtcdClient struct {
+// fakeKeyValueSource is a keyValueSource fake serving a fixed set of values.
+type fakeKeyValueSource struct {
 	revision    int64
 	revisionErr error
 	values      []etcd.Value
 	listErr     error
 }
 
-func (f *fakeEtcdClient) CurrentRevision(context.Context) (int64, error) {
+func (f *fakeKeyValueSource) CurrentRevision(context.Context) (int64, error) {
 	return f.revision, f.revisionErr
 }
 
-func (f *fakeEtcdClient) ListStream(context.Context, string) <-chan *etcd.ValueOrError {
+func (f *fakeKeyValueSource) ListStream(context.Context, string) <-chan *etcd.ValueOrError {
 	ch := make(chan *etcd.ValueOrError, len(f.values)+1)
 	for _, v := range f.values {
 		ch <- &etcd.ValueOrError{Value: v}
@@ -46,31 +42,13 @@ func (f *fakeEtcdClient) ListStream(context.Context, string) <-chan *etcd.ValueO
 	return ch
 }
 
-func (f *fakeEtcdClient) List(context.Context, string) ([]etcd.Value, error) {
-	panic("not implemented")
-}
-func (f *fakeEtcdClient) Watch(context.Context, string) clientv3.WatchChan { panic("not implemented") }
-func (f *fakeEtcdClient) Get(context.Context, string) (etcd.Value, error) {
-	panic("not implemented")
-}
-func (f *fakeEtcdClient) Put(context.Context, string, []byte) (int64, error) {
-	panic("not implemented")
-}
-func (f *fakeEtcdClient) PutAtRevision(context.Context, string, int64, []byte) (int64, error) {
-	panic("not implemented")
-}
-func (f *fakeEtcdClient) Delete(context.Context, string) error       { panic("not implemented") }
-func (f *fakeEtcdClient) DeletePrefix(context.Context, string) error { panic("not implemented") }
-func (f *fakeEtcdClient) Compact(context.Context, int64) error       { panic("not implemented") }
-func (f *fakeEtcdClient) Close() error                               { return nil }
-func (f *fakeEtcdClient) SnapshotWithVersion(context.Context) (*clientv3.SnapshotResponse, error) {
-	panic("not implemented")
-}
+// the real etcd client must keep satisfying the narrowed read surface
+var _ keyValueSource = etcd.Client(nil)
 
 func TestWriteKeyValueSnapshot_WritesRevision(t *testing.T) {
 	t.Parallel()
 
-	fake := &fakeEtcdClient{
+	fake := &fakeKeyValueSource{
 		revision: 4242,
 		values: []etcd.Value{
 			{Key: []byte("/registry/a"), Data: []byte("va1")},
@@ -81,8 +59,7 @@ func TestWriteKeyValueSnapshot_WritesRevision(t *testing.T) {
 	storePath := filepath.Join(t.TempDir(), "snapshot.tar.gz")
 	objectStore := container.NewStore(&snapshotapi.ContainerOptions{Path: storePath})
 
-	c := &Client{}
-	if err := c.writeKeyValueSnapshot(context.Background(), fake, objectStore); err != nil {
+	if err := writeKeyValueSnapshot(t.Context(), fake, objectStore, archiveMetadata{}); err != nil {
 		t.Fatalf("writeKeyValueSnapshot failed: %v", err)
 	}
 
@@ -122,7 +99,7 @@ func TestWriteKeyValueSnapshot_WritesRevision(t *testing.T) {
 func TestWriteKeyValueSnapshot_DetectedAsKeyValueKind_WithReleaseAndRequest(t *testing.T) {
 	t.Parallel()
 
-	fake := &fakeEtcdClient{
+	fake := &fakeKeyValueSource{
 		revision: 7,
 		values:   []etcd.Value{{Key: []byte("/registry/a"), Data: []byte("va1")}},
 	}
@@ -134,7 +111,11 @@ func TestWriteKeyValueSnapshot_DetectedAsKeyValueKind_WithReleaseAndRequest(t *t
 		Request: &snapshotapi.Request{},
 		Options: snapshotapi.Options{Release: &snapshotapi.HelmRelease{}},
 	}
-	if err := c.writeKeyValueSnapshot(context.Background(), fake, objectStore); err != nil {
+	meta, err := c.buildArchiveMetadata()
+	if err != nil {
+		t.Fatalf("buildArchiveMetadata failed: %v", err)
+	}
+	if err := writeKeyValueSnapshot(t.Context(), fake, objectStore, meta); err != nil {
 		t.Fatalf("writeKeyValueSnapshot failed: %v", err)
 	}
 
@@ -175,7 +156,7 @@ func TestSnapshotMetadataKeysCarryPrefix(t *testing.T) {
 func TestWriteKeyValueSnapshot_SkipsPollutedMetadataKey(t *testing.T) {
 	t.Parallel()
 
-	fake := &fakeEtcdClient{
+	fake := &fakeKeyValueSource{
 		revision: 4242,
 		values: []etcd.Value{
 			{Key: []byte("/registry/a"), Data: []byte("va1")},
@@ -187,8 +168,7 @@ func TestWriteKeyValueSnapshot_SkipsPollutedMetadataKey(t *testing.T) {
 	storePath := filepath.Join(t.TempDir(), "snapshot.tar.gz")
 	objectStore := container.NewStore(&snapshotapi.ContainerOptions{Path: storePath})
 
-	c := &Client{}
-	if err := c.writeKeyValueSnapshot(context.Background(), fake, objectStore); err != nil {
+	if err := writeKeyValueSnapshot(t.Context(), fake, objectStore, archiveMetadata{}); err != nil {
 		t.Fatalf("writeKeyValueSnapshot failed: %v", err)
 	}
 
@@ -200,17 +180,46 @@ func TestWriteKeyValueSnapshot_SkipsPollutedMetadataKey(t *testing.T) {
 	}
 }
 
+// TestWriteKeyValueSnapshot_CancelledSourceNeverReportsSuccess guards against
+// a truncated archive being reported as a complete one. A source that aborts
+// on cancellation just closes its channel, and that close races the ctx.Done()
+// arm of the select loop - so the run is repeated to give the losing side of
+// that race a chance to slip through.
+func TestWriteKeyValueSnapshot_CancelledSourceNeverReportsSuccess(t *testing.T) {
+	t.Parallel()
+
+	for i := range 200 {
+		fake := &fakeKeyValueSource{
+			revision: 1,
+			values: []etcd.Value{
+				{Key: []byte("/registry/a"), Data: []byte("va1")},
+				{Key: []byte("/registry/b"), Data: []byte("vb1")},
+			},
+		}
+
+		storePath := filepath.Join(t.TempDir(), "snapshot.tar.gz")
+		objectStore := container.NewStore(&snapshotapi.ContainerOptions{Path: storePath})
+
+		// the source stopped early, so the values above are an incomplete listing
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+
+		if err := writeKeyValueSnapshot(ctx, fake, objectStore, archiveMetadata{}); err == nil {
+			t.Fatalf("run %d: cancelled source reported success; the archive is truncated", i)
+		}
+	}
+}
+
 func TestWriteKeyValueSnapshot_CurrentRevisionError(t *testing.T) {
 	t.Parallel()
 
 	sentinel := errors.New("boom")
-	fake := &fakeEtcdClient{revisionErr: sentinel}
+	fake := &fakeKeyValueSource{revisionErr: sentinel}
 
 	storePath := filepath.Join(t.TempDir(), "snapshot.tar.gz")
 	objectStore := container.NewStore(&snapshotapi.ContainerOptions{Path: storePath})
 
-	c := &Client{}
-	err := c.writeKeyValueSnapshot(context.Background(), fake, objectStore)
+	err := writeKeyValueSnapshot(t.Context(), fake, objectStore, archiveMetadata{})
 	if !errors.Is(err, sentinel) {
 		t.Fatalf("expected CurrentRevision error to propagate, got: %v", err)
 	}
@@ -220,7 +229,7 @@ func TestWriteKeyValueSnapshot_ListStreamError(t *testing.T) {
 	t.Parallel()
 
 	sentinel := errors.New("boom")
-	fake := &fakeEtcdClient{
+	fake := &fakeKeyValueSource{
 		revision: 1,
 		values:   []etcd.Value{{Key: []byte("/registry/a"), Data: []byte("va1")}},
 		listErr:  sentinel,
@@ -229,8 +238,7 @@ func TestWriteKeyValueSnapshot_ListStreamError(t *testing.T) {
 	storePath := filepath.Join(t.TempDir(), "snapshot.tar.gz")
 	objectStore := container.NewStore(&snapshotapi.ContainerOptions{Path: storePath})
 
-	c := &Client{}
-	err := c.writeKeyValueSnapshot(context.Background(), fake, objectStore)
+	err := writeKeyValueSnapshot(t.Context(), fake, objectStore, archiveMetadata{})
 	if !errors.Is(err, sentinel) {
 		t.Fatalf("expected ListStream error to propagate, got: %v", err)
 	}
@@ -243,17 +251,15 @@ func TestWriteKeyValueSnapshot_ListStreamError(t *testing.T) {
 // process-wide goroutine counts and needs a quiet baseline to be reliable.
 func TestWriteKeyValueSnapshot_NoGoroutineLeakOnEarlyError(t *testing.T) {
 	sentinel := errors.New("boom")
-	fake := &fakeEtcdClient{revisionErr: sentinel}
+	fake := &fakeKeyValueSource{revisionErr: sentinel}
 
 	storePath := filepath.Join(t.TempDir(), "snapshot.tar.gz")
 	objectStore := container.NewStore(&snapshotapi.ContainerOptions{Path: storePath})
 
-	c := &Client{}
-
 	runtime.GC()
 	before := runtime.NumGoroutine()
 
-	if err := c.writeKeyValueSnapshot(t.Context(), fake, objectStore); !errors.Is(err, sentinel) {
+	if err := writeKeyValueSnapshot(t.Context(), fake, objectStore, archiveMetadata{}); !errors.Is(err, sentinel) {
 		t.Fatalf("expected CurrentRevision error to propagate, got: %v", err)
 	}
 
