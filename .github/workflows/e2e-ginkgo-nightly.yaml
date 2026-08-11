@@ -181,14 +181,3 @@ jobs:
             E2E Tests Job: ${{ needs.e2e-tests.result }}
             ${{ needs.e2e-tests.result == 'failure' && needs.e2e-tests.outputs.failure-summary || '' }}
           webhook-url: ${{ secrets.SLACK_WEBHOOK_URL_CI_TESTS_ALERTS }}
-
-      - name: Notify dev-vcluster
-        if: always() && needs.e2e-tests.result != 'success'
-        uses: loft-sh/github-actions/.github/actions/ci-test-notify@b5a50da8a53ca1021b783290630061078bdb12cf # ci-test-notify/v1
-        with:
-          test-name: "vCluster E2E Nightly"
-          status: ${{ needs.e2e-tests.result }}
-          details: |
-            E2E Tests Job: ${{ needs.e2e-tests.result }}
-            ${{ needs.e2e-tests.outputs.failure-summary || 'No detailed failure summary available. Check the build logs for more details.' }}
-          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL_DEV_VCLUSTER }}
