@@ -2,8 +2,12 @@ package standalone
 
 import (
 	"errors"
+	"os/exec"
 	"runtime"
+	"slices"
 	"testing"
+
+	"github.com/loft-sh/vcluster/pkg/constants"
 )
 
 func fakeRunner(catErr, stopErr, startErr error) systemctlRunner {
@@ -71,6 +75,75 @@ func TestServiceManager_StopStart(t *testing.T) {
 	}
 	if got := sm.Start(); !errors.Is(got, startErr) {
 		t.Errorf("Start() = %v, want %v", got, startErr)
+	}
+}
+
+// TestIsServiceActive verifies the probe keys on the unit's reported state, not
+// the systemctl exit code: active/reloading/refreshing/activating/deactivating
+// all mean a process may be live and count as active, while inactive/failed and
+// an unanswerable probe count as not-active, and the observed state is reported
+// back for the caller's error message. isServiceActive has no GOOS gate, so this
+// runs anywhere.
+func TestIsServiceActive(t *testing.T) {
+	// is-active exits non-zero for activating/deactivating/inactive/failed but
+	// zero for the live states, and always prints the state on stdout; mirror
+	// that in the fake runner.
+	stateRunner := func(state string) systemctlOutputRunner {
+		return func(...string) (string, error) {
+			if state == "active" || state == "reloading" || state == "refreshing" {
+				return state + "\n", nil
+			}
+			return state + "\n", errors.New("exit status 3")
+		}
+	}
+
+	for _, state := range []string{"active", "reloading", "refreshing", "activating", "deactivating"} {
+		active, gotState := isServiceActive(stateRunner(state))
+		if !active {
+			t.Errorf("state %q: expected active", state)
+		}
+		if gotState != state {
+			t.Errorf("state %q: reported state %q", state, gotState)
+		}
+	}
+	for _, state := range []string{"inactive", "failed"} {
+		active, gotState := isServiceActive(stateRunner(state))
+		if active {
+			t.Errorf("state %q: expected not-active", state)
+		}
+		if gotState != state {
+			t.Errorf("state %q: reported state %q", state, gotState)
+		}
+	}
+
+	// The probe passes "is-active <unit>" and reads stdout (no --quiet, so the
+	// state is printed).
+	var gotArgs []string
+	isServiceActive(func(args ...string) (string, error) {
+		gotArgs = args
+		return "active\n", nil
+	})
+	wantArgs := []string{"is-active", constants.VClusterStandaloneSystemdServiceName}
+	if !slices.Equal(gotArgs, wantArgs) {
+		t.Fatalf("systemctl args = %v, want %v", gotArgs, wantArgs)
+	}
+
+	// A probe that cannot answer at all (no systemctl binary) must fail open.
+	if active, _ := isServiceActive(func(...string) (string, error) {
+		return "", &exec.Error{Name: "systemctl", Err: exec.ErrNotFound}
+	}); active {
+		t.Fatal("expected not-active when the probe cannot answer")
+	}
+}
+
+// TestIsServiceActive_Exported exercises the exported IsServiceActive wiring:
+// the GOOS gate and defaultSystemctlOutputRunner. No vcluster.service unit is
+// installed in the test environment, so on Linux the probe reports the unit
+// not-active and on other platforms the GOOS gate returns false. Either way the
+// guard reports not-active — the fail-open behaviour the in-pod restore relies on.
+func TestIsServiceActive_Exported(t *testing.T) {
+	if active, _ := IsServiceActive(); active {
+		t.Fatal("expected IsServiceActive() to report not-active with no vcluster.service installed")
 	}
 }
 
