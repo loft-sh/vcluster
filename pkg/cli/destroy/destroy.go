@@ -37,6 +37,7 @@ var resourceOrder = []string{
 	"devpodworkspaceinstances",
 	"spaceinstances",
 	"argocdapplications",
+	"appinstances",
 
 	// templates
 	"virtualclustertemplates",
@@ -81,6 +82,7 @@ var resourceOrder = []string{
 // things listed here should also be included in resourceOrder
 var legacyResources = []string{
 	"virtualclusters",
+	"tasks",
 	"spaceconstraints",
 	"localclusteraccesses",
 	"localteams",
