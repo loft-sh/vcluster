@@ -112,6 +112,8 @@ jobs:
         with:
           test-dir: e2e
           upload-report: "true"
+          # "Re-run failed jobs" reruns only the previous attempt's failures (ENGQA-1577)
+          rerun-failed-only: "true"
           reports-bucket: ${{ vars.E2E_INSIGHTS_BUCKET }}
           workflow-file: e2e-ginkgo-nightly.yaml
           ginkgo-label: ${{ inputs.ginkgo-label }}
