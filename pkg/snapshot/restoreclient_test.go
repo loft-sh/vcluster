@@ -3,8 +3,11 @@ package snapshot
 import (
 	"archive/tar"
 	"compress/gzip"
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -12,43 +15,119 @@ import (
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 )
 
-func TestShouldDeleteBeforeRestore(t *testing.T) {
+// This test verifies the wipe actually reaches the client method its store type
+// requires. The predicate test below only covers the mapping; swapping the two
+// branches in deleteExistingData would leave it green while reintroducing the
+// kine Unimplemented failure this fix is about.
+func TestDeleteExistingData(t *testing.T) {
 	tests := []struct {
 		name      string
 		storeType vclusterconfig.StoreType
-		expected  bool
+		expected  []string
 	}{
 		{
-			name:      "embedded etcd deletes files, not via range delete",
+			name:      "embedded etcd deletes no keys over the etcd protocol",
 			storeType: vclusterconfig.StoreTypeEmbeddedEtcd,
-			expected:  false,
+			expected:  nil,
 		},
 		{
-			name:      "embedded database deletes files, not via range delete",
+			name:      "embedded database deletes no keys over the etcd protocol",
 			storeType: vclusterconfig.StoreTypeEmbeddedDatabase,
-			expected:  false,
+			expected:  nil,
 		},
 		{
-			name:      "deployed etcd uses range delete",
+			name:      "deployed etcd uses one range delete",
 			storeType: vclusterconfig.StoreTypeDeployedEtcd,
-			expected:  true,
+			expected:  []string{"DeletePrefix(/)"},
 		},
 		{
-			name:      "external etcd uses range delete",
+			name:      "external etcd uses one range delete",
 			storeType: vclusterconfig.StoreTypeExternalEtcd,
-			expected:  true,
+			expected:  []string{"DeletePrefix(/)"},
 		},
 		{
-			name:      "external database uses range delete",
+			name:      "external database deletes key by key, kine has no range delete",
 			storeType: vclusterconfig.StoreTypeExternalDatabase,
-			expected:  true,
+			expected:  []string{"DeleteKeysWithPrefix(/)"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := shouldDeleteBeforeRestore(tt.storeType); got != tt.expected {
-				t.Errorf("shouldDeleteBeforeRestore(%q) = %v; want %v", tt.storeType, got, tt.expected)
+			recorder := &deleteRecorder{}
+			if err := deleteExistingData(context.Background(), recorder, tt.storeType); err != nil {
+				t.Fatalf("deleteExistingData(%q) = %v; want no error", tt.storeType, err)
+			}
+			if !slices.Equal(recorder.calls, tt.expected) {
+				t.Errorf("deleteExistingData(%q) called %v; want %v", tt.storeType, recorder.calls, tt.expected)
+			}
+		})
+	}
+}
+
+func TestDeleteExistingData_Error(t *testing.T) {
+	sentinel := errors.New("boom")
+	recorder := &deleteRecorder{err: sentinel}
+
+	err := deleteExistingData(context.Background(), recorder, vclusterconfig.StoreTypeExternalDatabase)
+	if !errors.Is(err, sentinel) {
+		t.Errorf("deleteExistingData error = %v; want %v", err, sentinel)
+	}
+}
+
+// deleteRecorder records which wipe the dispatch picked.
+type deleteRecorder struct {
+	calls []string
+	err   error
+}
+
+func (d *deleteRecorder) DeletePrefix(_ context.Context, prefix string) error {
+	d.calls = append(d.calls, "DeletePrefix("+prefix+")")
+	return d.err
+}
+
+func (d *deleteRecorder) DeleteKeysWithPrefix(_ context.Context, prefix string) error {
+	d.calls = append(d.calls, "DeleteKeysWithPrefix("+prefix+")")
+	return d.err
+}
+
+func TestDeleteMethodBeforeRestore(t *testing.T) {
+	tests := []struct {
+		name      string
+		storeType vclusterconfig.StoreType
+		expected  deleteMethod
+	}{
+		{
+			name:      "embedded etcd deletes files, not over the etcd protocol",
+			storeType: vclusterconfig.StoreTypeEmbeddedEtcd,
+			expected:  deleteMethodNone,
+		},
+		{
+			name:      "embedded database deletes files, not over the etcd protocol",
+			storeType: vclusterconfig.StoreTypeEmbeddedDatabase,
+			expected:  deleteMethodNone,
+		},
+		{
+			name:      "deployed etcd uses range delete",
+			storeType: vclusterconfig.StoreTypeDeployedEtcd,
+			expected:  deleteMethodRange,
+		},
+		{
+			name:      "external etcd uses range delete",
+			storeType: vclusterconfig.StoreTypeExternalEtcd,
+			expected:  deleteMethodRange,
+		},
+		{
+			name:      "external database deletes key by key, kine has no range delete",
+			storeType: vclusterconfig.StoreTypeExternalDatabase,
+			expected:  deleteMethodKeyByKey,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := deleteMethodBeforeRestore(tt.storeType); got != tt.expected {
+				t.Errorf("deleteMethodBeforeRestore(%q) = %q; want %q", tt.storeType, got, tt.expected)
 			}
 		})
 	}

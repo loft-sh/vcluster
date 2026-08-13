@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+	"sync"
 	"testing"
 
 	"go.etcd.io/etcd/api/v3/etcdserverpb"
@@ -228,6 +230,130 @@ func TestCurrentRevision_Error(t *testing.T) {
 
 	_, err := currentRevision(context.Background(), get)
 	assert.ErrorIs(t, err, sentinel)
+}
+
+// This test verifies DeleteKeysWithPrefix deletes every key under the prefix,
+// paginating keys-only at the current revision until the prefix is empty.
+func TestDeleteKeysWithPrefix(t *testing.T) {
+	t.Parallel()
+
+	const prefix = "/"
+
+	store := newFakeKeyStore(prefix, EtcdPaginationLimit+5)
+
+	assert.NilError(t, deleteKeysWithPrefix(context.Background(), prefix, store.get, store.del))
+	assert.Equal(t, EtcdPaginationLimit+5, len(store.deletedKeys()), "every key under the prefix must be deleted")
+	assert.Equal(t, 0, store.remainingCount(), "no key may be left under the prefix")
+
+	gotOps := store.ops()
+	assert.Equal(t, 4, len(gotOps), "a count for the progress total, two full pages, and a final empty read")
+	assert.Assert(t, gotOps[0].IsCountOnly(), "the total must be counted without transferring keys")
+	for i, op := range gotOps {
+		assert.Equal(t, prefix, string(op.KeyBytes()), "read %d must start at the prefix", i)
+		assert.Equal(t, clientv3.GetPrefixRangeEnd(prefix), string(op.RangeBytes()), "read %d must use prefix range end", i)
+	}
+	for i, op := range gotOps[1:] {
+		assert.Equal(t, int64(0), op.Rev(), "page %d must read at the current revision", i)
+		assert.Assert(t, op.IsKeysOnly(), "page %d must not transfer values", i)
+	}
+}
+
+// This test verifies a failing delete aborts the wipe instead of re-reading the
+// same page forever, and that the error reaches the caller.
+func TestDeleteKeysWithPrefix_DeleteError(t *testing.T) {
+	t.Parallel()
+
+	sentinel := errors.New("boom")
+	// only page reads are counted, the leading count-only read is not one
+	var pageReads int
+	get := func(_ context.Context, prefix string, opts ...clientv3.OpOption) (*clientv3.GetResponse, error) {
+		kvs := makeKVs(prefix, 0, 2, 1)
+		if clientv3.OpGet(prefix, opts...).IsCountOnly() {
+			return &clientv3.GetResponse{
+				Header: &etcdserverpb.ResponseHeader{Revision: 1},
+				Count:  int64(len(kvs)),
+			}, nil
+		}
+
+		pageReads++
+		return &clientv3.GetResponse{
+			Header: &etcdserverpb.ResponseHeader{Revision: 1},
+			Kvs:    kvs,
+		}, nil
+	}
+
+	err := deleteKeysWithPrefix(context.Background(), "/", get, func(_ context.Context, _ string) error {
+		return sentinel
+	})
+	assert.ErrorIs(t, err, sentinel)
+	assert.Equal(t, 1, pageReads, "the failing page must not be read again")
+}
+
+// fakeKeyStore is a tiny concurrency-safe stand-in for the store, since a page
+// of keys is deleted from several goroutines.
+type fakeKeyStore struct {
+	mu        sync.Mutex
+	remaining []*mvccpb.KeyValue
+	deleted   []string
+	gotOps    []clientv3.Op
+}
+
+func newFakeKeyStore(prefix string, keys int) *fakeKeyStore {
+	return &fakeKeyStore{remaining: makeKVs(prefix, 0, keys, 1)}
+}
+
+func (f *fakeKeyStore) get(_ context.Context, key string, opts ...clientv3.OpOption) (*clientv3.GetResponse, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	op := clientv3.OpGet(key, opts...)
+	f.gotOps = append(f.gotOps, op)
+	if op.IsCountOnly() {
+		return &clientv3.GetResponse{
+			Header: &etcdserverpb.ResponseHeader{Revision: 1},
+			Count:  int64(len(f.remaining)),
+		}, nil
+	}
+
+	page := f.remaining
+	if len(page) > EtcdPaginationLimit {
+		page = page[:EtcdPaginationLimit]
+	}
+	return &clientv3.GetResponse{
+		Header: &etcdserverpb.ResponseHeader{Revision: 1},
+		// a real response is a fresh slice, so don't hand out the store's own
+		Kvs:   slices.Clone(page),
+		Count: int64(len(page)),
+	}, nil
+}
+
+func (f *fakeKeyStore) del(_ context.Context, key string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.remaining = slices.DeleteFunc(f.remaining, func(kv *mvccpb.KeyValue) bool {
+		return string(kv.Key) == key
+	})
+	f.deleted = append(f.deleted, key)
+	return nil
+}
+
+func (f *fakeKeyStore) deletedKeys() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.deleted)
+}
+
+func (f *fakeKeyStore) remainingCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.remaining)
+}
+
+func (f *fakeKeyStore) ops() []clientv3.Op {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.gotOps)
 }
 
 func makeKVs(prefix string, start, end int, modRevStart int64) []*mvccpb.KeyValue {
