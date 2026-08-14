@@ -24,7 +24,7 @@ jobs:
     # always validates, so it bypasses change detection. Entry jobs break the
     # skip-propagation with !cancelled().
     if: github.event_name == 'pull_request'
-    uses: loft-sh/github-actions/.github/workflows/detect-changes.yaml@detect-changes/v1
+    uses: loft-sh/github-actions/.github/workflows/detect-changes.yaml@0a42138464e0e451779f9cbaf21ed1b074bd7bdc # detect-changes/v1
     with:
       paths: |
         - "go.mod"
@@ -49,19 +49,19 @@ jobs:
     needs: [detect_changes]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
 
       - run: git fetch --force --tags
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
 
       - name: Setup GoReleaser
-        uses: goreleaser/goreleaser-action@v6
+        uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6
         with:
           install-only: true
           version: latest
@@ -77,14 +77,14 @@ jobs:
           TELEMETRY_PRIVATE_KEY="" goreleaser build --single-target --snapshot --id vcluster-cli --clean --output ./vcluster
 
       - name: Upload syncer image to artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: vcluster_syncer
           path: ./vcluster_syncer
           retention-days: 7
 
       - name: Upload vcluster cli to artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: vcluster
           path: ./vcluster
@@ -101,7 +101,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - id: set-paths-matrix
         run: |
           set -x
@@ -133,15 +133,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
-      - uses: azure/setup-helm@v4
+      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4
         name: Setup Helm
         with:
-          version: "v3.11.0"
+          version: "v3.21.3"
 
       - name: Set up vind cluster
-        uses: loft-sh/setup-vind@v1
+        uses: loft-sh/setup-vind@1ffff82986c3afff90ba8f357f69541b24e3a8f0 # v1
         with:
           version: "v0.33.0"
           skipClusterLogsExport: "true"
@@ -159,12 +159,12 @@ jobs:
           echo "KUBECONFIG env var: ${KUBECONFIG}"
 
       - name: Download vcluster cli
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           name: vcluster
 
       - name: Download syncer image
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           name: vcluster_syncer
 
@@ -199,7 +199,7 @@ jobs:
         run: |
           curl -L -o vcluster-current "https://github.com/loft-sh/vcluster/releases/latest/download/vcluster-linux-amd64"
       - name: Upload vcluster cli to artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: vcluster-current
           path: ./vcluster-current
@@ -224,15 +224,15 @@ jobs:
         distribution: ["k8s"]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
-      - uses: azure/setup-helm@v4
+      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4
         name: Setup Helm
         with:
-          version: "v3.11.0"
+          version: "v3.21.3"
 
       - name: Set up vind cluster
-        uses: loft-sh/setup-vind@v1
+        uses: loft-sh/setup-vind@1ffff82986c3afff90ba8f357f69541b24e3a8f0 # v1
         with:
           version: "v0.33.0"
           skipClusterLogsExport: "true"
@@ -253,18 +253,18 @@ jobs:
           echo "HOST_NODE_NAME=$(kubectl get nodes -o jsonpath='{.items[0].metadata.name}')" >> "$GITHUB_OUTPUT"
 
       - name: Download vcluster cli
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           name: vcluster
           path: vcluster-dev
 
       - name: Download current cli
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           name: vcluster-current
 
       - name: Download syncer image
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           name: vcluster_syncer
 
