@@ -5,11 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
+	"strings"
+	"sync/atomic"
 	"time"
 
 	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	corev1 "k8s.io/api/core/v1"
@@ -37,6 +41,228 @@ type Reconciler struct {
 	logger                     loghelper.Logger
 	eventRecorder              events.EventRecorder
 	isHostMode                 bool
+	// briefly caches the credentials pulled from the platform. One cell, not a map: credentials are per
+	// instance and this controller serves exactly one.
+	snapshotCredentials atomic.Pointer[cachedSnapshotOptions]
+}
+
+const snapshotCredentialsCacheTTL = time.Minute
+
+// snapshotCredentialsStaleTTL bounds how long the last successful pull may still be used once the
+// platform stops answering. A backup with slightly stale credentials beats no backup: rotated ones are
+// rejected by the object store, which fails the request with the real reason. A refusal is terminal and
+// never falls back, so the platform can stop this the moment it answers.
+const snapshotCredentialsStaleTTL = 24 * time.Hour * 7
+
+type cachedSnapshotOptions struct {
+	options *snapshotapi.Options
+	expiry  time.Time
+	// staleExpiry is when the entry stops being usable even as a fallback.
+	staleExpiry time.Time
+}
+
+// credentialResolveDeadline bounds how long a request may keep failing to pull its storage
+// credentials before it is failed instead of requeued. The pull is a single call to the platform, so a
+// failure lasting this long is not transient: the token has no access to the instance, the license
+// lapsed, or the instance never registered. Without a bound the request stays in a non-terminal phase
+// forever, and because the platform blocks scheduling while anything is in progress, that instance
+// silently stops taking snapshots altogether. Failing here puts the real reason in the request's
+// Status.Error instead of leaving the platform to report a generic timeout.
+const credentialResolveDeadline = 10 * time.Minute
+
+// resolveSnapshotOptions returns the snapshot storage options (location + credentials) for a request.
+// The pushed options Secret wins whenever there is one, because a request the tenant created itself
+// carries its own credentials; only a platform-scheduled request on a standalone tenant arrives without
+// one, and there they are pulled from the platform. The returned requeue flag signals a transient
+// condition where the caller must retry rather than fail the snapshot.
+func (c *Reconciler) resolveSnapshotOptions(ctx context.Context, configMap *corev1.ConfigMap, snapshotRequest *snapshotapi.Request) (*snapshotapi.Options, bool, error) {
+	var secret corev1.Secret
+	err := c.client().Get(ctx, client.ObjectKey{Namespace: configMap.Namespace, Name: configMap.Name}, &secret)
+	switch {
+	case err == nil:
+		options, unmarshalErr := snapshotapi.UnmarshalOptions(&secret)
+		if unmarshalErr != nil {
+			return nil, false, fmt.Errorf("failed to unmarshal vcluster snapshot options from Secret %s/%s: %w", secret.Namespace, secret.Name, unmarshalErr)
+		}
+		return options, false, nil
+	case !kerrors.IsNotFound(err):
+		return nil, false, fmt.Errorf("failed to get snapshot request Secret %s/%s: %w", configMap.Namespace, configMap.Name, err)
+	}
+
+	if c.vConfig != nil && c.vConfig.ControlPlane.Standalone.Enabled && pro.ResolveSnapshotCredentials != nil {
+		return c.pullSnapshotOptions(ctx, configMap, snapshotRequest)
+	}
+
+	// Too soon and the client cache is not up to date? Requeue if the request was created recently.
+	if time.Since(configMap.CreationTimestamp.Time) < 10*time.Second {
+		return nil, true, nil
+	}
+	return nil, false, fmt.Errorf("can't find snapshot request Secret %s/%s: %w", configMap.Namespace, configMap.Name, err)
+}
+
+// pullSnapshotOptions builds the options for a request that carries no Secret: the credentials come from
+// the platform (in memory, briefly cached), the location from the request's non-secret URL.
+func (c *Reconciler) pullSnapshotOptions(ctx context.Context, configMap *corev1.ConfigMap, snapshotRequest *snapshotapi.Request) (*snapshotapi.Options, bool, error) {
+	location := &snapshotapi.Options{}
+	if err := Parse(snapshotRequest.Spec.URL, location); err != nil {
+		return nil, false, fmt.Errorf("failed to parse snapshot URL %q: %w", snapshotRequest.Spec.URL, err)
+	}
+
+	credentials, err := c.cachedSnapshotCredentials(ctx)
+	if err != nil {
+		if terminalErr := terminalCredentialError(err); terminalErr != nil {
+			return nil, false, terminalErr
+		}
+		// An unreachable platform must not cost a backup we already hold the credentials for. This runs
+		// only after the refusals above, so the platform can still stop the pull whenever it answers.
+		stale, ok := c.staleSnapshotCredentials()
+		if !ok {
+			// The ConfigMap timestamp is set by the API server, so the deadline holds across restarts of this
+			// controller without tracking attempts.
+			age := time.Since(configMap.CreationTimestamp.Time)
+			if !configMap.CreationTimestamp.IsZero() && age > credentialResolveDeadline {
+				return nil, false, fmt.Errorf("could not resolve snapshot credentials from platform after %s: %w", age.Round(time.Second), err)
+			}
+			// transient (platform unreachable / not registered yet): requeue, do not fail
+			c.logger.Infof("could not resolve snapshot credentials from platform yet, requeueing: %v", err)
+			return nil, true, nil
+		}
+		c.logger.Infof("could not reach the platform for snapshot credentials, continuing with the last ones it supplied: %v", err)
+		credentials = stale
+	}
+
+	// the credentials belong to the platform's configured backend, so a request aimed elsewhere would
+	// authenticate against the wrong one instead of failing
+	if credentials.Type != location.Type {
+		return nil, false, fmt.Errorf("snapshot request targets %q storage, but the platform supplied credentials for %q", location.Type, credentials.Type)
+	}
+
+	options := *credentials
+	if err := overlaySnapshotLocation(&options, location); err != nil {
+		return nil, false, err
+	}
+	return &options, false, nil
+}
+
+// terminalCredentialError reports why a failed pull will not succeed on retry, or nil when it might. The
+// platform answers NotFound when the instance has no snapshot storage configured and Forbidden when the
+// license lapsed or the token may not use the instance; neither changes while the request waits.
+func terminalCredentialError(err error) error {
+	switch {
+	case kerrors.IsNotFound(err):
+		return fmt.Errorf("the platform has no snapshot storage configured for this virtual cluster, so create the snapshot request with its own options: %w", err)
+	case kerrors.IsForbidden(err):
+		return fmt.Errorf("the platform refused to supply snapshot credentials: %w", err)
+	case errors.Is(err, pro.ErrSnapshotCredentialsMalformed):
+		return err
+	}
+
+	return nil
+}
+
+// errCredentialsNotProvisioned reports an answer that parsed but named no backend, which is how an
+// instance looks before its storage is configured. Transient: a zero-value Options would otherwise read
+// as a backend mismatch and fail the request on a condition that clears itself.
+var errCredentialsNotProvisioned = errors.New("the platform has not provisioned snapshot storage for this virtual cluster yet")
+
+// cachedSnapshotCredentials pulls this instance's snapshot storage credentials from the platform,
+// caching them briefly. Credentials are per instance (not per snapshot), so a single cache entry
+// is sufficient.
+func (c *Reconciler) cachedSnapshotCredentials(ctx context.Context) (*snapshotapi.Options, error) {
+	if cached := c.snapshotCredentials.Load(); cached != nil && time.Now().Before(cached.expiry) {
+		return cached.options, nil
+	}
+	credentials, err := pro.ResolveSnapshotCredentials(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// not cached: storing it would make every request in the cache window inherit the same verdict
+	if credentials == nil || credentials.Type == "" {
+		return nil, errCredentialsNotProvisioned
+	}
+	now := time.Now()
+	c.snapshotCredentials.Store(&cachedSnapshotOptions{
+		options:     credentials,
+		expiry:      now.Add(snapshotCredentialsCacheTTL),
+		staleExpiry: now.Add(snapshotCredentialsStaleTTL),
+	})
+	return credentials, nil
+}
+
+// staleSnapshotCredentials returns the last successful pull when it may still be used as a fallback.
+// The entry's expiry is deliberately not extended, so every later request retries the platform first
+// and stops falling back as soon as one succeeds.
+func (c *Reconciler) staleSnapshotCredentials() (*snapshotapi.Options, bool) {
+	cached := c.snapshotCredentials.Load()
+	if cached == nil || !time.Now().Before(cached.staleExpiry) {
+		return nil, false
+	}
+
+	return cached.options, true
+}
+
+// overlaySnapshotLocation copies the per-snapshot location from src onto dst, keeping dst's connection
+// settings and credentials. The request may choose where inside the platform's backend a snapshot lands,
+// never which host: dst carries live credentials, and for OCI and Azure the location field is the host.
+// S3 keeps dst's endpoint and container is a local path, so neither needs the check.
+func overlaySnapshotLocation(dst, src *snapshotapi.Options) error {
+	switch dst.Type {
+	case "s3":
+		dst.S3.Bucket = src.S3.Bucket
+		dst.S3.Key = src.S3.Key
+	case "container":
+		dst.Container.Path = src.Container.Path
+	case "oci":
+		if err := sameHost(ociHost(dst.OCI.Repository), ociHost(src.OCI.Repository)); err != nil {
+			return fmt.Errorf("snapshot request targets a different OCI registry than the platform supplied credentials for: %w", err)
+		}
+		dst.OCI.Repository = src.OCI.Repository
+	case "azure":
+		dstHost, err := blobHost(dst.Azure.BlobURL)
+		if err != nil {
+			return fmt.Errorf("parse the platform's Azure blob URL: %w", err)
+		}
+		srcHost, err := blobHost(src.Azure.BlobURL)
+		if err != nil {
+			return fmt.Errorf("parse the snapshot request's Azure blob URL: %w", err)
+		}
+		if err := sameHost(dstHost, srcHost); err != nil {
+			return fmt.Errorf("snapshot request targets a different Azure host than the platform supplied credentials for: %w", err)
+		}
+		dst.Azure.BlobURL = src.Azure.BlobURL
+	default:
+		return fmt.Errorf("unsupported snapshot storage type %q", dst.Type)
+	}
+
+	return nil
+}
+
+// ociHost returns the registry from an OCI repository, which Parse builds as host/path.
+func ociHost(repository string) string {
+	host, _, _ := strings.Cut(repository, "/")
+
+	return host
+}
+
+// blobHost returns the host of an Azure blob URL.
+func blobHost(blobURL string) (string, error) {
+	parsed, err := url.Parse(blobURL)
+	if err != nil {
+		return "", err
+	}
+
+	return parsed.Host, nil
+}
+
+func sameHost(platform, request string) error {
+	if platform == "" {
+		return errors.New("the platform supplied no host to compare against")
+	}
+	if !strings.EqualFold(platform, request) {
+		return fmt.Errorf("request names %q, platform credentials are for %q", request, platform)
+	}
+
+	return nil
 }
 
 func NewController(registerContext *synccontext.RegisterContext) (*Reconciler, error) {
@@ -271,28 +497,15 @@ func (c *Reconciler) reconcileNewRequest(_ context.Context, configMap *corev1.Co
 // reconcileCreatingEtcdBackup creates the snapshot, uploads it to the specified storage, and updates
 // the snapshot request phase to "Completed".
 func (c *Reconciler) reconcileCreatingEtcdBackup(ctx context.Context, configMap *corev1.ConfigMap, snapshotRequest *snapshotapi.Request) (bool, error) {
-	// Find snapshot request secret, it contains snapshot options (with the storage credentials) 🪪
-	var secret corev1.Secret
-	secretObjectKey := client.ObjectKey{
-		Namespace: configMap.Namespace,
-		Name:      configMap.Name,
-	}
-	err := c.client().Get(ctx, secretObjectKey, &secret)
-	if kerrors.IsNotFound(err) {
-		// Too soon? Requeue if this is a recently created snapshot request.
-		if time.Since(configMap.CreationTimestamp.Time) < 10*time.Second {
-			return true, nil
-		}
-		return false, fmt.Errorf("can't find snapshot request Secret %s/%s: %w", configMap.Namespace, configMap.Name, err)
-	} else if err != nil {
-		return false, fmt.Errorf("failed to get snapshot request Secret %s/%s: %w", configMap.Namespace, configMap.Name, err)
-	}
-	c.logger.Infof("Found snapshot request Secret %s/%s", secret.Namespace, secret.Name)
-
-	// Extract snapshot options from the Secret 🔎
-	snapshotOptions, err := snapshotapi.UnmarshalOptions(&secret)
+	// Obtain the snapshot options (URL + credentials). Standalone, platform-connected tenants pull
+	// them from the platform in memory (credentials are never pushed into the tenant); everyone
+	// else reads them from the pushed request Secret.
+	snapshotOptions, requeue, err := c.resolveSnapshotOptions(ctx, configMap, snapshotRequest)
 	if err != nil {
-		return false, fmt.Errorf("failed to unmarshal vcluster snapshot request from ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
+		return false, err
+	}
+	if requeue {
+		return true, nil
 	}
 	snapshotRequest.Spec.Options = *snapshotOptions
 

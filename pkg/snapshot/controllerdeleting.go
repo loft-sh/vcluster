@@ -3,12 +3,9 @@ package snapshot
 import (
 	"context"
 	"fmt"
-	"time"
 
 	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
 	corev1 "k8s.io/api/core/v1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // reconcileNewRequest updates the snapshot request phase to "InProgress".
@@ -37,27 +34,14 @@ func (c *Reconciler) reconcileDeletingEtcdBackup(ctx context.Context, configMap 
 		return false, fmt.Errorf("invalid phase for snapshot deletion request %s, expected %s, got %s", snapshotRequest.Name, snapshotapi.RequestPhaseDeletingEtcdBackup, snapshotRequest.Status.Phase)
 	}
 	c.logger.Debugf("Deleting etcd backup at %s for snapshot deletion request %s/%s", snapshotRequest.Spec.URL, configMap.Namespace, configMap.Name)
-	// Find snapshot request secret, it contains snapshot options (with the storage credentials) 🪪
-	var secret corev1.Secret
-	secretObjectKey := client.ObjectKey{
-		Namespace: configMap.Namespace,
-		Name:      configMap.Name,
-	}
-	err := c.client().Get(ctx, secretObjectKey, &secret)
-	if kerrors.IsNotFound(err) {
-		// Too soon and the client cache is not up to date? Requeue if this is a recently created snapshot request.
-		if time.Since(configMap.CreationTimestamp.Time) < 10*time.Second {
-			return true, nil
-		}
-		return false, fmt.Errorf("can't find snapshot deletion request Secret %s/%s: %w", configMap.Namespace, configMap.Name, err)
-	} else if err != nil {
-		return false, fmt.Errorf("failed to get snapshot deletion request Secret %s/%s: %w", configMap.Namespace, configMap.Name, err)
-	}
-
-	// Extract snapshot options from the Secret 🔎
-	snapshotOptions, err := snapshotapi.UnmarshalOptions(&secret)
+	// Obtain the snapshot options (URL + credentials). Standalone, platform-connected tenants pull
+	// them from the platform in memory; everyone else reads them from the pushed request Secret.
+	snapshotOptions, requeue, err := c.resolveSnapshotOptions(ctx, configMap, snapshotRequest)
 	if err != nil {
-		return false, fmt.Errorf("failed to unmarshal vcluster snapshot request from ConfigMap %s/%s: %w", configMap.Namespace, configMap.Name, err)
+		return false, err
+	}
+	if requeue {
+		return true, nil
 	}
 
 	// Create and save the snapshot! 💾
