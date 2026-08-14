@@ -26,7 +26,7 @@ type deleteDocker struct {
 
 func DeleteDocker(ctx context.Context, platformClient platform.Client, options *DeleteOptions, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
 	// make sure a docker daemon is reachable, falling back to podman if available
-	err := ensureDockerDaemon(ctx, log)
+	err := EnsureDockerDaemon(ctx, log)
 	if err != nil {
 		return err
 	}

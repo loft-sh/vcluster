@@ -76,7 +76,7 @@ func CreateDocker(ctx context.Context, options *CreateOptions, globalFlags *flag
 	}
 
 	// make sure a docker daemon is reachable, falling back to podman if available
-	err := ensureDockerDaemon(ctx, log)
+	err := EnsureDockerDaemon(ctx, log)
 	if err != nil {
 		return err
 	}
@@ -477,10 +477,13 @@ func getInstallStandaloneScript(ctx context.Context, vClusterVersion string, glo
 		return script, nil
 	}
 
-	// check the cache first
+	// check the cache first, discarding a corrupted entry so it gets re-downloaded
 	cachePath := filepath.Join(filepath.Dir(globalFlags.Config), "docker", "install-standalone", "v"+vClusterVersion, "install-standalone.sh")
 	if script, err := os.ReadFile(cachePath); err == nil {
-		return script, nil
+		if err := validateInstallStandaloneScript(script); err == nil {
+			return script, nil
+		}
+		_ = os.Remove(cachePath)
 	}
 
 	scriptURL := fmt.Sprintf("https://github.com/loft-sh/vcluster/releases/download/v%s/install-standalone.sh", vClusterVersion)
@@ -489,7 +492,8 @@ func getInstallStandaloneScript(ctx context.Context, vClusterVersion string, glo
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	httpClient := &http.Client{Timeout: time.Minute}
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("download %s (set %s to a local copy of the script if this environment can't reach github): %w", scriptURL, installStandaloneScriptEnv, err)
 	}
@@ -502,13 +506,35 @@ func getInstallStandaloneScript(ctx context.Context, vClusterVersion string, glo
 	if err != nil {
 		return nil, fmt.Errorf("download %s: %w", scriptURL, err)
 	}
+	if err := validateInstallStandaloneScript(script); err != nil {
+		return nil, fmt.Errorf("downloaded %s is not a valid install script (an intercepting proxy might have returned an error page): %w", scriptURL, err)
+	}
 
-	// cache the script for offline reuse, best effort
+	// cache the script for offline reuse, best effort. Write to a temp file and
+	// rename so an interrupted write can't leave a truncated script behind.
 	if err := os.MkdirAll(filepath.Dir(cachePath), 0755); err == nil {
-		_ = os.WriteFile(cachePath, script, 0644)
+		if tmpFile, err := os.CreateTemp(filepath.Dir(cachePath), "install-standalone-*.sh"); err == nil {
+			_, writeErr := tmpFile.Write(script)
+			closeErr := tmpFile.Close()
+			if writeErr == nil && closeErr == nil {
+				_ = os.Rename(tmpFile.Name(), cachePath)
+			} else {
+				_ = os.Remove(tmpFile.Name())
+			}
+		}
 	}
 
 	return script, nil
+}
+
+// validateInstallStandaloneScript makes sure the given bytes look like a shell
+// script instead of e.g. an error page returned by an intercepting proxy.
+func validateInstallStandaloneScript(script []byte) error {
+	if !bytes.HasPrefix(script, []byte("#!")) {
+		return fmt.Errorf("script doesn't start with a shebang")
+	}
+
+	return nil
 }
 
 func ensureK8sResolvConf(ctx context.Context, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
@@ -1332,20 +1358,27 @@ func findTailIPs(ctx context.Context, networkName string, tailSize int) ([]strin
 }
 
 func getDockerSocketPath(ctx context.Context) (string, error) {
-	// Check the well-known socket paths first: a symlink to a live socket passes the
-	// -S test, which covers podman machines where /var/run/docker.sock is a symlink
-	// to podman.sock and therefore never shows up in netstat. Only fall back to
-	// scanning the listening unix sockets if none of the known paths exist.
+	// Scan the listening unix sockets first so a live docker listener always wins
+	// over a stale socket file. If that yields nothing, fall back to the well-known
+	// socket paths: a symlink to a live socket passes the -S test, which covers
+	// podman machines where /var/run/docker.sock is a symlink to podman.sock and
+	// therefore never shows up in netstat. The netstat scan intentionally only
+	// matches docker.sock, since matching podman.sock would also pick up rootless
+	// per-user sockets in /run/user, while the fallback list pins the rootful one.
 	cmdStr := `
+        if command -v netstat >/dev/null 2>&1; then
+            found=$(netstat -xlp | awk '$NF ~ /\/docker\.sock(\.real)?$/ {print $NF}')
+            if [ -n "$found" ]; then
+                echo "$found"
+                exit 0
+            fi
+        fi
         for p in /var/run/docker.sock.real /var/run/docker.sock /run/podman/podman.sock; do
             if [ -S "$p" ]; then
                 echo "$p"
                 exit 0
             fi
         done
-        if command -v netstat >/dev/null 2>&1; then
-            netstat -xlp | awk '$NF ~ /\/(docker|podman)\.sock(\.real)?$/ {print $NF}'
-        fi
     `
 
 	out, err := exec.CommandContext(ctx, "docker", "run", "-q", "--rm", "--privileged", "--pid=host", "alpine", "nsenter", "-t", "1", "-m", "-p", "-u", "-i", "-n", "sh", "-c", cmdStr).Output()

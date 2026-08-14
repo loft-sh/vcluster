@@ -26,7 +26,7 @@ import (
 // callerOpts may be nil (standalone restore) or the user's CreateOptions (create --restore).
 func RestoreDocker(ctx context.Context, globalFlags *flags.GlobalFlags, snapshotPath, targetName string, callerOpts *CreateOptions, tempDir string, log log.Logger) error {
 	// make sure a docker daemon is reachable, falling back to podman if available
-	if err := ensureDockerDaemon(ctx, log); err != nil {
+	if err := EnsureDockerDaemon(ctx, log); err != nil {
 		return err
 	}
 

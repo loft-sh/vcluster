@@ -18,11 +18,11 @@ var (
 	errEnsureDockerDaemon  error
 )
 
-// ensureDockerDaemon makes sure the docker CLI can reach a container daemon before
+// EnsureDockerDaemon makes sure the docker CLI can reach a container daemon before
 // any docker command is run. If the default docker daemon is not reachable, it falls
 // back to Podman's Docker-compatible API socket by setting DOCKER_HOST for this
 // process, which every subsequent docker command inherits.
-func ensureDockerDaemon(ctx context.Context, log log.Logger) error {
+func EnsureDockerDaemon(ctx context.Context, log log.Logger) error {
 	ensureDockerDaemonOnce.Do(func() {
 		errEnsureDockerDaemon = findDockerDaemon(ctx, log)
 	})
@@ -63,7 +63,9 @@ func findDockerDaemon(ctx context.Context, log log.Logger) error {
 		return fmt.Errorf("podman socket %s is not reachable via the docker CLI, please make sure the podman machine is running and rootful: %w", socketPath, err)
 	}
 
-	log.Infof("Docker daemon not found, using Podman's Docker-compatible API at %s", socketPath)
+	// use Warnf so the notice goes to stderr and doesn't corrupt commands that
+	// print machine readable output (e.g. vcluster list --output json)
+	log.Warnf("Docker daemon not found, using Podman's Docker-compatible API at %s", socketPath)
 	return nil
 }
 
@@ -80,6 +82,12 @@ func pingDockerDaemon(ctx context.Context) error {
 func findPodmanSocket(ctx context.Context) (string, error) {
 	if _, err := exec.LookPath("podman"); err != nil {
 		return "", fmt.Errorf("podman not found: %w", err)
+	}
+
+	// podman machine on windows exposes a named pipe instead of a unix socket,
+	// which the fallback below doesn't handle
+	if runtime.GOOS == "windows" {
+		return "", fmt.Errorf("automatic podman fallback is not supported on windows, please set DOCKER_HOST to the podman machine's docker API endpoint manually")
 	}
 
 	// on linux podman serves the API directly on the host, on other platforms it
@@ -146,13 +154,22 @@ func ensureVMKernelModules(ctx context.Context, log log.Logger) {
 	// Docker Desktop preloads these modules, but other VM based runtimes like
 	// podman machine, colima or rancher desktop don't necessarily do so. Enter the
 	// VM's namespaces through a privileged container and load whatever is missing.
+	// The sysctls are only set when a module had to be loaded, so machines that
+	// already have everything in place are never modified.
 	cmdStr := `
+        loaded=""
         for mod in overlay bridge br_netfilter; do
             if ! grep -q "^$mod " /proc/modules; then
-                modprobe "$mod" 2>/dev/null || echo "could not load kernel module $mod"
+                if modprobe "$mod" 2>/dev/null; then
+                    loaded="$loaded $mod"
+                else
+                    echo "could not load kernel module $mod"
+                fi
             fi
         done
-        sysctl -qw net.bridge.bridge-nf-call-iptables=1 net.bridge.bridge-nf-call-ip6tables=1 net.ipv4.ip_forward=1 2>/dev/null || true
+        if [ -n "$loaded" ]; then
+            sysctl -qw net.bridge.bridge-nf-call-iptables=1 net.bridge.bridge-nf-call-ip6tables=1 net.ipv4.ip_forward=1 2>/dev/null || true
+        fi
     `
 
 	out, err := exec.CommandContext(ctx, "docker", "run", "-q", "--rm", "--privileged", "--pid=host", "alpine", "nsenter", "-t", "1", "-m", "-p", "-u", "-i", "-n", "sh", "-c", cmdStr).CombinedOutput()

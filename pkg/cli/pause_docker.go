@@ -12,7 +12,7 @@ import (
 
 func PauseDocker(ctx context.Context, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
 	// make sure a docker daemon is reachable, falling back to podman if available
-	err := ensureDockerDaemon(ctx, log)
+	err := EnsureDockerDaemon(ctx, log)
 	if err != nil {
 		return err
 	}

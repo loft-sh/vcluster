@@ -31,6 +31,12 @@ func TestGetInstallStandaloneScript(t *testing.T) {
 		assert.ErrorContains(t, err, installStandaloneScriptEnv)
 	})
 
+	t.Run("script validation", func(t *testing.T) {
+		assert.NilError(t, validateInstallStandaloneScript([]byte("#!/bin/sh\necho ok")))
+		assert.ErrorContains(t, validateInstallStandaloneScript([]byte("<html>proxy error page</html>")), "shebang")
+		assert.ErrorContains(t, validateInstallStandaloneScript(nil), "shebang")
+	})
+
 	t.Run("cached script is used without downloading", func(t *testing.T) {
 		configDir := t.TempDir()
 		cachePath := filepath.Join(configDir, "docker", "install-standalone", "v0.31.0", "install-standalone.sh")
