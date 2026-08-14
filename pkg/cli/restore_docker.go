@@ -25,6 +25,11 @@ import (
 // entries are piped directly to Docker, and config files are written directly to disk.
 // callerOpts may be nil (standalone restore) or the user's CreateOptions (create --restore).
 func RestoreDocker(ctx context.Context, globalFlags *flags.GlobalFlags, snapshotPath, targetName string, callerOpts *CreateOptions, tempDir string, log log.Logger) error {
+	// make sure a docker daemon is reachable, falling back to podman if available
+	if err := ensureDockerDaemon(ctx, log); err != nil {
+		return err
+	}
+
 	// If the snapshot path is a remote URL, pull it to a temp file first.
 	localPath := snapshotPath
 	if isRemoteSnapshotURL(snapshotPath) {

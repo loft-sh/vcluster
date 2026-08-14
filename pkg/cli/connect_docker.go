@@ -52,6 +52,12 @@ type connectDocker struct {
 }
 
 func ConnectDocker(ctx context.Context, options *ConnectOptions, globalFlags *flags.GlobalFlags, vClusterName string, command []string, log log.Logger) error {
+	// make sure a docker daemon is reachable, falling back to podman if available
+	err := ensureDockerDaemon(ctx, log)
+	if err != nil {
+		return err
+	}
+
 	cmd := &connectDocker{
 		GlobalFlags:    globalFlags,
 		ConnectOptions: options,

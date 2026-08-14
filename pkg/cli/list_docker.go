@@ -28,6 +28,12 @@ type dockerVCluster struct {
 }
 
 func ListDocker(ctx context.Context, options *ListOptions, globalFlags *flags.GlobalFlags, log log.Logger) error {
+	// make sure a docker daemon is reachable, falling back to podman if available
+	err := ensureDockerDaemon(ctx, log)
+	if err != nil {
+		return err
+	}
+
 	// find all vcluster containers
 	vClusters, err := findDockerContainer(ctx, constants.DockerControlPlanePrefix)
 	if err != nil {

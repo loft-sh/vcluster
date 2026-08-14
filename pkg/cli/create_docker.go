@@ -2,12 +2,15 @@ package cli
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
@@ -72,6 +75,12 @@ func CreateDocker(ctx context.Context, options *CreateOptions, globalFlags *flag
 		os.Remove(hostnameFile)
 	}
 
+	// make sure a docker daemon is reachable, falling back to podman if available
+	err := ensureDockerDaemon(ctx, log)
+	if err != nil {
+		return err
+	}
+
 	// check if container exists
 	exists, err := containerExists(ctx, getControlPlaneContainerName(vClusterName))
 	if err != nil {
@@ -108,29 +117,9 @@ func CreateDocker(ctx context.Context, options *CreateOptions, globalFlags *flag
 		return fmt.Errorf("failed to load docker config: %w", err)
 	}
 
-	// On Linux, load kernel modules required for node join (bridge, br_netfilter, overlay).
-	// Only run modprobe for modules not already loaded (check via /proc/modules, no sudo).
-	if runtime.GOOS == "linux" {
-		required := []string{"overlay", "bridge", "br_netfilter"}
-		loaded := make(map[string]bool)
-		if data, err := os.ReadFile("/proc/modules"); err == nil {
-			scanner := bufio.NewScanner(strings.NewReader(string(data)))
-			for scanner.Scan() {
-				fields := strings.Fields(scanner.Text())
-				if len(fields) > 0 {
-					loaded[fields[0]] = true
-				}
-			}
-		}
-		for _, mod := range required {
-			if loaded[mod] {
-				continue
-			}
-			if err := exec.CommandContext(ctx, "modprobe", mod).Run(); err != nil {
-				log.Warnf("Could not load kernel module %s: %v. If node join fails, run: sudo modprobe overlay && sudo modprobe bridge && sudo modprobe br_netfilter", mod, err)
-			}
-		}
-	}
+	// load kernel modules required for node join (bridge, br_netfilter, overlay),
+	// either on the host or inside the VM the container daemon runs in
+	ensureKernelModules(ctx, log)
 
 	// configure the network and update user values if needed
 	networkName, extraDockerArgs, err := configureNetwork(ctx, userValuesRaw, vClusterName, log)
@@ -234,7 +223,7 @@ func CreateDocker(ctx context.Context, options *CreateOptions, globalFlags *flag
 
 	// install vCluster standalone
 	if !exists {
-		err = installVClusterStandalone(ctx, vClusterName, vClusterVersion, vConfig, extraVClusterArgs, log)
+		err = installVClusterStandalone(ctx, vClusterName, vClusterVersion, vConfig, globalFlags, extraVClusterArgs, log)
 		if err != nil {
 			return err
 		}
@@ -350,11 +339,13 @@ func addVClusterDocker(ctx context.Context, name string, vClusterConfig *config.
 }
 
 // runDockerCommand runs a docker command and captures its combined output.
-// If the command runs longer than streamDelay, all buffered output is flushed
-// to the logger and subsequent lines are streamed in real time.
-func runDockerCommand(ctx context.Context, args []string, streamDelay time.Duration, logger log.Logger) (string, error) {
+// If stdin is not nil, it is passed to the command. If the command runs longer
+// than streamDelay, all buffered output is flushed to the logger and subsequent
+// lines are streamed in real time.
+func runDockerCommand(ctx context.Context, args []string, stdin io.Reader, streamDelay time.Duration, logger log.Logger) (string, error) {
 	logger.Debugf("Running command: docker %s", strings.Join(args, " "))
 	cmd := exec.CommandContext(ctx, "docker", args...)
+	cmd.Stdin = stdin
 
 	pr, pw, err := os.Pipe()
 	if err != nil {
@@ -419,16 +410,25 @@ func runDockerCommand(ctx context.Context, args []string, streamDelay time.Durat
 	return allOutput, nil
 }
 
-func installVClusterStandalone(ctx context.Context, vClusterName, vClusterVersion string, vClusterConfig *config.Config, extraArgs []string, log log.Logger) error {
+func installVClusterStandalone(ctx context.Context, vClusterName, vClusterVersion string, vClusterConfig *config.Config, globalFlags *flags.GlobalFlags, extraArgs []string, log log.Logger) error {
 	log.Infof("Starting vCluster standalone %s", vClusterName)
+
+	// get the install script on the host instead of downloading it inside the
+	// container, since corporate proxies often block direct github downloads
+	// from containers while the host has the proxy and CA configuration
+	installScript, err := getInstallStandaloneScript(ctx, vClusterVersion, globalFlags)
+	if err != nil {
+		return fmt.Errorf("failed to get install-standalone script: %w", err)
+	}
+
 	containerName := getControlPlaneContainerName(vClusterName)
 	joinedArgs := strings.Join(extraArgs, " ")
 	args := []string{
-		"exec", containerName,
-		"bash", "-c", fmt.Sprintf(`set -e -o pipefail; for i in $(seq 1 120); do state=$(systemctl is-system-running 2>/dev/null || true); [ "$state" = "running" ] || [ "$state" = "degraded" ] && break; sleep 0.5; done; curl -sfLk "https://github.com/loft-sh/vcluster/releases/download/v%s/install-standalone.sh" | sh -s -- --skip-download --skip-wait %s`, vClusterVersion, joinedArgs),
+		"exec", "-i", containerName,
+		"bash", "-c", fmt.Sprintf(`set -e -o pipefail; for i in $(seq 1 120); do state=$(systemctl is-system-running 2>/dev/null || true); [ "$state" = "running" ] || [ "$state" = "degraded" ] && break; sleep 0.5; done; sh -s -- --skip-download --skip-wait %s`, joinedArgs),
 	}
 
-	out, err := runDockerCommand(ctx, args, 2*time.Minute, log)
+	out, err := runDockerCommand(ctx, args, bytes.NewReader(installScript), 2*time.Minute, log)
 	if err != nil {
 		return fmt.Errorf("failed to start vCluster standalone: %w: %s", err, out)
 	}
@@ -459,6 +459,56 @@ func installVClusterStandalone(ctx context.Context, vClusterName, vClusterVersio
 	}
 
 	return nil
+}
+
+// installStandaloneScriptEnv allows providing the install-standalone.sh script from
+// a local file instead of downloading it, e.g. in air-gapped environments.
+const installStandaloneScriptEnv = "VCLUSTER_INSTALL_STANDALONE_SCRIPT"
+
+// getInstallStandaloneScript returns the version matched install-standalone.sh
+// script, either from the environment variable override, the local cache or the
+// github release of the requested vCluster version.
+func getInstallStandaloneScript(ctx context.Context, vClusterVersion string, globalFlags *flags.GlobalFlags) ([]byte, error) {
+	if path := os.Getenv(installStandaloneScriptEnv); path != "" {
+		script, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("read install script from %s=%s: %w", installStandaloneScriptEnv, path, err)
+		}
+		return script, nil
+	}
+
+	// check the cache first
+	cachePath := filepath.Join(filepath.Dir(globalFlags.Config), "docker", "install-standalone", "v"+vClusterVersion, "install-standalone.sh")
+	if script, err := os.ReadFile(cachePath); err == nil {
+		return script, nil
+	}
+
+	scriptURL := fmt.Sprintf("https://github.com/loft-sh/vcluster/releases/download/v%s/install-standalone.sh", vClusterVersion)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, scriptURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("download %s (set %s to a local copy of the script if this environment can't reach github): %w", scriptURL, installStandaloneScriptEnv, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("download %s: unexpected status %s (set %s to a local copy of the script if this environment can't reach github)", scriptURL, resp.Status, installStandaloneScriptEnv)
+	}
+
+	script, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024))
+	if err != nil {
+		return nil, fmt.Errorf("download %s: %w", scriptURL, err)
+	}
+
+	// cache the script for offline reuse, best effort
+	if err := os.MkdirAll(filepath.Dir(cachePath), 0755); err == nil {
+		_ = os.WriteFile(cachePath, script, 0644)
+	}
+
+	return script, nil
 }
 
 func ensureK8sResolvConf(ctx context.Context, globalFlags *flags.GlobalFlags, vClusterName string, log log.Logger) error {
@@ -669,7 +719,7 @@ sh /tmp/join.sh --bundle-path /var/lib/vcluster/bin/kubernetes-%s-%s.tar.gz --fo
 `, vClusterName, url.QueryEscape(vClusterJoinToken), kubernetesVersion, runtime.GOARCH)
 	args := []string{"exec", containerName, "bash", "-c", joinScript}
 
-	out, err := runDockerCommand(ctx, args, 2*time.Minute, log)
+	out, err := runDockerCommand(ctx, args, nil, 2*time.Minute, log)
 	if err != nil {
 		return fmt.Errorf("failed to join vCluster node: %w: %s", err, out)
 	}
@@ -1009,7 +1059,7 @@ func configureLoadBalancer(ctx context.Context, fullConfigRaw map[string]interfa
 				return nil, fmt.Errorf("failed to set nested field: %w", err)
 			}
 
-			log.Warnf("Load balancer type services are not supported inside the vCluster because privileged port mapping is not allowed. If you are using Docker Desktop, please enable it in the Docker Desktop settings")
+			log.Warnf("Load balancer type services are not supported inside the vCluster because privileged port mapping is not allowed. If you are using Docker Desktop, please enable it in the Docker Desktop settings. If you are using Podman, mapping privileged ports to a specific host IP is currently not supported (see https://github.com/containers/podman/issues/28009)")
 			return extraArgs, nil
 		}
 
@@ -1036,10 +1086,17 @@ func configureLoadBalancer(ctx context.Context, fullConfigRaw map[string]interfa
 		}
 	}
 
-	// mount the docker socket
+	// mount the docker socket, if it can't be found disable the load balancer
+	// instead of failing the whole create
 	dockerSocketPath, err := getDockerSocketPath(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get docker socket path: %w", err)
+		setErr := unstructured.SetNestedField(fullConfigRaw, false, "experimental", "docker", "loadBalancer", "enabled")
+		if setErr != nil {
+			return nil, fmt.Errorf("failed to set nested field: %w", setErr)
+		}
+
+		log.Warnf("Load balancer type services are not supported inside the vCluster because the docker socket couldn't be found: %v", err)
+		return extraArgs, nil
 	}
 	extraArgs = append(extraArgs, "--mount", fmt.Sprintf("type=bind,src=%s,dst=%s,ro", dockerSocketPath, constants.DockerSocketPath))
 	return extraArgs, nil
@@ -1275,17 +1332,19 @@ func findTailIPs(ctx context.Context, networkName string, tailSize int) ([]strin
 }
 
 func getDockerSocketPath(ctx context.Context) (string, error) {
-	// Updated awk regex: /\/docker\.sock(\.real)?$/
-	// This matches paths ending in "/docker.sock" OR "/docker.sock.real"
+	// Check the well-known socket paths first: a symlink to a live socket passes the
+	// -S test, which covers podman machines where /var/run/docker.sock is a symlink
+	// to podman.sock and therefore never shows up in netstat. Only fall back to
+	// scanning the listening unix sockets if none of the known paths exist.
 	cmdStr := `
+        for p in /var/run/docker.sock.real /var/run/docker.sock /run/podman/podman.sock; do
+            if [ -S "$p" ]; then
+                echo "$p"
+                exit 0
+            fi
+        done
         if command -v netstat >/dev/null 2>&1; then
-            netstat -xlp | awk '$NF ~ /\/docker\.sock(\.real)?$/ {print $NF}'
-        else
-            for p in /var/run/docker.sock.real /var/run/docker.sock; do
-                if [ -S "$p" ]; then
-                    echo "$p"
-                fi
-            done
+            netstat -xlp | awk '$NF ~ /\/(docker|podman)\.sock(\.real)?$/ {print $NF}'
         fi
     `
 
