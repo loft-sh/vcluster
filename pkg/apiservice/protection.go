@@ -7,12 +7,13 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	admissionregistrationv1ac "k8s.io/client-go/applyconfigurations/admissionregistration/v1"
+	metav1ac "k8s.io/client-go/applyconfigurations/meta/v1"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
@@ -27,6 +28,8 @@ const (
 	protectionPolicyName = "vcluster-protected-apiservices"
 
 	protectionBindingNamePrefix = "vcluster-protected-"
+
+	protectionFieldOwner = "vcluster-apiservice-protection"
 )
 
 // enableDeletionProtection installs the shared protection policy and a
@@ -66,82 +69,54 @@ func disableDeletionProtection(ctx context.Context, c client.Client, groupVersio
 }
 
 func ensureProtectionPolicy(ctx context.Context, c client.Client) error {
-	policy := &admissionregistrationv1.ValidatingAdmissionPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: protectionPolicyName,
-		},
-	}
-	if _, err := controllerutil.CreateOrUpdate(ctx, c, policy, func() error {
-		policy.Spec.FailurePolicy = ptr.To(admissionregistrationv1.Fail)
-		policy.Spec.MatchConstraints = &admissionregistrationv1.MatchResources{
-			ObjectSelector: &metav1.LabelSelector{
-				MatchExpressions: []metav1.LabelSelectorRequirement{
-					{
-						Key:      protectionLabelKey,
-						Operator: metav1.LabelSelectorOpExists,
-					},
-				},
-			},
-			ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
-				{
-					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Delete},
-						Rule: admissionregistrationv1.Rule{
-							APIGroups:   []string{""},
-							APIVersions: []string{"v1"},
-							Resources:   []string{"services"},
-						},
-					},
-				},
-				{
-					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Delete},
-						Rule: admissionregistrationv1.Rule{
-							APIGroups:   []string{"apiregistration.k8s.io"},
-							APIVersions: []string{"v1"},
-							Resources:   []string{"apiservices"},
-						},
-					},
-				},
-			},
-		}
-		policy.Spec.Validations = []admissionregistrationv1.Validation{
-			{
-				Expression: `false`,
-				Message:    "deletion of vCluster-protected resources is denied; remove the corresponding entry from your vCluster configuration",
-			},
-		}
-		return nil
-	}); err != nil {
-		return fmt.Errorf("create or update %s: %w", protectionPolicyName, err)
+	policy := admissionregistrationv1ac.ValidatingAdmissionPolicy(protectionPolicyName).
+		WithSpec(admissionregistrationv1ac.ValidatingAdmissionPolicySpec().
+			WithFailurePolicy(admissionregistrationv1.Fail).
+			WithMatchConstraints(admissionregistrationv1ac.MatchResources().
+				WithObjectSelector(metav1ac.LabelSelector().
+					WithMatchExpressions(metav1ac.LabelSelectorRequirement().
+						WithKey(protectionLabelKey).
+						WithOperator(metav1.LabelSelectorOpExists))).
+				WithResourceRules(
+					protectedDeleteRule("", "v1", "services"),
+					protectedDeleteRule("apiregistration.k8s.io", "v1", "apiservices"),
+				)).
+			WithValidations(admissionregistrationv1ac.Validation().
+				WithExpression(`false`).
+				WithMessage("deletion of vCluster-protected resources is denied; remove the corresponding entry from your vCluster configuration")))
+
+	if err := applyProtectionObject(ctx, c, policy); err != nil {
+		return fmt.Errorf("apply %s: %w", protectionPolicyName, err)
 	}
 	return nil
 }
 
 func ensureProtectionBinding(ctx context.Context, c client.Client, tag string) error {
 	bindingName := protectionBindingNamePrefix + tag
-	binding := &admissionregistrationv1.ValidatingAdmissionPolicyBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: bindingName,
-		},
-	}
-	if _, err := controllerutil.CreateOrUpdate(ctx, c, binding, func() error {
-		binding.Spec.PolicyName = protectionPolicyName
-		binding.Spec.ValidationActions = []admissionregistrationv1.ValidationAction{
-			admissionregistrationv1.Deny,
-		}
-		binding.Spec.MatchResources = &admissionregistrationv1.MatchResources{
-			ObjectSelector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					protectionLabelKey: tag,
-				},
-			},
-		}
-		return nil
-	}); err != nil {
-		return fmt.Errorf("create or update %s: %w", bindingName, err)
+	binding := admissionregistrationv1ac.ValidatingAdmissionPolicyBinding(bindingName).
+		WithSpec(admissionregistrationv1ac.ValidatingAdmissionPolicyBindingSpec().
+			WithPolicyName(protectionPolicyName).
+			WithValidationActions(admissionregistrationv1.Deny).
+			WithMatchResources(admissionregistrationv1ac.MatchResources().
+				WithObjectSelector(metav1ac.LabelSelector().
+					WithMatchLabels(map[string]string{protectionLabelKey: tag}))))
+
+	if err := applyProtectionObject(ctx, c, binding); err != nil {
+		return fmt.Errorf("apply %s: %w", bindingName, err)
 	}
 	return nil
+}
+
+func protectedDeleteRule(group, version, resource string) *admissionregistrationv1ac.NamedRuleWithOperationsApplyConfiguration {
+	return admissionregistrationv1ac.NamedRuleWithOperations().
+		WithOperations(admissionregistrationv1.Delete).
+		WithAPIGroups(group).
+		WithAPIVersions(version).
+		WithResources(resource)
+}
+
+func applyProtectionObject(ctx context.Context, c client.Client, obj runtime.ApplyConfiguration) error {
+	return c.Apply(ctx, obj, client.FieldOwner(protectionFieldOwner), client.ForceOwnership)
 }
 
 func removeLabel(ctx context.Context, c client.Client, obj client.Object, key string) error {
