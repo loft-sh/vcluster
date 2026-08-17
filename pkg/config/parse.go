@@ -11,6 +11,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
 	"github.com/loft-sh/vcluster/pkg/util/stringutil"
 	"github.com/pkg/errors"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/yaml"
 )
@@ -48,7 +49,7 @@ func ParseConfigBytes(data []byte, name string, setValues []string) (*VirtualClu
 	rawConfig := &config.Config{}
 	err = yaml.UnmarshalStrict(rawFile, rawConfig)
 	if err != nil {
-		fmt.Printf("%#+v\n", errors.Unwrap(err))
+		klog.ErrorS(errors.Unwrap(err), "failed to parse vCluster config")
 		return nil, err
 	}
 
@@ -66,7 +67,7 @@ func ParseStandaloneConfigBytes(data []byte, name string, setValues []string) (*
 	rawConfig := &config.Config{}
 	err = yaml.UnmarshalStrict(rawFile, rawConfig)
 	if err != nil {
-		fmt.Printf("%#+v\n", errors.Unwrap(err))
+		klog.ErrorS(errors.Unwrap(err), "failed to parse standalone vCluster config")
 		return nil, err
 	}
 

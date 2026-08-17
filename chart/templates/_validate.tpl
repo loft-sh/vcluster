@@ -18,6 +18,21 @@
 {{- end }}
 
 {{/*
+  The chart owns the vcluster-logs volume while file logging is enabled. Reject a
+  user-provided volume with that name instead of rendering an invalid pod spec or
+  silently changing the storage and size-limit guarantees of managed file logging.
+*/}}
+{{- define "vcluster.fileLogging.validate" }}
+{{- if include "vcluster.fileLoggingEnabled" . }}
+{{- range .Values.controlPlane.statefulSet.persistence.addVolumes }}
+{{- if eq (default "" .name) "vcluster-logs" }}
+{{- fail "controlPlane.statefulSet.persistence.addVolumes must not define vcluster-logs when logging.file.enabled is true; the chart reserves this volume" }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
   Fail the install/upgrade if any volume-snapshot value is set.
   These were removed in 0.36.0. The config fields are retained as no-ops so
   existing configs still parse, but the chart rejects them so users notice.

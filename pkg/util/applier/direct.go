@@ -5,11 +5,13 @@ Originally sourced from https://github.com/kubernetes-sigs/kubebuilder-declarati
 */
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"strings"
 
+	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -21,6 +23,7 @@ import (
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
 	"k8s.io/kubectl/pkg/cmd/apply"
 	cmdDelete "k8s.io/kubectl/pkg/cmd/delete"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
@@ -35,11 +38,16 @@ func NewDirectApplier() *DirectApplier {
 	return &DirectApplier{}
 }
 
-func (d *DirectApplier) Apply(_ context.Context, opt Options) error {
+func (d *DirectApplier) Apply(ctx context.Context, opt Options) (err error) {
+	var stdout, stderr bytes.Buffer
+	defer func() {
+		logApplyOutput(klog.FromContext(ctx).WithName("kubectl"), stdout.String(), stderr.String(), err)
+	}()
+
 	ioStreams := genericclioptions.IOStreams{
 		In:     os.Stdin,
-		Out:    os.Stdout,
-		ErrOut: os.Stderr,
+		Out:    &stdout,
+		ErrOut: &stderr,
 	}
 	ioReader := strings.NewReader(opt.Manifest)
 
@@ -81,6 +89,25 @@ func (d *DirectApplier) Apply(_ context.Context, opt Options) error {
 	}
 
 	return resErr
+}
+
+func logApplyOutput(log logr.Logger, stdout, stderr string, applyErr error) {
+	if output := strings.TrimSpace(stdout); output != "" {
+		log.Info("apply output", "stdout", output)
+	}
+
+	output := strings.TrimSpace(stderr)
+	switch {
+	case applyErr != nil && output != "":
+		log.Error(applyErr, "apply failed", "stderr", output)
+	case applyErr != nil:
+		// Apply can fail with empty stderr, for example via resErr after
+		// kubectl has already written success messages to stdout.
+		log.Error(applyErr, "apply failed")
+	case output != "":
+		// kubectl also writes non-fatal warnings to stderr.
+		log.Info("apply output", "stderr", output)
+	}
 }
 
 func newOptions(factory cmdutil.Factory, flags *apply.ApplyFlags, namespace string) (*apply.ApplyOptions, error) {

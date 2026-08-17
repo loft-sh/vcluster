@@ -975,6 +975,84 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].env[?(@.name=="LOFT_LOG_ENCODING")].value
           value: console
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LOFT_LOG_FILE
+      - notContains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: vcluster-logs
+      - notContains:
+          path: spec.template.spec.volumes
+          content:
+            name: vcluster-logs
+
+  - it: should enable additive file logging for the syncer and a sidecar
+    set:
+      logging:
+        file:
+          enabled: true
+      controlPlane:
+        statefulSet:
+          sidecarContainers:
+            - name: log-collector
+              image: log-collector
+              volumeMounts:
+                - name: vcluster-logs
+                  mountPath: /var/log/vcluster
+                  readOnly: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].env[?(@.name=="LOFT_LOG_FILE")].value
+          value: /var/log/vcluster/vcluster.log
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: vcluster-logs
+            mountPath: /var/log/vcluster
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: vcluster-logs
+            emptyDir:
+              sizeLimit: 1Gi
+      - contains:
+          path: spec.template.spec.containers[1].volumeMounts
+          content:
+            name: vcluster-logs
+            mountPath: /var/log/vcluster
+            readOnly: true
+
+  - it: should reject a user-defined vcluster-logs volume when file logging is enabled
+    set:
+      logging:
+        file:
+          enabled: true
+      controlPlane:
+        statefulSet:
+          persistence:
+            addVolumes:
+              - name: vcluster-logs
+                emptyDir: {}
+    asserts:
+      - failedTemplate:
+          errorMessage: "controlPlane.statefulSet.persistence.addVolumes must not define vcluster-logs when logging.file.enabled is true; the chart reserves this volume"
+
+  - it: should allow a user-defined vcluster-logs volume when file logging is disabled
+    set:
+      controlPlane:
+        statefulSet:
+          persistence:
+            addVolumes:
+              - name: vcluster-logs
+                emptyDir: {}
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: vcluster-logs
+            emptyDir: {}
 
   - it: should add init containers
     set:

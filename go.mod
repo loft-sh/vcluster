@@ -11,6 +11,7 @@ require (
 	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v1.4.3
+	github.com/go-logr/zapr v1.3.0
 	github.com/go-openapi/loads v0.22.0
 	github.com/google/go-containerregistry v0.20.7
 	github.com/google/go-github/v53 v53.2.1-0.20230815134205-bb00f570d301
@@ -243,7 +244,7 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
-	github.com/loft-sh/log v0.0.0-20240219160058-26d83ffb46ac
+	github.com/loft-sh/log v0.0.0-20260812120051-874a69680b18
 	github.com/mailru/easyjson v0.9.1 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect

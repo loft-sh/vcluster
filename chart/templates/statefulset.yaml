@@ -1,6 +1,7 @@
 {{- include "vcluster.exportKubeConfig.validate" . }}
 {{- include "vcluster.legacy.volumeSnapshots.validate" . }}
 {{- include "vcluster.kubeVirtCSI.validate" . }}
+{{- include "vcluster.fileLogging.validate" . }}
 apiVersion: apps/v1
 kind: {{ include "vcluster.kind" . }}
 metadata:
@@ -111,6 +112,11 @@ spec:
 {{ toYaml .Values.controlPlane.statefulSet.persistence.binariesVolume | indent 8 }}
         - name: tmp
           emptyDir: {}
+        {{- if include "vcluster.fileLoggingEnabled" . }}
+        - name: vcluster-logs
+          emptyDir:
+            sizeLimit: 1Gi
+        {{- end }}
         - name: certs
           emptyDir: {}
         - name: vcluster-config
@@ -196,6 +202,10 @@ spec:
             {{- if .Values.logging }}
             - name: LOFT_LOG_ENCODING
               value: {{ default "console" .Values.logging.encoding }}
+            {{- if include "vcluster.fileLoggingEnabled" . }}
+            - name: LOFT_LOG_FILE
+              value: /var/log/vcluster/vcluster.log
+            {{- end }}
             {{- end }}
             - name: POD_NAME
               valueFrom:
@@ -233,6 +243,10 @@ spec:
               mountPath: /var/lib/vcluster
             - name: tmp
               mountPath: /tmp
+            {{- if include "vcluster.fileLoggingEnabled" . }}
+            - name: vcluster-logs
+              mountPath: /var/log/vcluster
+            {{- end }}
             {{- if .Values.controlPlane.statefulSet.persistence.addVolumeMounts }}
 {{ toYaml .Values.controlPlane.statefulSet.persistence.addVolumeMounts | indent 12 }}
             {{- end }}

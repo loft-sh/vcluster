@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/samber/lo"
+	"k8s.io/klog/v2"
 )
 
 var (
@@ -72,15 +72,16 @@ func NewProxy(target *url.URL) *WebsocketProxy {
 
 // ServeHTTP implements the http.Handler that proxies WebSocket connections.
 func (w *WebsocketProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+	logger := klog.FromContext(req.Context()).WithName("websocketproxy")
 	if w.Backend == nil {
-		log.Println("websocketproxy: backend function is not defined")
+		logger.Error(errors.New("backend function is not defined"), "Cannot proxy WebSocket connection")
 		http.Error(rw, "internal server error (code: 1)", http.StatusInternalServerError)
 		return
 	}
 
 	backendURL := w.Backend(req)
 	if backendURL == nil {
-		log.Println("websocketproxy: backend URL is nil")
+		logger.Error(errors.New("backend URL is nil"), "Cannot proxy WebSocket connection")
 		http.Error(rw, "internal server error (code: 2)", http.StatusInternalServerError)
 		return
 	}
@@ -142,13 +143,13 @@ func (w *WebsocketProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	// http://tools.ietf.org/html/draft-ietf-hybi-websocket-multiplexing-01
 	connBackend, resp, err := dialer.Dial(backendURL.String(), requestHeader)
 	if err != nil {
-		log.Printf("websocketproxy: couldn't dial to remote backend url %s", err)
+		logger.Error(err, "Couldn't dial remote WebSocket backend", "url", backendURL.String())
 		if resp != nil {
 			// If the WebSocket handshake fails, ErrBadHandshake is returned
 			// along with a non-nil *http.Response so that callers can handle
 			// redirects, authentication, etcetera.
 			if err := copyResponse(rw, resp); err != nil {
-				log.Printf("websocketproxy: couldn't write response after failed remote backend handshake: %s", err)
+				logger.Error(err, "Couldn't write response after failed WebSocket backend handshake")
 			}
 		} else {
 			http.Error(rw, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
@@ -177,7 +178,7 @@ func (w *WebsocketProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	// Also pass the header that we gathered from the Dial handshake.
 	connPub, err := upgrader.Upgrade(rw, req, upgradeHeader)
 	if err != nil {
-		log.Printf("websocketproxy: couldn't upgrade %s", err)
+		logger.Error(err, "Couldn't upgrade WebSocket connection")
 		return
 	}
 	defer func(connPub *websocket.Conn) {
@@ -227,17 +228,17 @@ func (w *WebsocketProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	go replicateWebsocketConn(connPub, connBackend, errClient)
 	go replicateWebsocketConn(connBackend, connPub, errBackend)
 
-	var message string
+	var direction string
 	select {
 	case err = <-errClient:
-		message = "websocketproxy: Error when copying from backend to client: %v"
+		direction = "backend-to-client"
 	case err = <-errBackend:
-		message = "websocketproxy: Error when copying from client to backend: %v"
+		direction = "client-to-backend"
 	}
 
 	var closeError *websocket.CloseError
 	if ok := errors.As(err, &closeError); !ok || (closeError != nil && closeError.Code == websocket.CloseAbnormalClosure) {
-		log.Printf(message, err)
+		logger.Error(err, "Error copying WebSocket connection", "direction", direction)
 	}
 }
 

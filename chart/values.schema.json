@@ -3381,11 +3381,26 @@
         "encoding": {
           "type": "string",
           "description": "Encoding specifies the format of vCluster logs, it can either be json or console."
+        },
+        "file": {
+          "$ref": "#/$defs/LoggingFile",
+          "description": "File configures additive file logging for the vCluster control plane."
         }
       },
       "additionalProperties": false,
       "type": "object",
-      "description": "Logging holds the log encoding details"
+      "description": "Logging holds the logging configuration."
+    },
+    "LoggingFile": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled controls whether vCluster logs are also written to a file.\nThe path is fixed at /var/log/vcluster/vcluster.log,\nand its directory is backed by the vcluster-logs volume,\nwhich sidecarContainers can mount to read the logs.\nLog rotation keeps a 100Mi active file plus five uncompressed backups,\nso the volume never grows beyond roughly 600Mi."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "LoggingFile holds the file logging configuration."
     },
     "Metallb": {
       "properties": {

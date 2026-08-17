@@ -16,6 +16,14 @@
 {{- end -}}
 {{- end -}}
 
+{{/*
+True when logging.file is set and enabled.
+Output is truthy when enabled, empty otherwise; use in {{ if include "vcluster.fileLoggingEnabled" . }}.
+*/}}
+{{- define "vcluster.fileLoggingEnabled" -}}
+{{- if and .Values.logging .Values.logging.file .Values.logging.file.enabled }}{{ true }}{{ end -}}
+{{- end -}}
+
 
 {{- define "vcluster.version.label" -}}
 {{- $rawLabel := printf "%s-%s" .Chart.Name .Chart.Version -}}

@@ -454,9 +454,13 @@ github.com/go-jose/go-jose/v4/json
 ## explicit; go 1.18
 github.com/go-logr/logr
 github.com/go-logr/logr/funcr
+github.com/go-logr/logr/slogr
 # github.com/go-logr/stdr v1.2.2
 ## explicit; go 1.16
 github.com/go-logr/stdr
+# github.com/go-logr/zapr v1.3.0
+## explicit; go 1.18
+github.com/go-logr/zapr
 # github.com/go-openapi/analysis v0.23.0
 ## explicit; go 1.20
 github.com/go-openapi/analysis
@@ -776,7 +780,7 @@ github.com/loft-sh/image/transports
 github.com/loft-sh/image/transports/alltransports
 github.com/loft-sh/image/types
 github.com/loft-sh/image/version
-# github.com/loft-sh/log v0.0.0-20240219160058-26d83ffb46ac
+# github.com/loft-sh/log v0.0.0-20260812120051-874a69680b18
 ## explicit; go 1.20
 github.com/loft-sh/log
 github.com/loft-sh/log/hash
@@ -1243,6 +1247,7 @@ go.uber.org/zap/internal/pool
 go.uber.org/zap/internal/stacktrace
 go.uber.org/zap/zapcore
 go.uber.org/zap/zapgrpc
+go.uber.org/zap/zaptest/observer
 # go.yaml.in/yaml/v2 v2.4.3
 ## explicit; go 1.15
 go.yaml.in/yaml/v2

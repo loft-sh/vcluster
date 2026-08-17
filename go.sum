@@ -334,8 +334,8 @@ github.com/loft-sh/external-types v0.1.0-alpha.2.0.20260409132559-a38365a8cbf2 h
 github.com/loft-sh/external-types v0.1.0-alpha.2.0.20260409132559-a38365a8cbf2/go.mod h1:cpx5mpwOZZjQaiFbydE9VjhRTap9Yho3wdNk/KJm03c=
 github.com/loft-sh/image v0.0.0-20250625154753-87447a6ad364 h1:vSuqHqh4w2zrG+WvnyH64JAUhX+Bou19n0gvCrPirOs=
 github.com/loft-sh/image v0.0.0-20250625154753-87447a6ad364/go.mod h1:niVPRwWFUSA8FihY9e5hGAp5IbKmbCdckGxJGSTKTUs=
-github.com/loft-sh/log v0.0.0-20240219160058-26d83ffb46ac h1:Gz/7Lb7WgdgIv+KJz87ORA1zvQW52tUqKPGyunlp4dQ=
-github.com/loft-sh/log v0.0.0-20240219160058-26d83ffb46ac/go.mod h1:YImeRjXH34Yf5E79T7UHBQpDZl9fIaaFRgyZ/bkY+UQ=
+github.com/loft-sh/log v0.0.0-20260812120051-874a69680b18 h1:sbARcX5vFUv8E/x6q6ZWPprmWFIWnh4MAn8JWZhr8fQ=
+github.com/loft-sh/log v0.0.0-20260812120051-874a69680b18/go.mod h1:YImeRjXH34Yf5E79T7UHBQpDZl9fIaaFRgyZ/bkY+UQ=
 github.com/loft-sh/utils v0.0.29 h1:P/MObccXToAZy2QoJSQDJ+OJx1qHitpFHEVj3QBSNJs=
 github.com/loft-sh/utils v0.0.29/go.mod h1:9hlX9cGpWHg3mNi/oBlv3X4ePGDMK66k8MbOZGFMDTI=
 github.com/mailru/easyjson v0.9.1 h1:LbtsOm5WAswyWbvTEOqhypdPeZzHavpZx96/n553mR8=

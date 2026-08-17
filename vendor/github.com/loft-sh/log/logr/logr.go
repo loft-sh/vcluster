@@ -23,6 +23,7 @@ func NewLoggerWithOptions(opts ...Option) (logr.Logger, error) {
 	options := options{
 		logLevel:          "info",
 		logEncoding:       "console",
+		logFileMode:       logFileDefaultMode,
 		development:       false,
 		disableStacktrace: true,
 		logFullCallerPath: false,
@@ -72,7 +73,20 @@ func NewLoggerWithOptions(opts ...Option) (logr.Logger, error) {
 		fields = append(fields, zap.String("component", options.componentName))
 	}
 
-	zapLog, err := config.Build(zap.Fields(fields...))
+	buildOptions := make([]zap.Option, 0, 2)
+	if options.logFile != "" {
+		// newLogFileOption detaches sampling from the config and reapplies it
+		// around the tee, so both destinations accept the same events.
+		fileOption, fileErr := newLogFileOption(&config, options.logFile, options.logFileMode)
+		if fileErr != nil {
+			return logr.Logger{}, fmt.Errorf("enable log file: %w", fileErr)
+		}
+		buildOptions = append(buildOptions, fileOption)
+	}
+	// Apply fields after the optional tee is assembled so both cores receive
+	// exactly the same fields.
+	buildOptions = append(buildOptions, zap.Fields(fields...))
+	zapLog, err := config.Build(buildOptions...)
 	if err != nil {
 		return logr.Logger{}, fmt.Errorf("build zap logger: %w", err)
 	}
@@ -87,7 +101,11 @@ func NewLoggerWithOptions(opts ...Option) (logr.Logger, error) {
 	if err != nil {
 		kvl = 0
 	}
-	log := zapr.NewLoggerWithOptions(zapLog, zapr.VerbosityLevel(kvl))
+	log := zapr.NewLoggerWithOptions(
+		zapLog,
+		zapr.VerbosityLevel(kvl),
+		zapr.DiscardLogMessagesMatching(options.discardMessageMatchingRegex),
+	)
 
 	// Klog global logger
 	if options.globalKlog {
@@ -172,6 +190,11 @@ func LoftLogLevel() string {
 	}
 
 	return logLevel
+}
+
+// LogFile returns the trimmed path from LOFT_LOG_FILE.
+func LogFile() string {
+	return strings.TrimSpace(os.Getenv("LOFT_LOG_FILE"))
 }
 
 // GetEncoding returns the log encoding; "console" or "json". (default: console)

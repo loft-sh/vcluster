@@ -3708,8 +3708,21 @@ type AutoSleepExclusion struct {
 	Selector LabelSelector `json:"selector,omitempty"`
 }
 
-// Logging holds the log encoding details
+// Logging holds the logging configuration.
 type Logging struct {
 	// Encoding specifies the format of vCluster logs, it can either be json or console.
 	Encoding string `json:"encoding,omitempty"`
+	// File configures additive file logging for the vCluster control plane.
+	File LoggingFile `json:"file,omitempty"`
+}
+
+// LoggingFile holds the file logging configuration.
+type LoggingFile struct {
+	// Enabled controls whether vCluster logs are also written to a file.
+	// The path is fixed at /var/log/vcluster/vcluster.log,
+	// and its directory is backed by the vcluster-logs volume,
+	// which sidecarContainers can mount to read the logs.
+	// Log rotation keeps a 100Mi active file plus five uncompressed backups,
+	// so the volume never grows beyond roughly 600Mi.
+	Enabled bool `json:"enabled,omitempty"`
 }

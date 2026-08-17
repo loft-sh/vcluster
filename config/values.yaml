@@ -723,3 +723,5 @@ telemetry:
 
 logging:
   encoding: console
+  file:
+    enabled: false

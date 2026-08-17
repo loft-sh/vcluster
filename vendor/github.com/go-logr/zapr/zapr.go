@@ -1,4 +1,3 @@
-// Original from: github.com/go-logr/zapr v1.2.4
 /*
 Copyright 2019 The logr Authors.
 
@@ -56,7 +55,6 @@ package zapr
 
 import (
 	"fmt"
-	"regexp"
 
 	"github.com/go-logr/logr"
 	"go.uber.org/zap"
@@ -92,14 +90,6 @@ type zapLogger struct {
 	// that explain why a call was invalid (for example,
 	// non-string key). This is enabled by default.
 	panicMessages bool
-
-	// verbosityLevel is the verbosity level of this logger.
-	// It is used to determine whether a log message is
-	// actually logged.
-	verbosityLevel int
-
-	// regexs to discard
-	regexs []*regexp.Regexp
 }
 
 const (
@@ -178,15 +168,6 @@ func (zl *zapLogger) handleFields(lvl int, args []interface{}, additional ...zap
 	return append(fields, additional...)
 }
 
-func zapIt(field string, val interface{}) zap.Field {
-	// Handle types that implement logr.Marshaler: log the replacement
-	// object instead of the original one.
-	if marshaler, ok := val.(logr.Marshaler); ok {
-		field, val = invokeMarshaler(field, marshaler)
-	}
-	return zap.Any(field, val)
-}
-
 func invokeMarshaler(field string, m logr.Marshaler) (f string, ret interface{}) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -203,33 +184,20 @@ func (zl *zapLogger) Init(ri logr.RuntimeInfo) {
 
 // Zap levels are int8 - make sure we stay in bounds.  logr itself should
 // ensure we never get negative values.
-func toZapLevel(lvl, logrVerbosityLevel int) zapcore.Level {
+func toZapLevel(lvl int) zapcore.Level {
 	if lvl > 127 {
 		lvl = 127
 	}
 	// zap levels are inverted.
-	level := 0 - zapcore.Level(lvl)
-
-	if level < zapcore.DebugLevel && lvl <= logrVerbosityLevel {
-		return zapcore.DebugLevel
-	} else {
-		return level
-	}
+	return 0 - zapcore.Level(lvl)
 }
 
 func (zl zapLogger) Enabled(lvl int) bool {
-	return zl.l.Core().Enabled(toZapLevel(lvl, zl.verbosityLevel))
+	return zl.l.Core().Enabled(toZapLevel(lvl))
 }
 
 func (zl *zapLogger) Info(lvl int, msg string, keysAndVals ...interface{}) {
-	for _, re := range zl.regexs {
-		if re.MatchString(msg) {
-			// discard
-			return
-		}
-	}
-
-	if checkedEntry := zl.l.Check(toZapLevel(lvl, zl.verbosityLevel), msg); checkedEntry != nil {
+	if checkedEntry := zl.l.Check(toZapLevel(lvl), msg); checkedEntry != nil {
 		checkedEntry.Write(zl.handleFields(lvl, keysAndVals)...)
 	}
 }
@@ -294,16 +262,6 @@ func NewLoggerWithOptions(l *zap.Logger, opts ...Option) logr.Logger {
 // Option is one additional parameter for NewLoggerWithOptions.
 type Option func(*zapLogger)
 
-// VerbosityLevel sets the verbosity level of the logger. It is used
-// to determine whether a log message is actually logged. The default
-// is 0 which means that no debug log messages are logged. A higher value
-// means that more log messages are logged.
-func VerbosityLevel(level int) Option {
-	return func(zl *zapLogger) {
-		zl.verbosityLevel = level
-	}
-}
-
 // LogInfoLevel controls whether a numeric log level is added to
 // Info log message. The empty string disables this, a non-empty
 // string is the key for the additional field. Errors and
@@ -342,19 +300,6 @@ func AllowZapFields(allowed bool) Option {
 func DPanicOnBugs(enabled bool) Option {
 	return func(zl *zapLogger) {
 		zl.panicMessages = enabled
-	}
-}
-
-// DiscardLogMessagesMatching allows you to set filtering for log messages.
-// Any log message that is matching one of the Regexp passed to this function will be discarded in INFO.
-func DiscardLogMessagesMatching(regexs []*regexp.Regexp) Option {
-	return func(zl *zapLogger) {
-		if len(zl.regexs) == 0 {
-			zl.regexs = regexs[:]
-		} else {
-			zl.regexs = append(zl.regexs, regexs...)
-		}
-
 	}
 }
 
