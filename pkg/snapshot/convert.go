@@ -30,24 +30,18 @@ type noopCluster struct{}
 
 func (noopCluster) Version() *semver.Version { return &semver.Version{Major: 3, Minor: 6} }
 
-// ConvertEtcdSnapshotToKeyValueSnapshot reads a raw etcd binary snapshot
-// archive (EtcdSnapshotKind, as produced for an embedded-etcd backing store)
-// and writes an equivalent KeyValueSnapshotKind archive to dst. This lets a
-// snapshot taken from an embedded-etcd tenant cluster be restored into a
-// backing store that only supports KV-style restore (external database,
+// ConvertEtcdSnapshotToKeyValueSnapshot reads the raw etcd binary snapshot
+// archive at srcPath (EtcdSnapshotKind, as produced for an embedded-etcd
+// backing store) and writes an equivalent KeyValueSnapshotKind archive to dst.
+// This lets a snapshot taken from an embedded-etcd tenant cluster be restored
+// into a backing store that only supports KV-style restore (external database,
 // deployed/external etcd) - e.g. migrating a tenant cluster from embedded
 // etcd to an external database.
 //
 // The raw snapshot is decoded by restoring it into a scratch data directory
 // (never the real one) and reading the resulting bbolt file directly through
 // the etcd MVCC engine - no etcd server, ports, or exec'd binary involved.
-func ConvertEtcdSnapshotToKeyValueSnapshot(ctx context.Context, tempDir string, src io.Reader, dst io.Writer) error {
-	srcPath, err := writeTempFile(tempDir, src)
-	if err != nil {
-		return fmt.Errorf("failed to write source snapshot to temp file: %w", err)
-	}
-	defer os.Remove(srcPath)
-
+func ConvertEtcdSnapshotToKeyValueSnapshot(ctx context.Context, tempDir, srcPath string, dst io.Writer) error {
 	kind, err := getSnapshotArchiveKind(srcPath)
 	if err != nil {
 		return fmt.Errorf("failed to determine snapshot archive kind: %w", err)
@@ -99,6 +93,15 @@ func ConvertEtcdSnapshotToKeyValueSnapshot(ctx context.Context, tempDir string, 
 		SkipHashCheck: true,
 	}); err != nil {
 		return fmt.Errorf("failed to restore etcd snapshot into scratch directory: %w", err)
+	}
+
+	// Restore copied the db into scratchDir, so the extracted copy is dead weight
+	// from here on. Freeing it now keeps peak temp usage down by one full db, which
+	// matters because conversion otherwise holds the source archive, the extracted
+	// db, the scratch data dir and the growing output all at once. The deferred
+	// remove above stays for the error paths and tolerates the file being gone.
+	if err := os.Remove(parsed.DBPath); err != nil {
+		return fmt.Errorf("failed to remove extracted etcd db: %w", err)
 	}
 
 	be := backend.NewDefaultBackend(lg, datadir.ToBackendFileName(scratchDir))

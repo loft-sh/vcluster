@@ -47,6 +47,11 @@ const (
 	configMapPrefix = "/registry/configmaps/"
 )
 
+// EtcdToKeyValueConversionLogMessage is logged when an etcd archive is converted
+// before restore. Exported so e2e specs can assert the conversion ran without
+// hardcoding the wording.
+const EtcdToKeyValueConversionLogMessage = "Converting etcd snapshot to key-value snapshot"
+
 type RestoreClient struct {
 	Snapshot snapshotapi.Options
 
@@ -189,22 +194,82 @@ func (o *RestoreClient) Run(ctx context.Context, vConfig *config.VirtualClusterC
 		return fmt.Errorf("failed to determine snapshot archive kind: %w", err)
 	}
 
-	if archiveKind == EtcdSnapshotKind {
-		if vConfig.BackingStoreType() == vclusterconfig.StoreTypeEmbeddedEtcd {
-			if err := o.restoreEtcdSnapshot(ctx, vConfig, snapshotPath); err != nil {
-				return fmt.Errorf("failed to restore etcd snapshot: %w", err)
-			}
-		} else {
-			return fmt.Errorf("restore etcd snapshot is not supported for store type %s", vConfig.BackingStoreType())
+	if archiveKind == EtcdSnapshotKind && vConfig.BackingStoreType() == vclusterconfig.StoreTypeEmbeddedEtcd {
+		if err := o.restoreEtcdSnapshot(ctx, vConfig, snapshotPath); err != nil {
+			return fmt.Errorf("failed to restore etcd snapshot: %w", err)
 		}
-	} else {
-		if err := o.restoreKeyValueSnapshot(ctx, vConfig, snapshotPath); err != nil {
-			return fmt.Errorf("restore key-value snapshot: %w", err)
+
+		klog.Infof("Successfully restored snapshot from %s", objectStore.Target())
+		return nil
+	}
+
+	// every other backing store restores key-value archives only, so an etcd
+	// archive has to be converted first
+	if needsEtcdToKeyValueConversion(archiveKind, vConfig.BackingStoreType()) {
+		klog.Infof("%s for backing store %s...", EtcdToKeyValueConversionLogMessage, vConfig.BackingStoreType())
+
+		convertedPath, err := o.convertEtcdSnapshot(ctx, snapshotPath)
+		if err != nil {
+			return fmt.Errorf("convert etcd snapshot: %w", err)
 		}
+		defer os.Remove(convertedPath)
+
+		snapshotPath = convertedPath
+	}
+
+	if err := o.restoreKeyValueSnapshot(ctx, vConfig, snapshotPath); err != nil {
+		return fmt.Errorf("restore key-value snapshot: %w", err)
 	}
 
 	klog.Infof("Successfully restored snapshot from %s", objectStore.Target())
 	return nil
+}
+
+// needsEtcdToKeyValueConversion reports whether an etcd snapshot archive has to
+// be converted before restore. Only embedded etcd can restore a raw etcd
+// snapshot; every other backing store restores key-value archives only.
+//
+// The switch deliberately has no default so that the exhaustive linter forces a
+// decision here whenever a new backing store is added.
+func needsEtcdToKeyValueConversion(archiveKind SnapshotKind, storeType vclusterconfig.StoreType) bool {
+	if archiveKind != EtcdSnapshotKind {
+		return false
+	}
+
+	switch storeType {
+	case vclusterconfig.StoreTypeEmbeddedEtcd:
+		return false
+	case vclusterconfig.StoreTypeEmbeddedDatabase,
+		vclusterconfig.StoreTypeDeployedEtcd,
+		vclusterconfig.StoreTypeExternalEtcd,
+		vclusterconfig.StoreTypeExternalDatabase:
+		return true
+	}
+
+	return false
+}
+
+// convertEtcdSnapshot writes the key-value equivalent of the etcd snapshot
+// archive at snapshotPath to a temp file; the caller must remove it.
+func (o *RestoreClient) convertEtcdSnapshot(ctx context.Context, snapshotPath string) (string, error) {
+	dst, err := os.CreateTemp(o.Snapshot.SnapshotTempDir, "snapshot-converted-")
+	if err != nil {
+		return "", fmt.Errorf("create temp file: %w", err)
+	}
+
+	if err := ConvertEtcdSnapshotToKeyValueSnapshot(ctx, o.Snapshot.SnapshotTempDir, snapshotPath, dst); err != nil {
+		dst.Close()
+		_ = os.Remove(dst.Name())
+		return "", err
+	}
+
+	// close before the caller reopens it, and surface a flush error
+	if err := dst.Close(); err != nil {
+		_ = os.Remove(dst.Name())
+		return "", fmt.Errorf("close converted snapshot: %w", err)
+	}
+
+	return dst.Name(), nil
 }
 
 // restoreEtcdSnapshot restores the vCluster embedded etcd backing store as follows:

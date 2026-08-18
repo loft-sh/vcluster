@@ -84,7 +84,7 @@ func TestConvertEtcdSnapshotToKeyValueSnapshot(t *testing.T) {
 	srcBytes := newTestArchiveBytes(t, archiveEntry{key: DBStoreKey, value: dbBytes})
 
 	var out bytes.Buffer
-	err := ConvertEtcdSnapshotToKeyValueSnapshot(t.Context(), t.TempDir(), bytes.NewReader(srcBytes), &out)
+	err := ConvertEtcdSnapshotToKeyValueSnapshot(t.Context(), t.TempDir(), writeBytesToTempFile(t, srcBytes), &out)
 	if err != nil {
 		t.Fatalf("ConvertEtcdSnapshotToKeyValueSnapshot failed: %v", err)
 	}
@@ -158,7 +158,7 @@ func TestConvertEtcdSnapshotToKeyValueSnapshot_SkipKeys(t *testing.T) {
 	)
 
 	var out bytes.Buffer
-	if err := ConvertEtcdSnapshotToKeyValueSnapshot(t.Context(), t.TempDir(), bytes.NewReader(srcBytes), &out); err != nil {
+	if err := ConvertEtcdSnapshotToKeyValueSnapshot(t.Context(), t.TempDir(), writeBytesToTempFile(t, srcBytes), &out); err != nil {
 		t.Fatalf("ConvertEtcdSnapshotToKeyValueSnapshot failed: %v", err)
 	}
 
@@ -187,7 +187,7 @@ func TestConvertEtcdSnapshotToKeyValueSnapshot_ReleaseAndRequestPassthrough(t *t
 	)
 
 	var out bytes.Buffer
-	if err := ConvertEtcdSnapshotToKeyValueSnapshot(t.Context(), t.TempDir(), bytes.NewReader(srcBytes), &out); err != nil {
+	if err := ConvertEtcdSnapshotToKeyValueSnapshot(t.Context(), t.TempDir(), writeBytesToTempFile(t, srcBytes), &out); err != nil {
 		t.Fatalf("ConvertEtcdSnapshotToKeyValueSnapshot failed: %v", err)
 	}
 
@@ -214,7 +214,7 @@ func TestConvertEtcdSnapshotToKeyValueSnapshot_SkipsPollutedMetadataKey(t *testi
 	srcBytes := newTestArchiveBytes(t, archiveEntry{key: DBStoreKey, value: dbBytes})
 
 	var out bytes.Buffer
-	if err := ConvertEtcdSnapshotToKeyValueSnapshot(t.Context(), t.TempDir(), bytes.NewReader(srcBytes), &out); err != nil {
+	if err := ConvertEtcdSnapshotToKeyValueSnapshot(t.Context(), t.TempDir(), writeBytesToTempFile(t, srcBytes), &out); err != nil {
 		t.Fatalf("ConvertEtcdSnapshotToKeyValueSnapshot failed: %v", err)
 	}
 
@@ -246,7 +246,7 @@ func TestConvertEtcdSnapshotToKeyValueSnapshot_ExcludesNonPrefixedKeys(t *testin
 	srcBytes := newTestArchiveBytes(t, archiveEntry{key: DBStoreKey, value: dbBytes})
 
 	var out bytes.Buffer
-	if err := ConvertEtcdSnapshotToKeyValueSnapshot(t.Context(), t.TempDir(), bytes.NewReader(srcBytes), &out); err != nil {
+	if err := ConvertEtcdSnapshotToKeyValueSnapshot(t.Context(), t.TempDir(), writeBytesToTempFile(t, srcBytes), &out); err != nil {
 		t.Fatalf("ConvertEtcdSnapshotToKeyValueSnapshot failed: %v", err)
 	}
 
@@ -266,7 +266,7 @@ func TestConvertEtcdSnapshotToKeyValueSnapshot_EmptyDatabase(t *testing.T) {
 	srcBytes := newTestArchiveBytes(t, archiveEntry{key: DBStoreKey, value: dbBytes})
 
 	var out bytes.Buffer
-	if err := ConvertEtcdSnapshotToKeyValueSnapshot(t.Context(), t.TempDir(), bytes.NewReader(srcBytes), &out); err != nil {
+	if err := ConvertEtcdSnapshotToKeyValueSnapshot(t.Context(), t.TempDir(), writeBytesToTempFile(t, srcBytes), &out); err != nil {
 		t.Fatalf("ConvertEtcdSnapshotToKeyValueSnapshot failed: %v", err)
 	}
 
@@ -288,7 +288,7 @@ func TestConvertEtcdSnapshotToKeyValueSnapshot_AlreadyKeyValueKind(t *testing.T)
 	srcBytes := newTestArchiveBytes(t, archiveEntry{key: "/registry/pods/default/foo", value: []byte("bar")})
 
 	var out bytes.Buffer
-	err := ConvertEtcdSnapshotToKeyValueSnapshot(t.Context(), t.TempDir(), bytes.NewReader(srcBytes), &out)
+	err := ConvertEtcdSnapshotToKeyValueSnapshot(t.Context(), t.TempDir(), writeBytesToTempFile(t, srcBytes), &out)
 	if err == nil {
 		t.Fatal("expected an error when converting an already KeyValueSnapshotKind archive")
 	}
@@ -336,7 +336,7 @@ func TestConvertEtcdSnapshotToKeyValueSnapshot_Pagination(t *testing.T) {
 			srcBytes := newTestArchiveBytes(t, archiveEntry{key: DBStoreKey, value: dbBytes})
 
 			var out bytes.Buffer
-			if err := ConvertEtcdSnapshotToKeyValueSnapshot(t.Context(), t.TempDir(), bytes.NewReader(srcBytes), &out); err != nil {
+			if err := ConvertEtcdSnapshotToKeyValueSnapshot(t.Context(), t.TempDir(), writeBytesToTempFile(t, srcBytes), &out); err != nil {
 				t.Fatalf("ConvertEtcdSnapshotToKeyValueSnapshot failed: %v", err)
 			}
 
@@ -454,7 +454,7 @@ func TestConvertEtcdSnapshotToKeyValueSnapshot_SinkFailureDoesNotOutliveStore(t 
 	dbBytes := buildRawEtcdSnapshot(t, ops)
 	srcBytes := newTestArchiveBytes(t, archiveEntry{key: DBStoreKey, value: dbBytes})
 
-	err := ConvertEtcdSnapshotToKeyValueSnapshot(t.Context(), t.TempDir(), bytes.NewReader(srcBytes), failingWriter{})
+	err := ConvertEtcdSnapshotToKeyValueSnapshot(t.Context(), t.TempDir(), writeBytesToTempFile(t, srcBytes), failingWriter{})
 	if err == nil {
 		t.Fatal("expected a failing sink to surface as an error")
 	}

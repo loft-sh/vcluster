@@ -133,6 +133,46 @@ func TestDeleteMethodBeforeRestore(t *testing.T) {
 	}
 }
 
+func TestNeedsEtcdToKeyValueConversion(t *testing.T) {
+	// every store type, so a new one shows up here as well as in the
+	// exhaustive-linted switch it mirrors
+	storeTypes := []vclusterconfig.StoreType{
+		vclusterconfig.StoreTypeEmbeddedEtcd,
+		vclusterconfig.StoreTypeEmbeddedDatabase,
+		vclusterconfig.StoreTypeDeployedEtcd,
+		vclusterconfig.StoreTypeExternalEtcd,
+		vclusterconfig.StoreTypeExternalDatabase,
+	}
+
+	// only embedded etcd can restore a raw etcd snapshot as-is
+	wantForEtcdArchive := map[vclusterconfig.StoreType]bool{
+		vclusterconfig.StoreTypeEmbeddedEtcd:     false,
+		vclusterconfig.StoreTypeEmbeddedDatabase: true,
+		vclusterconfig.StoreTypeDeployedEtcd:     true,
+		vclusterconfig.StoreTypeExternalEtcd:     true,
+		vclusterconfig.StoreTypeExternalDatabase: true,
+	}
+
+	for _, storeType := range storeTypes {
+		t.Run("etcd archive/"+string(storeType), func(t *testing.T) {
+			want, ok := wantForEtcdArchive[storeType]
+			if !ok {
+				t.Fatalf("store type %q has no expectation; add one when adding a store type", storeType)
+			}
+			if got := needsEtcdToKeyValueConversion(EtcdSnapshotKind, storeType); got != want {
+				t.Errorf("needsEtcdToKeyValueConversion(EtcdSnapshotKind, %q) = %v; want %v", storeType, got, want)
+			}
+		})
+
+		// a key-value archive never needs converting, whatever the store
+		t.Run("key-value archive/"+string(storeType), func(t *testing.T) {
+			if got := needsEtcdToKeyValueConversion(KeyValueSnapshotKind, storeType); got {
+				t.Errorf("needsEtcdToKeyValueConversion(KeyValueSnapshotKind, %q) = true; want false", storeType)
+			}
+		})
+	}
+}
+
 func TestSnapshotRestoreBumpRevision(t *testing.T) {
 	tests := []struct {
 		name             string
