@@ -720,7 +720,7 @@ github.com/loft-sh/api/v4/pkg/vclusterconfig/constants
 # github.com/loft-sh/apiserver v0.0.0-20260707184419-aef558a5ae8d
 ## explicit; go 1.26.0
 github.com/loft-sh/apiserver/pkg/builders
-# github.com/loft-sh/e2e-framework v0.0.0-20260423133544-5291e728f979
+# github.com/loft-sh/e2e-framework v0.0.0-20260721073036-aa8d4d6d0958
 ## explicit; go 1.24.0
 github.com/loft-sh/e2e-framework/pkg/context
 github.com/loft-sh/e2e-framework/pkg/e2e

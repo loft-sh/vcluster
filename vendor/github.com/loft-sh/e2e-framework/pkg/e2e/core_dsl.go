@@ -47,8 +47,24 @@ func DeferCleanupCtx(ctx context.Context, fn func(context.Context) (context.Cont
 	})
 }
 
+var currentSpecID string
+
 func ContextualAroundNode(ctx context.Context) context.Context {
 	report := ginkgo.CurrentSpecReport()
+
+	// A context popped during one spec's cleanup must not be observable from
+	// the next spec: it may reference resources that the previous spec tore
+	// down (e.g. ephemeral platform clients). Invalidate Stack.last when a new
+	// spec starts. Suite-level nodes (AfterSuite, ReportAfterSuite, ...) are
+	// excluded because they legitimately resolve values from the context
+	// popped when the BeforeSuite cleanup ran.
+	if report.LeafNodeType == types.NodeTypeIt {
+		if id := report.FullText() + "|" + report.LeafNodeLocation.String(); id != currentSpecID {
+			currentSpecID = id
+			suiteContextStack.NextGeneration()
+		}
+	}
+
 	events := report.SpecEvents.WithType(types.SpecEventNodeStart)
 	event := events[len(events)-1]
 
