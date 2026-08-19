@@ -162,6 +162,44 @@ type CloudControllerManager struct {
 	// an external cloud controller manager such as AWS or GCP. The cloud controller manager is responsible for setting the node's ip addresses as well
 	// as the provider id for the node and other node metadata.
 	Enabled bool `json:"enabled,omitempty"`
+
+	// KubeOvn holds configuration for the kube-ovn integration of the embedded cloud controller manager. When enabled, services of
+	// type LoadBalancer are translated into kube-ovn RouterLBRule and OvnEip resources in the host cluster.
+	KubeOvn KubeOvnCloudControllerManager `json:"kubeOvn,omitempty" product:"pro"`
+}
+
+func (c CloudControllerManager) JSONSchemaExtend(base *jsonschema.Schema) {
+	addProToJSONSchema(base, reflect.TypeOf(c))
+}
+
+type KubeOvnCloudControllerManager struct {
+	// Enabled defines if the kube-ovn integration of the embedded cloud controller manager should be enabled. This requires kube-ovn to be
+	// deployed in the host cluster and private nodes to be enabled.
+	Enabled bool `json:"enabled,omitempty"`
+
+	// VPC is the name of the kube-ovn VPC that the integration operates on. It is shared by loadBalancers and podRoutes.
+	VPC string `json:"vpc,omitempty"`
+
+	// LoadBalancers holds configuration for translating services of type LoadBalancer into kube-ovn resources in the host cluster.
+	LoadBalancers KubeOvnLoadBalancers `json:"loadBalancers,omitempty"`
+
+	// PodRoutes creates routes for the nodes' podCIDRs in the VPC, which enables direct routing for LoadBalancers.
+	PodRoutes KubeOvnPodRoutes `json:"podRoutes,omitempty"`
+}
+
+type KubeOvnLoadBalancers struct {
+	// ExternalSubnet is the name of the kube-ovn subnet that the load balancer VIPs are allocated from.
+	ExternalSubnet string `json:"externalSubnet,omitempty"`
+
+	// BackendSubnet is the name of a kube-ovn subnet in the load balancer's VPC. It is stamped as the
+	// generated Service's ovn.kubernetes.io/logical_switch so kube-ovn places the VIP on the VPC's
+	// load balancer; the value only needs to be a real subnet in that VPC.
+	BackendSubnet string `json:"backendSubnet,omitempty"`
+}
+
+type KubeOvnPodRoutes struct {
+	// Enabled selects direct-to-pod mode, preserving the client source IP.
+	Enabled bool `json:"enabled,omitempty"`
 }
 
 type PrivateNodesVPN struct {

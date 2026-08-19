@@ -338,6 +338,11 @@
         "enabled": {
           "type": "boolean",
           "description": "Enabled defines if the embedded cloud controller manager should be enabled. This defaults to true, but can be disabled if you want to use\nan external cloud controller manager such as AWS or GCP. The cloud controller manager is responsible for setting the node's ip addresses as well\nas the provider id for the node and other node metadata."
+        },
+        "kubeOvn": {
+          "$ref": "#/$defs/KubeOvnCloudControllerManager",
+          "description": "KubeOvn holds configuration for the kube-ovn integration of the embedded cloud controller manager. When enabled, services of\ntype LoadBalancer are translated into kube-ovn RouterLBRule and OvnEip resources in the host cluster.",
+          "pro": true
         }
       },
       "additionalProperties": false,
@@ -3059,6 +3064,52 @@
           },
           "type": "array",
           "description": "ExtraArgs are additional arguments to pass to the konnectivity server."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "KubeOvnCloudControllerManager": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the kube-ovn integration of the embedded cloud controller manager should be enabled. This requires kube-ovn to be\ndeployed in the host cluster and private nodes to be enabled."
+        },
+        "vpc": {
+          "type": "string",
+          "description": "VPC is the name of the kube-ovn VPC that the integration operates on. It is shared by loadBalancers and podRoutes."
+        },
+        "loadBalancers": {
+          "$ref": "#/$defs/KubeOvnLoadBalancers",
+          "description": "LoadBalancers holds configuration for translating services of type LoadBalancer into kube-ovn resources in the host cluster."
+        },
+        "podRoutes": {
+          "$ref": "#/$defs/KubeOvnPodRoutes",
+          "description": "PodRoutes creates routes for the nodes' podCIDRs in the VPC, which enables direct routing for LoadBalancers."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "KubeOvnLoadBalancers": {
+      "properties": {
+        "externalSubnet": {
+          "type": "string",
+          "description": "ExternalSubnet is the name of the kube-ovn subnet that the load balancer VIPs are allocated from."
+        },
+        "backendSubnet": {
+          "type": "string",
+          "description": "BackendSubnet is the name of a kube-ovn subnet in the load balancer's VPC. It is stamped as the\ngenerated Service's ovn.kubernetes.io/logical_switch so kube-ovn places the VIP on the VPC's\nload balancer; the value only needs to be a real subnet in that VPC."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "KubeOvnPodRoutes": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled selects direct-to-pod mode, preserving the client source IP."
         }
       },
       "additionalProperties": false,

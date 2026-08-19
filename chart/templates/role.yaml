@@ -194,6 +194,14 @@ rules:
     resources: ["servicemonitors"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
   {{- end }}
+  {{- if dig "kubeOvn" "enabled" false (.Values.controlPlane.advanced.cloudControllerManager | default dict) }}
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["discovery.k8s.io"]
+    resources: ["endpointslices"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+  {{- end }}
   {{- include "vcluster.rbac.kubeVirtCSIRoleRules" . | indent 2 }}
   {{- include "vcluster.customResources.roleExtraRules" . | indent 2 }}
   {{- include "vcluster.plugin.roleExtraRules" . | indent 2 }}

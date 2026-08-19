@@ -2366,3 +2366,164 @@ func TestValidateAutoUpgradeSecurityContext(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateKubeOvnCloudControllerManager(t *testing.T) {
+	type testCase struct {
+		name           string
+		vclusterConfig *VirtualClusterConfig
+		checkErr       func(t *testing.T, err error)
+	}
+
+	testCases := []testCase{
+		{
+			name: "Invalid: kube-ovn integration without private nodes",
+			vclusterConfig: &VirtualClusterConfig{
+				Config: config.Config{
+					PrivateNodes: config.PrivateNodes{
+						Enabled: false,
+					},
+					ControlPlane: config.ControlPlane{
+						Advanced: config.ControlPlaneAdvanced{
+							CloudControllerManager: config.CloudControllerManager{
+								KubeOvn: config.KubeOvnCloudControllerManager{
+									Enabled: true,
+								},
+							},
+						},
+					},
+				},
+			},
+			checkErr: expectErr("cloudControllerManager kube-ovn integration is only supported in private nodes mode"),
+		},
+		{
+			name: "Invalid: kube-ovn integration without vpc",
+			vclusterConfig: &VirtualClusterConfig{
+				Config: config.Config{
+					PrivateNodes: config.PrivateNodes{Enabled: true},
+					ControlPlane: config.ControlPlane{
+						Advanced: config.ControlPlaneAdvanced{
+							CloudControllerManager: config.CloudControllerManager{
+								KubeOvn: config.KubeOvnCloudControllerManager{
+									Enabled:       true,
+									LoadBalancers: config.KubeOvnLoadBalancers{ExternalSubnet: "ext"},
+								},
+							},
+						},
+					},
+				},
+			},
+			checkErr: expectErr("cloudControllerManager kube-ovn integration requires a vpc"),
+		},
+		{
+			name: "Invalid: kube-ovn integration without externalSubnet",
+			vclusterConfig: &VirtualClusterConfig{
+				Config: config.Config{
+					PrivateNodes: config.PrivateNodes{Enabled: true},
+					ControlPlane: config.ControlPlane{
+						Advanced: config.ControlPlaneAdvanced{
+							CloudControllerManager: config.CloudControllerManager{
+								KubeOvn: config.KubeOvnCloudControllerManager{
+									Enabled: true,
+									VPC:     "vpc-1",
+								},
+							},
+						},
+					},
+				},
+			},
+			checkErr: expectErr("cloudControllerManager kube-ovn integration requires loadBalancers.externalSubnet"),
+		},
+		{
+			name: "Invalid: kube-ovn podRoutes without podCIDR",
+			vclusterConfig: &VirtualClusterConfig{
+				Config: config.Config{
+					PrivateNodes: config.PrivateNodes{Enabled: true},
+					ControlPlane: config.ControlPlane{
+						Advanced: config.ControlPlaneAdvanced{
+							CloudControllerManager: config.CloudControllerManager{
+								KubeOvn: config.KubeOvnCloudControllerManager{
+									Enabled:       true,
+									VPC:           "vpc-1",
+									LoadBalancers: config.KubeOvnLoadBalancers{ExternalSubnet: "ext", BackendSubnet: "backend"},
+									PodRoutes:     config.KubeOvnPodRoutes{Enabled: true},
+								},
+							},
+						},
+					},
+				},
+			},
+			checkErr: expectErr("cloudControllerManager kube-ovn podRoutes requires networking.podCIDR"),
+		},
+		{
+			name: "Invalid: kube-ovn podRoutes without backendSubnet",
+			vclusterConfig: &VirtualClusterConfig{
+				Config: config.Config{
+					PrivateNodes: config.PrivateNodes{Enabled: true},
+					Networking:   config.Networking{PodCIDR: "10.0.0.0/16"},
+					ControlPlane: config.ControlPlane{
+						Advanced: config.ControlPlaneAdvanced{
+							CloudControllerManager: config.CloudControllerManager{
+								KubeOvn: config.KubeOvnCloudControllerManager{
+									Enabled:       true,
+									VPC:           "vpc-1",
+									LoadBalancers: config.KubeOvnLoadBalancers{ExternalSubnet: "ext"},
+									PodRoutes:     config.KubeOvnPodRoutes{Enabled: true},
+								},
+							},
+						},
+					},
+				},
+			},
+			checkErr: expectErr("cloudControllerManager kube-ovn podRoutes requires loadBalancers.backendSubnet"),
+		},
+		{
+			name: "Valid: kube-ovn node-mode load balancer with private nodes",
+			vclusterConfig: &VirtualClusterConfig{
+				Config: config.Config{
+					PrivateNodes: config.PrivateNodes{Enabled: true},
+					ControlPlane: config.ControlPlane{
+						Advanced: config.ControlPlaneAdvanced{
+							CloudControllerManager: config.CloudControllerManager{
+								KubeOvn: config.KubeOvnCloudControllerManager{
+									Enabled:       true,
+									VPC:           "vpc-1",
+									LoadBalancers: config.KubeOvnLoadBalancers{ExternalSubnet: "ext"},
+								},
+							},
+						},
+					},
+				},
+			},
+			checkErr: noErrExpected,
+		},
+		{
+			name: "Valid: kube-ovn pod-mode with podRoutes and private nodes",
+			vclusterConfig: &VirtualClusterConfig{
+				Config: config.Config{
+					PrivateNodes: config.PrivateNodes{Enabled: true},
+					Networking:   config.Networking{PodCIDR: "10.0.0.0/16"},
+					ControlPlane: config.ControlPlane{
+						Advanced: config.ControlPlaneAdvanced{
+							CloudControllerManager: config.CloudControllerManager{
+								KubeOvn: config.KubeOvnCloudControllerManager{
+									Enabled:       true,
+									VPC:           "vpc-1",
+									LoadBalancers: config.KubeOvnLoadBalancers{ExternalSubnet: "ext", BackendSubnet: "backend"},
+									PodRoutes:     config.KubeOvnPodRoutes{Enabled: true},
+								},
+							},
+						},
+					},
+				},
+			},
+			checkErr: noErrExpected,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validatePrivatedNodesMode(tc.vclusterConfig)
+			tc.checkErr(t, err)
+		})
+	}
+}

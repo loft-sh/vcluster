@@ -908,6 +908,9 @@ func validatePrivatedNodesMode(vConfig *VirtualClusterConfig) error {
 		if vConfig.Deploy.CSI.KubeVirt.Enabled {
 			return fmt.Errorf("kubevirt csi is only supported in private nodes mode")
 		}
+		if vConfig.ControlPlane.Advanced.CloudControllerManager.KubeOvn.Enabled {
+			return fmt.Errorf("cloudControllerManager kube-ovn integration is only supported in private nodes mode")
+		}
 
 		return nil
 	}
@@ -917,6 +920,27 @@ func validatePrivatedNodesMode(vConfig *VirtualClusterConfig) error {
 		_, _, err := net.SplitHostPort(vConfig.ControlPlane.Endpoint)
 		if err != nil {
 			return fmt.Errorf("invalid endpoint %s: %w", vConfig.ControlPlane.Endpoint, err)
+		}
+	}
+
+	// validate kube-ovn integration: the VPC and the load balancer external subnet are needed for every
+	// mode, while pod routing additionally needs a pod cidr (it is the route controller's cluster cidr)
+	// and a backend subnet to place the direct-to-pod VIP on the VPC's load balancer.
+	kubeOvn := vConfig.ControlPlane.Advanced.CloudControllerManager.KubeOvn
+	if kubeOvn.Enabled {
+		if kubeOvn.VPC == "" {
+			return fmt.Errorf("cloudControllerManager kube-ovn integration requires a vpc")
+		}
+		if kubeOvn.LoadBalancers.ExternalSubnet == "" {
+			return fmt.Errorf("cloudControllerManager kube-ovn integration requires loadBalancers.externalSubnet")
+		}
+		if kubeOvn.PodRoutes.Enabled {
+			if vConfig.Networking.PodCIDR == "" {
+				return fmt.Errorf("cloudControllerManager kube-ovn podRoutes requires networking.podCIDR")
+			}
+			if kubeOvn.LoadBalancers.BackendSubnet == "" {
+				return fmt.Errorf("cloudControllerManager kube-ovn podRoutes requires loadBalancers.backendSubnet")
+			}
 		}
 	}
 

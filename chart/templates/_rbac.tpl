@@ -53,6 +53,7 @@
     .Values.sync.toHost.gatewayApi.httpRoutes.enabled
     .Values.sync.toHost.gatewayApi.tlsRoutes.enabled
     .Values.sync.toHost.gatewayApi.backendTLSPolicies.enabled
+    (dig "kubeOvn" "enabled" false (.Values.controlPlane.advanced.cloudControllerManager | default dict))
      -}}
 {{- true -}}
 {{- end -}}
