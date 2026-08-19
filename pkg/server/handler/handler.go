@@ -87,6 +87,7 @@ func HandlerWithErrorResponder(prefix string, cfg *rest.Config, transport http.R
 	proxy := proxy.NewUpgradeAwareHandler(target, transport, false, false, responder)
 	proxy.UpgradeTransport = upgradeTransport
 	proxy.UseRequestLocation = true
+	proxy.UseLocationHost = true // send backend hostname as Host header, not the client's vcluster LB hostname
 
 	handler := http.Handler(proxy)
 	if len(prefix) > 0 {
