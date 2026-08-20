@@ -1,0 +1,249 @@
+suite: NetworkPolicy
+templates:
+  - networkpolicy.yaml
+
+tests:
+  - it: should not create network policy by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: check defaults
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      policies:
+        networkPolicy:
+          enabled: true
+    asserts:
+      - hasDocuments:
+          count: 4
+      - equal:
+          path: kind
+          value: NetworkPolicy
+      - equal:
+          path: metadata.namespace
+          value: my-namespace
+      - equal:
+          path: spec.policyTypes
+          value: ["Egress", "Ingress"]
+      - documentSelector:
+          path: metadata.name
+          value: vc-work-my-release
+        lengthEqual:
+          path: spec.egress
+          count: 3
+      - documentSelector:
+          path: metadata.name
+          value: vc-work-my-release
+        lengthEqual:
+          path: spec.ingress
+          count: 2
+      - documentSelector:
+          path: metadata.name
+          value: vc-work-my-release
+        equal:
+          path: spec.egress[2].to[0].ipBlock.cidr
+          value: 0.0.0.0/0
+      - documentSelector:
+          path: metadata.name
+          value: vc-cp-my-release
+        lengthEqual:
+          path: spec.egress
+          count: 5
+      - documentSelector:
+          path: metadata.name
+          value: vc-cp-my-release
+        lengthEqual:
+          path: spec.ingress
+          count: 5
+      - documentSelector:
+          path: metadata.name
+          value: vc-kube-dns-my-release
+        lengthEqual:
+          path: spec.egress
+          count: 2
+      - documentSelector:
+          path: metadata.name
+          value: vc-kube-dns-my-release
+        lengthEqual:
+          path: spec.ingress
+          count: 1
+
+  - it: should set labels and annotations on all network policies
+    release:
+      name: my-release
+      namespace: my-namespace
+    chart:
+      version: 0.0.1
+    set:
+      controlPlane:
+        advanced:
+          globalMetadata:
+            annotations:
+              global-annotation-key-1: global-annotation-value-1
+              global-annotation-key-2: global-annotation-value-2
+              annotation-key-to-be-overridden: annotation-key-overridden-from-global
+      policies:
+        networkPolicy:
+          enabled: true
+          labels:
+            label-key-1: label-value-1
+            label-key-2: label-value-2
+          annotations:
+            annotation-key-to-be-overridden: value-overridden-from-global
+            annotation-key-1: annotation-value-1
+            annotation-key-2: annotation-value-2
+    asserts:
+      - hasDocuments:
+          count: 4
+      - isSubset:
+          path: metadata.labels
+          content:
+            label-key-1: label-value-1
+            label-key-2: label-value-2
+            app: vcluster
+            chart: vcluster-0.0.1
+            release: my-release
+            heritage: Helm
+      - isSubset:
+          path: metadata.annotations
+          content:
+            global-annotation-key-1: global-annotation-value-1
+            global-annotation-key-2: global-annotation-value-2
+            annotation-key-to-be-overridden: annotation-key-overridden-from-global
+            annotation-key-1: annotation-value-1
+            annotation-key-2: annotation-value-2
+
+  - it: should support extra ingress/egress rules
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      policies:
+        networkPolicy:
+          enabled: true
+          controlPlane:
+            ingress:
+              - ports:
+                  - port: 12340
+            egress:
+              - ports:
+                  - port: 1234
+          workload:
+            ingress:
+              - ports:
+                  - port: 23450
+            egress:
+              - ports:
+                  - port: 2345
+    asserts:
+      - hasDocuments:
+          count: 4
+      - documentSelector:
+          path: metadata.name
+          value: vc-work-my-release
+        equal:
+          path: spec.egress[3].ports[0].port
+          value: 2345
+      - documentSelector:
+          path: metadata.name
+          value: vc-work-my-release
+        equal:
+          path: spec.ingress[2].ports[0].port
+          value: 23450
+      - documentSelector:
+          path: metadata.name
+          value: vc-cp-my-release
+        equal:
+          path: spec.egress[5].ports[0].port
+          value: 1234
+      - documentSelector:
+          path: metadata.name
+          value: vc-cp-my-release
+        equal:
+          path: spec.ingress[5].ports[0].port
+          value: 12340
+
+  - it: should allow external API ingress by default
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      policies:
+        networkPolicy:
+          enabled: true
+    asserts:
+      # First ingress rule allows port 8443 from any source
+      - documentSelector:
+          path: metadata.name
+          value: vc-cp-my-release
+        equal:
+          path: spec.ingress[0].ports[0].port
+          value: 8443
+      - documentSelector:
+          path: metadata.name
+          value: vc-cp-my-release
+        equal:
+          path: spec.ingress[0].ports[0].protocol
+          value: TCP
+      # No 'from' field means allow from all sources
+      - documentSelector:
+          path: metadata.name
+          value: vc-cp-my-release
+        isNull:
+          path: spec.ingress[0].from
+
+  - it: should not create workload or dns policy when privateNodes enabled
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      policies:
+        networkPolicy:
+          enabled: true
+      privateNodes:
+        enabled: true
+    asserts:
+      # Only 2 documents: cp + snapshot (workload and dns are skipped)
+      - hasDocuments:
+          count: 2
+      - documentIndex: &cpIndexPN 0
+        equal:
+          path: metadata.name
+          value: vc-cp-my-release
+      - documentIndex: &snapshotIndexPN 1
+        equal:
+          path: metadata.name
+          value: vc-snapshot-my-release
+
+  - it: should create all policies when privateNodes disabled (default)
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      policies:
+        networkPolicy:
+          enabled: true
+      privateNodes:
+        enabled: false
+    asserts:
+      - hasDocuments:
+          count: 4
+      - documentIndex: &workIndex 0
+        equal:
+          path: metadata.name
+          value: vc-work-my-release
+      - documentIndex: &cpIndex 1
+        equal:
+          path: metadata.name
+          value: vc-cp-my-release
+      - documentIndex: &dnsIndex 2
+        equal:
+          path: metadata.name
+          value: vc-kube-dns-my-release
+      - documentIndex: &snapshotIndex 3
+        equal:
+          path: metadata.name
+          value: vc-snapshot-my-release
