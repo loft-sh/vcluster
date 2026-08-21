@@ -236,6 +236,9 @@ type DynamicNodePool struct {
 	// Name is the name of this NodePool
 	Name string `json:"name" jsonschema:"required"`
 
+	// Properties are extra properties that will be set directly on the node claim.
+	Properties map[string]string `json:"properties,omitempty"`
+
 	// NodeTypeSelector filters the types of nodes that can be provisioned by this pool.
 	// All requirements must be met for a node type to be eligible.
 	NodeTypeSelector []Requirement `json:"nodeTypeSelector,omitempty"`
@@ -316,6 +319,9 @@ type DynamicNodePoolDisruptionBudget struct {
 type StaticNodePool struct {
 	// Name is the name of this static nodePool
 	Name string `json:"name" jsonschema:"required"`
+
+	// Properties are extra properties that will be set directly on the node claim.
+	Properties map[string]string `json:"properties,omitempty"`
 
 	// NodeTypeSelector filters the types of nodes that can be provisioned by this pool.
 	// All requirements must be met for a node type to be eligible.

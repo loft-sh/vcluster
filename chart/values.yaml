@@ -145,7 +145,7 @@ sync:
     resourceClaimTemplates:
       # Enabled defines if this option should be enabled.
       enabled: false
-
+  
   # Configure what resources vCluster should sync from the host cluster to the virtual cluster.
   fromHost:
     # Events defines if events should get synced from the host cluster to the virtual cluster, but not back.

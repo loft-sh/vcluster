@@ -1499,6 +1499,13 @@
           "type": "string",
           "description": "Name is the name of this NodePool"
         },
+        "properties": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Properties are extra properties that will be set directly on the node claim."
+        },
         "nodeTypeSelector": {
           "items": {
             "$ref": "#/$defs/Requirement"
@@ -5122,6 +5129,13 @@
         "name": {
           "type": "string",
           "description": "Name is the name of this static nodePool"
+        },
+        "properties": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Properties are extra properties that will be set directly on the node claim."
         },
         "nodeTypeSelector": {
           "items": {
