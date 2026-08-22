@@ -1369,61 +1369,19 @@ func convertToMap(config *config.Config) (map[string]interface{}, error) {
 }
 
 func createNetwork(ctx context.Context, networkName string, log log.Logger) error {
-	// 1. Check if the network already exists
-	// It is cleaner to check this first rather than relying on the "already exists" error text later.
+	// If the network already exists, reuse it.
 	if err := exec.CommandContext(ctx, "docker", "network", "inspect", networkName).Run(); err == nil {
 		log.Debugf("Network %s already exists, skipping creation", networkName)
 		return nil
 	}
 
-	// 2. Create a temporary "probe" network
-	// We use a unique name to ensure we don't conflict with other operations.
-	probeName := fmt.Sprintf("%s-probe-%d", networkName, time.Now().UnixNano())
-	log.Debugf("Creating probe network %s to discover valid subnet", probeName)
-
-	if out, err := exec.CommandContext(ctx, "docker", "network", "create", probeName).CombinedOutput(); err != nil {
-		return fmt.Errorf("failed to create probe network: %w: %s", err, string(out))
-	}
-
-	// SAFETY: Ensure the probe is deleted when we are done, even if we crash/return error below.
-	defer func() {
-		// We suppress errors here because if the happy path works, the probe is already gone.
-		_ = exec.CommandContext(ctx, "docker", "network", "rm", probeName).Run()
-	}()
-
-	// 3. Inspect the probe to retrieve the Subnet
-	// We use a specific Go template to extract only the subnet string.
-	cmd := exec.CommandContext(ctx, "docker", "network", "inspect", probeName, "--format", "{{(index .IPAM.Config 0).Subnet}}")
-	out, err := cmd.CombinedOutput()
+	out, err := exec.CommandContext(ctx, "docker", "network", "create", networkName).CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("failed to inspect probe subnet: %w: %s", err, string(out))
-	}
-
-	subnet := strings.TrimSpace(string(out))
-	if subnet == "" {
-		return fmt.Errorf("probe network returned empty subnet")
-	}
-	log.Debugf("Discovered free subnet: %s", subnet)
-
-	// 4. Delete the probe explicitly
-	// We must delete it NOW to free up the subnet so we can reuse it immediately.
-	if err := exec.CommandContext(ctx, "docker", "network", "rm", probeName).Run(); err != nil {
-		return fmt.Errorf("failed to remove probe network: %w", err)
-	}
-
-	// 5. Create the ACTUAL network with the specific Subnet
-	// This satisfies the "user configured subnet" requirement.
-	args := []string{"network", "create", "--subnet", subnet, networkName}
-	log.Debugf("Running command: docker %s", strings.Join(args, " "))
-
-	out, err = exec.CommandContext(ctx, "docker", args...).CombinedOutput()
-	if err != nil {
-		// Handle race condition: If someone created it between step 1 and now
 		if strings.Contains(string(out), "already exists") {
 			log.Donef("Network %s already exists", networkName)
 			return nil
 		}
-		return fmt.Errorf("failed to create network %s with subnet %s: %w: %s", networkName, subnet, err, string(out))
+		return fmt.Errorf("failed to create network %s: %w: %s", networkName, err, string(out))
 	}
 
 	log.Donef("Created network %s", networkName)
