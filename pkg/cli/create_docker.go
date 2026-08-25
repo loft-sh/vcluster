@@ -1143,7 +1143,7 @@ func extractContainerID(out string) string {
 func isDockerNetworkReachable(ctx context.Context, networkName string) (bool, error) {
 	// 1. Start a container listening on port 8080.
 	// We use 'nc -l -p 8080' instead of 'tail -f' so we have a target to connect to.
-	out, err := exec.CommandContext(ctx, "docker", "run", "--platform", "linux/"+runtime.GOARCH, "-q", "-d", "--network", networkName, "alpine", "nc", "-l", "-p", "8080").Output()
+	out, err := exec.CommandContext(ctx, "docker", "run", "--platform", "linux/"+runtime.GOARCH, "-q", "-d", "--rm", "--network", networkName, "alpine", "nc", "-l", "-p", "8080").Output()
 	if err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
