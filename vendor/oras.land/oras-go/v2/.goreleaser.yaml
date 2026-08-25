@@ -11,26 +11,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-.PHONY: test
-test: vendor check-encoding
-	go test -race -v -coverprofile=coverage.txt -covermode=atomic ./...
+version: 2
 
-.PHONY: covhtml
-covhtml:
-	open .cover/coverage.html
+# oras-go is a library — no binary builds or archives needed.
+builds:
+  - skip: true
 
-.PHONY: clean
-clean:
-	git status --ignored --short | grep '^!! ' | sed 's/!! //' | xargs rm -rf
+checksum:
+  disable: true
 
-.PHONY: check-encoding
-check-encoding:
-	! find . -not -path "./vendor/*" -name "*.go" -type f -exec file "{}" ";" | grep CRLF
-
-.PHONY: fix-encoding
-fix-encoding:
-	find . -not -path "./vendor/*" -name "*.go" -type f -exec sed -i -e "s/\r//g" {} +
-
-.PHONY: vendor
-vendor:
-	go mod vendor
+release:
+  # Tags containing -alpha, -beta, or -rc are automatically marked pre-release.
+  prerelease: auto
+  draft: false

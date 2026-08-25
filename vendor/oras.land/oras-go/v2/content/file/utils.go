@@ -175,6 +175,15 @@ func extractTarDirectory(dirPath, dirName string, r io.Reader, buf []byte, prese
 		}
 		filePath := filepath.Join(dirPath, filePathRel)
 
+		// resolveRelToBase only performs lexical and per-component Lstat checks,
+		// which a chain of previously-extracted symlinks can bypass. Re-verify
+		// containment with symlinks fully resolved before mutating the
+		// filesystem, matching the check on the pushFile path.
+		// (GHSA-m37j-52j7-pjw7)
+		if err := checkSymlinkEscape(dirPath, filePath); err != nil {
+			return err
+		}
+
 		// Create content
 		switch header.Typeflag {
 		case tar.TypeReg:
@@ -188,6 +197,11 @@ func extractTarDirectory(dirPath, dirName string, r io.Reader, buf []byte, prese
 			// This is a known limitation and will not be addressed.
 			var target string
 			if target, err = ensureLinkPath(dirPath, dirName, filePath, header.Linkname); err == nil {
+				if !filepath.IsAbs(target) {
+					// link(2) resolves relative paths against the process CWD, not
+					// the link file's directory. Resolve explicitly to prevent escape.
+					target = filepath.Join(filepath.Dir(filePath), target)
+				}
 				err = os.Link(target, filePath)
 			}
 		case tar.TypeSymlink:
@@ -276,6 +290,16 @@ func ensureLinkPath(baseAbs, baseRel, link, target string) (string, error) {
 
 // writeFile writes content to the file specified by the `path` parameter.
 func writeFile(path string, r io.Reader, perm os.FileMode, buf []byte) (err error) {
+	// os.OpenFile follows a terminal symlink, so a regular-file entry whose
+	// path was already created as a symlink by an earlier archive entry would
+	// be written through that link, landing outside the extraction root
+	// (GHSA-m37j-52j7-pjw7). Remove any such symlink first so the content is
+	// written to a regular file at path itself.
+	if fi, err := os.Lstat(path); err == nil && fi.Mode()&os.ModeSymlink != 0 {
+		if err := os.Remove(path); err != nil {
+			return err
+		}
+	}
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, perm)
 	if err != nil {
 		return err

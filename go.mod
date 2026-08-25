@@ -47,7 +47,7 @@ require (
 	go.etcd.io/etcd/server/v3 v3.6.8
 	go.uber.org/atomic v1.11.0
 	golang.org/x/mod v0.35.0
-	golang.org/x/sync v0.20.0
+	golang.org/x/sync v0.22.0
 	google.golang.org/grpc v1.82.1
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af
 	gopkg.in/yaml.v3 v3.0.1
@@ -200,7 +200,7 @@ require (
 	modernc.org/strutil v1.2.0 // indirect
 	modernc.org/token v1.1.0 // indirect
 	mvdan.cc/sh/v3 v3.6.0 // indirect
-	oras.land/oras-go/v2 v2.6.0 // indirect
+	oras.land/oras-go/v2 v2.6.2 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.2 // indirect
 )

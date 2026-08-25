@@ -39,7 +39,7 @@ import (
 // bufPool is a pool of byte buffers that can be reused for copying content
 // between files.
 var bufPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		// the buffer size should be larger than or equal to 128 KiB
 		// for performance considerations.
 		// we choose 1 MiB here so there will be less disk I/O.
@@ -174,7 +174,7 @@ func (s *Store) Close() error {
 	s.setClosed()
 
 	var errs []string
-	s.tmpFiles.Range(func(name, _ interface{}) bool {
+	s.tmpFiles.Range(func(name, _ any) bool {
 		if err := os.Remove(name.(string)); err != nil {
 			errs = append(errs, err.Error())
 		}
@@ -625,6 +625,13 @@ func (s *Store) resolveWritePath(name string) (string, error) {
 		if strings.HasPrefix(rel, "../") || rel == ".." {
 			return "", ErrPathTraversalDisallowed
 		}
+		// The lexical check above prevents "../" escapes but does not resolve
+		// symlinks. A symlink component under workingDir (e.g. "out" -> "/outside")
+		// passes the lexical check yet directs writes outside workingDir.
+		// Re-check after resolving symlinks in the parent path to close that gap.
+		if err := checkSymlinkEscape(base, target); err != nil {
+			return "", err
+		}
 	}
 	if s.DisableOverwrite {
 		if _, err := os.Stat(path); err == nil {
@@ -685,4 +692,53 @@ func (s *Store) setClosed() {
 // ensureDir ensures the directories of the path exists.
 func ensureDir(path string) error {
 	return os.MkdirAll(path, 0777)
+}
+
+// checkSymlinkEscape returns ErrPathTraversalDisallowed if resolving symlinks
+// in target's ancestor directories causes it to escape base. target may not
+// yet exist, so symlinks are resolved on its deepest existing ancestor.
+func checkSymlinkEscape(base, target string) error {
+	realBase, err := filepath.EvalSymlinks(base)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil // base doesn't exist yet; no symlinks to follow
+		}
+		return err
+	}
+	realTarget, err := realPathForWrite(target)
+	if err != nil {
+		return err
+	}
+	rel, err := filepath.Rel(realBase, realTarget)
+	if err != nil {
+		return ErrPathTraversalDisallowed
+	}
+	rel = filepath.ToSlash(rel)
+	if strings.HasPrefix(rel, "../") || rel == ".." {
+		return ErrPathTraversalDisallowed
+	}
+	return nil
+}
+
+// realPathForWrite resolves symlinks in the deepest existing ancestor of path
+// and returns the resulting absolute path. Non-existent path components are
+// appended verbatim, matching the semantics of a file about to be created.
+func realPathForWrite(path string) (string, error) {
+	dir := filepath.Dir(path)
+	suffix := filepath.Base(path)
+	for {
+		real, err := filepath.EvalSymlinks(dir)
+		if err == nil {
+			return filepath.Join(real, suffix), nil
+		}
+		if !os.IsNotExist(err) {
+			return "", err
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return path, nil // reached filesystem root
+		}
+		suffix = filepath.Join(filepath.Base(dir), suffix)
+		dir = parent
+	}
 }
