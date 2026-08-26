@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -20,6 +21,8 @@ type configBuilder struct {
 	log       logr.Logger
 	opts      []func(*config.LoadOptions) error
 	credsFlag bool
+	// err records a configuration the builder must not silently ignore; Build surfaces it.
+	err error
 }
 
 func newConfigBuilder(logger logr.Logger) *configBuilder {
@@ -57,6 +60,30 @@ func (cb *configBuilder) WithCredentialsFile(credentialsFile string) *configBuil
 	return cb
 }
 
+// WithStaticCredentials pins credentials onto this config rather than the process environment, which in
+// the platform would leak one tenant's credentials to every other AWS client and race with them.
+//
+// Partial credentials are ignored so the default chain still applies, matching what the environment
+// provider did with a half-populated environment.
+func (cb *configBuilder) WithStaticCredentials(accessKeyID, secretAccessKey, sessionToken string) *configBuilder {
+	// neither set asks for the default chain, so it stays a no-op; exactly one set is always a mistake,
+	// and falling through would act under the host's own identity against a caller-chosen bucket
+	if (accessKeyID == "") != (secretAccessKey == "") {
+		cb.err = errors.New("s3 static credentials are incomplete: AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must be set together")
+		return cb
+	}
+
+	if accessKeyID == "" {
+		return cb
+	}
+
+	cb.opts = append(cb.opts, config.WithCredentialsProvider(
+		credentials.NewStaticCredentialsProvider(accessKeyID, secretAccessKey, sessionToken),
+	))
+
+	return cb
+}
+
 func (cb *configBuilder) WithTLSSettings(insecureSkipTLSVerify bool, caCert string) *configBuilder {
 	cb.opts = append(cb.opts, config.WithHTTPClient(awshttp.NewBuildableClient().WithTransportOptions(func(tr *http.Transport) {
 		if tr.TLSClientConfig == nil {
@@ -78,6 +105,10 @@ func (cb *configBuilder) WithTLSSettings(insecureSkipTLSVerify bool, caCert stri
 }
 
 func (cb *configBuilder) Build() (aws.Config, error) {
+	if cb.err != nil {
+		return aws.Config{}, cb.err
+	}
+
 	conf, err := config.LoadDefaultConfig(context.Background(), cb.opts...)
 	if err != nil {
 		return aws.Config{}, err

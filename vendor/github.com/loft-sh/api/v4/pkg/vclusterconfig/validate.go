@@ -2,6 +2,7 @@ package vclusterconfig
 
 import (
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/loft-sh/api/v4/pkg/vclusterconfig/constants"
 	"github.com/robfig/cron/v3"
 	"golang.org/x/mod/semver"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
@@ -20,6 +22,144 @@ func ValidatePlatformConfig(fldPath *field.Path, platformConfig PlatformConfig) 
 	errs = append(errs, ValidateSnapshots(fldPath, platformConfig.Snapshots)...)
 	errs = append(errs, ValidateDeletion(fldPath, platformConfig.Deletion)...)
 	errs = append(errs, ValidateArgoCD(fldPath, platformConfig.ArgoCDIntegration, platformConfig.ArgoCDDeploy)...)
+	errs = append(errs, ValidateObservability(fldPath, platformConfig.ObservabilityIntegration)...)
+	errs = append(errs, ValidateStacks(fldPath, platformConfig.Stacks)...)
+
+	return errs
+}
+
+// MaxStacks bounds how many stacks one vcluster.yaml may declare, set well above any real config.
+const MaxStacks = 50
+
+// ValidateStacks checks the deploy.stacks rules that can be judged before conversion.
+func ValidateStacks(fldPath *field.Path, stacks []StackConfig) field.ErrorList {
+	errs := ValidateStackList(fldPath, stacks)
+	if len(stacks) > MaxStacks {
+		// Over the cap, the count is the only error worth reporting.
+		return errs
+	}
+
+	stacksPath := fldPath.Child("deploy", "stacks")
+	for i, stack := range stacks {
+		errs = append(errs, ValidateStack(stacksPath.Index(i), stack)...)
+	}
+
+	return errs
+}
+
+// ValidateStackList checks the cap, missing names and duplicate names. These fail the whole sync:
+// a stack without a usable name cannot be told apart from its siblings.
+func ValidateStackList(fldPath *field.Path, stacks []StackConfig) field.ErrorList {
+	if len(stacks) == 0 {
+		return nil
+	}
+
+	stacksPath := fldPath.Child("deploy", "stacks")
+	if len(stacks) > MaxStacks {
+		return field.ErrorList{field.TooMany(stacksPath, len(stacks), MaxStacks)}
+	}
+
+	var errs field.ErrorList
+	seenNames := map[string]int{}
+
+	for i, stack := range stacks {
+		namePath := stacksPath.Index(i).Child("name")
+		if stack.Name == "" {
+			errs = append(errs, field.Required(namePath, "each stack must have a name"))
+			continue
+		}
+
+		if previous, ok := seenNames[stack.Name]; ok {
+			errs = append(errs, field.Duplicate(namePath, fmt.Sprintf("%s (already used at index %d)", stack.Name, previous)))
+			continue
+		}
+
+		seenNames[stack.Name] = i
+	}
+
+	return errs
+}
+
+// ValidateStack checks one entry. ValidateStackList handles missing and duplicate names.
+func ValidateStack(stackPath *field.Path, stack StackConfig) field.ErrorList {
+	var errs field.ErrorList
+
+	// Not trimmed: the name becomes part of the resource name, so spaces must fail.
+	// An empty name is reported once, by ValidateStackList.
+	if stack.Name != "" {
+		for _, msg := range validation.IsDNS1123Label(stack.Name) {
+			errs = append(errs, field.Invalid(stackPath.Child("name"), stack.Name, msg))
+		}
+	}
+
+	hasTemplate := stack.Template != nil
+	hasTemplateRef := stack.TemplateRef != nil
+	switch {
+	case hasTemplate && hasTemplateRef:
+		errs = append(errs, field.Forbidden(stackPath, "exactly one of template or templateRef must be set, not both"))
+	case !hasTemplate && !hasTemplateRef:
+		errs = append(errs, field.Required(stackPath, "exactly one of template or templateRef must be set"))
+	case hasTemplateRef && stack.TemplateRef.Name == "":
+		errs = append(errs, field.Required(stackPath.Child("templateRef", "name"), "templateRef.name must be set"))
+	}
+
+	switch storagev1.StackPrunePolicy(stack.PrunePolicy) {
+	case "", storagev1.StackPrunePolicyRetain, storagev1.StackPrunePolicyPrune:
+	default:
+		errs = append(errs, field.NotSupported(stackPath.Child("prunePolicy"), stack.PrunePolicy,
+			[]string{string(storagev1.StackPrunePolicyRetain), string(storagev1.StackPrunePolicyPrune)}))
+	}
+
+	if stack.Defaults != nil {
+		errs = append(errs, validateDuration(stackPath.Child("defaults", "taskTimeout"), stack.Defaults.TaskTimeout)...)
+	}
+
+	if hasTemplate {
+		for j, task := range stack.Template.Tasks {
+			taskPath := stackPath.Child("template", "tasks").Index(j)
+			errs = append(errs, validateDuration(taskPath.Child("timeout"), task.Timeout)...)
+		}
+	}
+
+	return errs
+}
+
+// validateDuration checks a Go duration string such as "30m" or "720h". Empty means unset.
+func validateDuration(fldPath *field.Path, value string) field.ErrorList {
+	if value == "" {
+		return nil
+	}
+
+	if _, err := time.ParseDuration(value); err != nil {
+		return field.ErrorList{field.Invalid(fldPath, value,
+			fmt.Sprintf("invalid duration format: %v (use a Go duration string like '30m', or '720h' for 30 days)", err))}
+	}
+
+	return nil
+}
+
+// ValidateObservability validates the observability integration configuration.
+func ValidateObservability(fldPath *field.Path, integration *ObservabilityIntegration) field.ErrorList {
+	if integration == nil || !integration.Enabled {
+		return nil
+	}
+
+	var errs field.ErrorList
+	path := fldPath.Child("integrations", "observability")
+
+	if integration.Connector == "" {
+		errs = append(errs, field.Required(path.Child("connector"), "connector is required when observability is enabled"))
+	}
+
+	if integration.GatewaySecret != nil {
+		gsPath := path.Child("gatewaySecret")
+		if integration.GatewaySecret.Namespace == "" {
+			errs = append(errs, field.Required(gsPath.Child("namespace"), "namespace is required"))
+		}
+		if integration.GatewaySecret.Name == "" {
+			errs = append(errs, field.Required(gsPath.Child("name"), "name is required"))
+		}
+	}
 
 	return errs
 }
@@ -207,16 +347,10 @@ func ValidateDeletion(fldPath *field.Path, deletion *Deletion) field.ErrorList {
 
 	var errs field.ErrorList
 
-	if deletion.Auto.AfterInactivity != "" {
-		_, err := time.ParseDuration(string(deletion.Auto.AfterInactivity))
-		if err != nil {
-			errs = append(errs, field.Invalid(
-				fldPath.Child("deletion", "auto", "afterInactivity"),
-				deletion.Auto.AfterInactivity,
-				fmt.Sprintf("invalid duration format: %v (use Go duration format like '720h' or '30d')", err),
-			))
-		}
-	}
+	errs = append(errs, validateDuration(
+		fldPath.Child("deletion", "auto", "afterInactivity"),
+		string(deletion.Auto.AfterInactivity),
+	)...)
 
 	return errs
 }
@@ -224,6 +358,100 @@ func ValidateDeletion(fldPath *field.Path, deletion *Deletion) field.ErrorList {
 // check if vcluster chart version is compatible with snapshots requests
 func SupportsSnapshotRequests(release storagev1.VirtualClusterHelmRelease) bool {
 	return semver.Compare("v"+release.Chart.Version, "v0.30.0-alpha.0") == 1
+}
+
+// ValidateStandaloneSnapshots rejects snapshot storage a standalone instance cannot work with: the
+// platform reads the storage itself there, so anything reachable only from inside the tenant is
+// unusable. Separate from ValidateSnapshots because the same config is fine for a pod-based instance.
+func ValidateStandaloneSnapshots(fldPath *field.Path, snapshots *Snapshots) field.ErrorList {
+	if snapshots == nil || snapshots.Auto == nil || snapshots.Auto.Storage == nil {
+		return nil
+	}
+
+	storage := snapshots.Auto.Storage
+	storagePath := fldPath.Child("snapshots", "auto", "storage")
+
+	if storage.Type == constants.StorageTypeContainer {
+		return field.ErrorList{field.Invalid(
+			storagePath.Child("type"),
+			storage.Type,
+			"container storage is not supported on a standalone virtual cluster: the volume exists only inside the tenant, which the platform cannot list or prune",
+		)}
+	}
+
+	if usesAmbientCloudIdentity(storage) {
+		return field.ErrorList{field.Required(
+			storagePath.Child(storage.Type, "credential"),
+			"a credential secret is required on a standalone virtual cluster: an ambient cloud identity exists only inside the tenant, and the platform resolves the credentials itself",
+		)}
+	}
+
+	// the URL is the snapshot location, so it is written into the tenant's request ConfigMap in
+	// plaintext; a SAS token there is a credential persisted where every other backend keeps none
+	if storage.Type == constants.StorageTypeAzure && blobURLContainsSAS(storage.Azure.BlobURL) {
+		return field.ErrorList{field.Invalid(
+			storagePath.Child("azure", "blobUrl"),
+			"[redacted]",
+			"a SAS token in the blob URL is not supported on a standalone virtual cluster, use the credential secret instead",
+		)}
+	}
+
+	return nil
+}
+
+// blobURLContainsSAS mirrors the check in pkg/snapshot/storage/azure, duplicated rather than imported
+// so validation does not pull the Azure SDK in.
+func blobURLContainsSAS(blobURL string) bool {
+	if blobURL == "" {
+		return false
+	}
+
+	parsedURL, err := url.Parse(blobURL)
+	if err != nil {
+		// an unparseable URL fails later where it is used
+		return false
+	}
+
+	return parsedURL.Query().Has("sig") || strings.Contains(parsedURL.RawQuery, "sig=")
+}
+
+// usesAmbientCloudIdentity reports whether the storage relies on an identity attached to the workload
+// (IRSA, an instance profile, a managed identity) rather than a configured credential.
+func usesAmbientCloudIdentity(storage *SnapshotStorage) bool {
+	switch storage.Type {
+	case constants.StorageTypeS3:
+		return storage.S3.Credential == nil
+	case constants.StorageTypeOCI:
+		return storage.OCI.Credential == nil && storage.OCI.Username == ""
+	case constants.StorageTypeAzure:
+		return storage.Azure.Credential == nil
+	}
+
+	return false
+}
+
+// SupportsStandaloneSnapshots reports whether the tenant can take platform-scheduled snapshots while
+// standalone. This needs more than SupportsSnapshotRequests: standalone gets no options Secret pushed
+// into it, so the runtime has to pull its storage credentials from the platform, which it learned to do
+// in v0.37. An older standalone reconciles the request, finds no Secret and fails the snapshot.
+//
+// Compared on major.minor so every 0.37 build qualifies, prereleases included. Comparing full versions
+// would order "alpha" before "beta" before "next" and split the 0.37 development stream in three.
+func SupportsStandaloneSnapshots(release storagev1.VirtualClusterHelmRelease) bool {
+	return semver.Compare(semver.MajorMinor(chartSemver(release.Chart.Version)), "v0.37") >= 0
+}
+
+// chartSemver puts a chart version into the form x/mod/semver expects: trimmed, with exactly one
+// leading "v". Blindly prefixing breaks on a version that already carries one — MajorMinor("vv0.37.0")
+// is "", which compares below every real version. Chart versions come from whatever a registering
+// vCluster reports (registervirtualcluster/rest.go), so that shape is not hypothetical.
+func chartSemver(version string) string {
+	version = strings.TrimSpace(version)
+	if len(version) > 0 && (version[0] == 'v' || version[0] == 'V') {
+		version = version[1:]
+	}
+
+	return "v" + version
 }
 
 // validateCronSchedule validates a cron schedule string using the standard cron parser.

@@ -40,10 +40,6 @@ type ConfigStatus struct {
 	// +optional
 	OIDC *OIDC `json:"oidc,omitempty"`
 
-	// Apps holds configuration around apps
-	// +optional
-	Apps *Apps `json:"apps,omitempty"`
-
 	// Audit holds audit configuration
 	// +optional
 	Audit *Audit `json:"audit,omitempty"`
@@ -114,6 +110,28 @@ type Audit struct {
 	// DataStoreEndpoint is an endpoint to store events in.
 	// +optional
 	DataStoreEndpoint string `json:"dataStoreEndpoint,omitempty"`
+
+	// DataStoreIdentityProvider is the identity provider to use when generating temporary
+	// authentication tokens for the audit datastore, instead of a static password embedded in
+	// DataStoreEndpoint. Examples:
+	// * aws: RDS IAM Authentication
+	// +optional
+	DataStoreIdentityProvider string `json:"dataStoreIdentityProvider,omitempty"`
+
+	// DataStoreCAFile is the path to a PEM-encoded certificate authority bundle used to verify the
+	// audit datastore's server certificate, read directly by the platform pod at startup. Mount it
+	// in the platform pod via the chart's top-level volumes/volumeMounts (e.g. from a Secret or ConfigMap),
+	// the same way as config.database's caFile. When set, the connection is fully verified
+	// (postgres: sslmode=verify-full; mysql: a registered TLS config with the given CA as RootCAs)
+	// instead of the default encrypted-but-unverified connection. Optional; has no effect on the
+	// sqlite backend.
+	//
+	// An explicit ?sslmode=/?tls= already present on DataStoreEndpoint always overrides this and
+	// is not upgraded, even when DataStoreCAFile is set - e.g. an endpoint carried over from
+	// before CA support existed with ?tls=skip-verify stays unverified. The platform logs this
+	// case at startup so it isn't silent.
+	// +optional
+	DataStoreCAFile string `json:"dataStoreCAFile,omitempty"`
 
 	// DataStoreMaxAge is the maximum number of hours to retain old log events in the datastore
 	// +optional
@@ -248,59 +266,6 @@ type GroupResources struct {
 	// An empty list implies that every instance of the resource is matched.
 	// +optional
 	ResourceNames []string `json:"resourceNames,omitempty" protobuf:"bytes,3,rep,name=resourceNames"`
-}
-
-// Apps holds configuration for apps that should be shown
-type Apps struct {
-	// If this option is true, loft will not try to parse the default apps
-	// +optional
-	NoDefault bool `json:"noDefault,omitempty"`
-
-	// These are additional repositories that are parsed by loft
-	// +optional
-	Repositories []storagev1.HelmChartRepository `json:"repositories,omitempty"`
-
-	// Predefined apps that can be selected in the Spaces > Space menu
-	// +optional
-	PredefinedApps []PredefinedApp `json:"predefinedApps,omitempty"`
-}
-
-// PredefinedApp holds information about a predefined app
-type PredefinedApp struct {
-	// Chart holds the repo/chart name of the predefined app
-	// +optional
-	Chart string `json:"chart"`
-
-	// InitialVersion holds the initial version of this app.
-	// This version will be selected automatically.
-	// +optional
-	InitialVersion string `json:"initialVersion,omitempty"`
-
-	// InitialValues holds the initial values for this app.
-	// The values will be prefilled automatically. There are certain
-	// placeholders that can be used within the values that are replaced
-	// by the loft UI automatically.
-	// +optional
-	InitialValues string `json:"initialValues,omitempty"`
-
-	// Holds the cluster names where to display this app
-	// +optional
-	Clusters []string `json:"clusters,omitempty"`
-
-	// Title is the name that should be displayed for the predefined app.
-	// If empty the chart name is used.
-	// +optional
-	Title string `json:"title,omitempty"`
-
-	// IconURL specifies an url to the icon that should be displayed for this app.
-	// If none is specified the icon from the chart metadata is used.
-	// +optional
-	IconURL string `json:"iconUrl,omitempty"`
-
-	// ReadmeURL specifies an url to the readme page of this predefined app. If empty
-	// an url will be constructed to artifact hub.
-	// +optional
-	ReadmeURL string `json:"readmeUrl,omitempty"`
 }
 
 // OIDC holds oidc provider relevant information

@@ -20,6 +20,8 @@ const (
 
 	OIDCProvider FeatureName = "oidc-provider" // Platform as OIDC Provider
 
+	MultiTenancy FeatureName = "multi-tenancy" // Multi-Tenancy
+
 	VirtualCluster FeatureName = "vclusters" // Virtual Cluster Management
 
 	VirtualClusterProDistroImage FeatureName = "vcp-distro-image" // Security-Hardened vCluster Image
@@ -168,6 +170,7 @@ func GetFeatures() []FeatureName {
 		Apps,
 		Namespaces,
 		OIDCProvider,
+		MultiTenancy,
 		VirtualCluster,
 		VirtualClusterProDistroImage,
 		VirtualClusterProDistroBuiltInCoreDNS,
@@ -279,6 +282,11 @@ func GetAllFeatures() []*Feature {
 		{
 			DisplayName: "Platform as OIDC Provider",
 			Name:        "oidc-provider",
+			Module:      "platform",
+		},
+		{
+			DisplayName: "Multi-Tenancy",
+			Name:        "multi-tenancy",
 			Module:      "platform",
 		},
 		{

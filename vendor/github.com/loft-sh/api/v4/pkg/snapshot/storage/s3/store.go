@@ -92,18 +92,17 @@ func NewStore(logger logr.Logger) *ObjectStore {
 }
 
 func (o *ObjectStore) Init(config *snapshotapi.S3Options) error {
-	if config.AccessKeyID != "" {
-		_ = os.Setenv("AWS_ACCESS_KEY_ID", config.AccessKeyID)
+	builder := newConfigBuilder(o.log).WithRegion(config.Region).WithProfile(config.Profile)
+
+	// Only consult a credentials file when there is nothing to pin. Static credentials win over it
+	// anyway, so the call would be a no-op for resolution, but it also clears the IRSA environment
+	// variables process-wide, which in a shared process disables IRSA for every other AWS client.
+	if config.AccessKeyID == "" || config.SecretAccessKey == "" {
+		builder = builder.WithCredentialsFile(config.CredentialsFile)
 	}
-	if config.SecretAccessKey != "" {
-		_ = os.Setenv("AWS_SECRET_ACCESS_KEY", config.SecretAccessKey)
-	}
-	if config.SessionToken != "" {
-		_ = os.Setenv("AWS_SESSION_TOKEN", config.SessionToken)
-	}
-	cfg, err := newConfigBuilder(o.log).WithRegion(config.Region).
-		WithProfile(config.Profile).
-		WithCredentialsFile(config.CredentialsFile).
+
+	cfg, err := builder.
+		WithStaticCredentials(config.AccessKeyID, config.SecretAccessKey, config.SessionToken).
 		WithTLSSettings(config.InsecureSkipTLSVerify, config.CACert).Build()
 	if err != nil {
 		return errors.WithStack(err)

@@ -6,6 +6,8 @@ type AccessKeyExpansion interface{}
 
 type AppExpansion interface{}
 
+type AppInstanceExpansion interface{}
+
 type ArgoCDApplicationExpansion interface{}
 
 type ArgoCDApplicationTemplateExpansion interface{}
@@ -42,9 +44,13 @@ type SpaceInstanceExpansion interface{}
 
 type SpaceTemplateExpansion interface{}
 
-type TaskExpansion interface{}
+type StackInstanceExpansion interface{}
+
+type StackTemplateExpansion interface{}
 
 type TeamExpansion interface{}
+
+type TenantExpansion interface{}
 
 type UserExpansion interface{}
 

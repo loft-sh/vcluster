@@ -19,7 +19,6 @@ import (
 // Project holds the Project information
 // +k8s:openapi-gen=true
 // +resource:path=projects,rest=ProjectREST,statusRest=ProjectStatusREST
-// +subresource:request=ProjectCharts,path=charts,kind=ProjectCharts,rest=ProjectChartsREST
 // +subresource:request=ProjectTemplates,path=templates,kind=ProjectTemplates,rest=ProjectTemplatesREST
 // +subresource:request=ProjectMembers,path=members,kind=ProjectMembers,rest=ProjectMembersREST
 // +subresource:request=ProjectClusters,path=clusters,kind=ProjectClusters,rest=ProjectClustersREST

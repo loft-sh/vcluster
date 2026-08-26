@@ -25,9 +25,7 @@ type Kiosk struct {
 
 type KioskSpec struct {
 	// cluster.loft.sh
-	HelmRelease     clusterv1.HelmRelease     `json:"helmRelease,omitempty"`
 	SleepModeConfig clusterv1.SleepModeConfig `json:"sleepModeConfig,omitempty"`
-	ChartInfo       clusterv1.ChartInfo       `json:"chartInfo,omitempty"`
 
 	// storage.loft.sh
 	StorageClusterQuota agentstoragev1.ClusterQuota `json:"storageClusterQuota,omitempty"`

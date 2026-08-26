@@ -6,41 +6,6 @@
 package v1
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in Bash) OpenAPIModelName() string {
-	return "com.github.loft-sh.agentapi.v4.pkg.apis.loft.cluster.v1.Bash"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in Chart) OpenAPIModelName() string {
-	return "com.github.loft-sh.agentapi.v4.pkg.apis.loft.cluster.v1.Chart"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in ChartInfo) OpenAPIModelName() string {
-	return "com.github.loft-sh.agentapi.v4.pkg.apis.loft.cluster.v1.ChartInfo"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in ChartInfoList) OpenAPIModelName() string {
-	return "com.github.loft-sh.agentapi.v4.pkg.apis.loft.cluster.v1.ChartInfoList"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in ChartInfoSpec) OpenAPIModelName() string {
-	return "com.github.loft-sh.agentapi.v4.pkg.apis.loft.cluster.v1.ChartInfoSpec"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in ChartInfoStatus) OpenAPIModelName() string {
-	return "com.github.loft-sh.agentapi.v4.pkg.apis.loft.cluster.v1.ChartInfoStatus"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in ChartSecretRef) OpenAPIModelName() string {
-	return "com.github.loft-sh.agentapi.v4.pkg.apis.loft.cluster.v1.ChartSecretRef"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in EpochInfo) OpenAPIModelName() string {
 	return "com.github.loft-sh.agentapi.v4.pkg.apis.loft.cluster.v1.EpochInfo"
 }
@@ -66,58 +31,8 @@ func (in FeatureStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in HelmRelease) OpenAPIModelName() string {
-	return "com.github.loft-sh.agentapi.v4.pkg.apis.loft.cluster.v1.HelmRelease"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in HelmReleaseApp) OpenAPIModelName() string {
-	return "com.github.loft-sh.agentapi.v4.pkg.apis.loft.cluster.v1.HelmReleaseApp"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in HelmReleaseConfig) OpenAPIModelName() string {
-	return "com.github.loft-sh.agentapi.v4.pkg.apis.loft.cluster.v1.HelmReleaseConfig"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in HelmReleaseList) OpenAPIModelName() string {
-	return "com.github.loft-sh.agentapi.v4.pkg.apis.loft.cluster.v1.HelmReleaseList"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in HelmReleaseSpec) OpenAPIModelName() string {
-	return "com.github.loft-sh.agentapi.v4.pkg.apis.loft.cluster.v1.HelmReleaseSpec"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in HelmReleaseStatus) OpenAPIModelName() string {
-	return "com.github.loft-sh.agentapi.v4.pkg.apis.loft.cluster.v1.HelmReleaseStatus"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in Info) OpenAPIModelName() string {
-	return "com.github.loft-sh.agentapi.v4.pkg.apis.loft.cluster.v1.Info"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in LastActivityInfo) OpenAPIModelName() string {
 	return "com.github.loft-sh.agentapi.v4.pkg.apis.loft.cluster.v1.LastActivityInfo"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in Maintainer) OpenAPIModelName() string {
-	return "com.github.loft-sh.agentapi.v4.pkg.apis.loft.cluster.v1.Maintainer"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in Metadata) OpenAPIModelName() string {
-	return "com.github.loft-sh.agentapi.v4.pkg.apis.loft.cluster.v1.Metadata"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in ProjectSecretRef) OpenAPIModelName() string {
-	return "com.github.loft-sh.agentapi.v4.pkg.apis.loft.cluster.v1.ProjectSecretRef"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.

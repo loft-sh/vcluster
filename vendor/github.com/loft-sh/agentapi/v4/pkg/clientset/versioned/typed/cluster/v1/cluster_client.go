@@ -12,9 +12,7 @@ import (
 
 type ClusterV1Interface interface {
 	RESTClient() rest.Interface
-	ChartInfosGetter
 	FeaturesGetter
-	HelmReleasesGetter
 }
 
 // ClusterV1Client is used to interact with features provided by the cluster.loft.sh group.
@@ -22,16 +20,8 @@ type ClusterV1Client struct {
 	restClient rest.Interface
 }
 
-func (c *ClusterV1Client) ChartInfos() ChartInfoInterface {
-	return newChartInfos(c)
-}
-
 func (c *ClusterV1Client) Features() FeatureInterface {
 	return newFeatures(c)
-}
-
-func (c *ClusterV1Client) HelmReleases(namespace string) HelmReleaseInterface {
-	return newHelmReleases(c, namespace)
 }
 
 // NewForConfig creates a new ClusterV1Client for the given config.

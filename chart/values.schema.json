@@ -32,6 +32,40 @@
       "type": "object",
       "description": "APIServiceService holds the service name and namespace of the host apiservice."
     },
+    "AppInstanceTemplateRefConfig": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the app to reference.\n+optional"
+        },
+        "version": {
+          "type": "string",
+          "description": "Version of the app to deploy. If empty, the latest version is deployed.\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "AppInstanceTemplateRefConfig references a named app."
+    },
+    "AppTaskConfig": {
+      "properties": {
+        "template": {
+          "type": "object",
+          "description": "Template specifies the inline app definition, with metadata and a spec that carries the\nchart plus a few instance fields (displayName, description, releaseName). Mutually\nexclusive with TemplateRef.\n+optional"
+        },
+        "templateRef": {
+          "$ref": "#/$defs/AppInstanceTemplateRefConfig",
+          "description": "TemplateRef references a named app by name and version. Mutually exclusive with Template.\n+optional"
+        },
+        "parameters": {
+          "type": "object",
+          "description": "Parameters supplies values to the referenced app. Only valid with TemplateRef; values\nfor an inline template belong in the definition.\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "AppTaskConfig is the app payload of a stack task."
+    },
     "ArgoCDApplication": {
       "properties": {
         "name": {
@@ -59,6 +93,25 @@
       "type": "object",
       "description": "ArgoCDApplication holds argo cd application configuration."
     },
+    "ArgoCDApplicationTaskConfig": {
+      "properties": {
+        "template": {
+          "type": "object",
+          "description": "Template specifies the inline argo cd application template definition. Mutually\nexclusive with TemplateRef.\n+optional"
+        },
+        "templateRef": {
+          "$ref": "#/$defs/ArgoCDApplicationTemplateRefConfig",
+          "description": "TemplateRef references an ArgoCDApplicationTemplate (per-application blueprint) by\nname. Mutually exclusive with Template.\n+optional"
+        },
+        "parameters": {
+          "type": "object",
+          "description": "Parameters supplies values to the referenced template's declared parameters. Only\nvalid with TemplateRef; values for an inline template belong in the definition.\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "ArgoCDApplicationTaskConfig is the argo cd application payload of a stack task."
+    },
     "ArgoCDApplicationTemplate": {
       "properties": {
         "name": {
@@ -72,6 +125,17 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "ArgoCDApplicationTemplateRefConfig": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the ArgoCDApplicationTemplate.\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "ArgoCDApplicationTemplateRefConfig references a cluster-scoped ArgoCDApplicationTemplate."
     },
     "ArgoCDDeploy": {
       "properties": {
@@ -1395,6 +1459,13 @@
         "argoCD": {
           "$ref": "#/$defs/ArgoCDDeploy",
           "description": "ArgoCD holds dedicated configuration for argoCD Apps to deploy"
+        },
+        "stacks": {
+          "items": {
+            "$ref": "#/$defs/StackConfig"
+          },
+          "type": "array",
+          "description": "Stack holds dedicated configuration for stacks to deploy"
         }
       },
       "additionalProperties": false,
@@ -4609,6 +4680,33 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "ResourceOutputSourceConfig": {
+      "properties": {
+        "apiVersion": {
+          "type": "string",
+          "description": "APIVersion of the resource, e.g. \"v1\" or \"apps/v1\"."
+        },
+        "kind": {
+          "type": "string",
+          "description": "Kind of the resource, e.g. \"Service\"."
+        },
+        "namespace": {
+          "type": "string",
+          "description": "Namespace of the resource. Must be a namespace this stack deploys into;\ncluster-scoped resources cannot be read."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the resource."
+        },
+        "jsonPath": {
+          "type": "string",
+          "description": "JSONPath selects the field, in the kubectl template syntax, e.g.\n\"{.spec.clusterIP}\". It must select exactly one scalar value."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "ResourceOutputSourceConfig names one field of one resource on the destination cluster."
+    },
     "ResourceQuota": {
       "properties": {
         "enabled": {
@@ -4706,6 +4804,25 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "SecretOutputSourceConfig": {
+      "properties": {
+        "namespace": {
+          "type": "string",
+          "description": "Namespace of the Secret. Must be a namespace this stack deploys into."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the Secret."
+        },
+        "key": {
+          "type": "string",
+          "description": "Key inside the Secret's data."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "SecretOutputSourceConfig names one Secret key on the destination cluster."
     },
     "SelectorConfig": {
       "properties": {
@@ -4985,6 +5102,243 @@
       "additionalProperties": false,
       "type": "object",
       "description": "SnapshotsAuto holds automatic snapshot scheduling and retention configuration"
+    },
+    "StackConfig": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name specifies the stable identifier of the stack."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "DisplayName specifies the display name of the stack.\n+optional"
+        },
+        "description": {
+          "type": "string",
+          "description": "Description describes the stack.\n+optional"
+        },
+        "template": {
+          "$ref": "#/$defs/StackTemplateDefinitionConfig",
+          "description": "Template defines the stack inline: parameter declarations and tasks, the same payload\na StackTemplate carries. Mutually exclusive with TemplateRef.\n+optional"
+        },
+        "templateRef": {
+          "$ref": "#/$defs/StackTemplateRefConfig",
+          "description": "TemplateRef references a cluster-scoped StackTemplate to resolve the tasks from.\nMutually exclusive with Template.\n+optional"
+        },
+        "parameters": {
+          "type": "object",
+          "description": "Parameters specifies the values the template's tasks reference. Values the template does not\ndeclare are still available to tasks, but get no default and are not validated.\n+optional"
+        },
+        "defaults": {
+          "$ref": "#/$defs/StackDefaultsConfig",
+          "description": "Defaults are applied to all tasks unless overridden per-task.\n+optional"
+        },
+        "prunePolicy": {
+          "type": "string",
+          "description": "PrunePolicy controls what happens to an application whose task is removed from the\nresolved set. One of \"Retain\" (default) or \"Prune\".\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "StackConfig holds a single stack declaration in vcluster.yaml (deploy.stacks)."
+    },
+    "StackDefaultsConfig": {
+      "properties": {
+        "taskTimeout": {
+          "type": "string",
+          "description": "TaskTimeout is the default per-task timeout as a Go duration (e.g. \"10m\").\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "StackDefaultsConfig holds defaults applied to all tasks of a stack."
+    },
+    "StackParameterConfig": {
+      "properties": {
+        "variable": {
+          "type": "string",
+          "description": "Variable is the path of the variable. Can be foo or foo.bar for nested objects.\n+optional"
+        },
+        "label": {
+          "type": "string",
+          "description": "Label is the label to show for this parameter\n+optional"
+        },
+        "description": {
+          "type": "string",
+          "description": "Description is the description to show for this parameter\n+optional"
+        },
+        "type": {
+          "type": "string",
+          "description": "Type of the parameter. Can be one of:\nstring, multiline, boolean, number and password\n+optional"
+        },
+        "options": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Options is a slice of strings, where each string represents a mutually exclusive choice.\n+optional"
+        },
+        "min": {
+          "type": "integer",
+          "description": "Min is the minimum number if type is number\n+optional"
+        },
+        "max": {
+          "type": "integer",
+          "description": "Max is the maximum number if type is number\n+optional"
+        },
+        "required": {
+          "type": "boolean",
+          "description": "Required specifies if this parameter is required\n+optional"
+        },
+        "defaultValue": {
+          "type": "string",
+          "description": "DefaultValue is the default value if none is specified\n+optional"
+        },
+        "placeholder": {
+          "type": "string",
+          "description": "Placeholder shown in the UI\n+optional"
+        },
+        "invalidation": {
+          "type": "string",
+          "description": "Invalidation regex that if matched will reject the input\n+optional"
+        },
+        "validation": {
+          "type": "string",
+          "description": "Validation regex that if matched will allow the input\n+optional"
+        },
+        "section": {
+          "type": "string",
+          "description": "Section where this app should be displayed. Apps with the same section name will be grouped together\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "StackParameterConfig declares one parameter of an inline stack definition."
+    },
+    "StackPublishedOutputConfig": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name specifies the public name of the output. Unique within the stack; it may\ndiffer from the task output's name."
+        },
+        "fromTask": {
+          "$ref": "#/$defs/StackPublishedOutputFromTaskConfig",
+          "description": "FromTask selects which task output to publish. It must name an existing task\nand one of its declared outputs."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "StackPublishedOutputConfig exposes one captured task output under a public name."
+    },
+    "StackPublishedOutputFromTaskConfig": {
+      "properties": {
+        "task": {
+          "type": "string",
+          "description": "Task specifies the task name."
+        },
+        "output": {
+          "type": "string",
+          "description": "Output specifies the output name declared on that task."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "StackPublishedOutputFromTaskConfig names one declared output of one task."
+    },
+    "StackTaskConfig": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name specifies the stable identifier of the task. DNS-label-safe, unique within the stack."
+        },
+        "dependsOn": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "DependsOn lists task names that must be healthy before this task starts.\n+optional"
+        },
+        "argoCDApplication": {
+          "$ref": "#/$defs/ArgoCDApplicationTaskConfig",
+          "description": "ArgoCDApplication specifies the argo cd application this task deploys. Exactly one of\nArgoCDApplication or App must be set.\n+optional"
+        },
+        "app": {
+          "$ref": "#/$defs/AppTaskConfig",
+          "description": "App specifies the platform app this task deploys. Exactly one of ArgoCDApplication or\nApp must be set.\n+optional"
+        },
+        "timeout": {
+          "type": "string",
+          "description": "Timeout bounds how long this task may take to become healthy, overriding\ndefaults.taskTimeout. Go duration string, for example \"10m\".\n+optional"
+        },
+        "outputs": {
+          "items": {
+            "$ref": "#/$defs/StackTaskOutputConfig"
+          },
+          "type": "array",
+          "description": "Outputs declares values captured from this task's deployed resources that later\ntasks reference as {{ .Outputs.task.name }}.\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "StackTaskConfig holds one task in an inline stack."
+    },
+    "StackTaskOutputConfig": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name identifies the output. Letters and digits only, unique within the task."
+        },
+        "fromSecret": {
+          "$ref": "#/$defs/SecretOutputSourceConfig",
+          "description": "FromSecret reads the value from a Secret key on the destination cluster.\nExactly one of fromSecret or fromResource must be set.\n+optional"
+        },
+        "fromResource": {
+          "$ref": "#/$defs/ResourceOutputSourceConfig",
+          "description": "FromResource reads a single field from a resource on the destination cluster.\nExactly one of fromSecret or fromResource must be set.\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "StackTaskOutputConfig declares one task output."
+    },
+    "StackTemplateDefinitionConfig": {
+      "properties": {
+        "parameters": {
+          "items": {
+            "$ref": "#/$defs/StackParameterConfig"
+          },
+          "type": "array",
+          "description": "Parameters declares the parameters the tasks may reference as {{ .Values.variable }}.\nValues are supplied by the stack's parameters field.\n+optional"
+        },
+        "tasks": {
+          "items": {
+            "$ref": "#/$defs/StackTaskConfig"
+          },
+          "type": "array",
+          "description": "Tasks defines the stack DAG.\n+optional"
+        },
+        "publishedOutputs": {
+          "items": {
+            "$ref": "#/$defs/StackPublishedOutputConfig"
+          },
+          "type": "array",
+          "description": "PublishedOutputs selects which captured task outputs the stack exposes to its\nusers, under a public name. They are read through the stack instance's outputs\nsubresource.\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "StackTemplateDefinitionConfig is an inline stack definition: the same payload a cluster-scoped StackTemplate carries, declared directly in vcluster.yaml."
+    },
+    "StackTemplateRefConfig": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name specifies the name of the StackTemplate to reference."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "StackTemplateRefConfig references a cluster-scoped StackTemplate."
     },
     "Standalone": {
       "properties": {

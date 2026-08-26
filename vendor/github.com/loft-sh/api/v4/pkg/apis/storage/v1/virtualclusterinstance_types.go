@@ -1,7 +1,6 @@
 package v1
 
 import (
-	clusterv1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/cluster/v1"
 	agentstoragev1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -34,6 +33,11 @@ const (
 	InstanceEtcdDbSizeOk        agentstoragev1.ConditionType = "EtcdDbSizeOk"
 
 	ArgoCDIntegrationSynced agentstoragev1.ConditionType = "ArgoCDIntegrationSynced"
+
+	// StacksSynced reports whether deploy.stacks was converted into StackInstance resources. It is
+	// separate from ArgoCDIntegrationSynced so stack and application errors recover independently;
+	// per-stack runtime health lives on each StackInstance's own Ready condition.
+	StacksSynced agentstoragev1.ConditionType = "StacksSynced"
 )
 
 // +genclient
@@ -253,7 +257,6 @@ const (
 	ForwardTokenModePassthrough ForwardTokenMode = "Passthrough"
 )
 
-
 type VirtualClusterProSpec struct {
 	// Enabled defines if the tenant cluster is a pro cluster or not
 	// +optional
@@ -274,7 +277,7 @@ type VirtualClusterAccessPointIngressSpec struct {
 }
 
 type TemplateHelmChart struct {
-	clusterv1.Chart `json:",inline"`
+	Chart `json:",inline"`
 
 	// ReleaseName is the preferred release name of the app
 	// +optional

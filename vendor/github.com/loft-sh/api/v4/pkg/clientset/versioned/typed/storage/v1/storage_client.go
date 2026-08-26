@@ -14,6 +14,7 @@ type StorageV1Interface interface {
 	RESTClient() rest.Interface
 	AccessKeysGetter
 	AppsGetter
+	AppInstancesGetter
 	ArgoCDApplicationsGetter
 	ArgoCDApplicationTemplatesGetter
 	ClustersGetter
@@ -32,8 +33,10 @@ type StorageV1Interface interface {
 	SharedSecretsGetter
 	SpaceInstancesGetter
 	SpaceTemplatesGetter
-	TasksGetter
+	StackInstancesGetter
+	StackTemplatesGetter
 	TeamsGetter
+	TenantsGetter
 	UsersGetter
 	VirtualClusterInstancesGetter
 	VirtualClusterTemplatesGetter
@@ -50,6 +53,10 @@ func (c *StorageV1Client) AccessKeys() AccessKeyInterface {
 
 func (c *StorageV1Client) Apps() AppInterface {
 	return newApps(c)
+}
+
+func (c *StorageV1Client) AppInstances(namespace string) AppInstanceInterface {
+	return newAppInstances(c, namespace)
 }
 
 func (c *StorageV1Client) ArgoCDApplications(namespace string) ArgoCDApplicationInterface {
@@ -124,12 +131,20 @@ func (c *StorageV1Client) SpaceTemplates() SpaceTemplateInterface {
 	return newSpaceTemplates(c)
 }
 
-func (c *StorageV1Client) Tasks() TaskInterface {
-	return newTasks(c)
+func (c *StorageV1Client) StackInstances(namespace string) StackInstanceInterface {
+	return newStackInstances(c, namespace)
+}
+
+func (c *StorageV1Client) StackTemplates() StackTemplateInterface {
+	return newStackTemplates(c)
 }
 
 func (c *StorageV1Client) Teams() TeamInterface {
 	return newTeams(c)
+}
+
+func (c *StorageV1Client) Tenants() TenantInterface {
+	return newTenants(c)
 }
 
 func (c *StorageV1Client) Users() UserInterface {

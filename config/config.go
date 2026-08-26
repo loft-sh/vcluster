@@ -400,6 +400,9 @@ type Deploy struct {
 
 	// ArgoCD holds dedicated configuration for argoCD Apps to deploy
 	ArgoCD vclusterconfig.ArgoCDDeploy `json:"argoCD,omitempty"`
+
+	// Stack holds dedicated configuration for stacks to deploy
+	Stacks []vclusterconfig.StackConfig `json:"stacks,omitempty"`
 }
 
 type CSI struct {

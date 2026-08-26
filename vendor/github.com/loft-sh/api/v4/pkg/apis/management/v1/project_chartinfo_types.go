@@ -1,7 +1,7 @@
 package v1
 
 import (
-	clusterv1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/cluster/v1"
+	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -17,9 +17,21 @@ type ProjectChartInfo struct {
 }
 
 type ProjectChartInfoSpec struct {
-	clusterv1.ChartInfoSpec `json:",inline"`
+	// Chart holds information about the chart to retrieve info for
+	// +optional
+	Chart storagev1.Chart `json:"chart,omitempty"`
 }
 
 type ProjectChartInfoStatus struct {
-	clusterv1.ChartInfoStatus `json:",inline"`
+	// Metadata provides information about a chart
+	// +optional
+	Metadata *storagev1.Metadata `json:"metadata,omitempty"`
+
+	// Readme is the readme of the chart
+	// +optional
+	Readme string `json:"readme,omitempty"`
+
+	// Values are the default values of the chart
+	// +optional
+	Values string `json:"values,omitempty"`
 }

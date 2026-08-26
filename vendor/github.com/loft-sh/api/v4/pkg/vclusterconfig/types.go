@@ -9,13 +9,15 @@ import (
 )
 
 type PlatformConfig struct {
-	Sleep             *Sleep             `json:"sleep,omitempty"     yaml:"sleep,omitempty"`
-	Snapshots         *Snapshots         `json:"snapshots,omitempty" yaml:"snapshots,omitempty"`
-	Deletion          *Deletion          `json:"deletion,omitempty"  yaml:"deletion,omitempty"`
-	Platform          *Platform          `json:"platform,omitempty"  yaml:"platform,omitempty"`
-	NetrisIntegration *NetrisIntegration `json:"netris,omitempty"    yaml:"netris,omitempty"`
-	ArgoCDIntegration *ArgoCDIntegration `json:"argoCD,omitempty"`
-	ArgoCDDeploy      *ArgoCDDeploy      `json:"deploy,omitempty"`
+	Sleep                    *Sleep                    `json:"sleep,omitempty"     yaml:"sleep,omitempty"`
+	Snapshots                *Snapshots                `json:"snapshots,omitempty" yaml:"snapshots,omitempty"`
+	Deletion                 *Deletion                 `json:"deletion,omitempty"  yaml:"deletion,omitempty"`
+	Platform                 *Platform                 `json:"platform,omitempty"  yaml:"platform,omitempty"`
+	NetrisIntegration        *NetrisIntegration        `json:"netris,omitempty"    yaml:"netris,omitempty"`
+	ArgoCDIntegration        *ArgoCDIntegration        `json:"argoCD,omitempty"`
+	ArgoCDDeploy             *ArgoCDDeploy             `json:"deploy,omitempty"`
+	ObservabilityIntegration *ObservabilityIntegration `json:"observability,omitempty" yaml:"observability,omitempty"`
+	Stacks                   []StackConfig             `json:"stacks,omitempty"`
 }
 
 // NewDefaultPlatformConfig returns an empty platform config.
@@ -361,6 +363,290 @@ type ArgoCDDeploy struct {
 	Applications []ArgoCDApplication `json:"applications,omitempty"`
 }
 
+// StackConfig holds a single stack declaration in vcluster.yaml (deploy.stacks). Exactly one
+// of Template or TemplateRef must be set: the stack definition inline, or a reference to a
+// cluster-scoped StackTemplate. The shape mirrors the StackInstance spec.
+type StackConfig struct {
+	// Name specifies the stable identifier of the stack.
+	Name string `json:"name"`
+
+	// DisplayName specifies the display name of the stack.
+	// +optional
+	DisplayName string `json:"displayName,omitempty"`
+
+	// Description describes the stack.
+	// +optional
+	Description string `json:"description,omitempty"`
+
+	// Template defines the stack inline: parameter declarations and tasks, the same payload
+	// a StackTemplate carries. Mutually exclusive with TemplateRef.
+	// +optional
+	Template *StackTemplateDefinitionConfig `json:"template,omitempty"`
+
+	// TemplateRef references a cluster-scoped StackTemplate to resolve the tasks from.
+	// Mutually exclusive with Template.
+	// +optional
+	TemplateRef *StackTemplateRefConfig `json:"templateRef,omitempty"`
+
+	// Parameters specifies the values the template's tasks reference. Values the template does not
+	// declare are still available to tasks, but get no default and are not validated.
+	// +optional
+	Parameters map[string]interface{} `json:"parameters,omitempty"`
+
+	// Defaults are applied to all tasks unless overridden per-task.
+	// +optional
+	Defaults *StackDefaultsConfig `json:"defaults,omitempty"`
+
+	// PrunePolicy controls what happens to an application whose task is removed from the
+	// resolved set. One of "Retain" (default) or "Prune".
+	// +optional
+	PrunePolicy string `json:"prunePolicy,omitempty"`
+}
+
+// StackTaskConfig holds one task in an inline stack. Each task carries exactly one typed
+// payload: argoCDApplication or app.
+type StackTaskConfig struct {
+	// Name specifies the stable identifier of the task. DNS-label-safe, unique within the stack.
+	Name string `json:"name"`
+
+	// DependsOn lists task names that must be healthy before this task starts.
+	// +optional
+	DependsOn []string `json:"dependsOn,omitempty"`
+
+	// ArgoCDApplication specifies the argo cd application this task deploys. Exactly one of
+	// ArgoCDApplication or App must be set.
+	// +optional
+	ArgoCDApplication *ArgoCDApplicationTaskConfig `json:"argoCDApplication,omitempty"`
+
+	// App specifies the platform app this task deploys. Exactly one of ArgoCDApplication or
+	// App must be set.
+	// +optional
+	App *AppTaskConfig `json:"app,omitempty"`
+
+	// Timeout bounds how long this task may take to become healthy, overriding
+	// defaults.taskTimeout. Go duration string, for example "10m".
+	// +optional
+	Timeout string `json:"timeout,omitempty"`
+
+	// Outputs declares values captured from this task's deployed resources that later
+	// tasks reference as {{ .Outputs.task.name }}.
+	// +optional
+	Outputs []StackTaskOutputConfig `json:"outputs,omitempty"`
+}
+
+// StackTaskOutputConfig declares one task output.
+type StackTaskOutputConfig struct {
+	// Name identifies the output. Letters and digits only, unique within the task.
+	Name string `json:"name"`
+
+	// FromSecret reads the value from a Secret key on the destination cluster.
+	// Exactly one of fromSecret or fromResource must be set.
+	// +optional
+	FromSecret *SecretOutputSourceConfig `json:"fromSecret,omitempty"`
+
+	// FromResource reads a single field from a resource on the destination cluster.
+	// Exactly one of fromSecret or fromResource must be set.
+	// +optional
+	FromResource *ResourceOutputSourceConfig `json:"fromResource,omitempty"`
+}
+
+// SecretOutputSourceConfig names one Secret key on the destination cluster.
+type SecretOutputSourceConfig struct {
+	// Namespace of the Secret. Must be a namespace this stack deploys into.
+	Namespace string `json:"namespace"`
+
+	// Name of the Secret.
+	Name string `json:"name"`
+
+	// Key inside the Secret's data.
+	Key string `json:"key"`
+}
+
+// ResourceOutputSourceConfig names one field of one resource on the destination cluster.
+type ResourceOutputSourceConfig struct {
+	// APIVersion of the resource, e.g. "v1" or "apps/v1".
+	APIVersion string `json:"apiVersion"`
+
+	// Kind of the resource, e.g. "Service".
+	Kind string `json:"kind"`
+
+	// Namespace of the resource. Must be a namespace this stack deploys into;
+	// cluster-scoped resources cannot be read.
+	Namespace string `json:"namespace"`
+
+	// Name of the resource.
+	Name string `json:"name"`
+
+	// JSONPath selects the field, in the kubectl template syntax, e.g.
+	// "{.spec.clusterIP}". It must select exactly one scalar value.
+	JSONPath string `json:"jsonPath"`
+}
+
+// ArgoCDApplicationTaskConfig is the argo cd application payload of a stack task. Exactly
+// one of Template or TemplateRef must be set.
+type ArgoCDApplicationTaskConfig struct {
+	// Template specifies the inline argo cd application template definition. Mutually
+	// exclusive with TemplateRef.
+	// +optional
+	Template map[string]interface{} `json:"template,omitempty"`
+
+	// TemplateRef references an ArgoCDApplicationTemplate (per-application blueprint) by
+	// name. Mutually exclusive with Template.
+	// +optional
+	TemplateRef *ArgoCDApplicationTemplateRefConfig `json:"templateRef,omitempty"`
+
+	// Parameters supplies values to the referenced template's declared parameters. Only
+	// valid with TemplateRef; values for an inline template belong in the definition.
+	// +optional
+	Parameters map[string]interface{} `json:"parameters,omitempty"`
+}
+
+// ArgoCDApplicationTemplateRefConfig references a cluster-scoped ArgoCDApplicationTemplate.
+type ArgoCDApplicationTemplateRefConfig struct {
+	// Name of the ArgoCDApplicationTemplate.
+	// +optional
+	Name string `json:"name,omitempty"`
+}
+
+// AppTaskConfig is the app payload of a stack task. Exactly one of Template or TemplateRef
+// must be set.
+type AppTaskConfig struct {
+	// Template specifies the inline app definition, with metadata and a spec that carries the
+	// chart plus a few instance fields (displayName, description, releaseName). Mutually
+	// exclusive with TemplateRef.
+	// +optional
+	Template map[string]interface{} `json:"template,omitempty"`
+
+	// TemplateRef references a named app by name and version. Mutually exclusive with Template.
+	// +optional
+	TemplateRef *AppInstanceTemplateRefConfig `json:"templateRef,omitempty"`
+
+	// Parameters supplies values to the referenced app. Only valid with TemplateRef; values
+	// for an inline template belong in the definition.
+	// +optional
+	Parameters map[string]interface{} `json:"parameters,omitempty"`
+}
+
+// AppInstanceTemplateRefConfig references a named app.
+type AppInstanceTemplateRefConfig struct {
+	// Name of the app to reference.
+	// +optional
+	Name string `json:"name,omitempty"`
+
+	// Version of the app to deploy. If empty, the latest version is deployed.
+	// +optional
+	Version string `json:"version,omitempty"`
+}
+
+// StackTemplateDefinitionConfig is an inline stack definition: the same payload a
+// cluster-scoped StackTemplate carries, declared directly in vcluster.yaml.
+type StackTemplateDefinitionConfig struct {
+	// Parameters declares the parameters the tasks may reference as {{ .Values.variable }}.
+	// Values are supplied by the stack's parameters field.
+	// +optional
+	Parameters []StackParameterConfig `json:"parameters,omitempty"`
+
+	// Tasks defines the stack DAG.
+	// +optional
+	Tasks []StackTaskConfig `json:"tasks,omitempty"`
+
+	// PublishedOutputs selects which captured task outputs the stack exposes to its
+	// users, under a public name. They are read through the stack instance's outputs
+	// subresource.
+	// +optional
+	PublishedOutputs []StackPublishedOutputConfig `json:"publishedOutputs,omitempty"`
+}
+
+// StackPublishedOutputConfig exposes one captured task output under a public name.
+type StackPublishedOutputConfig struct {
+	// Name specifies the public name of the output. Unique within the stack; it may
+	// differ from the task output's name.
+	Name string `json:"name"`
+
+	// FromTask selects which task output to publish. It must name an existing task
+	// and one of its declared outputs.
+	FromTask StackPublishedOutputFromTaskConfig `json:"fromTask"`
+}
+
+// StackPublishedOutputFromTaskConfig names one declared output of one task.
+type StackPublishedOutputFromTaskConfig struct {
+	// Task specifies the task name.
+	Task string `json:"task"`
+
+	// Output specifies the output name declared on that task.
+	Output string `json:"output"`
+}
+
+// StackTemplateRefConfig references a cluster-scoped StackTemplate.
+type StackTemplateRefConfig struct {
+	// Name specifies the name of the StackTemplate to reference.
+	Name string `json:"name"`
+}
+
+// StackParameterConfig declares one parameter of an inline stack definition. It mirrors the
+// platform's app parameter fields.
+type StackParameterConfig struct {
+	// Variable is the path of the variable. Can be foo or foo.bar for nested objects.
+	// +optional
+	Variable string `json:"variable,omitempty"`
+
+	// Label is the label to show for this parameter
+	// +optional
+	Label string `json:"label,omitempty"`
+
+	// Description is the description to show for this parameter
+	// +optional
+	Description string `json:"description,omitempty"`
+
+	// Type of the parameter. Can be one of:
+	// string, multiline, boolean, number and password
+	// +optional
+	Type string `json:"type,omitempty"`
+
+	// Options is a slice of strings, where each string represents a mutually exclusive choice.
+	// +optional
+	Options []string `json:"options,omitempty"`
+
+	// Min is the minimum number if type is number
+	// +optional
+	Min *int `json:"min,omitempty"`
+
+	// Max is the maximum number if type is number
+	// +optional
+	Max *int `json:"max,omitempty"`
+
+	// Required specifies if this parameter is required
+	// +optional
+	Required bool `json:"required,omitempty"`
+
+	// DefaultValue is the default value if none is specified
+	// +optional
+	DefaultValue string `json:"defaultValue,omitempty"`
+
+	// Placeholder shown in the UI
+	// +optional
+	Placeholder string `json:"placeholder,omitempty"`
+
+	// Invalidation regex that if matched will reject the input
+	// +optional
+	Invalidation string `json:"invalidation,omitempty"`
+
+	// Validation regex that if matched will allow the input
+	// +optional
+	Validation string `json:"validation,omitempty"`
+
+	// Section where this app should be displayed. Apps with the same section name will be grouped together
+	// +optional
+	Section string `json:"section,omitempty"`
+}
+
+// StackDefaultsConfig holds defaults applied to all tasks of a stack.
+type StackDefaultsConfig struct {
+	// TaskTimeout is the default per-task timeout as a Go duration (e.g. "10m").
+	// +optional
+	TaskTimeout string `json:"taskTimeout,omitempty"`
+}
+
 // ArgoCDApplication holds argo cd application configuration.
 type ArgoCDApplication struct {
 	// Name specifies the stable identifier of the argo cd application. It is used to derive generated
@@ -393,4 +679,56 @@ type ArgoCDApplicationTemplate struct {
 	// Parameters specifies the parameters to pass to the argo cd application template.
 	// +optional
 	Parameters map[string]interface{} `json:"parameters,omitempty"`
+}
+
+// ObservabilityIntegration holds observability integration configuration.
+// The integration is considered configured when both Enabled is true and Connector is set.
+type ObservabilityIntegration struct {
+	// Enabled defines if the observability integration is enabled.
+	// Connector must also be set for the integration to be considered configured.
+	// +optional
+	Enabled bool `json:"enabled,omitempty"`
+
+	// Connector specifies the Platform observability connector to connect to.
+	// Required when Enabled is true for the integration to be considered configured.
+	// +optional
+	Connector string `json:"connector,omitempty"`
+
+	// GatewaySecret overrides where the metrics-writer Secret is delivered.
+	// When unset, the shared default target is used: namespace "observability", name "metrics-writer".
+	// +optional
+	GatewaySecret *GatewaySecret `json:"gatewaySecret,omitempty"`
+}
+
+// GatewaySecret identifies a Secret delivery target by namespace and name.
+type GatewaySecret struct {
+	// Namespace is the namespace the Secret is delivered to.
+	// Required once a gatewaySecrets entry is present.
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
+	// Name is the name of the delivered Secret.
+	// Required once a gatewaySecrets entry is present.
+	// +optional
+	Name string `json:"name,omitempty"`
+}
+
+const (
+	// DefaultObservabilityNamespace is the default namespace the metrics-writer Secret is delivered to.
+	DefaultObservabilityNamespace = "observability"
+	// DefaultMetricsWriterSecretName is the default name of the delivered metrics-writer Secret.
+	DefaultMetricsWriterSecretName = "metrics-writer"
+)
+
+// DeliveryTarget returns where the metrics-writer Secret should be delivered.
+// It returns nil when the integration is nil or disabled, so "off" stays
+// distinguishable from "default target". For an enabled integration it returns the
+// configured GatewaySecret, or the default namespace/name when none is set.
+func (o *ObservabilityIntegration) DeliveryTarget() *GatewaySecret {
+	if o == nil || !o.Enabled {
+		return nil
+	}
+	if o.GatewaySecret != nil {
+		return o.GatewaySecret
+	}
+	return &GatewaySecret{Namespace: DefaultObservabilityNamespace, Name: DefaultMetricsWriterSecretName}
 }

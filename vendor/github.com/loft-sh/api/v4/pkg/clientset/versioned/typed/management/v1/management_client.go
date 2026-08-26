@@ -15,6 +15,7 @@ type ManagementV1Interface interface {
 	AgentAuditEventsGetter
 	AnnouncementsGetter
 	AppsGetter
+	AppInstancesGetter
 	ArgoCDApplicationsGetter
 	ArgoCDApplicationTemplatesGetter
 	BackupsGetter
@@ -52,9 +53,11 @@ type ManagementV1Interface interface {
 	SharedSecretsGetter
 	SpaceInstancesGetter
 	SpaceTemplatesGetter
+	StackInstancesGetter
+	StackTemplatesGetter
 	SubjectAccessReviewsGetter
-	TasksGetter
 	TeamsGetter
+	TenantsGetter
 	TranslateVClusterResourceNamesGetter
 	UsageDownloadsGetter
 	UsersGetter
@@ -78,6 +81,10 @@ func (c *ManagementV1Client) Announcements() AnnouncementInterface {
 
 func (c *ManagementV1Client) Apps() AppInterface {
 	return newApps(c)
+}
+
+func (c *ManagementV1Client) AppInstances(namespace string) AppInstanceInterface {
+	return newAppInstances(c, namespace)
 }
 
 func (c *ManagementV1Client) ArgoCDApplications(namespace string) ArgoCDApplicationInterface {
@@ -228,16 +235,24 @@ func (c *ManagementV1Client) SpaceTemplates() SpaceTemplateInterface {
 	return newSpaceTemplates(c)
 }
 
+func (c *ManagementV1Client) StackInstances(namespace string) StackInstanceInterface {
+	return newStackInstances(c, namespace)
+}
+
+func (c *ManagementV1Client) StackTemplates() StackTemplateInterface {
+	return newStackTemplates(c)
+}
+
 func (c *ManagementV1Client) SubjectAccessReviews() SubjectAccessReviewInterface {
 	return newSubjectAccessReviews(c)
 }
 
-func (c *ManagementV1Client) Tasks() TaskInterface {
-	return newTasks(c)
-}
-
 func (c *ManagementV1Client) Teams() TeamInterface {
 	return newTeams(c)
+}
+
+func (c *ManagementV1Client) Tenants() TenantInterface {
+	return newTenants(c)
 }
 
 func (c *ManagementV1Client) TranslateVClusterResourceNames() TranslateVClusterResourceNameInterface {

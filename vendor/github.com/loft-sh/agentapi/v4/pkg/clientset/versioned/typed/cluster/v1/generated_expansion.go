@@ -2,8 +2,4 @@
 
 package v1
 
-type ChartInfoExpansion interface{}
-
 type FeatureExpansion interface{}
-
-type HelmReleaseExpansion interface{}

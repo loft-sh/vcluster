@@ -59,7 +59,7 @@ type VirtualClusterInstanceLogOptions struct {
 // +k8s:conversion-gen:explicit-from=net/url.Values
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-type TaskLogOptions struct {
+type AppInstanceLogOptions struct {
 	metav1.TypeMeta `json:",inline"`
 
 	// Follow the log stream of the pod. Defaults to false.
@@ -198,7 +198,7 @@ func addKnownOptionsTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(
 		SchemeGroupVersion,
 		&VirtualClusterInstanceLogOptions{},
-		&TaskLogOptions{},
+		&AppInstanceLogOptions{},
 		&UserSpacesOptions{},
 		&UserVirtualClustersOptions{},
 		&UserQuotasOptions{},

@@ -19,6 +19,18 @@ const (
 	// ArgoCDApplicationReasonTemplateNotFound is set on the Synced condition when the
 	// ArgoCDApplicationTemplate referenced by spec.templateRef does not exist.
 	ArgoCDApplicationReasonTemplateNotFound = "TemplateNotFound"
+	// ArgoCDApplicationReasonInvalidConnector is set on the Synced condition when the
+	// destination's ArgoCD connector cannot be resolved.
+	ArgoCDApplicationReasonInvalidConnector = "InvalidConnector"
+	// ArgoCDApplicationReasonCreateArgoClientFailed is set on the Synced condition when the
+	// ArgoCD client cannot be created from the resolved connector.
+	ArgoCDApplicationReasonCreateArgoClientFailed = "CreateArgoClientFailed"
+	// ArgoCDApplicationReasonGetClusterFailed is set on the Synced condition when the
+	// destination cluster cannot be fetched.
+	ArgoCDApplicationReasonGetClusterFailed = "GetClusterFailed"
+	// ArgoCDApplicationReasonDeleteApplicationFailed is set on the Synced condition when the
+	// application cannot be deleted from the ArgoCD backend during cleanup.
+	ArgoCDApplicationReasonDeleteApplicationFailed = "DeleteApplicationFailed"
 )
 
 // +genclient
@@ -55,7 +67,7 @@ type ArgoCDApplicationSpec struct {
 	// +optional
 	DisplayName string `json:"displayName,omitempty"`
 
-	// Description describes an OS image
+	// Description describes the Argo CD application
 	// +optional
 	Description string `json:"description,omitempty"`
 

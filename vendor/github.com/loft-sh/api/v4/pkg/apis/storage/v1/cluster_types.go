@@ -1,7 +1,6 @@
 package v1
 
 import (
-	clusterv1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/cluster/v1"
 	agentstoragev1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/storage/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -188,7 +187,7 @@ func init() {
 type HelmChart struct {
 	// Metadata provides information about a chart
 	// +optional
-	Metadata clusterv1.Metadata `json:"metadata,omitempty"`
+	Metadata Metadata `json:"metadata,omitempty"`
 
 	// Versions holds all chart versions
 	// +optional
@@ -222,27 +221,6 @@ type HelmChartRepository struct {
 	Insecure bool `json:"insecure,omitempty"`
 }
 
-// Chart describes a chart
-type Chart struct {
-	// Name is the chart name in the repository
-	Name string `json:"name,omitempty"`
-
-	// Version is the chart version in the repository
-	// +optional
-	Version string `json:"version,omitempty"`
-
-	// RepoURL is the repo url where the chart can be found
-	// +optional
-	RepoURL string `json:"repoURL,omitempty"`
-
-	// The username that is required for this repository
-	// +optional
-	Username string `json:"username,omitempty"`
-
-	// The password that is required for this repository
-	// +optional
-	Password string `json:"password,omitempty"`
-}
 type Metrics struct {
 	// Replicas is the number of desired replicas.
 	Replicas *int32 `json:"replicas,omitempty"`

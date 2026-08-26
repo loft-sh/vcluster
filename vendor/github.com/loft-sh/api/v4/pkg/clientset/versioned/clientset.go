@@ -8,7 +8,6 @@ import (
 
 	managementv1 "github.com/loft-sh/api/v4/pkg/clientset/versioned/typed/management/v1"
 	storagev1 "github.com/loft-sh/api/v4/pkg/clientset/versioned/typed/storage/v1"
-	virtualclusterv1 "github.com/loft-sh/api/v4/pkg/clientset/versioned/typed/virtualcluster/v1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
@@ -18,15 +17,13 @@ type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	ManagementV1() managementv1.ManagementV1Interface
 	StorageV1() storagev1.StorageV1Interface
-	VirtualclusterV1() virtualclusterv1.VirtualclusterV1Interface
 }
 
 // Clientset contains the clients for groups.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	managementV1     *managementv1.ManagementV1Client
-	storageV1        *storagev1.StorageV1Client
-	virtualclusterV1 *virtualclusterv1.VirtualclusterV1Client
+	managementV1 *managementv1.ManagementV1Client
+	storageV1    *storagev1.StorageV1Client
 }
 
 // ManagementV1 retrieves the ManagementV1Client
@@ -37,11 +34,6 @@ func (c *Clientset) ManagementV1() managementv1.ManagementV1Interface {
 // StorageV1 retrieves the StorageV1Client
 func (c *Clientset) StorageV1() storagev1.StorageV1Interface {
 	return c.storageV1
-}
-
-// VirtualclusterV1 retrieves the VirtualclusterV1Client
-func (c *Clientset) VirtualclusterV1() virtualclusterv1.VirtualclusterV1Interface {
-	return c.virtualclusterV1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -96,10 +88,6 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 	if err != nil {
 		return nil, err
 	}
-	cs.virtualclusterV1, err = virtualclusterv1.NewForConfigAndClient(&configShallowCopy, httpClient)
-	if err != nil {
-		return nil, err
-	}
 
 	cs.DiscoveryClient, err = discovery.NewDiscoveryClientForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
@@ -123,7 +111,6 @@ func New(c rest.Interface) *Clientset {
 	var cs Clientset
 	cs.managementV1 = managementv1.New(c)
 	cs.storageV1 = storagev1.New(c)
-	cs.virtualclusterV1 = virtualclusterv1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs
