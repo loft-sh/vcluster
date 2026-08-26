@@ -1,0 +1,432 @@
+package etcd
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/constants"
+	clientv3 "go.etcd.io/etcd/client/v3"
+	"golang.org/x/sync/errgroup"
+	"k8s.io/klog/v2"
+)
+
+type Value struct {
+	Key      []byte
+	Data     []byte
+	Modified int64
+}
+
+var (
+	ErrNotFound = errors.New("etcdwrapper: key not found")
+	ErrConflict = errors.New("etcdwrapper: conflict")
+)
+
+const (
+	EtcdPaginationLimit = 1000
+
+	// deleteWorkers bounds the concurrent deletes of DeleteKeysWithPrefix. The
+	// curve on kine/postgres is sublinear and has no knee (10k keys: 1241 keys/s
+	// at 1 worker, 3226 at 4, 4373 at 8, 6189 at 16, 7880 at 32), so this sits at
+	// kine's default idle connection pool of 20: it never makes kine open
+	// connections beyond the ones it already keeps, and going higher would buy
+	// little while pushing more load onto a database the customer may share
+	// between tenant clusters.
+	deleteWorkers = 16
+
+	// deleteCallTimeout bounds a single page read or delete, so a wedged
+	// connection surfaces as an error instead of stalling the restore silently.
+	// Generous because the leading count can take seconds on a large table,
+	// while a single delete is about a millisecond.
+	deleteCallTimeout = 2 * time.Minute
+)
+
+type Client interface {
+	List(ctx context.Context, key string) ([]Value, error)
+	ListStream(ctx context.Context, key string) <-chan *ValueOrError
+	Watch(ctx context.Context, key string) clientv3.WatchChan
+	Get(ctx context.Context, key string) (Value, error)
+	Put(ctx context.Context, key string, value []byte) (int64, error)
+	PutAtRevision(ctx context.Context, key string, revision int64, value []byte) (int64, error)
+	Delete(ctx context.Context, key string) error
+	// DeletePrefix removes everything under prefix with a single range delete.
+	DeletePrefix(ctx context.Context, prefix string) error
+	// DeleteKeysWithPrefix removes everything under prefix one key at a time.
+	// Callers must use this instead of DeletePrefix for stores reached through
+	// kine (the database backing stores), because kine implements no range delete.
+	DeleteKeysWithPrefix(ctx context.Context, prefix string) error
+	Compact(ctx context.Context, revision int64) error
+	Close() error
+	SnapshotWithVersion(ctx context.Context) (*clientv3.SnapshotResponse, error)
+	CurrentRevision(ctx context.Context) (int64, error)
+}
+
+type client struct {
+	c *clientv3.Client
+}
+
+func GetEtcdEndpoint(vConfig *config.VirtualClusterConfig) (string, *Certificates) {
+	// start kine embedded or external
+	var (
+		etcdEndpoints    string
+		etcdCertificates *Certificates
+	)
+
+	// handle different backing store's
+	if vConfig.ControlPlane.BackingStore.Etcd.Deploy.Enabled || vConfig.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
+		// In standalone mode the PKI lives under the configured data directory,
+		// not the pod-based default (/data/pki).
+		pkiDir := constants.PKIDir
+		if vConfig.ControlPlane.Standalone.Enabled && vConfig.ControlPlane.Standalone.DataDir != "" {
+			pkiDir = filepath.Join(vConfig.ControlPlane.Standalone.DataDir, "pki")
+		}
+
+		// embedded or deployed etcd
+		etcdCertificates = &Certificates{
+			CaCert:     filepath.Join(pkiDir, "etcd", "ca.crt"),
+			ServerCert: filepath.Join(pkiDir, "apiserver-etcd-client.crt"),
+			ServerKey:  filepath.Join(pkiDir, "apiserver-etcd-client.key"),
+		}
+
+		if vConfig.ControlPlane.BackingStore.Etcd.Embedded.Enabled {
+			etcdEndpoints = "https://127.0.0.1:2379"
+		} else if vConfig.ControlPlane.BackingStore.Etcd.Deploy.Service.Enabled {
+			etcdEndpoints = "https://" + vConfig.Name + "-etcd:2379"
+		} else {
+			etcdEndpoints = "https://" + vConfig.Name + "-etcd-headless:2379"
+		}
+	} else if vConfig.ControlPlane.BackingStore.Etcd.External.Enabled {
+		etcdEndpoints = "https://" + strings.TrimPrefix(vConfig.ControlPlane.BackingStore.Etcd.External.Endpoint, "https://")
+		etcdCertificates = &Certificates{
+			CaCert:     vConfig.ControlPlane.BackingStore.Etcd.External.TLS.CaFile,
+			ServerCert: vConfig.ControlPlane.BackingStore.Etcd.External.TLS.CertFile,
+			ServerKey:  vConfig.ControlPlane.BackingStore.Etcd.External.TLS.KeyFile,
+		}
+	} else {
+		etcdEndpoints = constants.K8sKineEndpoint
+	}
+
+	return etcdEndpoints, etcdCertificates
+}
+
+func NewFromConfig(ctx context.Context, vConfig *config.VirtualClusterConfig) (Client, error) {
+	etcdEndpoints, etcdCertificates := GetEtcdEndpoint(vConfig)
+	return New(ctx, etcdCertificates, etcdEndpoints)
+}
+
+func New(ctx context.Context, certificates *Certificates, endpoints ...string) (Client, error) {
+	err := WaitForEtcd(ctx, certificates, endpoints...)
+	if err != nil {
+		return nil, err
+	}
+
+	etcdClient, err := GetEtcdClient(ctx, certificates, endpoints...)
+	if err != nil {
+		return nil, err
+	}
+
+	return &client{
+		c: etcdClient,
+	}, nil
+}
+
+type ValueOrError struct {
+	Value Value
+	Error error
+}
+
+func (c *client) ListStream(ctx context.Context, prefix string) <-chan *ValueOrError {
+	return listStream(ctx, prefix, c.c.Get)
+}
+
+func listStream(
+	ctx context.Context,
+	prefix string,
+	getFn func(ctx context.Context, key string, opts ...clientv3.OpOption) (*clientv3.GetResponse, error),
+) <-chan *ValueOrError {
+	retChan := make(chan *ValueOrError, EtcdPaginationLimit)
+
+	go func() {
+		defer close(retChan)
+
+		var revision int64
+		first := true
+		rangeEnd := clientv3.GetPrefixRangeEnd(prefix)
+		startKey := prefix
+
+		for {
+			options := []clientv3.OpOption{
+				clientv3.WithLimit(EtcdPaginationLimit),
+				clientv3.WithRange(rangeEnd),
+			}
+
+			if first {
+				// read at current revision
+				options = append(options, clientv3.WithRev(0))
+			} else {
+				options = append(options, clientv3.WithRev(revision))
+			}
+
+			resp, err := getFn(ctx, startKey, options...)
+			if err != nil {
+				retChan <- &ValueOrError{Error: err}
+				return
+			} else if len(resp.Kvs) == 0 {
+				return
+			}
+			if first {
+				revision = resp.Header.Revision
+				first = false
+			}
+
+			for _, kv := range resp.Kvs {
+				retChan <- &ValueOrError{
+					Value: Value{
+						Key:      kv.Key,
+						Data:     kv.Value,
+						Modified: kv.ModRevision,
+					},
+				}
+			}
+			// move to the next page
+			// advance past last key to avoid duplicates
+			startKey = nextStartKey(resp.Kvs[len(resp.Kvs)-1].Key)
+
+			if !resp.More {
+				break
+			}
+		}
+	}()
+
+	return retChan
+}
+
+func (c *client) CurrentRevision(ctx context.Context) (int64, error) {
+	return currentRevision(ctx, c.c.Get)
+}
+
+// currentRevision reads the store's current revision off a response header,
+// without transferring any key data (WithCountOnly).
+func currentRevision(
+	ctx context.Context,
+	getFn func(ctx context.Context, key string, opts ...clientv3.OpOption) (*clientv3.GetResponse, error),
+) (int64, error) {
+	resp, err := getFn(ctx, "/", clientv3.WithPrefix(), clientv3.WithCountOnly())
+	if err != nil {
+		return 0, err
+	}
+
+	return resp.Header.Revision, nil
+}
+
+func (c *client) Compact(ctx context.Context, revision int64) error {
+	_, err := c.c.Compact(ctx, revision, clientv3.WithCompactPhysical())
+	return err
+}
+
+func (c *client) Watch(ctx context.Context, key string) clientv3.WatchChan {
+	return c.c.Watch(ctx, key, clientv3.WithPrefix(), clientv3.WithPrevKV(), clientv3.WithProgressNotify())
+}
+
+func (c *client) List(ctx context.Context, key string) ([]Value, error) {
+	resp, err := c.c.Get(ctx, key, clientv3.WithPrefix(), clientv3.WithRev(int64(0)))
+	if err != nil {
+		return nil, err
+	}
+
+	var vals []Value
+	for _, kv := range resp.Kvs {
+		vals = append(vals, Value{
+			Key:      kv.Key,
+			Data:     kv.Value,
+			Modified: kv.ModRevision,
+		})
+	}
+
+	return vals, nil
+}
+
+func (c *client) Get(ctx context.Context, key string) (Value, error) {
+	resp, err := c.c.Get(ctx, key)
+	if err != nil {
+		return Value{}, err
+	}
+
+	if len(resp.Kvs) == 1 {
+		return Value{
+			Key:      resp.Kvs[0].Key,
+			Data:     resp.Kvs[0].Value,
+			Modified: resp.Kvs[0].ModRevision,
+		}, nil
+	}
+
+	return Value{}, ErrNotFound
+}
+
+func (c *client) Put(ctx context.Context, key string, value []byte) (int64, error) {
+	val, err := c.Get(ctx, key)
+	if err != nil && !errors.Is(err, ErrNotFound) {
+		return 0, err
+	}
+	if val.Modified == 0 {
+		return c.Create(ctx, key, value)
+	}
+	return c.Update(ctx, key, val.Modified, value)
+}
+
+// PutAtRevision performs an optimistic update for the given revision.
+// If revision is 0, the key must not exist.
+func (c *client) PutAtRevision(ctx context.Context, key string, revision int64, value []byte) (int64, error) {
+	if revision <= 0 {
+		return c.Create(ctx, key, value)
+	}
+	return c.Update(ctx, key, revision, value)
+}
+
+func (c *client) Create(ctx context.Context, key string, value []byte) (int64, error) {
+	resp, err := c.c.Txn(ctx).
+		If(clientv3.Compare(clientv3.ModRevision(key), "=", 0)).
+		Then(clientv3.OpPut(key, string(value))).
+		Commit()
+	if err != nil {
+		return 0, err
+	}
+	if !resp.Succeeded {
+		return 0, fmt.Errorf("%w: key exists", ErrConflict)
+	}
+
+	return resp.Header.Revision, nil
+}
+
+func (c *client) Update(ctx context.Context, key string, revision int64, value []byte) (int64, error) {
+	resp, err := c.c.Txn(ctx).
+		If(clientv3.Compare(clientv3.ModRevision(key), "=", revision)).
+		Then(clientv3.OpPut(key, string(value))).
+		Else(clientv3.OpGet(key)).
+		Commit()
+	if err != nil {
+		return 0, err
+	}
+	if !resp.Succeeded {
+		return 0, fmt.Errorf("%w: revision %d doesnt match", ErrConflict, revision)
+	}
+
+	return resp.Header.Revision, nil
+}
+
+func (c *client) Delete(ctx context.Context, key string) error {
+	_, err := c.c.Txn(ctx).
+		Then(
+			clientv3.OpGet(key),
+			clientv3.OpDelete(key),
+		).
+		Commit()
+	return err
+}
+
+func (c *client) DeletePrefix(ctx context.Context, prefix string) error {
+	_, err := c.c.Delete(ctx, prefix, clientv3.WithPrefix(), clientv3.WithRev(int64(0)))
+	return err
+}
+
+func (c *client) DeleteKeysWithPrefix(ctx context.Context, prefix string) error {
+	return deleteKeysWithPrefix(ctx, prefix, c.c.Get, c.Delete)
+}
+
+// deleteKeysWithPrefix deletes every key under prefix with the single-key
+// transaction that kine supports, for stores reached through kine, which
+// implements no etcd range delete. Deletes run concurrently because each one is
+// a round trip to the database: measured against kine on postgres, wiping 100k
+// keys takes ~26s with deleteWorkers instead of ~103s sequentially. The worker
+// count stays below kine's default idle connection pool of 20.
+func deleteKeysWithPrefix(
+	ctx context.Context,
+	prefix string,
+	getFn func(ctx context.Context, key string, opts ...clientv3.OpOption) (*clientv3.GetResponse, error),
+	deleteFn func(ctx context.Context, key string) error,
+) error {
+	log := klog.FromContext(ctx)
+
+	// count first so the progress below has a total to report, this takes as long
+	// as there are keys. Nothing writes to the store while it is being wiped, so
+	// the total stays accurate.
+	countResp, err := getWithTimeout(ctx, getFn, prefix, clientv3.WithPrefix(), clientv3.WithCountOnly())
+	if err != nil {
+		return err
+	}
+	log.Info("Deleting keys one by one, this can take a while on a large cluster", "keys", countResp.Count)
+
+	// the count of already deleted keys travels with every error, because this
+	// wipe can fail partway and callers have no backup to roll back to
+	deleted := 0
+	for {
+		// each page is read at the current revision, so already deleted keys are
+		// gone and the loop ends once nothing is left under the prefix
+		resp, err := getWithTimeout(ctx, getFn, prefix,
+			clientv3.WithPrefix(),
+			clientv3.WithLimit(EtcdPaginationLimit),
+			clientv3.WithKeysOnly(),
+			clientv3.WithRev(int64(0)),
+		)
+		if err != nil {
+			return fmt.Errorf("failed to list keys after deleting %d of %d: %w", deleted, countResp.Count, err)
+		} else if len(resp.Kvs) == 0 {
+			log.Info("Deleted all keys", "keys", deleted)
+			return nil
+		}
+
+		eg, egCtx := errgroup.WithContext(ctx)
+		eg.SetLimit(deleteWorkers)
+		for _, kv := range resp.Kvs {
+			key := string(kv.Key)
+			eg.Go(func() error {
+				callCtx, cancel := context.WithTimeout(egCtx, deleteCallTimeout)
+				defer cancel()
+				if err := deleteFn(callCtx, key); err != nil {
+					return fmt.Errorf("failed to delete key %s: %w", key, err)
+				}
+				return nil
+			})
+		}
+		if err := eg.Wait(); err != nil {
+			return fmt.Errorf("deleted %d of %d keys before failing: %w", deleted, countResp.Count, err)
+		}
+
+		deleted += len(resp.Kvs)
+		log.Info("Deleting keys...", "deleted", deleted, "total", countResp.Count)
+	}
+}
+
+// getWithTimeout bounds a single read, so a wedged connection fails instead of
+// hanging the wipe with no further progress logged.
+func getWithTimeout(
+	ctx context.Context,
+	getFn func(ctx context.Context, key string, opts ...clientv3.OpOption) (*clientv3.GetResponse, error),
+	key string,
+	opts ...clientv3.OpOption,
+) (*clientv3.GetResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, deleteCallTimeout)
+	defer cancel()
+	return getFn(ctx, key, opts...)
+}
+
+func (c *client) Close() error {
+	return c.c.Close()
+}
+
+func (c *client) SnapshotWithVersion(ctx context.Context) (*clientv3.SnapshotResponse, error) {
+	return c.c.SnapshotWithVersion(ctx)
+}
+
+func nextStartKey(key []byte) string {
+	b := make([]byte, len(key)+1)
+	copy(b, key)
+	// Compute the next lexicographic key strictly after the current one.
+	// Example: "foo" -> "foo\x00". This is used for snapshot pagination to avoid duplicate keys between pages.
+	b[len(key)] = 0x00
+	return string(b)
+}

@@ -1,0 +1,7 @@
+{{- if .Values.experimental.deploy.host.manifests }}
+{{ .Values.experimental.deploy.host.manifests }}
+{{- end }}
+{{- if .Values.experimental.deploy.host.manifestsTemplate }}
+---
+{{ tpl .Values.experimental.deploy.host.manifestsTemplate . }}
+{{- end }}
