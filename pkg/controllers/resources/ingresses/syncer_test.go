@@ -530,6 +530,139 @@ func TestSync(t *testing.T) {
 	})
 }
 
+func TestSleepModeAnnotationsStayLocalOnUpdate(t *testing.T) {
+	testState := &syncertesting.SyncTest{}
+	pClient, vClient, vConfig := testState.Setup()
+	vConfig.Sync.ToHost.Ingresses.Enabled = true
+	registerContext := syncertesting.NewFakeRegisterContext(vConfig, pClient, vClient)
+	syncCtx, object := syncertesting.FakeStartSyncer(t, registerContext, NewSyncer)
+	syncer := object.(*ingressSyncer)
+
+	const (
+		platformMirrorAnnotation    = "loft.sh/ingress-mirror"
+		mirrorTargetAnnotation      = "nginx.ingress.kubernetes.io/mirror-target"
+		mirrorRequestBodyAnnotation = "nginx.ingress.kubernetes.io/mirror-request-body"
+		outerTarget                 = "http://loft-ingress-wakeup-agent.loft.svc.cluster.local:9090/loft/touch?host=$host"
+		innerTarget                 = "http://loft-ingress-wakeup-agent.vcluster-platform.svc.cluster.local:9090/loft/touch?host=$host"
+	)
+
+	t.Run("create syncs virtual sleep mode annotations to host", func(t *testing.T) {
+		virtual := ingressWithAnnotations(map[string]string{
+			platformMirrorAnnotation:      "true",
+			mirrorTargetAnnotation:        innerTarget,
+			mirrorRequestBodyAnnotation:   "off",
+			"example.com/user-annotation": "kept",
+		})
+
+		host, err := syncer.translate(syncCtx, virtual)
+		assert.NilError(t, err)
+		assert.Equal(t, host.Annotations[platformMirrorAnnotation], "true")
+		assert.Equal(t, host.Annotations[mirrorTargetAnnotation], innerTarget)
+		assert.Equal(t, host.Annotations[mirrorRequestBodyAnnotation], "off")
+		assert.Equal(t, host.Annotations["example.com/user-annotation"], "kept")
+	})
+
+	t.Run("virtual user update does not overwrite host sleep mode annotations", func(t *testing.T) {
+		hostOld := ingressWithAnnotations(map[string]string{
+			platformMirrorAnnotation:      "true",
+			mirrorTargetAnnotation:        outerTarget,
+			mirrorRequestBodyAnnotation:   "on",
+			"example.com/user-annotation": "old",
+		})
+		host := hostOld.DeepCopy()
+		virtualOld := ingressWithAnnotations(map[string]string{
+			platformMirrorAnnotation:      "true",
+			mirrorTargetAnnotation:        innerTarget,
+			mirrorRequestBodyAnnotation:   "off",
+			"example.com/user-annotation": "old",
+		})
+		virtual := virtualOld.DeepCopy()
+		virtual.Annotations["example.com/user-annotation"] = "new"
+
+		event := synccontext.NewSyncEventWithOld(hostOld, host, virtualOld, virtual)
+		syncer.translateUpdate(syncCtx, event)
+
+		assert.Equal(t, event.Host.Annotations[platformMirrorAnnotation], "true")
+		assert.Equal(t, event.Host.Annotations[mirrorTargetAnnotation], outerTarget)
+		assert.Equal(t, event.Host.Annotations[mirrorRequestBodyAnnotation], "on")
+		assert.Equal(t, event.Host.Annotations["example.com/user-annotation"], "new")
+	})
+
+	t.Run("host update does not overwrite virtual sleep mode annotations", func(t *testing.T) {
+		hostOld := ingressWithAnnotations(map[string]string{
+			platformMirrorAnnotation:      "true",
+			mirrorTargetAnnotation:        innerTarget,
+			mirrorRequestBodyAnnotation:   "off",
+			"example.com/user-annotation": "old",
+		})
+		host := hostOld.DeepCopy()
+		host.Annotations[mirrorTargetAnnotation] = outerTarget
+		host.Annotations[mirrorRequestBodyAnnotation] = "on"
+		host.Annotations["example.com/user-annotation"] = "new"
+		virtualOld := ingressWithAnnotations(map[string]string{
+			platformMirrorAnnotation:      "true",
+			mirrorTargetAnnotation:        innerTarget,
+			mirrorRequestBodyAnnotation:   "off",
+			"example.com/user-annotation": "old",
+		})
+		virtual := virtualOld.DeepCopy()
+
+		event := synccontext.NewSyncEventWithOld(hostOld, host, virtualOld, virtual)
+		syncer.translateUpdate(syncCtx, event)
+
+		assert.Equal(t, event.Virtual.Annotations[platformMirrorAnnotation], "true")
+		assert.Equal(t, event.Virtual.Annotations[mirrorTargetAnnotation], innerTarget)
+		assert.Equal(t, event.Virtual.Annotations[mirrorRequestBodyAnnotation], "off")
+		assert.Equal(t, event.Virtual.Annotations["example.com/user-annotation"], "new")
+
+		hostAfterFirstSync := event.Host.DeepCopy()
+		virtualAfterFirstSync := event.Virtual.DeepCopy()
+		repeatedEvent := synccontext.NewSyncEventWithOld(hostAfterFirstSync.DeepCopy(), hostAfterFirstSync, virtualAfterFirstSync.DeepCopy(), virtualAfterFirstSync)
+		syncer.translateUpdate(syncCtx, repeatedEvent)
+		assert.DeepEqual(t, repeatedEvent.Host.Annotations, hostAfterFirstSync.Annotations)
+		assert.DeepEqual(t, repeatedEvent.Virtual.Annotations, virtualAfterFirstSync.Annotations)
+	})
+
+	t.Run("host deletion does not delete virtual sleep mode annotations", func(t *testing.T) {
+		hostOld := ingressWithAnnotations(map[string]string{
+			platformMirrorAnnotation:      "true",
+			mirrorTargetAnnotation:        outerTarget,
+			mirrorRequestBodyAnnotation:   "on",
+			"example.com/user-annotation": "old",
+		})
+		host := hostOld.DeepCopy()
+		delete(host.Annotations, platformMirrorAnnotation)
+		delete(host.Annotations, mirrorTargetAnnotation)
+		delete(host.Annotations, mirrorRequestBodyAnnotation)
+		host.Annotations["example.com/user-annotation"] = "new"
+		virtualOld := ingressWithAnnotations(map[string]string{
+			platformMirrorAnnotation:      "true",
+			mirrorTargetAnnotation:        innerTarget,
+			mirrorRequestBodyAnnotation:   "off",
+			"example.com/user-annotation": "old",
+		})
+		virtual := virtualOld.DeepCopy()
+
+		event := synccontext.NewSyncEventWithOld(hostOld, host, virtualOld, virtual)
+		syncer.translateUpdate(syncCtx, event)
+
+		assert.Equal(t, event.Virtual.Annotations[platformMirrorAnnotation], "true")
+		assert.Equal(t, event.Virtual.Annotations[mirrorTargetAnnotation], innerTarget)
+		assert.Equal(t, event.Virtual.Annotations[mirrorRequestBodyAnnotation], "off")
+		assert.Equal(t, event.Virtual.Annotations["example.com/user-annotation"], "new")
+	})
+}
+
+func ingressWithAnnotations(annotations map[string]string) *networkingv1.Ingress {
+	return &networkingv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "test-ingress",
+			Namespace:   "test",
+			Annotations: annotations,
+		},
+	}
+}
+
 func stringPointer(str string) *string {
 	return &str
 }

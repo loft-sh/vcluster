@@ -15,10 +15,13 @@ import (
 )
 
 const (
-	AlbConditionAnnotation = "alb.ingress.kubernetes.io/conditions"
-	AlbActionsAnnotation   = "alb.ingress.kubernetes.io/actions"
-	ConditionSuffix        = "/conditions."
-	ActionsSuffix          = "/actions."
+	AlbConditionAnnotation           = "alb.ingress.kubernetes.io/conditions"
+	AlbActionsAnnotation             = "alb.ingress.kubernetes.io/actions"
+	ConditionSuffix                  = "/conditions."
+	ActionsSuffix                    = "/actions."
+	loftIngressMirrorAnnotation      = "loft.sh/ingress-mirror"
+	nginxMirrorTargetAnnotation      = "nginx.ingress.kubernetes.io/mirror-target"
+	nginxMirrorRequestBodyAnnotation = "nginx.ingress.kubernetes.io/mirror-request-body"
 )
 
 func (s *ingressSyncer) translate(ctx *synccontext.SyncContext, vIngress *networkingv1.Ingress) (*networkingv1.Ingress, error) {
@@ -36,6 +39,12 @@ func (s *ingressSyncer) translateUpdate(ctx *synccontext.SyncContext, event *syn
 	event.Virtual.Annotations, event.Host.Annotations = translate.AnnotationsBidirectionalUpdateFunction(
 		event,
 		func(key string, value interface{}) (string, interface{}) {
+			// Platform sleep mode annotations point to services local to the host
+			// boundary. Back-syncing an outer target into a nested vCluster makes
+			// the inner and outer sleep mode controllers overwrite each other.
+			if hostOwnsSleepModeAnnotations(event) && isSleepModeAnnotation(key) {
+				return "", nil
+			}
 			// we need to ignore the rewritten annotations here
 			if resources.TranslateAnnotations[key] {
 				return "", nil
@@ -69,6 +78,17 @@ func (s *ingressSyncer) translateUpdate(ctx *synccontext.SyncContext, event *syn
 			return "", nil
 		},
 	)
+}
+
+func hostOwnsSleepModeAnnotations(event *synccontext.SyncEvent[*networkingv1.Ingress]) bool {
+	return event.HostOld.Annotations[loftIngressMirrorAnnotation] == "true" ||
+		event.Host.Annotations[loftIngressMirrorAnnotation] == "true"
+}
+
+func isSleepModeAnnotation(key string) bool {
+	return key == loftIngressMirrorAnnotation ||
+		key == nginxMirrorTargetAnnotation ||
+		key == nginxMirrorRequestBodyAnnotation
 }
 
 func translateSpec(ctx *synccontext.SyncContext, namespace string, vIngressSpec *networkingv1.IngressSpec) *networkingv1.IngressSpec {
