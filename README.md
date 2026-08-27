@@ -104,7 +104,7 @@ Slurm, Ray, Run:ai, inference, and agent sandbox clusters are delivered through 
 
 ## 🏗️ Architectures
 
-vCluster supports multiple deployment architectures. Each builds on the previous, offering progressively stronger isolation, from dense shared infrastructure to fully standalone deployments on dedicated infrastructure or bare metal.
+vCluster supports multiple deployment architectures. Two things vary independently: where the control plane runs (an existing Kubernetes cluster, a standalone binary, or Docker) and how tenant workloads are placed (shared nodes or private nodes). The modes below combine them, offering progressively stronger isolation from dense shared infrastructure through to fully standalone deployments on bare metal.
 
 ### Architecture comparison
 
@@ -153,7 +153,7 @@ sync:
 </details>
 <details>
 <summary>🔹 Private Nodes <sup>v0.27+</sup>: full CNI/CSI isolation</summary>
-External nodes join the Tenant Cluster directly with their own CNI, CSI, and networking stack, through a token-based process. No cross-tenant visibility, and complete infrastructure separation from the Control Plane Cluster.
+External nodes join the Tenant Cluster directly with their own CNI, CSI, and networking stack, through a token-based process. No cross-tenant visibility, and complete infrastructure separation from the Control Plane Cluster. Nodes can also join over an encrypted VPN overlay <sup>v0.30+</sup>, so one Tenant Cluster can span sites, networks, and clouds.
 <div align="center">
 <img src="./assets/vcluster-architecture-private-nodes.png" alt="Private Nodes architecture" width="600">
 </div>
@@ -169,7 +169,7 @@ controlPlane:
 </details>
 <details>
 <summary>🔹 vCluster Standalone <sup>v0.29+</sup>: no Control Plane Cluster required</summary>
-A complete, zero-dependency Kubernetes distribution. Run the Virtual Control Plane as a self-contained binary directly on bare metal or VMs. This is how providers solve the "cluster one" problem when building infrastructure from scratch.
+A complete, zero-dependency Kubernetes distribution. Run the whole control plane as a self-contained binary directly on bare metal or VMs. This is how providers solve the "cluster one" problem when building infrastructure from scratch.
 <div align="center">
 <img src="./assets/vcluster-architecture-standalone.png" alt="Standalone architecture" width="600">
 </div>
@@ -186,7 +186,7 @@ privateNodes:
 </details>
 <details>
 <summary>⚡ Auto Nodes <sup>v0.28+</sup>: Karpenter-powered dynamic autoscaling</summary>
-Automatically provision and deprovision private nodes based on workload demand. Works across public cloud, private cloud, hybrid, and bare metal environments.
+Automatically provision and deprovision private nodes based on workload demand. Works across public cloud, private cloud, hybrid, and bare metal environments. Node profiles <sup>v0.36+</sup> let each pool carry its own node configuration.
 <div align="center">
 <img src="./assets/vcluster-architecture-auto-nodes.png" alt="Auto Nodes architecture" width="600">
 </div>
@@ -199,6 +199,14 @@ privateNodes:
   enabled: true
 ```
 </details>
+<details>
+<summary>🐳 vind <sup>v0.32+</sup>: a complete Tenant Cluster in Docker, no Kubernetes required</summary>
+The control plane and worker nodes run as containers on a single Docker host, using private nodes underneath. There is no Control Plane Cluster and no Kubernetes dependency at all, which makes this the fastest way to get a real Tenant Cluster on a laptop or a CI runner. Docker deployment is driven by the CLI rather than by <code>vcluster.yaml</code>.
+
+```bash
+vcluster create my-vcluster --driver docker
+```
+</details>
 
 ---
 
@@ -206,15 +214,18 @@ privateNodes:
 
 | Feature | Description |
 |---|---|
-| **🎛️ Isolated Virtual Control Plane** | Each Tenant Cluster gets its own API server, controller manager, and data store, for complete Kubernetes API isolation |
-| **🔒 Strong tenant isolation** | Tenants get admin access inside their Tenant Cluster while holding minimal permissions on the Control Plane Cluster |
+| **🎛️ Its own API server, per tenant** | Every Tenant Cluster runs a dedicated control plane: API server, controller manager, and data store. Full Kubernetes API isolation, not a namespace with rules layered on top |
+| **🔒 Strong tenant isolation** | Tenants hold admin inside their Tenant Cluster while holding minimal permissions on the Control Plane Cluster |
+| **🎮 GPU-aware scheduling** | Dynamic Resource Allocation with resource claims, resource claim templates, and device classes, plus in-place pod resizing |
+| **⚡ Auto Nodes** | Karpenter-powered provisioning and deprovisioning of private nodes across cloud, hybrid, and bare metal, with per-pool node profiles |
 | **🖥️ Standalone deployment** | Run without a Control Plane Cluster on dedicated infrastructure or bare metal, purpose-built for AI factories and on-prem GPU fleets |
-| **⚡ Auto Nodes** | Karpenter-powered provisioning and deprovisioning of private nodes across cloud, hybrid, and bare metal |
-| **🔗 Shared platform stack** *(Shared / Dedicated Nodes)* | Reuse the Control Plane Cluster's CNI, CSI, ingress, and other infrastructure, with no duplicate platform components |
-| **🔄 Resource syncing** *(Shared / Dedicated Nodes)* | Bidirectional sync of any Kubernetes resource: pods, services, secrets, configmaps, CRDs, and more |
-| **💤 Sleep mode** | Pause inactive Tenant Clusters to save resources, with instant wake when needed |
+| **🐳 Runs on Docker** | A complete Tenant Cluster in Docker containers with no Kubernetes dependency, through `vcluster create --driver docker` |
+| **🔐 Node VPN** *(Platform)* | Private nodes join over an encrypted overlay, so a single Tenant Cluster can span sites, networks, and clouds |
 | **📸 Snapshot and restore** | Snapshot a Tenant Cluster to S3, OCI, Azure Blob, or local storage, and restore it elsewhere |
-| **🧩 Integrations** | Native support for cert-manager, external-secrets, KubeVirt, Istio, Gateway API, and metrics-server |
+| **💤 Sleep mode** *(Platform)* | Pause inactive Tenant Clusters to save resources, with instant wake when needed |
+| **🔗 Shared platform stack** *(Shared / Dedicated Nodes)* | Reuse the Control Plane Cluster's CNI, CSI, ingress, and other infrastructure, with no duplicate platform components |
+| **🔄 Resource syncing** *(Shared / Dedicated Nodes)* | Bidirectional sync of any Kubernetes resource: pods, services, secrets, configmaps, CRDs, and Gateway API objects |
+| **🧩 Integrations** | Native support for cert-manager, external-secrets, KubeVirt, Istio, and metrics-server |
 | **📊 High availability** | Multiple replicas with leader election. Embedded etcd or external databases (PostgreSQL, MySQL, RDS) |
 
 > Shared platform stack, resource syncing, and Control Plane Cluster integrations apply in **Shared** and **Dedicated Nodes** modes, where the Tenant Cluster reuses the Control Plane Cluster's CNI, CSI, and platform stack. **Private Nodes** and **Standalone** deployments bring their own CNI, CSI, and platform components.
@@ -259,7 +270,7 @@ vCluster is the foundation of a broader platform for running Kubernetes and AI i
 
 | Product | What it does |
 |---|---|
-| **[vCluster](https://www.vcluster.com)** | Tenant Clusters. Virtual Control Planes with API, data, and optionally network isolation |
+| **[vCluster](https://www.vcluster.com)** | Tenant Clusters. A dedicated control plane per tenant, with API, data, and optionally network isolation |
 | **[vNode](https://www.vnode.com/)** | Runtime-level isolation. Kernel-enforced boundaries (Linux user namespaces, seccomp, cgroups, AppArmor) without VM overhead |
 | **[vMetal](https://www.vmetal.ai/)** | Bare metal provisioning and lifecycle for GPU fleets. Turns GPU racks into a cloud platform |
 | **[Netris](https://www.vcluster.com/solutions/netris-kubernetes-network-automation)** *(integration)* | Hardware-enforced network isolation via programmatic VLANs, VRFs, and ACLs |
@@ -272,17 +283,17 @@ Together they provide the full stack for an AI factory: certified Kubernetes, is
 
 <table>
 <tr>
-<td align="center"><a href="https://www.vcluster.com/case-studies/coreweave"><strong>CoreWeave</strong></a><br/>GPU cloud at scale</td>
+<td align="center"><a href="https://www.vcluster.com/case-studies/nebius"><strong>Nebius</strong></a><br/>AI cloud tenant isolation</td>
 <td align="center"><a href="https://www.vcluster.com/case-studies/qumulusai"><strong>QumulusAI</strong></a><br/>1 min to spin up isolated K8s</td>
-<td align="center"><a href="https://www.vcluster.com/case-studies/boost-run"><strong>Boost-Run</strong></a><br/>&lt;45 days to production launch</td>
+<td align="center"><a href="https://www.vcluster.com/case-studies/polarise"><strong>Polarise</strong></a><br/>100% data residency at the infra layer</td>
 </tr>
 <tr>
-<td align="center"><a href="https://www.vcluster.com/case-studies/polarise"><strong>Polarise</strong></a><br/>100% data residency at the infra layer</td>
+<td align="center"><a href="https://www.vcluster.com/case-studies/boost-run"><strong>Boost-Run</strong></a><br/>&lt;45 days to production launch</td>
 <td align="center"><a href="https://www.vcluster.com/case-studies/lintasarta"><strong>Lintasarta</strong></a><br/>170+ Tenant Clusters in production</td>
 <td align="center"><a href="https://www.vcluster.com/case-studies/nscale"><strong>Nscale</strong></a><br/>Kubernetes platforms on bare metal</td>
 </tr>
 <tr>
-<td align="center"><a href="https://www.vcluster.com/case-studies/nebius"><strong>Nebius</strong></a><br/>AI cloud tenant isolation</td>
+<td align="center"><a href="https://www.vcluster.com/case-studies/coreweave"><strong>CoreWeave</strong></a><br/>GPU cloud at scale</td>
 <td align="center"><a href="https://www.vcluster.com/case-studies/atlan"><strong>Atlan</strong></a><br/>100 → 1 clusters</td>
 <td align="center"><a href="https://www.vcluster.com/case-studies/fortune-500-insurance-company"><strong>Fortune 500 Insurance</strong></a><br/>70% reduction in Kubernetes cost</td>
 </tr>
