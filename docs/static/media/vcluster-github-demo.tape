@@ -1,36 +1,57 @@
 # vhs tape for the vCluster README hero GIF.
 #
-# Requirements: Docker running + vcluster CLI >= 0.36 + vhs (brew install vhs).
-# No Kubernetes cluster is needed. The tape uses the Docker driver (vind), so it
-# is reproducible on any laptop or CI runner that has Docker.
+# Requirements: vhs (brew install vhs), the vcluster CLI >= 0.36, and a
+# Kubernetes cluster to act as the Control Plane Cluster. The tape uses the
+# default helm driver against a real cluster, which is the production path and
+# the same command the README quickstart shows.
 #
-# To regenerate, run these three steps from this directory:
+# To regenerate, run these steps. Any Kubernetes cluster works as the Control
+# Plane Cluster; kind is used here so the recording is reproducible anywhere.
 #
-#   vcluster create team-b --driver docker                     # 1. pre-step,
-#   kubectl config use-context <your-own-context>               #    then switch back
-#   vhs vcluster-github-demo.tape                              # 2. record
-#   vcluster delete team-a --driver docker; \
-#     vcluster delete team-b --driver docker                   # 3. cleanup
+#   1. Control Plane Cluster and the second tenant:
+#        kind create cluster --name vcluster-demo
+#        cd $(mktemp -d)                   # the CLI refuses to run from a
+#                                          # directory containing "vcluster"
+#        vcluster create team-b --namespace team-b --driver helm
+#        kubectl config use-context kind-vcluster-demo
+#
+#   2. Record:
+#        vhs vcluster-github-demo.tape
+#
+#   NOTE: the tape sets the CLI default driver to helm so the recorded command
+#   matches the README quickstart exactly (no --driver flag on screen). That is a
+#   persisted setting. If your default was something else, restore it afterwards
+#   with e.g. `vcluster use driver docker`.
+#
+#   3. Clean up:
+#        vcluster delete team-a --namespace team-a --driver helm
+#        vcluster delete team-b --namespace team-b --driver helm
+#        kind delete cluster --name vcluster-demo
 #
 # Design: the gif shows one thing, the isolation boundary. Tenant team-a installs
-# a CRD as cluster-admin; connect to tenant team-b and the same command returns
-# nothing. Every displayed command and line of output is real (no mocks).
+# a CRD as cluster-admin; switch to sibling tenant team-b and the same command
+# returns nothing. Every displayed command and line of output is real (no mocks).
 #
 # Notes for whoever edits this next:
-#   - Do not put `vcluster connect` in the tape. It hangs at "Waiting for vCluster
-#     kubeconfig to be available" inside the vhs pty and kills the recording with
-#     a bare "recording failed", even though the same command returns in under
-#     three seconds in a normal shell. Switch tenants with `kubectl config
-#     use-context` instead; the pre-step registers the context.
-#   - Keep the recorded session short. Creating both tenants inside the tape and
-#     tearing them down in Hide blocks makes for a long session; team-b is created
-#     in the pre-step and teardown is a post-step for that reason.
+#   - Set the driver explicitly in the hidden block. A bare `vcluster create`
+#     uses whatever driver is persisted in ~/.vcluster/config.json, so on a
+#     machine defaulted to docker the tape silently builds a docker cluster, the
+#     Wait+Screen never matches, and the recording burns its full timeout.
+#   - Create team-b from the Control Plane Cluster context, never from inside
+#     team-a. Creating it while connected to team-a nests it inside team-a and
+#     you get a chained context name, which is a different architecture and a
+#     different story than two sibling tenants.
+#   - Do not put `vcluster connect` or `vcluster disconnect` in the tape. They
+#     hang on "Starting background proxy container" inside the vhs pty and kill
+#     the recording with a bare "recording failed", even though the same command
+#     returns in seconds in a normal shell. Switch with `kubectl config
+#     use-context` instead.
 #   - Wait+Screen matches the whole visible screen, not just new output. Match on
-#     a string that cannot already be on screen (the context name, not "Switched
-#     active kube context") or the wait returns instantly and the tape races
-#     ahead of the cluster.
-#   - The node needs roughly half a minute after create to report Ready. Without
-#     that pause `kubectl get nodes` records a NotReady node.
+#     a string that cannot already be on screen (the full context name, not
+#     "Switched active kube context") or the wait returns instantly and the tape
+#     races ahead of the cluster.
+#   - The node needs a few seconds after create to report Ready. Without the
+#     pause `kubectl get nodes` records a NotReady node.
 #   - Deliberately no `vcluster --version` line. Printing a version number bakes a
 #     release into a binary asset and dates the gif on every release. `kubectl get
 #     nodes` surfaces the Kubernetes version instead and re-dates itself for free.
@@ -39,7 +60,7 @@ Output "vcluster-github-demo.gif"
 
 Set FontSize 20
 Set Width 1400
-Set Height 820
+Set Height 680
 Set Theme "Catppuccin Mocha"
 Set TypingSpeed 45ms
 Set Padding 30
@@ -51,6 +72,9 @@ Set TypingSpeed 1ms
 Type "cd $(mktemp -d)"
 Enter
 Sleep 300ms
+Type "vcluster use driver helm"
+Enter
+Sleep 800ms
 Type "printf '%s\n' 'apiVersion: apiextensions.k8s.io/v1' 'kind: CustomResourceDefinition' 'metadata:' '  name: widgets.demo.io' 'spec:' '  group: demo.io' '  scope: Namespaced' '  names:' '    plural: widgets' '    kind: Widget' '  versions:' '  - name: v1' '    served: true' '    storage: true' '    schema:' '      openAPIV3Schema:' '        type: object' > widget-crd.yaml"
 Enter
 Sleep 500ms
@@ -60,18 +84,18 @@ Sleep 300ms
 Set TypingSpeed 45ms
 Show
 
-# A real Kubernetes cluster, in Docker, with no Kubernetes cluster underneath it.
-Type "vcluster create team-a --driver docker"
+# A tenant cluster on a real Kubernetes cluster. Same command as the quickstart.
+Type "vcluster create team-a --namespace team-a"
 Enter
 Sleep 3s
 
 Hide
-Wait+Screen@600s /vcluster-docker_team-a/
-Sleep 25s
+Wait+Screen@600s /vcluster_team-a_team-a_kind-vcluster-demo/
+Sleep 20s
 Show
 Sleep 2s
 
-# It is a real cluster: its own node, its own Kubernetes version.
+# It is a real cluster, running the current Kubernetes.
 Type "kubectl get nodes"
 Enter
 Sleep 3s
@@ -85,9 +109,8 @@ Type "kubectl get crd"
 Enter
 Sleep 3500ms
 
-# Switch to the second tenant. A plain context switch: two tenants, two contexts,
-# two clusters.
-Type "kubectl config use-context vcluster-docker_team-b"
+# Switch to the sibling tenant on the same Control Plane Cluster.
+Type "kubectl config use-context vcluster_team-b_team-b_kind-vcluster-demo"
 Enter
 Sleep 2500ms
 
