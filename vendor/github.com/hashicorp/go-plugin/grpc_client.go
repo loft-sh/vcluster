@@ -1,4 +1,4 @@
-// Copyright (c) HashiCorp, Inc.
+// Copyright IBM Corp. 2016, 2025
 // SPDX-License-Identifier: MPL-2.0
 
 package plugin
@@ -9,20 +9,20 @@ import (
 	"fmt"
 	"math"
 	"net"
-	"time"
 
 	"github.com/hashicorp/go-plugin/internal/plugin"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
-func dialGRPCConn(tls *tls.Config, dialer func(string, time.Duration) (net.Conn, error), dialOpts ...grpc.DialOption) (*grpc.ClientConn, error) {
+func dialGRPCConn(tls *tls.Config, dialer func(context.Context, string) (net.Conn, error), dialOpts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	// Build dialing options.
 	opts := make([]grpc.DialOption, 0)
 
 	// We use a custom dialer so that we can connect over unix domain sockets.
-	opts = append(opts, grpc.WithDialer(dialer))
+	opts = append(opts, grpc.WithContextDialer(dialer))
 
 	// Fail right away
 	opts = append(opts, grpc.FailOnNonTempDialError(true))
@@ -30,7 +30,7 @@ func dialGRPCConn(tls *tls.Config, dialer func(string, time.Duration) (net.Conn,
 	// If we have no TLS configuration set, we need to explicitly tell grpc
 	// that we're connecting with an insecure connection.
 	if tls == nil {
-		opts = append(opts, grpc.WithInsecure())
+		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
 		opts = append(opts, grpc.WithTransportCredentials(
 			credentials.NewTLS(tls)))
@@ -70,7 +70,7 @@ func newGRPCClient(doneCtx context.Context, c *Client) (*GRPCClient, error) {
 	brokerGRPCClient := newGRPCBrokerClient(conn)
 	broker := newGRPCBroker(brokerGRPCClient, c.config.TLSConfig, c.unixSocketCfg, c.runner, muxer)
 	go broker.Run()
-	go brokerGRPCClient.StartStream()
+	go func() { _ = brokerGRPCClient.StartStream() }()
 
 	// Start the stdio client
 	stdioClient, err := newGRPCStdioClient(doneCtx, c.logger.Named("stdio"), conn)
@@ -103,8 +103,8 @@ type GRPCClient struct {
 
 // ClientProtocol impl.
 func (c *GRPCClient) Close() error {
-	c.broker.Close()
-	c.controller.Shutdown(c.doneCtx, &plugin.Empty{})
+	_ = c.broker.Close()
+	_, _ = c.controller.Shutdown(c.doneCtx, &plugin.Empty{})
 	return c.Conn.Close()
 }
 

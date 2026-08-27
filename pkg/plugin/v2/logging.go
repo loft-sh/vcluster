@@ -51,5 +51,7 @@ func (z *zapHclogSink) Accept(name string, level hclog.Level, message string, ar
 		logger.Info(message)
 	case hclog.Debug, hclog.Trace:
 		logger.Debug(message)
+	case hclog.Off:
+		// the plugin asked for no output
 	}
 }

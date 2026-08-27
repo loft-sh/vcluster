@@ -1,4 +1,4 @@
-// Copyright (c) HashiCorp, Inc.
+// Copyright IBM Corp. 2016, 2025
 // SPDX-License-Identifier: MPL-2.0
 
 package plugin
@@ -119,7 +119,7 @@ func (s *GRPCServer) Stop() {
 	s.server.Stop()
 
 	if s.broker != nil {
-		s.broker.Close()
+		_ = s.broker.Close()
 		s.broker = nil
 	}
 }
@@ -130,7 +130,7 @@ func (s *GRPCServer) GracefulStop() {
 	s.server.GracefulStop()
 
 	if s.broker != nil {
-		s.broker.Close()
+		_ = s.broker.Close()
 		s.broker = nil
 	}
 }

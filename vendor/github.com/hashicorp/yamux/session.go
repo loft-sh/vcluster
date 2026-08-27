@@ -3,6 +3,7 @@ package yamux
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -34,7 +35,7 @@ type Session struct {
 	config *Config
 
 	// logger is used for our logs
-	logger *log.Logger
+	logger Logger
 
 	// conn is the underlying connection
 	conn io.ReadWriteCloser
@@ -250,6 +251,22 @@ func (s *Session) AcceptStream() (*Stream, error) {
 	}
 }
 
+// AcceptStream is used to block until the next available stream
+// is ready to be accepted.
+func (s *Session) AcceptStreamWithContext(ctx context.Context) (*Stream, error) {
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case stream := <-s.acceptCh:
+		if err := stream.sendWindowUpdate(); err != nil {
+			return nil, err
+		}
+		return stream, nil
+	case <-s.shutdownCh:
+		return nil, s.shutdownErr
+	}
+}
+
 // Close is used to close the session and all streams.
 // Attempts to send a GoAway before closing the connection.
 func (s *Session) Close() error {
@@ -339,7 +356,7 @@ func (s *Session) Ping() (time.Duration, error) {
 	}
 
 	// Compute the RTT
-	return time.Now().Sub(start), nil
+	return time.Since(start), nil
 }
 
 // keepalive is a long running goroutine that periodically does

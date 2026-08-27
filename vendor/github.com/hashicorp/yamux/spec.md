@@ -100,7 +100,7 @@ fire a request without waiting for the RTT of the ACK.
 
 This does introduce the possibility of a connection being rejected
 after data has been sent already. This is a slight semantic difference
-from TCP, where the conection cannot be refused after it is opened.
+from TCP, where the connection cannot be refused after it is opened.
 Clients should be prepared to handle this by checking for an error
 that indicates a RST was received.
 

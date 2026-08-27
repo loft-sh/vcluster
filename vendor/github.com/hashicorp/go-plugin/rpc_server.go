@@ -1,4 +1,4 @@
-// Copyright (c) HashiCorp, Inc.
+// Copyright IBM Corp. 2016, 2025
 // SPDX-License-Identifier: MPL-2.0
 
 package plugin
@@ -69,7 +69,7 @@ func (s *RPCServer) ServeConn(conn io.ReadWriteCloser) {
 	// First create the yamux server to wrap this connection
 	mux, err := yamux.Server(conn, nil)
 	if err != nil {
-		conn.Close()
+		_ = conn.Close()
 		log.Printf("[ERR] plugin: error creating yamux server: %s", err)
 		return
 	}
@@ -77,7 +77,7 @@ func (s *RPCServer) ServeConn(conn io.ReadWriteCloser) {
 	// Accept the control connection
 	control, err := mux.Accept()
 	if err != nil {
-		mux.Close()
+		_ = mux.Close()
 		if err != io.EOF {
 			log.Printf("[ERR] plugin: error accepting control connection: %s", err)
 		}
@@ -90,7 +90,7 @@ func (s *RPCServer) ServeConn(conn io.ReadWriteCloser) {
 	for i := range stdstream {
 		stdstream[i], err = mux.Accept()
 		if err != nil {
-			mux.Close()
+			_ = mux.Close()
 			log.Printf("[ERR] plugin: accepting stream %d: %s", i, err)
 			return
 		}
@@ -107,10 +107,10 @@ func (s *RPCServer) ServeConn(conn io.ReadWriteCloser) {
 	// Use the control connection to build the dispenser and serve the
 	// connection.
 	server := rpc.NewServer()
-	server.RegisterName("Control", &controlServer{
+	_ = server.RegisterName("Control", &controlServer{
 		server: s,
 	})
-	server.RegisterName("Dispenser", &dispenseServer{
+	_ = server.RegisterName("Dispenser", &dispenseServer{
 		broker:  broker,
 		plugins: s.Plugins,
 	})

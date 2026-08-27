@@ -1,8 +1,7 @@
-// Copyright (c) HashiCorp, Inc.
+// Copyright IBM Corp. 2016, 2025
 // SPDX-License-Identifier: MPL-2.0
 
 //go:build !windows
-// +build !windows
 
 package cmdrunner
 
@@ -53,13 +52,13 @@ func additionalNotesAboutCommand(path string) string {
 	}
 
 	if elfFile, err := elf.Open(path); err == nil {
-		defer elfFile.Close()
+		defer func() { _ = elfFile.Close() }()
 		notes += fmt.Sprintf("  ELF architecture: %s (current architecture: %s)\n", elfFile.Machine, runtime.GOARCH)
 	} else if machoFile, err := macho.Open(path); err == nil {
-		defer machoFile.Close()
+		defer func() { _ = machoFile.Close() }()
 		notes += fmt.Sprintf("  MachO architecture: %s (current architecture: %s)\n", machoFile.Cpu, runtime.GOARCH)
 	} else if peFile, err := pe.Open(path); err == nil {
-		defer peFile.Close()
+		defer func() { _ = peFile.Close() }()
 		machine, ok := peTypes[peFile.Machine]
 		if !ok {
 			machine = "unknown"

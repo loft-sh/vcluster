@@ -1,4 +1,4 @@
-// Copyright (c) HashiCorp, Inc.
+// Copyright IBM Corp. 2016, 2025
 // SPDX-License-Identifier: MPL-2.0
 
 package plugin
@@ -290,7 +290,7 @@ func Serve(opts *ServeConfig) {
 	// Close the listener on return. We wrap this in a func() on purpose
 	// because the "listener" reference may change to TLS.
 	defer func() {
-		listener.Close()
+		_ = listener.Close()
 	}()
 
 	var tlsConfig *tls.Config
@@ -307,7 +307,7 @@ func Serve(opts *ServeConfig) {
 	// If the client is configured using AutoMTLS, the certificate will be here,
 	// and we need to generate our own in response.
 	if tlsConfig == nil && clientCert != "" {
-		logger.Info("configuring server automatic mTLS")
+		logger.Debug("configuring server automatic mTLS")
 		clientCertPool := x509.NewCertPool()
 		if !clientCertPool.AppendCertsFromPEM([]byte(clientCert)) {
 			logger.Error("client cert provided but failed to parse", "cert", clientCert)
@@ -443,7 +443,7 @@ func Serve(opts *ServeConfig) {
 			protocolLine += fmt.Sprintf("|%v", grpcBrokerMultiplexingSupported)
 		}
 		fmt.Printf("%s\n", protocolLine)
-		os.Stdout.Sync()
+		_ = os.Stdout.Sync()
 	} else if ch := opts.Test.ReattachConfigCh; ch != nil {
 		// Send back the reattach config that can be used. This isn't
 		// quite ready if they connect immediately but the client should
@@ -505,7 +505,7 @@ func Serve(opts *ServeConfig) {
 		// Cancellation. We can stop the server by closing the listener.
 		// This isn't graceful at all but this is currently only used by
 		// tests and its our only way to stop.
-		listener.Close()
+		_ = listener.Close()
 
 		// If this is a grpc server, then we also ask the server itself to
 		// end which will kill all connections. There isn't an easy way to do
@@ -546,7 +546,7 @@ func serverListener_tcp() (net.Listener, error) {
 	default:
 		minPort, err = strconv.ParseInt(envMinPort, 10, 32)
 		if err != nil {
-			return nil, fmt.Errorf("Couldn't get value from PLUGIN_MIN_PORT: %v", err)
+			return nil, fmt.Errorf("couldn't get value from PLUGIN_MIN_PORT: %v", err)
 		}
 	}
 
@@ -556,7 +556,7 @@ func serverListener_tcp() (net.Listener, error) {
 	default:
 		maxPort, err = strconv.ParseInt(envMaxPort, 10, 32)
 		if err != nil {
-			return nil, fmt.Errorf("Couldn't get value from PLUGIN_MAX_PORT: %v", err)
+			return nil, fmt.Errorf("couldn't get value from PLUGIN_MAX_PORT: %v", err)
 		}
 	}
 
@@ -572,7 +572,7 @@ func serverListener_tcp() (net.Listener, error) {
 		}
 	}
 
-	return nil, errors.New("Couldn't bind plugin TCP listener")
+	return nil, errors.New("couldn't bind plugin TCP listener")
 }
 
 func serverListener_unix(unixSocketCfg UnixSocketConfig) (net.Listener, error) {

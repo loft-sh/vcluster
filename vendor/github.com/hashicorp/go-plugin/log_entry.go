@@ -1,4 +1,4 @@
-// Copyright (c) HashiCorp, Inc.
+// Copyright IBM Corp. 2016, 2025
 // SPDX-License-Identifier: MPL-2.0
 
 package plugin
@@ -10,10 +10,10 @@ import (
 
 // logEntry is the JSON payload that gets sent to Stderr from the plugin to the host
 type logEntry struct {
-	Message   string        `json:"@message"`
-	Level     string        `json:"@level"`
-	Timestamp time.Time     `json:"timestamp"`
-	KVPairs   []*logEntryKV `json:"kv_pairs"`
+	Message   string       `json:"@message"`
+	Level     string       `json:"@level"`
+	Timestamp time.Time    `json:"timestamp"`
+	KVPairs   []logEntryKV `json:"kv_pairs"`
 }
 
 // logEntryKV is a key value pair within the Output payload
@@ -24,7 +24,7 @@ type logEntryKV struct {
 
 // flattenKVPairs is used to flatten KVPair slice into []interface{}
 // for hclog consumption.
-func flattenKVPairs(kvs []*logEntryKV) []interface{} {
+func flattenKVPairs(kvs []logEntryKV) []interface{} {
 	var result []interface{}
 	for _, kv := range kvs {
 		result = append(result, kv.Key)
@@ -66,7 +66,7 @@ func parseJSON(input []byte) (*logEntry, error) {
 
 	// Parse dynamic KV args from the hclog payload.
 	for k, v := range raw {
-		entry.KVPairs = append(entry.KVPairs, &logEntryKV{
+		entry.KVPairs = append(entry.KVPairs, logEntryKV{
 			Key:   k,
 			Value: v,
 		})
