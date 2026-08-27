@@ -40,7 +40,7 @@ Because a Tenant Cluster is upstream Kubernetes, everything built for the standa
 
 <div align="center">
 
-![vCluster demo: create a Tenant Cluster locally with vind, in seconds](./docs/static/media/vcluster-github-demo.gif)
+![vCluster demo: tenant team-a installs a CRD as cluster-admin, then the same command in tenant team-b returns nothing](./docs/static/media/vcluster-github-demo.gif)
 
 </div>
 
