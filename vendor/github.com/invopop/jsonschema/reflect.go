@@ -1,7 +1,7 @@
 // Package jsonschema uses reflection to generate JSON Schemas from Go types [1].
 //
 // If json tags are present on struct fields, they will be used to infer
-// property names and if a property is required (omitempty is present).
+// property names and if a property is required (omitempty or omitzero is present).
 //
 // [1] http://json-schema.org/latest/json-schema-validation.html
 package jsonschema
@@ -103,7 +103,7 @@ type Reflector struct {
 
 	// RequiredFromJSONSchemaTags will cause the Reflector to generate a schema
 	// that requires any key tagged with `jsonschema:required`, overriding the
-	// default of requiring any key *not* tagged with `json:,omitempty`.
+	// default of requiring any key *not* tagged with `json:,omitempty` or `json:,omitzero`.
 	RequiredFromJSONSchemaTags bool
 
 	// Do not reference definitions. This will remove the top-level $defs map and
@@ -143,6 +143,16 @@ type Reflector struct {
 	// AdditionalFields allows adding structfields for a given type
 	AdditionalFields func(reflect.Type) []reflect.StructField
 
+	// LookupComment allows customizing comment lookup. Given a reflect.Type and optionally
+	// a field name, it should return the comment string associated with this type or field.
+	//
+	// If the field name is empty, it should return the type's comment; otherwise, the field's
+	// comment should be returned. If no comment is found, an empty string should be returned.
+	//
+	// When set, this function is called before the below CommentMap lookup mechanism. However,
+	// if it returns an empty string, the CommentMap is still consulted.
+	LookupComment func(reflect.Type, string) string
+
 	// CommentMap is a dictionary of fully qualified go types and fields to comment
 	// strings that will be used if a description has not already been provided in
 	// the tags. Types and fields are added to the package path using "." as a
@@ -156,7 +166,7 @@ type Reflector struct {
 	//
 	//   map[string]string{"github.com/invopop/jsonschema.Reflector.DoNotReference": "Do not reference definitions."}
 	//
-	// See also: AddGoComments
+	// See also: AddGoComments, LookupComment
 	CommentMap map[string]string
 }
 
@@ -178,8 +188,12 @@ func (r *Reflector) ReflectFromType(t reflect.Type) *Schema {
 	s.Definitions = definitions
 	bs := r.reflectTypeToSchemaWithID(definitions, t)
 	if r.ExpandedStruct {
-		*s = *definitions[name]
-		delete(definitions, name)
+		if def := definitions[name]; def != nil {
+			*s = *def
+			delete(definitions, name)
+		} else {
+			*s = *bs
+		}
 	} else {
 		*s = *bs
 	}
@@ -558,19 +572,6 @@ func appendUniqueString(base []string, value string) []string {
 	return append(base, value)
 }
 
-func (r *Reflector) lookupComment(t reflect.Type, name string) string {
-	if r.CommentMap == nil {
-		return ""
-	}
-
-	n := fullyQualifiedTypeName(t)
-	if name != "" {
-		n = n + "." + name
-	}
-
-	return r.CommentMap[n]
-}
-
 // addDefinition will append the provided schema. If needed, an ID and anchor will also be added.
 func (r *Reflector) addDefinition(definitions Definitions, t reflect.Type, s *Schema) {
 	name := r.typeName(t)
@@ -614,6 +615,18 @@ func (t *Schema) structKeywordsFromTags(f reflect.StructField, parent *Schema, p
 	tags := splitOnUnescapedCommas(f.Tag.Get("jsonschema"))
 	tags = t.genericKeywords(tags, parent, propertyName)
 
+	// The encoding/json ",string" option causes integer, float and boolean
+	// fields to be encoded as JSON strings. Override the reflected type
+	// accordingly before running type-specific keyword parsing so the
+	// generated schema matches the on-the-wire representation.
+	jsonTags := strings.Split(f.Tag.Get("json"), ",")
+	switch t.Type {
+	case "integer", "number", "boolean":
+		if jsonTagHasOption(jsonTags, "string") {
+			t.Type = "string"
+		}
+	}
+
 	switch t.Type {
 	case "string":
 		t.stringKeywords(tags)
@@ -626,7 +639,7 @@ func (t *Schema) structKeywordsFromTags(f reflect.StructField, parent *Schema, p
 	case "boolean":
 		t.booleanKeywords(tags)
 	}
-	extras := strings.Split(f.Tag.Get("jsonschema_extras"), ",")
+	extras := splitOnUnescapedCommas(f.Tag.Get("jsonschema_extras"))
 	t.extraKeywords(extras)
 }
 
@@ -745,9 +758,10 @@ func (t *Schema) booleanKeywords(tags []string) {
 		}
 		name, val := nameValue[0], nameValue[1]
 		if name == "default" {
-			if val == "true" {
+			switch val {
+			case "true":
 				t.Default = true
-			} else if val == "false" {
+			case "false":
 				t.Default = false
 			}
 		}
@@ -768,10 +782,7 @@ func (t *Schema) stringKeywords(tags []string) {
 			case "pattern":
 				t.Pattern = val
 			case "format":
-				switch val {
-				case "date-time", "email", "hostname", "ipv4", "ipv6", "uri", "uuid":
-					t.Format = val
-				}
+				t.Format = val
 			case "readOnly":
 				i, _ := strconv.ParseBool(val)
 				t.ReadOnly = i
@@ -919,11 +930,12 @@ func (t *Schema) setExtra(key, val string) {
 			t.Extras[key], _ = strconv.Atoi(val)
 		default:
 			var x any
-			if val == "true" {
+			switch val {
+			case "true":
 				x = true
-			} else if val == "false" {
+			case "false":
 				x = false
-			} else {
+			default:
 				x = val
 			}
 			t.Extras[key] = x
@@ -937,7 +949,7 @@ func requiredFromJSONTags(tags []string, val *bool) {
 	}
 
 	for _, tag := range tags[1:] {
-		if tag == "omitempty" {
+		if tag == "omitempty" || tag == "omitzero" {
 			*val = false
 			return
 		}
@@ -974,6 +986,27 @@ func ignoredByJSONTags(tags []string) bool {
 
 func ignoredByJSONSchemaTags(tags []string) bool {
 	return tags[0] == "-"
+}
+
+func inlinedByJSONTags(tags []string) bool {
+	for _, tag := range tags[1:] {
+		if tag == "inline" {
+			return true
+		}
+	}
+	return false
+}
+
+// jsonTagHasOption reports whether the parsed json struct tag contains the
+// given option. The first element of tags is assumed to be the field name, as
+// produced by strings.Split on a raw json tag value, and is skipped.
+func jsonTagHasOption(tags []string, option string) bool {
+	for _, tag := range tags[1:] {
+		if tag == option {
+			return true
+		}
+	}
+	return false
 }
 
 // toJSONNumber converts string to *json.Number.
@@ -1037,6 +1070,11 @@ func (r *Reflector) reflectFieldName(f reflect.StructField) (string, bool, bool,
 		}
 	}
 
+	// As per JSON Marshal rules, inline nested structs that have `inline` tag.
+	if inlinedByJSONTags(jsonTags) {
+		return "", true, false, false
+	}
+
 	// Try to determine the name from the different combos
 	name := f.Name
 	if jsonTags[0] != "" {
@@ -1087,7 +1125,7 @@ func (t *Schema) MarshalJSON() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if t.Extras == nil || len(t.Extras) == 0 {
+	if len(t.Extras) == 0 {
 		return b, nil
 	}
 	m, err := json.Marshal(t.Extras)
@@ -1137,14 +1175,4 @@ func splitOnUnescapedCommas(tagString string) []string {
 
 func fullyQualifiedTypeName(t reflect.Type) string {
 	return t.PkgPath() + "." + t.Name()
-}
-
-// AddGoComments will update the reflectors comment map with all the comments
-// found in the provided source directories. See the #ExtractGoComments method
-// for more details.
-func (r *Reflector) AddGoComments(base, path string) error {
-	if r.CommentMap == nil {
-		r.CommentMap = make(map[string]string)
-	}
-	return ExtractGoComments(base, path, r.CommentMap)
 }

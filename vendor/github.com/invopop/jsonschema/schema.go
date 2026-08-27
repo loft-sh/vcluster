@@ -3,7 +3,7 @@ package jsonschema
 import (
 	"encoding/json"
 
-	orderedmap "github.com/wk8/go-ordered-map/v2"
+	orderedmap "github.com/pb33f/ordered-map/v2"
 )
 
 // Version is the JSON Schema version.

@@ -147,16 +147,21 @@ func getReflector() (*jsonschema.Reflector, error) {
 	r.BaseSchemaID = "https://vcluster.com/schemas"
 	r.ExpandedStruct = true
 
-	commentMap := map[string]string{}
-	err := jsonschema.ExtractGoComments("github.com/loft-sh/vcluster", "config", commentMap)
+	// jsonschema v0.14 dropped the package-level ExtractGoComments in favour of
+	// this method, which appends into r.CommentMap. The extraction itself is
+	// unchanged: type comments keep only their synopsis, field comments keep
+	// their full text.
+	err := r.AddGoComments("github.com/loft-sh/vcluster", "config")
 	if err != nil {
 		return nil, err
 	}
 
-	err = jsonschema.ExtractGoComments("./", "vendor/github.com/loft-sh/api/v4/pkg/vclusterconfig", commentMap)
+	err = r.AddGoComments("./", "vendor/github.com/loft-sh/api/v4/pkg/vclusterconfig")
 	if err != nil {
 		return nil, err
 	}
+
+	commentMap := r.CommentMap
 
 	for k, comment := range commentMap {
 		if strings.Contains(comment, "<") || strings.Contains(comment, ">") {

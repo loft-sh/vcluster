@@ -4,6 +4,7 @@
 [![Test Go](https://github.com/invopop/jsonschema/actions/workflows/test.yaml/badge.svg)](https://github.com/invopop/jsonschema/actions/workflows/test.yaml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/invopop/jsonschema)](https://goreportcard.com/report/github.com/invopop/jsonschema)
 [![GoDoc](https://godoc.org/github.com/invopop/jsonschema?status.svg)](https://godoc.org/github.com/invopop/jsonschema)
+[![codecov](https://codecov.io/gh/invopop/jsonschema/graph/badge.svg?token=JMEB8W8GNZ)](https://codecov.io/gh/invopop/jsonschema)
 ![Latest Tag](https://img.shields.io/github/v/tag/invopop/jsonschema)
 
 This package can be used to generate [JSON Schemas](http://json-schema.org/latest/json-schema-validation.html) from Go types through reflection.
@@ -24,7 +25,7 @@ This repository is a fork of the original [jsonschema](https://github.com/alecth
 
 This project is still under v0 scheme, as per Go convention, breaking changes are likely. Please pin go modules to version tags or branches, and reach out if you think something can be improved.
 
-Go version >= 1.18 is required as generics are now being used.
+Go version >= 1.24 is now required. We aim for one below the last supported Go version.
 
 ## Example
 
@@ -36,7 +37,7 @@ type TestUser struct {
   Name          string                 `json:"name" jsonschema:"title=the name,description=The name of a friend,example=joe,example=lucy,default=alex"`
   Friends       []int                  `json:"friends,omitempty" jsonschema_description:"The list of IDs, omitted when empty"`
   Tags          map[string]interface{} `json:"tags,omitempty" jsonschema_extras:"a=b,foo=bar,foo=bar1"`
-  BirthDate     time.Time              `json:"birth_date,omitempty" jsonschema:"oneof_required=date"`
+  BirthDate     time.Time              `json:"birth_date,omitzero" jsonschema:"oneof_required=date"` // omitzero requires Go 1.24+
   YearOfBirth   string                 `json:"year_of_birth,omitempty" jsonschema:"oneof_required=year"`
   Metadata      interface{}            `json:"metadata,omitempty" jsonschema:"oneof_type=string;array"`
   FavColor      string                 `json:"fav_color,omitempty" jsonschema:"enum=red,enum=green,enum=blue"`
@@ -52,10 +53,10 @@ jsonschema.Reflect(&TestUser{})
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/invopop/jsonschema_test/sample-user",
-  "$ref": "#/$defs/SampleUser",
+  "$id": "https://github.com/invopop/jsonschema_test/test-user",
+  "$ref": "#/$defs/TestUser",
   "$defs": {
-    "SampleUser": {
+    "TestUser": {
       "oneOf": [
         {
           "required": ["birth_date"],

@@ -4,11 +4,11 @@
 // All operations are constant-time.
 //
 // Github repo: https://github.com/wk8/go-ordered-map
-//
 package orderedmap
 
 import (
 	"fmt"
+	"iter"
 
 	list "github.com/bahlo/generic-list-go"
 )
@@ -21,13 +21,15 @@ type Pair[K comparable, V any] struct {
 }
 
 type OrderedMap[K comparable, V any] struct {
-	pairs map[K]*Pair[K, V]
-	list  *list.List[*Pair[K, V]]
+	pairs             map[K]*Pair[K, V]
+	list              *list.List[*Pair[K, V]]
+	disableHTMLEscape bool
 }
 
 type initConfig[K comparable, V any] struct {
-	capacity    int
-	initialData []Pair[K, V]
+	capacity          int
+	initialData       []Pair[K, V]
+	disableHTMLEscape bool
 }
 
 type InitOption[K comparable, V any] func(config *initConfig[K, V])
@@ -49,10 +51,17 @@ func WithInitialData[K comparable, V any](initialData ...Pair[K, V]) InitOption[
 	}
 }
 
+// WithDisableHTMLEscape disables HTMl escaping when marshalling to JSON
+func WithDisableHTMLEscape[K comparable, V any]() InitOption[K, V] {
+	return func(c *initConfig[K, V]) {
+		c.disableHTMLEscape = true
+	}
+}
+
 // New creates a new OrderedMap.
 // options can either be one or several InitOption[K, V], or a single integer,
 // which is then interpreted as a capacity hint, à la make(map[K]V, capacity).
-func New[K comparable, V any](options ...any) *OrderedMap[K, V] { //nolint:varnamelen
+func New[K comparable, V any](options ...any) *OrderedMap[K, V] {
 	orderedMap := &OrderedMap[K, V]{}
 
 	var config initConfig[K, V]
@@ -63,6 +72,11 @@ func New[K comparable, V any](options ...any) *OrderedMap[K, V] { //nolint:varna
 				invalidOption()
 			}
 			config.capacity = option
+		case bool:
+			if len(options) != 1 {
+				invalidOption()
+			}
+			config.disableHTMLEscape = option
 
 		case InitOption[K, V]:
 			option(&config)
@@ -72,7 +86,7 @@ func New[K comparable, V any](options ...any) *OrderedMap[K, V] { //nolint:varna
 		}
 	}
 
-	orderedMap.initialize(config.capacity)
+	orderedMap.initialize(config.capacity, config.disableHTMLEscape)
 	orderedMap.AddPairs(config.initialData...)
 
 	return orderedMap
@@ -82,9 +96,10 @@ const invalidOptionMessage = `when using orderedmap.New[K,V]() with options, eit
 
 func invalidOption() { panic(invalidOptionMessage) }
 
-func (om *OrderedMap[K, V]) initialize(capacity int) {
+func (om *OrderedMap[K, V]) initialize(capacity int, disableHTMLEscape bool) {
 	om.pairs = make(map[K]*Pair[K, V], capacity)
 	om.list = list.New[*Pair[K, V]]()
+	om.disableHTMLEscape = disableHTMLEscape
 }
 
 // Get looks for the given key, and returns the value associated with it,
@@ -180,7 +195,7 @@ func (om *OrderedMap[K, V]) Oldest() *Pair[K, V] {
 
 // Newest returns a pointer to the newest pair. It's meant to be used to iterate on the ordered map's
 // pairs from the newest to the oldest, e.g.:
-// for pair := orderedMap.Oldest(); pair != nil; pair = pair.Next() { fmt.Printf("%v => %v\n", pair.Key, pair.Value) }
+// for pair := orderedMap.Newest(); pair != nil; pair = pair.Prev() { fmt.Printf("%v => %v\n", pair.Key, pair.Value) }
 func (om *OrderedMap[K, V]) Newest() *Pair[K, V] {
 	if om == nil || om.list == nil {
 		return nil
@@ -293,4 +308,91 @@ func (om *OrderedMap[K, V]) GetAndMoveToFront(key K) (val V, err error) {
 	}
 
 	return
+}
+
+// FromOldest returns an iterator over all the key-value pairs in the map, starting from the oldest pair.
+func (om *OrderedMap[K, V]) FromOldest() iter.Seq2[K, V] {
+	return func(yield func(K, V) bool) {
+		for pair := om.Oldest(); pair != nil; pair = pair.Next() {
+			if !yield(pair.Key, pair.Value) {
+				return
+			}
+		}
+	}
+}
+
+// FromNewest returns an iterator over all the key-value pairs in the map, starting from the newest pair.
+func (om *OrderedMap[K, V]) FromNewest() iter.Seq2[K, V] {
+	return func(yield func(K, V) bool) {
+		for pair := om.Newest(); pair != nil; pair = pair.Prev() {
+			if !yield(pair.Key, pair.Value) {
+				return
+			}
+		}
+	}
+}
+
+// KeysFromOldest returns an iterator over all the keys in the map, starting from the oldest pair.
+func (om *OrderedMap[K, V]) KeysFromOldest() iter.Seq[K] {
+	return func(yield func(K) bool) {
+		for pair := om.Oldest(); pair != nil; pair = pair.Next() {
+			if !yield(pair.Key) {
+				return
+			}
+		}
+	}
+}
+
+// KeysFromNewest returns an iterator over all the keys in the map, starting from the newest pair.
+func (om *OrderedMap[K, V]) KeysFromNewest() iter.Seq[K] {
+	return func(yield func(K) bool) {
+		for pair := om.Newest(); pair != nil; pair = pair.Prev() {
+			if !yield(pair.Key) {
+				return
+			}
+		}
+	}
+}
+
+// ValuesFromOldest returns an iterator over all the values in the map, starting from the oldest pair.
+func (om *OrderedMap[K, V]) ValuesFromOldest() iter.Seq[V] {
+	return func(yield func(V) bool) {
+		for pair := om.Oldest(); pair != nil; pair = pair.Next() {
+			if !yield(pair.Value) {
+				return
+			}
+		}
+	}
+}
+
+// ValuesFromNewest returns an iterator over all the values in the map, starting from the newest pair.
+func (om *OrderedMap[K, V]) ValuesFromNewest() iter.Seq[V] {
+	return func(yield func(V) bool) {
+		for pair := om.Newest(); pair != nil; pair = pair.Prev() {
+			if !yield(pair.Value) {
+				return
+			}
+		}
+	}
+}
+
+// From creates a new OrderedMap from an iterator over key-value pairs.
+func From[K comparable, V any](i iter.Seq2[K, V]) *OrderedMap[K, V] {
+	oMap := New[K, V]()
+
+	for k, v := range i {
+		oMap.Set(k, v)
+	}
+
+	return oMap
+}
+
+func (om *OrderedMap[K, V]) Filter(predicate func(K, V) bool) {
+	for pair := om.Oldest(); pair != nil; {
+		key, value := pair.Key, pair.Value
+		pair = pair.Next()
+		if !predicate(key, value) {
+			om.Delete(key)
+		}
+	}
 }

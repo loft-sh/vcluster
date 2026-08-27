@@ -6,10 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strconv"
 	"unicode/utf8"
 
 	"github.com/buger/jsonparser"
-	"github.com/mailru/easyjson/jwriter"
 )
 
 var (
@@ -23,87 +23,148 @@ func (om *OrderedMap[K, V]) MarshalJSON() ([]byte, error) { //nolint:funlen
 		return []byte("null"), nil
 	}
 
-	writer := jwriter.Writer{}
-	writer.RawByte('{')
+	buf := &bytes.Buffer{}
+	buf.WriteByte('{')
 
 	for pair, firstIteration := om.Oldest(), true; pair != nil; pair = pair.Next() {
 		if firstIteration {
 			firstIteration = false
 		} else {
-			writer.RawByte(',')
+			buf.WriteByte(',')
 		}
 
+		// Marshal the key
 		switch key := any(pair.Key).(type) {
 		case string:
-			writer.String(key)
+			if err := writeJSONString(buf, key, om.disableHTMLEscape); err != nil {
+				return nil, err
+			}
 		case encoding.TextMarshaler:
-			writer.RawByte('"')
-			writer.Raw(key.MarshalText())
-			writer.RawByte('"')
+			buf.WriteByte('"')
+			text, err := key.MarshalText()
+			if err != nil {
+				return nil, err
+			}
+			buf.Write(text)
+			buf.WriteByte('"')
 		case int:
-			writer.IntStr(key)
+			buf.WriteByte('"')
+			buf.WriteString(strconv.Itoa(key))
+			buf.WriteByte('"')
 		case int8:
-			writer.Int8Str(key)
+			buf.WriteByte('"')
+			buf.WriteString(strconv.FormatInt(int64(key), 10))
+			buf.WriteByte('"')
 		case int16:
-			writer.Int16Str(key)
+			buf.WriteByte('"')
+			buf.WriteString(strconv.FormatInt(int64(key), 10))
+			buf.WriteByte('"')
 		case int32:
-			writer.Int32Str(key)
+			buf.WriteByte('"')
+			buf.WriteString(strconv.FormatInt(int64(key), 10))
+			buf.WriteByte('"')
 		case int64:
-			writer.Int64Str(key)
+			buf.WriteByte('"')
+			buf.WriteString(strconv.FormatInt(key, 10))
+			buf.WriteByte('"')
 		case uint:
-			writer.UintStr(key)
+			buf.WriteByte('"')
+			buf.WriteString(strconv.FormatUint(uint64(key), 10))
+			buf.WriteByte('"')
 		case uint8:
-			writer.Uint8Str(key)
+			buf.WriteByte('"')
+			buf.WriteString(strconv.FormatUint(uint64(key), 10))
+			buf.WriteByte('"')
 		case uint16:
-			writer.Uint16Str(key)
+			buf.WriteByte('"')
+			buf.WriteString(strconv.FormatUint(uint64(key), 10))
+			buf.WriteByte('"')
 		case uint32:
-			writer.Uint32Str(key)
+			buf.WriteByte('"')
+			buf.WriteString(strconv.FormatUint(uint64(key), 10))
+			buf.WriteByte('"')
 		case uint64:
-			writer.Uint64Str(key)
+			buf.WriteByte('"')
+			buf.WriteString(strconv.FormatUint(key, 10))
+			buf.WriteByte('"')
 		default:
-
 			// this switch takes care of wrapper types around primitive types, such as
 			// type myType string
 			switch keyValue := reflect.ValueOf(key); keyValue.Type().Kind() {
 			case reflect.String:
-				writer.String(keyValue.String())
+				if err := writeJSONString(buf, keyValue.String(), om.disableHTMLEscape); err != nil {
+					return nil, err
+				}
 			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-				writer.Int64Str(keyValue.Int())
+				buf.WriteByte('"')
+				buf.WriteString(strconv.FormatInt(keyValue.Int(), 10))
+				buf.WriteByte('"')
 			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-				writer.Uint64Str(keyValue.Uint())
+				buf.WriteByte('"')
+				buf.WriteString(strconv.FormatUint(keyValue.Uint(), 10))
+				buf.WriteByte('"')
 			default:
 				return nil, fmt.Errorf("unsupported key type: %T", key)
 			}
 		}
 
-		writer.RawByte(':')
-		// the error is checked at the end of the function
-		writer.Raw(json.Marshal(pair.Value)) //nolint:errchkjson
+		buf.WriteByte(':')
+
+		// Marshal the value
+		valueBytes, err := jsonMarshal(pair.Value, om.disableHTMLEscape)
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(valueBytes)
 	}
 
-	writer.RawByte('}')
-
-	return dumpWriter(&writer)
+	buf.WriteByte('}')
+	return buf.Bytes(), nil
 }
 
-func dumpWriter(writer *jwriter.Writer) ([]byte, error) {
-	if writer.Error != nil {
-		return nil, writer.Error
+// writeJSONString writes a JSON-encoded string to the buffer.
+// It handles proper escaping according to JSON specification.
+func writeJSONString(buf *bytes.Buffer, str string, disableHTMLEscape bool) error {
+	// Use json.Marshal for proper escaping
+	var encoded []byte
+	var err error
+	if disableHTMLEscape {
+		// Create a temporary buffer and encoder to handle HTML escaping
+		tempBuf := &bytes.Buffer{}
+		encoder := json.NewEncoder(tempBuf)
+		encoder.SetEscapeHTML(false)
+		err = encoder.Encode(str)
+		if err != nil {
+			return err
+		}
+		// Remove the trailing newline that Encode adds
+		encoded = bytes.TrimRight(tempBuf.Bytes(), "\n")
+	} else {
+		encoded, err = json.Marshal(str)
+		if err != nil {
+			return err
+		}
 	}
+	buf.Write(encoded)
+	return nil
+}
 
-	var buf bytes.Buffer
-	buf.Grow(writer.Size())
-	if _, err := writer.DumpTo(&buf); err != nil {
-		return nil, err
+func jsonMarshal(value interface{}, disableHTMLEscape bool) ([]byte, error) {
+	if disableHTMLEscape {
+		buffer := &bytes.Buffer{}
+		encoder := json.NewEncoder(buffer)
+		encoder.SetEscapeHTML(false)
+		err := encoder.Encode(value)
+		// Encode() adds an extra newline, strip it off to guarantee same behavior as json.Marshal
+		return bytes.TrimRight(buffer.Bytes(), "\n"), err
 	}
-
-	return buf.Bytes(), nil
+	return json.Marshal(value)
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
 func (om *OrderedMap[K, V]) UnmarshalJSON(data []byte) error {
 	if om.list == nil {
-		om.initialize(0)
+		om.initialize(0, om.disableHTMLEscape)
 	}
 
 	return jsonparser.ObjectEach(

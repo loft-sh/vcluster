@@ -1,7 +1,7 @@
 run:
   tests: false
 
-linters: 
+linters:
   disable-all: true
   enable:
     - asciicheck
@@ -10,19 +10,20 @@ linters:
     - containedctx
     - contextcheck
     - decorder
-    - depguard
+    # Disabling depguard as there is no guarded list of imports
+    # - depguard
     - dogsled
     - dupl
     - durationcheck
     - errcheck
     - errchkjson
-    # FIXME: commented out as it crashes with 1.18 for now
-    # - errname
+    - errname
     - errorlint
     - exportloopref
     - forbidigo
     - funlen
-    - gci
+    # Don't need gci and goimports
+    # - gci
     - gochecknoglobals
     - gochecknoinits
     - gocognit
@@ -34,7 +35,7 @@ linters:
     - gofumpt
     - goheader
     - goimports
-    - gomnd
+    - mnd
     - gomoddirectives
     - gomodguard
     - goprintffuncname
@@ -42,7 +43,6 @@ linters:
     - gosimple
     - govet
     - grouper
-    - ifshort
     - importas
     - ineffassign
     - lll
@@ -58,23 +58,21 @@ linters:
     - prealloc
     - predeclared
     - promlinter
-    # FIXME: doesn't support 1.18 yet
-    # - revive
+    - revive
     - rowserrcheck
     - sqlclosecheck
     - staticcheck
-    - structcheck
     - stylecheck
     - tagliatelle
     - tenv
     - testpackage
     - thelper
     - tparallel
-    - typecheck
+    # FIXME: doesn't support 1.23 yet
+    # - typecheck
     - unconvert
     - unparam
     - unused
-    - varcheck
     - varnamelen
     - wastedassign
     - whitespace

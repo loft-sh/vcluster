@@ -1,7 +1,12 @@
-[![Go Reference](https://pkg.go.dev/badge/github.com/wk8/go-ordered-map/v2.svg)](https://pkg.go.dev/github.com/wk8/go-ordered-map/v2)
-[![Build Status](https://circleci.com/gh/wk8/go-ordered-map.svg?style=svg)](https://app.circleci.com/pipelines/github/wk8/go-ordered-map)
+# Ordered Maps
 
-# Golang Ordered Maps
+This repo was forked from [wk8/go-ordered-map](https://github.com/wk8/go-ordered-map) because of this: https://github.com/pb33f/libopenapi/issues/446
+
+The [easyjson](https://github.com/mailru/easyjson) library which the wk8/go-ordered-map project depends on is now considered a **security risk** to pb33f.
+
+So we forked it and removed the dependency on easyjson.
+
+---
 
 Same as regular maps, but also remembers the order in which keys were inserted, akin to [Python's `collections.OrderedDict`s](https://docs.python.org/3.7/library/collections.html#ordereddict-objects).
 
@@ -15,18 +20,20 @@ It offers the following features:
 
 ## Documentation
 
-[The full documentation is available on pkg.go.dev](https://pkg.go.dev/github.com/wk8/go-ordered-map/v2).
+[The full documentation is available on pkg.go.dev](https://pkg.go.dev/github.com/pb33f/ordered-map).
 
 ## Installation
 ```bash
-go get -u github.com/wk8/go-ordered-map/v2
+go get -u github.com/pb33f/ordered-map
 ```
 
 Or use your favorite golang vendoring tool!
 
 ## Supported go versions
 
-Go >= 1.18 is required to use version >= 2 of this library, as it uses generics.
+Go >= 1.23 is required to use version >= 2.2.0 of this library, as it uses generics and iterators.
+
+if you're running go < 1.23, you can use [version 2.1.8](https://github.com/wk8/go-ordered-map/tree/v2.1.8) instead.
 
 If you're running go < 1.18, you can use [version 1](https://github.com/wk8/go-ordered-map/tree/v1) instead.
 
@@ -37,8 +44,9 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
-	"github.com/wk8/go-ordered-map/v2"
+	"github.com/pb33f/ordered-map"
 )
 
 func main() {
@@ -70,6 +78,16 @@ func main() {
 	} // prints:
 	// coucou => toi
 	// bar => baz
+	
+	// removing all pairs which do not have an "o" in their key
+	om.Filter(func(key, value string) bool { return strings.Contains(key, "o") })
+	
+	// new iteration syntax
+	for key, value := range om.FromOldest() {
+		fmt.Printf("%s => %s\n", key, value)
+	}// prints:
+	// foo => bar
+	// coucou => toi
 }
 ```
 
@@ -143,6 +161,57 @@ data, err := yaml.Marshal(om)
 om := orderedmap.New[string, string]() // or orderedmap.New[int, any](), or any type you expect
 err := yaml.Unmarshal(data, &om)
 ...
+```
+
+## Iterator support (go >= 1.23)
+
+The `FromOldest`, `FromNewest`, `KeysFromOldest`, `KeysFromNewest`, `ValuesFromOldest` and `ValuesFromNewest` methods return iterators over the map's pairs, starting from the oldest or newest pair, respectively.
+
+For example:
+
+```go
+om := orderedmap.New[int, string]()
+om.Set(1, "foo")
+om.Set(2, "bar")
+om.Set(3, "baz")
+
+for k, v := range om.FromOldest() {
+	fmt.Printf("%d => %s\n", k, v)
+}
+
+// prints:
+// 1 => foo
+// 2 => bar
+// 3 => baz
+
+for k := range om.KeysNewest() {
+	fmt.Printf("%d\n", k)
+}
+
+// prints:
+// 3
+// 2
+// 1
+```
+
+`From` is a convenience function that creates a new `OrderedMap` from an iterator over key-value pairs.
+
+```go
+om := orderedmap.New[int, string]()
+om.Set(1, "foo")
+om.Set(2, "bar")
+om.Set(3, "baz")
+
+om2 := orderedmap.From(om.FromOldest())
+
+for k, v := range om2.FromOldest() {
+	fmt.Printf("%d => %s\n", k, v)
+}
+
+// prints:
+// 1 => foo
+// 2 => bar
+// 3 => baz
 ```
 
 ## Alternatives
