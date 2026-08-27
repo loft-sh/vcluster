@@ -1079,6 +1079,134 @@ tests:
           path: spec.template.spec.initContainers[1].command[2]
           value: echo 'init-container'
 
+  - it: should render a native sidecar via initContainers with restartPolicy Always
+    set:
+      logging:
+        file:
+          enabled: true
+      controlPlane:
+        statefulSet:
+          initContainers:
+            - name: log-collector
+              image: log-collector
+              restartPolicy: Always
+              volumeMounts:
+                - name: vcluster-logs
+                  mountPath: /var/log/vcluster
+                  readOnly: true
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[1].name
+          value: log-collector
+      - equal:
+          path: spec.template.spec.initContainers[1].restartPolicy
+          value: Always
+      - contains:
+          path: spec.template.spec.initContainers[1].volumeMounts
+          content:
+            name: vcluster-logs
+            mountPath: /var/log/vcluster
+            readOnly: true
+
+  - it: should reject a user-defined vcluster-logs volumeMount when file logging is enabled
+    set:
+      logging:
+        file:
+          enabled: true
+      controlPlane:
+        statefulSet:
+          persistence:
+            addVolumeMounts:
+              - name: vcluster-logs
+                mountPath: /somewhere-else
+    asserts:
+      - failedTemplate:
+          errorMessage: "controlPlane.statefulSet.persistence.addVolumeMounts must not define vcluster-logs when logging.file.enabled is true; the chart reserves this volume"
+
+  - it: should allow a user-defined vcluster-logs volumeMount when file logging is disabled
+    set:
+      controlPlane:
+        statefulSet:
+          persistence:
+            addVolumeMounts:
+              - name: vcluster-logs
+                mountPath: /somewhere-else
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: vcluster-logs
+            mountPath: /somewhere-else
+
+  - it: should reject controlPlane.statefulSet.env setting LOFT_LOG_FILE when file logging is enabled
+    set:
+      logging:
+        file:
+          enabled: true
+      controlPlane:
+        statefulSet:
+          env:
+            - name: LOFT_LOG_FILE
+              value: /tmp/x.log
+    asserts:
+      - failedTemplate:
+          errorMessage: "controlPlane.statefulSet.env must not set LOFT_LOG_FILE; the log file path is fixed and controlled by logging.file.enabled"
+
+  - it: should reject controlPlane.statefulSet.env setting LOFT_LOG_FILE when file logging is disabled
+    set:
+      controlPlane:
+        statefulSet:
+          env:
+            - name: LOFT_LOG_FILE
+              value: /tmp/x.log
+    asserts:
+      - failedTemplate:
+          errorMessage: "controlPlane.statefulSet.env must not set LOFT_LOG_FILE; the log file path is fixed and controlled by logging.file.enabled"
+
+  - it: should reject a sidecar container using the reserved syncer name
+    set:
+      controlPlane:
+        statefulSet:
+          sidecarContainers:
+            - name: syncer
+              image: log-collector
+    asserts:
+      - failedTemplate:
+          errorMessage: 'controlPlane.statefulSet.sidecarContainers must not use the reserved name "syncer"'
+
+  - it: should reject a sidecar container using the reserved kubernetes name
+    set:
+      controlPlane:
+        statefulSet:
+          sidecarContainers:
+            - name: kubernetes
+              image: log-collector
+    asserts:
+      - failedTemplate:
+          errorMessage: 'controlPlane.statefulSet.sidecarContainers must not use the reserved name "kubernetes"'
+
+  - it: should reject an init container using the reserved syncer name
+    set:
+      controlPlane:
+        statefulSet:
+          initContainers:
+            - name: syncer
+              image: log-collector
+    asserts:
+      - failedTemplate:
+          errorMessage: 'controlPlane.statefulSet.initContainers must not use the reserved name "syncer"'
+
+  - it: should reject an init container using the reserved kubernetes name
+    set:
+      controlPlane:
+        statefulSet:
+          initContainers:
+            - name: kubernetes
+              image: log-collector
+    asserts:
+      - failedTemplate:
+          errorMessage: 'controlPlane.statefulSet.initContainers must not use the reserved name "kubernetes"'
+
   - it: should add sidecar containers
     set:
       controlPlane:

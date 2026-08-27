@@ -29,6 +29,26 @@
 {{- fail "controlPlane.statefulSet.persistence.addVolumes must not define vcluster-logs when logging.file.enabled is true; the chart reserves this volume" }}
 {{- end }}
 {{- end }}
+{{- range .Values.controlPlane.statefulSet.persistence.addVolumeMounts }}
+{{- if eq (default "" .name) "vcluster-logs" }}
+{{- fail "controlPlane.statefulSet.persistence.addVolumeMounts must not define vcluster-logs when logging.file.enabled is true; the chart reserves this volume" }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- range .Values.controlPlane.statefulSet.env }}
+{{- if eq (default "" .name) "LOFT_LOG_FILE" }}
+{{- fail "controlPlane.statefulSet.env must not set LOFT_LOG_FILE; the log file path is fixed and controlled by logging.file.enabled" }}
+{{- end }}
+{{- end }}
+{{- range .Values.controlPlane.statefulSet.sidecarContainers }}
+{{- if or (eq (default "" .name) "syncer") (eq (default "" .name) "kubernetes") }}
+{{- fail (printf "controlPlane.statefulSet.sidecarContainers must not use the reserved name %q" .name) }}
+{{- end }}
+{{- end }}
+{{- range .Values.controlPlane.statefulSet.initContainers }}
+{{- if or (eq (default "" .name) "syncer") (eq (default "" .name) "kubernetes") }}
+{{- fail (printf "controlPlane.statefulSet.initContainers must not use the reserved name %q" .name) }}
+{{- end }}
 {{- end }}
 {{- end }}
 

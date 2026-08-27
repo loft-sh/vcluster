@@ -3,10 +3,27 @@ package v2
 import (
 	"testing"
 
+	"github.com/go-logr/zapr"
+	"github.com/loft-sh/vcluster/pkg/util/logtest"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 )
+
+func TestPluginLoggerWritesJSONFile(t *testing.T) {
+	logger, path := logtest.NewFileJSONLogger(t)
+	underlier, ok := logger.GetSink().(zapr.Underlier)
+	if !ok {
+		t.Fatalf("expected a zapr sink, got %T", logger.GetSink())
+	}
+
+	newPluginLogger(underlier.GetUnderlying()).With("pluginPath", "/plugins/file-logging").Warn("plugin-file-logging-marker")
+
+	record := logtest.ReadJSONRecord(t, path)
+	if record["logger"] != "plugin" || record["msg"] != "plugin-file-logging-marker" {
+		t.Fatalf("unexpected file record: %#v", record)
+	}
+}
 
 func TestPluginLoggerForwardsToZap(t *testing.T) {
 	core, observed := observer.New(zapcore.DebugLevel)
