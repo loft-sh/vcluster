@@ -36,7 +36,7 @@ Every cluster becomes a product you can ship. Sell it to customers or serve it t
 
 Because a Tenant Cluster is upstream Kubernetes, everything built for the standard API works against it unmodified: `kubectl`, Helm, Argo, Crossplane, operators, and CRDs.
 
-**40M+ Tenant Clusters deployed.** vCluster runs in production at Adobe, CoreWeave, NVIDIA, Nebius, Nscale, Lintasarta, Atlan, Deloitte, and across 50+ AI clouds and Fortune 500 platform organizations, powering 100K+ GPUs and 1M+ CPUs.
+**40M+ Tenant Clusters deployed.** vCluster runs in production at Adobe, CoreWeave, NVIDIA, Nebius, Lintasarta, Atlan, Deloitte, and across 50+ AI clouds and Fortune 500 platform organizations, powering 100K+ GPUs and 1M+ CPUs.
 
 <div align="center">
 
@@ -290,17 +290,17 @@ Together they provide the full stack for an AI factory: certified Kubernetes, is
 <tr>
 <td align="center"><a href="https://www.vcluster.com/case-studies/boost-run"><strong>Boost-Run</strong></a><br/>&lt;45 days to production launch</td>
 <td align="center"><a href="https://www.vcluster.com/case-studies/lintasarta"><strong>Lintasarta</strong></a><br/>170+ Tenant Clusters in production</td>
-<td align="center"><a href="https://www.vcluster.com/case-studies/nscale"><strong>Nscale</strong></a><br/>Kubernetes platforms on bare metal</td>
+<td align="center"><a href="https://www.vcluster.com/case-studies/coreweave"><strong>CoreWeave</strong></a><br/>GPU cloud at scale</td>
 </tr>
 <tr>
-<td align="center"><a href="https://www.vcluster.com/case-studies/coreweave"><strong>CoreWeave</strong></a><br/>GPU cloud at scale</td>
 <td align="center"><a href="https://www.vcluster.com/case-studies/atlan"><strong>Atlan</strong></a><br/>100 → 1 clusters</td>
 <td align="center"><a href="https://www.vcluster.com/case-studies/fortune-500-insurance-company"><strong>Fortune 500 Insurance</strong></a><br/>70% reduction in Kubernetes cost</td>
+<td align="center"><a href="https://www.vcluster.com/case-studies/deloitte"><strong>Deloitte</strong></a><br/>Enterprise Kubernetes platform</td>
 </tr>
 <tr>
-<td align="center"><a href="https://www.vcluster.com/case-studies/deloitte"><strong>Deloitte</strong></a><br/>Enterprise Kubernetes platform</td>
 <td align="center"><a href="https://www.vcluster.com/case-studies/aussie-broadband"><strong>Aussie Broadband</strong></a><br/>99% faster provisioning</td>
 <td align="center"><a href="https://www.vcluster.com/case-studies/ada-cx"><strong>Ada</strong></a><br/>10x developer productivity</td>
+<td align="center"><a href="https://www.vcluster.com/case-studies/scanmetrix"><strong>Scanmetrix</strong></a><br/>99% faster deployments</td>
 </tr>
 </table>
 
