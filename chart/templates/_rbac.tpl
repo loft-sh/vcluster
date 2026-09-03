@@ -25,6 +25,8 @@
     .Values.sync.toHost.resourceClaims.enabled
     .Values.sync.toHost.resourceClaimTemplates.enabled
     .Values.sync.fromHost.priorityClasses.enabled
+    .Values.sync.toHost.volumeSnapshotContents.enabled
+    .Values.sync.fromHost.volumeSnapshotClasses.enabled
     .Values.sync.fromHost.deviceClasses.enabled
     .Values.controlPlane.distro.k8s.scheduler.enabled
     .Values.controlPlane.advanced.virtualScheduler.enabled
@@ -46,6 +48,7 @@
     .Values.sync.fromHost.secrets.enabled
     .Values.integrations.istio.enabled
     .Values.sync.toHost.namespaces.enabled
+    (include "vcluster.enableVolumeSnapshotRules" .)
     .Values.sync.fromHost.gatewayClasses.enabled
     .Values.sync.fromHost.gateways.enabled
     .Values.sync.toHost.gatewayApi.enabled
@@ -55,6 +58,19 @@
     .Values.sync.toHost.gatewayApi.backendTLSPolicies.enabled
     (dig "kubeOvn" "enabled" false (.Values.controlPlane.advanced.cloudControllerManager | default dict))
      -}}
+{{- true -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+  Whether to add all rules required for volume snapshots or not
+*/}}
+{{- define "vcluster.enableVolumeSnapshotRules" -}}
+{{- if eq (toString .Values.rbac.enableVolumeSnapshotRules.enabled) "true" -}}
+{{- true -}}
+{{- else if eq (toString .Values.rbac.enableVolumeSnapshotRules.enabled) "auto" -}}
+{{- if not .Values.privateNodes.enabled -}}
 {{- true -}}
 {{- end -}}
 {{- end -}}

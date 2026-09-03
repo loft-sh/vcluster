@@ -53,29 +53,18 @@
 {{- end }}
 
 {{/*
-  Fail the install/upgrade if any volume-snapshot value is set.
-  These were removed in 0.36.0. The config fields are retained as no-ops so
-  existing configs still parse, but the chart rejects them so users notice.
+  Fail the install/upgrade if deploy.volumeSnapshotController is set. That option
+  deployed a snapshot-controller inside the virtual cluster and was removed in
+  0.36.0. The config field is retained as a no-op so existing configs still
+  parse, but the chart rejects it so users notice.
+
+  The sync.toHost.volumeSnapshots, sync.toHost.volumeSnapshotContents,
+  sync.fromHost.volumeSnapshotClasses and rbac.enableVolumeSnapshotRules options
+  are supported again and are deliberately not rejected here.
 */}}
 {{- define "vcluster.legacy.volumeSnapshots.validate" }}
-{{- $sync := .Values.sync | default dict }}
-{{- $syncToHost := $sync.toHost | default dict }}
-{{- $syncFromHost := $sync.fromHost | default dict }}
 {{- $deploy := .Values.deploy | default dict }}
-{{- $rbac := .Values.rbac | default dict }}
-{{- if hasKey $syncToHost "volumeSnapshots" }}
-{{- fail "sync.toHost.volumeSnapshots was removed in 0.36.0 and is no longer supported. Please remove it from your values." }}
-{{- end }}
-{{- if hasKey $syncToHost "volumeSnapshotContents" }}
-{{- fail "sync.toHost.volumeSnapshotContents was removed in 0.36.0 and is no longer supported. Please remove it from your values." }}
-{{- end }}
-{{- if hasKey $syncFromHost "volumeSnapshotClasses" }}
-{{- fail "sync.fromHost.volumeSnapshotClasses was removed in 0.36.0 and is no longer supported. Please remove it from your values." }}
-{{- end }}
 {{- if hasKey $deploy "volumeSnapshotController" }}
 {{- fail "deploy.volumeSnapshotController was removed in 0.36.0 and is no longer supported. Please remove it from your values." }}
-{{- end }}
-{{- if hasKey $rbac "enableVolumeSnapshotRules" }}
-{{- fail "rbac.enableVolumeSnapshotRules was removed in 0.36.0 and is no longer supported. Please remove it from your values." }}
 {{- end }}
 {{- end }}
