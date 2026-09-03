@@ -63,8 +63,6 @@
 {{- end -}}
 
 {{/*
-<<<<<<< ours
-=======
   Whether to add all rules required for volume snapshots or not
 */}}
 {{- define "vcluster.enableVolumeSnapshotRules" -}}
@@ -99,7 +97,6 @@
 {{- end -}}
 
 {{/*
->>>>>>> theirs
   Role rules defined on global level
 */}}
 {{- define "vcluster.rbac.roleExtraRules" -}}

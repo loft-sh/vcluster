@@ -1,9 +1,4 @@
 {{/*
-<<<<<<< ours
-  Fail the install/upgrade if any volume-snapshot value is set.
-  These were removed in 0.36.0. The config fields are retained as no-ops so
-  existing configs still parse, but the chart rejects them so users notice.
-=======
   Fail the install/upgrade if the kubevirt CSI driver is enabled without private nodes. The control plane provisions
   the volumes within its own namespace and hot plugs them into the virtual machines that back the nodes, which only
   exists in private nodes mode. The storage class of the driver also cannot be the default storage class next to the
@@ -66,18 +61,10 @@
   The sync.toHost.volumeSnapshots, sync.toHost.volumeSnapshotContents,
   sync.fromHost.volumeSnapshotClasses and rbac.enableVolumeSnapshotRules options
   are supported again and are deliberately not rejected here.
->>>>>>> theirs
 */}}
 {{- define "vcluster.legacy.volumeSnapshots.validate" }}
 {{- $deploy := .Values.deploy | default dict }}
 {{- if hasKey $deploy "volumeSnapshotController" }}
 {{- fail "deploy.volumeSnapshotController was removed in 0.36.0 and is no longer supported. Please remove it from your values." }}
 {{- end }}
-<<<<<<< ours
-{{- if hasKey $rbac "enableVolumeSnapshotRules" }}
-{{- fail "rbac.enableVolumeSnapshotRules was removed in 0.36.0 and is no longer supported. Please remove it from your values." }}
 {{- end }}
-{{- end }}
-=======
-{{- end }}
->>>>>>> theirs
