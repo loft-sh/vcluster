@@ -35,6 +35,7 @@ var (
 	CoreDNS         = Label("coredns")
 	Webhooks        = Label("webhooks")
 	Snapshots       = Label("snapshots")
+	VolumeSnapshots = Label("volumesnapshots")
 
 	// Suite-primary labels (one per opt-in suite).
 	Scheduler        = Label("scheduler")
