@@ -4224,7 +4224,7 @@
         },
         "enableVolumeSnapshotRules": {
           "$ref": "#/$defs/EnableAutoSwitch",
-          "description": "EnableVolumeSnapshotRules enables all required volume snapshot rules in the Role and\nClusterRole.\nDeprecated: Removed in 0.36.0. Setting this value is rejected by the Helm chart; remove it from your config."
+          "description": "EnableVolumeSnapshotRules enables all required volume snapshot rules in the Role and\nClusterRole."
         }
       },
       "additionalProperties": false,
@@ -5115,7 +5115,7 @@
         },
         "volumeSnapshotClasses": {
           "$ref": "#/$defs/EnableSwitchWithPatches",
-          "description": "VolumeSnapshotClasses defines if volume snapshot classes created within the virtual cluster should get synced to the host cluster.\nDeprecated: Removed in 0.36.0. Setting this value is rejected by the Helm chart; remove it from your config."
+          "description": "VolumeSnapshotClasses defines if volume snapshot classes created within the virtual cluster should get synced to the host cluster."
         },
         "configMaps": {
           "$ref": "#/$defs/EnableSwitchWithResourcesMappings",
@@ -5335,11 +5335,11 @@
         },
         "volumeSnapshots": {
           "$ref": "#/$defs/EnableSwitchWithPatches",
-          "description": "VolumeSnapshots defines if volume snapshots created within the virtual cluster should get synced to the host cluster.\nDeprecated: Removed in 0.36.0. Setting this value is rejected by the Helm chart; remove it from your config."
+          "description": "VolumeSnapshots defines if volume snapshots created within the virtual cluster should get synced to the host cluster."
         },
         "volumeSnapshotContents": {
           "$ref": "#/$defs/EnableSwitchWithPatches",
-          "description": "VolumeSnapshotContents defines if volume snapshot contents created within the virtual cluster should get synced to the host cluster.\nDeprecated: Removed in 0.36.0. Setting this value is rejected by the Helm chart; remove it from your config."
+          "description": "VolumeSnapshotContents defines if volume snapshot contents created within the virtual cluster should get synced to the host cluster."
         },
         "storageClasses": {
           "$ref": "#/$defs/EnableSwitchWithPatches",

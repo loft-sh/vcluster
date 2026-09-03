@@ -20,6 +20,8 @@ func (s *persistentVolumeClaimSyncer) translate(ctx *synccontext.SyncContext, vP
 	if vPvc.Annotations[constants.SkipTranslationAnnotation] != "true" {
 		if pPVC.Spec.DataSource != nil {
 			switch pPVC.Spec.DataSource.Kind {
+			case "VolumeSnapshot":
+				pPVC.Spec.DataSource.Name = mappings.VirtualToHostName(ctx, pPVC.Spec.DataSource.Name, vPvc.Namespace, mappings.VolumeSnapshots())
 			case "PersistentVolumeClaim":
 				pPVC.Spec.DataSource.Name = mappings.VirtualToHostName(ctx, pPVC.Spec.DataSource.Name, vPvc.Namespace, mappings.PersistentVolumeClaims())
 			}
@@ -32,6 +34,8 @@ func (s *persistentVolumeClaimSyncer) translate(ctx *synccontext.SyncContext, vP
 			}
 
 			switch pPVC.Spec.DataSourceRef.Kind {
+			case "VolumeSnapshot":
+				pPVC.Spec.DataSourceRef.Name = mappings.VirtualToHostName(ctx, pPVC.Spec.DataSourceRef.Name, namespace, mappings.VolumeSnapshots())
 			case "PersistentVolumeClaim":
 				pPVC.Spec.DataSourceRef.Name = mappings.VirtualToHostName(ctx, pPVC.Spec.DataSourceRef.Name, namespace, mappings.PersistentVolumeClaims())
 			}

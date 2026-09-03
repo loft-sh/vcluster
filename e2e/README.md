@@ -12,6 +12,7 @@ e2e/
 ├── suite_servicesync_test.go             # Suite: service-sync-vcluster
 ├── suite_kubeletproxy_test.go            # Suite: kubelet-proxy-vcluster
 ├── suite_snapshot_test.go                # Suite: snapshot-vcluster
+├── suite_volumesnapshot_test.go          # Suite: volumesnapshot-vcluster
 ├── suite_ha_certs_test.go                # Suite: certs-vcluster (Ordered)
 ├── suite_cert_rotation_test.go           # Suite: short-certs-vcluster (Ordered)
 ├── suite_ha_cert_rotation_test.go        # Suite: ha-short-certs-vcluster
@@ -50,7 +51,7 @@ e2e/
 ├── test_integration/              # Plugin, metrics-proxy integration tests
 ├── test_modes/                    # scheduler, nodesync mode tests
 ├── test_security/                 # Webhook, rootless, isolation, certs, kubeletproxy tests
-├── test_storage/                  # Snapshot tests
+├── test_storage/                  # Snapshot and volume snapshot sync tests
 ├── labels/                        # Ginkgo label constants
 ├── constants/                     # Shared constants (timeouts, cluster name, image)
 └── init/                          # Framework initialization
@@ -128,6 +129,7 @@ Each suite file maps to one vCluster. One file, one vCluster, one function.
 | `suite_servicesync_test.go` | `service-sync-vcluster` | yes |
 | `suite_kubeletproxy_test.go` | `kubelet-proxy-vcluster` | yes |
 | `suite_snapshot_test.go` | `snapshot-vcluster` | no |
+| `suite_volumesnapshot_test.go` | `volumesnapshot-vcluster` | no |
 | `suite_ha_certs_test.go` | `certs-vcluster` | no |
 | `suite_cert_rotation_test.go` | `short-certs-vcluster` | no |
 | `suite_ha_cert_rotation_test.go` | `ha-short-certs-vcluster` | no |
@@ -168,6 +170,7 @@ Labels are defined in `labels/labels.go`. `labels.PR` goes on suites that should
 | `rootless` | `rootless-vcluster` |
 | `scheduler` | `scheduler-vcluster` |
 | `snapshots` | `snapshot-vcluster` |
+| `volumesnapshots` | `volumesnapshot-vcluster` |
 | `vind` | `test_vind` |
 
 **Feature-area labels (spec level, for cross-suite filters):**
@@ -242,6 +245,7 @@ just run-e2e 'scheduler-vcluster'
 just run-e2e 'pods'
 just run-e2e 'coredns'
 just run-e2e 'snapshots'
+just run-e2e 'volumesnapshots'
 just run-e2e 'security'
 
 # Combine:
