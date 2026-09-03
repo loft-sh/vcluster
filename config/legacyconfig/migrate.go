@@ -540,6 +540,12 @@ func convertBaseValues(oldConfig BaseHelm, newConfig *config.Config) error {
 	if oldConfig.Sync.Networkpolicies.Enabled != nil {
 		newConfig.Sync.ToHost.NetworkPolicies.Enabled = *oldConfig.Sync.Networkpolicies.Enabled
 	}
+	if oldConfig.Sync.Volumesnapshots.Enabled != nil {
+		// the legacy volumesnapshots syncer covered both volume snapshots and their
+		// contents, and the two are now validated as a pair, so migrate them together
+		newConfig.Sync.ToHost.VolumeSnapshots.Enabled = *oldConfig.Sync.Volumesnapshots.Enabled
+		newConfig.Sync.ToHost.VolumeSnapshotContents.Enabled = *oldConfig.Sync.Volumesnapshots.Enabled
+	}
 	if oldConfig.Sync.Poddisruptionbudgets.Enabled != nil {
 		newConfig.Sync.ToHost.PodDisruptionBudgets.Enabled = *oldConfig.Sync.Poddisruptionbudgets.Enabled
 	}

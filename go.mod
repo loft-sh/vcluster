@@ -20,6 +20,7 @@ require (
 	github.com/hashicorp/go-plugin v1.8.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/invopop/jsonschema v0.14.0
+	github.com/kubernetes-csi/external-snapshotter/client/v8 v8.2.0
 	github.com/loft-sh/admin-apis v0.0.0-20260721223200-58c89e54604e
 	github.com/loft-sh/agentapi/v4 v4.12.0-rc.3
 	github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e
