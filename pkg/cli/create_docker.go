@@ -525,7 +525,7 @@ func ensureVClusterJoinToken(globalFlags *flags.GlobalFlags, vClusterName string
 }
 
 func canMountPrivilegedPort(ctx context.Context, log log.Logger) bool {
-	args := []string{"run", "-q", "--rm", "-p", "127.0.0.1:879:80", "alpine", "echo", "1"}
+	args := []string{"run", "--platform", "linux/" + runtime.GOARCH, "-q", "--rm", "-p", "127.0.0.1:879:80", "alpine", "echo", "1"}
 	log.Debugf("Running command: docker %s", strings.Join(args, " "))
 	out, err := exec.CommandContext(ctx, "docker", args...).CombinedOutput()
 	if err != nil {
@@ -1110,9 +1110,13 @@ func getHostDNSServer(ctx context.Context, log log.Logger) (string, error) {
     `
 
 	// We use "sh -c" to run the complex command string.
-	out, err := exec.CommandContext(ctx, "docker", "run", "-q", "--rm", "alpine", "sh", "-c", cmd).Output()
+	out, err := exec.CommandContext(ctx, "docker", "run", "--platform", "linux/"+runtime.GOARCH, "-q", "--rm", "alpine", "sh", "-c", cmd).Output()
 	if err != nil {
-		return "", fmt.Errorf("failed to get real dns name: %s: %w", string(out), err)
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return "", fmt.Errorf("failed to get real dns name: %s: %w", string(exitErr.Stderr), err)
+		}
+		return "", fmt.Errorf("failed to get real dns name: %w", err)
 	}
 
 	result := strings.TrimSpace(string(out))
@@ -1124,15 +1128,34 @@ func getHostDNSServer(ctx context.Context, log log.Logger) (string, error) {
 	return result, nil
 }
 
+func extractContainerID(out string) string {
+	lines := strings.Split(out, "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := strings.TrimSpace(lines[i])
+		if line == "" || strings.HasPrefix(line, "WARNING:") || strings.HasPrefix(line, "Unable to find image") {
+			continue
+		}
+		return line
+	}
+	return strings.TrimSpace(out)
+}
+
 func isDockerNetworkReachable(ctx context.Context, networkName string) (bool, error) {
 	// 1. Start a container listening on port 8080.
 	// We use 'nc -l -p 8080' instead of 'tail -f' so we have a target to connect to.
-	out, err := exec.CommandContext(ctx, "docker", "run", "-q", "-d", "--rm", "--network", networkName, "alpine", "nc", "-l", "-p", "8080").CombinedOutput()
+	out, err := exec.CommandContext(ctx, "docker", "run", "--platform", "linux/"+runtime.GOARCH, "-q", "-d", "--rm", "--network", networkName, "alpine", "nc", "-l", "-p", "8080").Output()
 	if err != nil {
-		return false, fmt.Errorf("failed to start test network container: %s: %w", string(out), err)
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return false, fmt.Errorf("failed to start test network container: %s: %w", string(exitErr.Stderr), err)
+		}
+		return false, fmt.Errorf("failed to start test network container: %w", err)
 	}
 
-	containerID := strings.TrimSpace(string(out))
+	containerID := extractContainerID(string(out))
+	if containerID == "" {
+		return false, fmt.Errorf("failed to start test network container: empty container ID returned")
+	}
 
 	// 2. Ensure cleanup: Kill the container when function exits.
 	// We use a background context here because if 'ctx' is cancelled,
@@ -1144,9 +1167,13 @@ func isDockerNetworkReachable(ctx context.Context, networkName string) (bool, er
 	// 3. Inspect the container to get its IP address.
 	// This format string grabs the IP from the first network found.
 	inspectCmd := exec.CommandContext(ctx, "docker", "inspect", "-f", "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}", containerID)
-	ipOut, err := inspectCmd.CombinedOutput()
+	ipOut, err := inspectCmd.Output()
 	if err != nil {
-		return false, fmt.Errorf("failed to inspect test network container: %s: %w", string(ipOut), err)
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return false, fmt.Errorf("failed to inspect test network container: %s: %w", string(exitErr.Stderr), err)
+		}
+		return false, fmt.Errorf("failed to inspect test network container: %w", err)
 	}
 
 	ip := strings.TrimSpace(string(ipOut))
@@ -1289,7 +1316,7 @@ func getDockerSocketPath(ctx context.Context) (string, error) {
         fi
     `
 
-	out, err := exec.CommandContext(ctx, "docker", "run", "-q", "--rm", "--privileged", "--pid=host", "alpine", "nsenter", "-t", "1", "-m", "-p", "-u", "-i", "-n", "sh", "-c", cmdStr).Output()
+	out, err := exec.CommandContext(ctx, "docker", "run", "--platform", "linux/"+runtime.GOARCH, "-q", "--rm", "--privileged", "--pid=host", "alpine", "nsenter", "-t", "1", "-m", "-p", "-u", "-i", "-n", "sh", "-c", cmdStr).Output()
 	if err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
@@ -1326,7 +1353,7 @@ func getContainerdSocketPath(ctx context.Context) (string, error) {
         fi
     `
 
-	out, err := exec.CommandContext(ctx, "docker", "run", "-q", "--rm", "--privileged", "--pid=host", "alpine", "nsenter", "-t", "1", "-m", "-p", "-u", "-i", "-n", "sh", "-c", cmdStr).Output()
+	out, err := exec.CommandContext(ctx, "docker", "run", "--platform", "linux/"+runtime.GOARCH, "-q", "--rm", "--privileged", "--pid=host", "alpine", "nsenter", "-t", "1", "-m", "-p", "-u", "-i", "-n", "sh", "-c", cmdStr).Output()
 	if err != nil {
 		// Extract stderr for better debugging if the command actually fails
 		var exitErr *exec.ExitError
