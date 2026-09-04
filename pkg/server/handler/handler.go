@@ -87,6 +87,9 @@ func HandlerWithErrorResponder(prefix string, cfg *rest.Config, transport http.R
 	proxy := proxy.NewUpgradeAwareHandler(target, transport, false, false, responder)
 	proxy.UpgradeTransport = upgradeTransport
 	proxy.UseRequestLocation = true
+	// gateways in front of the API server (e.g. Istio) route on the HTTP Host header, so send
+	// the backend's own hostname rather than forwarding the client's vcluster LB hostname.
+	proxy.UseLocationHost = true
 
 	handler := http.Handler(proxy)
 	if len(prefix) > 0 {
