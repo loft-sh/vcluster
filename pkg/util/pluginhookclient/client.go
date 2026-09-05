@@ -193,7 +193,9 @@ func (c *Client) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts
 	return c.Client.Apply(ctx, obj, opts...)
 }
 
-// TODO: implement DeleteAllOf
+func (c *Client) DeleteAllOf(ctx context.Context, obj client.Object, opts ...client.DeleteAllOfOption) error {
+	return c.Client.DeleteAllOf(ctx, obj, opts...)
+}
 
 func (c *Client) Status() client.StatusWriter {
 	return &StatusClient{
