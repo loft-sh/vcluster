@@ -25,6 +25,8 @@
     .Values.sync.toHost.resourceClaims.enabled
     .Values.sync.toHost.resourceClaimTemplates.enabled
     .Values.sync.fromHost.priorityClasses.enabled
+    .Values.sync.toHost.volumeSnapshotContents.enabled
+    .Values.sync.fromHost.volumeSnapshotClasses.enabled
     .Values.sync.fromHost.deviceClasses.enabled
     .Values.controlPlane.distro.k8s.scheduler.enabled
     .Values.controlPlane.advanced.virtualScheduler.enabled
@@ -46,6 +48,7 @@
     .Values.sync.fromHost.secrets.enabled
     .Values.integrations.istio.enabled
     .Values.sync.toHost.namespaces.enabled
+    (include "vcluster.enableVolumeSnapshotRules" .)
     .Values.sync.fromHost.gatewayClasses.enabled
     .Values.sync.fromHost.gateways.enabled
     .Values.sync.toHost.gatewayApi.enabled
@@ -57,6 +60,40 @@
 {{- true -}}
 {{- end -}}
 {{- end -}}
+{{- end -}}
+
+{{/*
+  Whether to add all rules required for volume snapshots or not
+*/}}
+{{- define "vcluster.enableVolumeSnapshotRules" -}}
+{{- if eq (toString .Values.rbac.enableVolumeSnapshotRules.enabled) "true" -}}
+{{- true -}}
+{{- else if eq (toString .Values.rbac.enableVolumeSnapshotRules.enabled) "auto" -}}
+{{- if not .Values.privateNodes.enabled -}}
+{{- true -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+  Role rules the control plane needs to provision volumes for the kubevirt CSI driver and to hot plug them into the
+  virtual machines that back the nodes of this virtual cluster.
+*/}}
+{{- define "vcluster.rbac.kubeVirtCSIRoleRules" -}}
+{{- if .Values.deploy.csi.kubeVirt.enabled }}
+- apiGroups: [""]
+  resources: ["persistentvolumeclaims"]
+  verbs: ["create", "delete", "get", "list", "watch"]
+- apiGroups: ["cdi.kubevirt.io"]
+  resources: ["datavolumes"]
+  verbs: ["create", "delete", "get", "list", "watch"]
+- apiGroups: ["kubevirt.io"]
+  resources: ["virtualmachines", "virtualmachineinstances"]
+  verbs: ["get", "list"]
+- apiGroups: ["subresources.kubevirt.io"]
+  resources: ["virtualmachines/addvolume", "virtualmachines/removevolume"]
+  verbs: ["update"]
+{{- end }}
 {{- end -}}
 
 {{/*
