@@ -138,7 +138,7 @@ jobs:
       - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4
         name: Setup Helm
         with:
-          version: "v3.21.3"
+          version: "v3.21.4"
 
       - name: Set up vind cluster
         uses: loft-sh/setup-vind@1ffff82986c3afff90ba8f357f69541b24e3a8f0 # v1
@@ -229,7 +229,7 @@ jobs:
       - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4
         name: Setup Helm
         with:
-          version: "v3.21.3"
+          version: "v3.21.4"
 
       - name: Set up vind cluster
         uses: loft-sh/setup-vind@1ffff82986c3afff90ba8f357f69541b24e3a8f0 # v1

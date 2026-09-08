@@ -201,7 +201,7 @@ jobs:
       - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4
         name: Setup Helm
         with:
-          version: "v3.21.3"
+          version: "v3.21.4"
 
       - name: Download vcluster cli
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6

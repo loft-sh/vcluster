@@ -61,7 +61,7 @@ jobs:
       - name: Setup Helm
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4
         with:
-          version: "v3.21.3"
+          version: "v3.21.4"
 
       - name: Build vcluster image and CLI
         run: |
@@ -175,7 +175,7 @@ jobs:
 
     steps:
       - name: Notify ci-tests-alerts
-        uses: loft-sh/github-actions/.github/actions/ci-test-notify@b5a50da8a53ca1021b783290630061078bdb12cf # ci-test-notify/v1
+        uses: loft-sh/github-actions/.github/actions/ci-test-notify@ci-test-notify/v1
         with:
           test-name: "vCluster E2E Nightly"
           status: ${{ needs.e2e-tests.result }}
