@@ -51,6 +51,11 @@ type SnapshotVolume struct {
 // SnapshotDocker creates a snapshot of a Docker-based vCluster by exporting its Docker volumes
 // and configuration directory into a single gzipped tar archive.
 func SnapshotDocker(ctx context.Context, globalFlags *flags.GlobalFlags, snapshotOpts *snapshotapi.Options, vClusterName, outputPath string, log log.Logger) error {
+	// make sure a docker daemon is reachable, falling back to podman if available
+	if err := EnsureDockerDaemon(ctx, log); err != nil {
+		return err
+	}
+
 	cpContainer := getControlPlaneContainerName(vClusterName)
 
 	// Verify the vCluster exists.

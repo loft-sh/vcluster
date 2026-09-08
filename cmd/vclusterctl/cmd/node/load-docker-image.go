@@ -7,6 +7,7 @@ import (
 	"os/exec"
 
 	"github.com/loft-sh/log"
+	"github.com/loft-sh/vcluster/pkg/cli"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/snapshot/pod"
 	"github.com/spf13/cobra"
@@ -67,6 +68,11 @@ func (o *LoadImageOptions) Run(ctx context.Context, nodeName string) error {
 
 	// save image to archive
 	if o.Image != "" {
+		// make sure a docker daemon is reachable, falling back to podman if available
+		if err := cli.EnsureDockerDaemon(ctx, o.Log); err != nil {
+			return err
+		}
+
 		o.Log.Infof("Saving image %s to archive...", o.Image)
 		if err := runCommand("docker", "save", "-o", "image.tar.gz", o.Image); err != nil {
 			return fmt.Errorf("failed to save image: %w", err)

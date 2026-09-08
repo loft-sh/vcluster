@@ -85,6 +85,12 @@ type dockerInspectDetails struct {
 }
 
 func DescribeDocker(ctx context.Context, flags *flags.GlobalFlags, output io.Writer, l log.Logger, name string, configOnly bool, format string) error {
+	// make sure a docker daemon is reachable, falling back to podman if available
+	err := EnsureDockerDaemon(ctx, l)
+	if err != nil {
+		return err
+	}
+
 	containerName := getControlPlaneContainerName(name)
 
 	// inspect the container
