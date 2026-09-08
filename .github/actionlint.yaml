@@ -1,0 +1,44 @@
+# actionlint configuration
+# See https://github.com/rhysd/actionlint/blob/main/docs/config.md
+
+# Patterns to ignore
+ignore:
+  # Example to ignore issues in specific workflows
+  # - "path: not/important/workflow.yml"
+
+  # Example to ignore specific error codes
+  # - "SC2086:"
+
+# Define self-hosted runner labels to validate against
+self-hosted-runner:
+  labels:
+    - large-8_32
+
+# Configure shell-check
+shellcheck:
+  # Increase shell check severity to enable warnings
+  severity: warning
+  # Exclude some noisy rules
+  # exclude: [SC2086, SC2046]
+
+# Make sure workflows use pinned actions versions
+# (Major.Minor.Patch or SHA)
+# (default is "ref")
+name-pattern:
+  - "uses: .*@[0-9a-f]{40}$"           # SHA pinning (preferred)
+  - "uses: .*@v[0-9]+\\.[0-9]+\\.[0-9]+$" # Semver pinning
+  # Allows docker image names
+  - "uses: docker://.*"
+  # Block actions/checkout@v4 - require sha pinning
+  #- "!uses: actions/checkout@v[0-9]+"
+
+# DEVOPS-1029: actionlint (v1.7.x) has no schema yet for the GitHub Actions
+# parallel-steps feature (background:/wait:, GA 2026-06-25). It flags the
+# background: keys and the wait-only barrier step in push-head-images.yaml.
+# Suppress exactly those two messages, only for that one file, until actionlint
+# ships native support; then delete this block.
+paths:
+  .github/workflows/push-head-images.yaml:
+    ignore:
+      - 'unexpected key "background" for step'
+      - 'step must run script with "run" section or run action with "uses" section'

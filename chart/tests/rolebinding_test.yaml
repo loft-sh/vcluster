@@ -1,0 +1,60 @@
+suite: RoleBinding
+templates:
+  - rolebinding.yaml
+
+tests:
+  - it: check defaults
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: RoleBinding
+      - equal:
+          path: metadata.name
+          value: vc-my-release
+      - equal:
+          path: metadata.namespace
+          value: my-namespace
+      - equal:
+          path: subjects[0].name
+          value: vc-my-release
+      - equal:
+          path: roleRef.kind
+          value: Role
+      - equal:
+          path: roleRef.name
+          value: vc-my-release
+
+  - it: multi-namespace mode
+    set:
+      sync:
+        toHost:
+          namespaces:
+            enabled: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: ClusterRoleBinding
+      - equal:
+          path: metadata.name
+          value: vc-mn-my-release-v-my-namespace
+      - notExists:
+          path: metadata.namespace
+      - equal:
+          path: subjects[0].name
+          value: vc-my-release
+      - equal:
+          path: roleRef.kind
+          value: ClusterRole
+      - equal:
+          path: roleRef.name
+          value: vc-mn-my-release-v-my-namespace

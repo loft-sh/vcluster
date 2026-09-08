@@ -1,0 +1,31 @@
+controlPlane:
+  statefulSet:
+    image:
+      registry: ""
+      repository: {{ .Repository }}
+      tag: {{ .Tag }}
+sync:
+  fromHost:
+    gatewayClasses:
+      enabled: true
+      selector:
+        matchLabels:
+          e2e.vcluster.loft.sh/gatewayclass: gatewayapi-combined
+    gateways:
+      enabled: true
+      mappings:
+        byName:
+          "gwapi-combined-host/*": "gwapi-combined-import/*"
+      allowedRoutes:
+        defaultVirtualNamespacePolicy:
+          from: All
+      sanitize:
+        certificateRefs: true
+  toHost:
+    services:
+      enabled: true
+    gatewayApi:
+      gateways:
+        enabled: true
+      httpRoutes:
+        enabled: true

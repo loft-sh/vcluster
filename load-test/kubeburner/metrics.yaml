@@ -1,0 +1,21 @@
+- query: apiserver_request_duration_seconds_bucket{resource="secrets",namespace="vcluster-test",le=~"0.05|0.1|0.2|0.4|0.8|0.6|1|2|3|4|5|10",verb="POST"}
+  metricName: apiserver_latency_by_bucket
+  instant: true
+
+- query: sum(container_memory_max_usage_bytes{namespace="vcluster-test",container=~"syncer|vcluster|etcd|kube-controller-manager|kube-apiserver"})
+  metricName: syncer-memoryusage
+
+- query: sum(container_cpu_usage_seconds_total{namespace="vcluster-test",container=~"syncer|vcluster|etcd|kube-controller-manager|kube-apiserver"})
+  metricName: cpu-usage
+
+- query: container_network_receive_bytes_total{namespace="vcluster-test",pod=~"test-.+"}
+  metricName: network-in
+
+- query: container_network_transmit_bytes_total{namespace="vcluster-test",pod=~"test-.+"}
+  metricName: network-out
+
+- query: sum(container_fs_reads_bytes_total{namespace="vcluster-test", container=~"syncer|vcluster|etcd|kube-controller-manager|kube-apiserver"})
+  metricName: fs-read
+
+- query: sum(container_fs_writes_bytes_total{namespace="vcluster-test", container=~"syncer|vcluster|etcd|kube-controller-manager|kube-apiserver"})
+  metricName: fs-write

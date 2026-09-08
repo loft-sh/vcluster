@@ -1,0 +1,27 @@
+name: Auto-approve bot PRs
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+# checks/statuses are what the shared workflow's CI poll reads. They must be
+# granted here, not there: a reusable workflow can only downgrade the caller's
+# GITHUB_TOKEN permissions, never elevate them, and anything omitted defaults to
+# none. GITHUB_TOKEN is scoped strictly by this block whatever the repository's
+# visibility, so omitting them makes the poll fail and the bot silently never
+# approve, while both the check and the job still report success.
+permissions:
+  contents: read
+  pull-requests: write
+  checks: read
+  statuses: read
+
+jobs:
+  auto-approve:
+    if: startsWith(github.head_ref, 'backport/')
+    uses: loft-sh/github-actions/.github/workflows/auto-approve-bot-prs.yaml@7857031a03c329fac944c77c35588d8eccc9b2ae # auto-approve-bot-prs/v1 # a889ee9
+    with:
+      trusted-authors: 'loft-bot'
+      auto-merge: false
+    secrets:
+      gh-access-token: ${{ secrets.BOT_APPROVER_PAT }}
