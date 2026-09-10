@@ -1,0 +1,118 @@
+suite: KubeVirt CSI
+templates:
+  - role.yaml
+  - statefulset.yaml
+
+tests:
+  - it: check no rules by default
+    template: role.yaml
+    asserts:
+      - notContains:
+          path: rules
+          content:
+            apiGroups: ["subresources.kubevirt.io"]
+            resources: ["virtualmachines/addvolume", "virtualmachines/removevolume"]
+            verbs: ["update"]
+
+  - it: check fails without private nodes
+    template: statefulset.yaml
+    set:
+      deploy:
+        csi:
+          kubeVirt:
+            enabled: true
+    asserts:
+      - failedTemplate:
+          errorMessage: deploy.csi.kubeVirt is only supported in private nodes mode, please set privateNodes.enabled=true
+
+  - it: check fails with two default storage classes
+    template: statefulset.yaml
+    set:
+      privateNodes:
+        enabled: true
+      deploy:
+        csi:
+          kubeVirt:
+            enabled: true
+    asserts:
+      - failedTemplate:
+          errorMessage: deploy.csi.kubeVirt.storageClass.default and deploy.localPathProvisioner both create a default storage class, please disable deploy.localPathProvisioner or set deploy.csi.kubeVirt.storageClass.default=false
+
+  - it: check renders next to the local path provisioner without a default storage class
+    template: statefulset.yaml
+    set:
+      privateNodes:
+        enabled: true
+      deploy:
+        csi:
+          kubeVirt:
+            enabled: true
+            storageClass:
+              default: false
+    asserts:
+      - isKind:
+          of: StatefulSet
+
+  - it: check the control plane may hot plug volumes into the virtual machines
+    template: role.yaml
+    release:
+      name: my-vcluster
+      namespace: test
+    set:
+      privateNodes:
+        enabled: true
+      deploy:
+        csi:
+          kubeVirt:
+            enabled: true
+        localPathProvisioner:
+          enabled: false
+    asserts:
+      - isKind:
+          of: Role
+      - equal:
+          path: metadata.name
+          value: vc-my-vcluster
+      - equal:
+          path: metadata.namespace
+          value: test
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["subresources.kubevirt.io"]
+            resources: ["virtualmachines/addvolume", "virtualmachines/removevolume"]
+            verbs: ["update"]
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["kubevirt.io"]
+            resources: ["virtualmachines", "virtualmachineinstances"]
+            verbs: ["get", "list"]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: ["persistentvolumeclaims"]
+            verbs: ["create", "delete", "get", "list", "watch"]
+
+  - it: check overwritten rules stay untouched
+    template: role.yaml
+    set:
+      privateNodes:
+        enabled: true
+      deploy:
+        csi:
+          kubeVirt:
+            enabled: true
+        localPathProvisioner:
+          enabled: false
+      rbac:
+        role:
+          overwriteRules:
+            - apiGroups: [""]
+              resources: ["secrets"]
+              verbs: ["get"]
+    asserts:
+      - lengthEqual:
+          path: rules
+          count: 1
