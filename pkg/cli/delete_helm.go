@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
-	"time"
 
 	"github.com/ghodss/yaml"
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
@@ -231,13 +230,12 @@ func DeleteHelm(ctx context.Context, platformClient platform.Client, options *De
 		// wait for namespace deletion
 		if cmd.Wait {
 			cmd.log.Info("Waiting for virtual cluster to be deleted...")
-			for {
-				_, err = cmd.kubeClient.CoreV1().Namespaces().Get(ctx, cmd.Namespace, metav1.GetOptions{})
-				if err != nil {
-					break
-				}
-
-				time.Sleep(time.Second)
+			err = waitUntilNotFound(ctx, namespaceDeletionInterval, namespaceDeletionTimeout, func(ctx context.Context) error {
+				_, getErr := cmd.kubeClient.CoreV1().Namespaces().Get(ctx, cmd.Namespace, metav1.GetOptions{})
+				return getErr
+			})
+			if err != nil {
+				return fmt.Errorf("wait for namespace deletion: %w", err)
 			}
 			cmd.log.Done("Virtual Cluster is deleted")
 		}
