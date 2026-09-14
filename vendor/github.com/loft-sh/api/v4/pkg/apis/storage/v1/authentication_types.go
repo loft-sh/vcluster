@@ -1,0 +1,396 @@
+package v1
+
+// Moved from management/v1 to storage/v1 so the storage Tenant CRD can
+// reference the type family without an import cycle (management/v1 already
+// imports storage/v1). This lets the Tenant.Spec.Authentication and
+// Config.Status.Authentication fields share the same Go type.
+
+// Authentication holds authentication relevant information
+type Authentication struct {
+	Connector `json:",inline"`
+
+	// Password holds password authentication relevant information
+	// +optional
+	Password *AuthenticationPassword `json:"password,omitempty"`
+
+	// Connectors are optional additional connectors for Loft.
+	// +optional
+	Connectors []ConnectorWithName `json:"connectors,omitempty"`
+
+	// Prevents from team creation for the new groups associated with the user at the time of logging in through sso,
+	// Default behaviour is false, this means that teams will be created for new groups.
+	// +optional
+	DisableTeamCreation bool `json:"disableTeamCreation,omitempty"`
+
+	// DisableUserCreation prevents the SSO connectors from creating a new user on a users initial signin through sso.
+	// Default behaviour is false, this means that a new user object will be created once a user without
+	// a Kubernetes user object logs in.
+	// +optional
+	DisableUserCreation bool `json:"disableUserCreation,omitempty"`
+
+	// AccessKeyMaxTTLSeconds is the global maximum lifespan of an accesskey in seconds.
+	// Leaving it 0 or unspecified will disable it.
+	// Specifying 2592000 will mean all keys have a Time-To-Live of 30 days.
+	// +optional
+	AccessKeyMaxTTLSeconds int64 `json:"accessKeyMaxTTLSeconds,omitempty"`
+
+	// LoginAccessKeyTTLSeconds is the time in seconds an access key is kept
+	// until it is deleted.
+	// Leaving it unspecified will default to 20 days.
+	// Setting it to zero will disable the ttl.
+	// Specifying 2592000 will mean all keys have a  default Time-To-Live of 30 days.
+	// +optional
+	LoginAccessKeyTTLSeconds *int64 `json:"loginAccessKeyTTLSeconds,omitempty"`
+
+	// CustomHttpHeaders are additional headers that should be set for the authentication endpoints
+	// +optional
+	CustomHttpHeaders map[string]string `json:"customHttpHeaders,omitempty"`
+
+	// GroupsFilters is a regex expression to only save matching sso groups into the user resource
+	GroupsFilters []string `json:"groupsFilters,omitempty"`
+}
+
+type ConnectorWithName struct {
+	// ID is the id that should show up in the url
+	// +optional
+	ID string `json:"id,omitempty"`
+
+	// DisplayName is the name that should show up in the ui
+	// +optional
+	DisplayName string `json:"displayName,omitempty"`
+
+	Connector `json:",inline"`
+}
+
+type Connector struct {
+	// OIDC holds oidc authentication configuration
+	// +optional
+	OIDC *AuthenticationOIDC `json:"oidc,omitempty"`
+
+	// Github holds github authentication configuration
+	// +optional
+	Github *AuthenticationGithub `json:"github,omitempty"`
+
+	// Gitlab holds gitlab authentication configuration
+	// +optional
+	Gitlab *AuthenticationGitlab `json:"gitlab,omitempty"`
+
+	// Google holds google authentication configuration
+	// +optional
+	Google *AuthenticationGoogle `json:"google,omitempty"`
+
+	// Microsoft holds microsoft authentication configuration
+	// +optional
+	Microsoft *AuthenticationMicrosoft `json:"microsoft,omitempty"`
+
+	// SAML holds saml authentication configuration
+	// +optional
+	SAML *AuthenticationSAML `json:"saml,omitempty"`
+}
+
+type AuthenticationSAML struct {
+	// If the response assertion status value contains a Destination element, it
+	// must match this value exactly.
+	// Usually looks like https://your-loft-domain/auth/saml/callback
+	RedirectURI string `json:"redirectURI,omitempty"`
+	// SSO URL used for POST value.
+	SSOURL string `json:"ssoURL,omitempty"`
+	// CAData is a base64 encoded string that holds the ca certificate for validating the signature of the SAML response.
+	// Either CAData, CA or InsecureSkipSignatureValidation needs to be defined.
+	// +optional
+	CAData []byte `json:"caData,omitempty"`
+
+	// Name of attribute in the returned assertions to map to username
+	UsernameAttr string `json:"usernameAttr,omitempty"`
+	// Name of attribute in the returned assertions to map to email
+	EmailAttr string `json:"emailAttr,omitempty"`
+	// Name of attribute in the returned assertions to map to groups
+	// +optional
+	GroupsAttr string `json:"groupsAttr,omitempty"`
+
+	// CA to use when validating the signature of the SAML response.
+	// +optional
+	CA string `json:"ca,omitempty"`
+	// Ignore the ca cert
+	// +optional
+	InsecureSkipSignatureValidation bool `json:"insecureSkipSignatureValidation,omitempty"`
+
+	// When provided Loft will include this as the Issuer value during AuthnRequest.
+	// It will also override the redirectURI as the required audience when evaluating
+	// AudienceRestriction elements in the response.
+	// +optional
+	EntityIssuer string `json:"entityIssuer,omitempty"`
+	// Issuer value expected in the SAML response. Optional.
+	// +optional
+	SSOIssuer string `json:"ssoIssuer,omitempty"`
+
+	// If GroupsDelim is supplied the connector assumes groups are returned as a
+	// single string instead of multiple attribute values. This delimiter will be
+	// used split the groups string.
+	// +optional
+	GroupsDelim string `json:"groupsDelim,omitempty"`
+	// List of groups to filter access based on membership
+	// +optional
+	AllowedGroups []string `json:"allowedGroups,omitempty"`
+	// If used with allowed groups, only forwards the allowed groups and not all
+	// groups specified.
+	// +optional
+	FilterGroups bool `json:"filterGroups,omitempty"`
+
+	// Requested format of the NameID. The NameID value is is mapped to the ID Token
+	// 'sub' claim.
+	//
+	// This can be an abbreviated form of the full URI with just the last component. For
+	// example, if this value is set to "emailAddress" the format will resolve to:
+	//
+	//		urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress
+	//
+	// If no value is specified, this value defaults to:
+	//
+	//		urn:oasis:names:tc:SAML:2.0:nameid-format:persistent
+	//
+	// +optional
+	NameIDPolicyFormat string `json:"nameIDPolicyFormat,omitempty"`
+}
+
+type AuthenticationPassword struct {
+	// If true login via password is disabled
+	Disabled bool `json:"disabled,omitempty"`
+}
+
+type AuthenticationMicrosoft struct {
+	// Microsoft client id
+	ClientID string `json:"clientId"`
+
+	// Microsoft client secret
+	ClientSecret string `json:"clientSecret"`
+
+	// loft redirect uri. Usually https://loft.my.domain/auth/microsoft/callback
+	RedirectURI string `json:"redirectURI"`
+
+	// tenant configuration parameter controls what kinds of accounts may be authenticated in loft.
+	// By default, all types of Microsoft accounts (consumers and organizations) can authenticate in loft via Microsoft.
+	// To change this, set the tenant parameter to one of the following:
+	//
+	// common - both personal and business/school accounts can authenticate in loft via Microsoft (default)
+	// consumers - only personal accounts can authenticate in loft
+	// organizations - only business/school accounts can authenticate in loft
+	// tenant uuid or tenant name - only accounts belonging to specific tenant identified by either tenant uuid or tenant name can authenticate in loft
+	// +optional
+	Tenant string `json:"tenant,omitempty"`
+
+	// It is possible to require a user to be a member of a particular group in order to be successfully authenticated in loft.
+	// +optional
+	Groups []string `json:"groups,omitempty"`
+
+	// configuration option restricts the list to include only security groups. By default all groups (security, Office 365, mailing lists) are included.
+	// +optional
+	OnlySecurityGroups bool `json:"onlySecurityGroups,omitempty"`
+
+	// Restrict the groups claims to include only the user’s groups that are in the configured groups
+	// +optional
+	UseGroupsAsWhitelist bool `json:"useGroupsAsWhitelist,omitempty"`
+}
+
+type AuthenticationGoogle struct {
+	// Google client id
+	ClientID string `json:"clientId"`
+
+	// Google client secret
+	ClientSecret string `json:"clientSecret"`
+
+	// loft redirect uri. E.g. https://loft.my.domain/auth/google/callback
+	RedirectURI string `json:"redirectURI"`
+
+	// defaults to "profile" and "email"
+	// +optional
+	Scopes []string `json:"scopes,omitempty"`
+
+	// Optional list of whitelisted domains
+	// If this field is nonempty, only users from a listed domain will be allowed to log in
+	// +optional
+	HostedDomains []string `json:"hostedDomains,omitempty"`
+
+	// Optional list of whitelisted groups
+	// If this field is nonempty, only users from a listed group will be allowed to log in
+	// +optional
+	Groups []string `json:"groups,omitempty"`
+
+	// Optional path to service account json
+	// If nonempty, and groups claim is made, will use authentication from file to
+	// check groups with the admin directory api
+	// +optional
+	ServiceAccountFilePath string `json:"serviceAccountFilePath,omitempty"`
+
+	// Required if ServiceAccountFilePath
+	// The email of a GSuite super user which the service account will impersonate
+	// when listing groups
+	// +optional
+	AdminEmail string `json:"adminEmail,omitempty"`
+}
+
+type AuthenticationGitlab struct {
+	// Gitlab client id
+	ClientID string `json:"clientId"`
+
+	// Gitlab client secret
+	ClientSecret string `json:"clientSecret"`
+
+	// Redirect URI
+	RedirectURI string `json:"redirectURI"`
+
+	// BaseURL is optional, default = https://gitlab.com
+	// +optional
+	BaseURL string `json:"baseURL,omitempty"`
+
+	// Optional groups whitelist, communicated through the "groups" scope.
+	// If `groups` is omitted, all of the user's GitLab groups are returned.
+	// If `groups` is provided, this acts as a whitelist - only the user's GitLab groups that are in the configured `groups` below will go into the groups claim. Conversely, if the user is not in any of the configured `groups`, the user will not be authenticated.
+	// +optional
+	Groups []string `json:"groups,omitempty"`
+}
+
+type AuthenticationGithub struct {
+	// ClientID holds the github client id
+	ClientID string `json:"clientId,omitempty"`
+
+	// ClientID holds the github client secret
+	ClientSecret string `json:"clientSecret"`
+
+	// RedirectURI holds the redirect URI. Should be https://loft.domain.tld/auth/github/callback
+	RedirectURI string `json:"redirectURI"`
+
+	// Loft queries the following organizations for group information.
+	// Group claims are formatted as "(org):(team)".
+	// For example if a user is part of the "engineering" team of the "coreos"
+	// org, the group claim would include "coreos:engineering".
+	//
+	// If orgs are specified in the config then user MUST be a member of at least one of the specified orgs to
+	// authenticate with loft.
+	// +optional
+	Orgs []AuthenticationGithubOrg `json:"orgs,omitempty"`
+
+	// Required ONLY for GitHub Enterprise.
+	// This is the Hostname of the GitHub Enterprise account listed on the
+	// management console. Ensure this domain is routable on your network.
+	// +optional
+	HostName string `json:"hostName,omitempty"`
+
+	// ONLY for GitHub Enterprise. Optional field.
+	// Used to support self-signed or untrusted CA root certificates.
+	// +optional
+	RootCA string `json:"rootCA,omitempty"`
+}
+
+// AuthenticationGithubOrg holds org-team filters, in which teams are optional.
+type AuthenticationGithubOrg struct {
+	// Organization name in github (not slug, full name). Only users in this github
+	// organization can authenticate.
+	// +optional
+	Name string `json:"name"`
+
+	// Names of teams in a github organization. A user will be able to
+	// authenticate if they are members of at least one of these teams. Users
+	// in the organization can authenticate if this field is omitted from the
+	// config file.
+	// +optional
+	Teams []string `json:"teams,omitempty"`
+}
+
+type AuthenticationOIDC struct {
+	// IssuerURL is the URL the provider signs ID Tokens as. This will be the "iss"
+	// field of all tokens produced by the provider and is used for configuration
+	// discovery.
+	//
+	// The URL is usually the provider's URL without a path, for example
+	// "https://accounts.google.com" or "https://login.salesforce.com".
+	//
+	// The provider must implement configuration discovery.
+	// See: https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfig
+	IssuerURL string `json:"issuerUrl,omitempty"`
+
+	// ClientID the JWT must be issued for, the "sub" field. This plugin only trusts a single
+	// client to ensure the plugin can be used with public providers.
+	//
+	// The plugin supports the "authorized party" OpenID Connect claim, which allows
+	// specialized providers to issue tokens to a client for a different client.
+	// See: https://openid.net/specs/openid-connect-core-1_0.html#IDToken
+	ClientID string `json:"clientId,omitempty"`
+
+	// ClientSecret to issue tokens from the OIDC provider
+	ClientSecret string `json:"clientSecret,omitempty"`
+
+	// loft redirect uri. E.g. https://loft.my.domain/auth/oidc/callback
+	RedirectURI string `json:"redirectURI,omitempty"`
+
+	// Loft URI to be redirected to after successful logout by OIDC Provider
+	// +optional
+	PostLogoutRedirectURI string `json:"postLogoutRedirectURI,omitempty"`
+
+	// Path to a PEM encoded root certificate of the provider. Optional
+	// +optional
+	CAFile string `json:"caFile,omitempty"`
+
+	// Specify whether to communicate without validating SSL certificates
+	// +optional
+	InsecureCA bool `json:"insecureCa,omitempty"`
+
+	// Configurable key which contains the preferred username claims
+	// +optional
+	PreferredUsernameClaim string `json:"preferredUsername,omitempty"`
+
+	// LoftUsernameClaim is the JWT field to use as the user's username.
+	// +optional
+	LoftUsernameClaim string `json:"loftUsernameClaim,omitempty"`
+
+	// UsernameClaim is the JWT field to use as the user's id.
+	// +optional
+	UsernameClaim string `json:"usernameClaim,omitempty"`
+
+	// EmailClaim is the JWT field to use as the user's email.
+	// +optional
+	EmailClaim string `json:"emailClaim,omitempty"`
+
+	// AllowedExtraClaims are claims of interest that are not part of User by default but may be provided by the OIDC provider.
+	// +optional
+	AllowedExtraClaims []string `json:"allowedExtraClaims,omitempty"`
+
+	// UsernamePrefix, if specified, causes claims mapping to username to be prefix with
+	// the provided value. A value "oidc:" would result in usernames like "oidc:john".
+	// +optional
+	UsernamePrefix string `json:"usernamePrefix,omitempty"`
+
+	// GroupsClaim, if specified, causes the OIDCAuthenticator to try to populate the user's
+	// groups with an ID Token field. If the GroupsClaim field is present in an ID Token the value
+	// must be a string or list of strings.
+	// +optional
+	GroupsClaim string `json:"groupsClaim,omitempty"`
+
+	// If required groups is non empty, access is denied if the user is not part of at least one
+	// of the specified groups.
+	// +optional
+	Groups []string `json:"groups,omitempty"`
+
+	// Scopes that should be sent to the server. If empty, defaults to "email" and "profile".
+	// +optional
+	Scopes []string `json:"scopes,omitempty"`
+
+	// GetUserInfo, if specified, tells the OIDCAuthenticator to try to populate the user's
+	// information from the UserInfo.
+	// +optional
+	GetUserInfo bool `json:"getUserInfo,omitempty"`
+
+	// GroupsPrefix, if specified, causes claims mapping to group names to be prefixed with the
+	// value. A value "oidc:" would result in groups like "oidc:engineering" and "oidc:marketing".
+	// +optional
+	GroupsPrefix string `json:"groupsPrefix,omitempty"`
+
+	// Type of the OIDC to show in the UI. Only for displaying purposes
+	// +optional
+	Type string `json:"type,omitempty"`
+
+	// Resource, if specified, is the value that is set for the "resource" URL parameter when making a request to the /token endpoint of the
+	// OIDC provider.
+	// +optional
+	Resource string `json:"resource,omitempty"`
+}
