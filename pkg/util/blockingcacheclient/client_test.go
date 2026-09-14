@@ -31,6 +31,9 @@ type applyServer struct {
 	response *unstructured.Unstructured
 	// getErr, when set, is what every Get returns instead of consulting cached.
 	getErr error
+	// responseNotWrittenBack makes Apply leave the ApplyConfiguration untouched,
+	// the way controller-runtime before v0.24 handled typed ApplyConfigurations.
+	responseNotWrittenBack bool
 }
 
 func (s *applyServer) Get(_ context.Context, key client.ObjectKey, obj client.Object, _ ...client.GetOption) error {
@@ -50,6 +53,10 @@ func (s *applyServer) Get(_ context.Context, key client.ObjectKey, obj client.Ob
 func (s *applyServer) Apply(_ context.Context, obj runtime.ApplyConfiguration, _ ...client.ApplyOption) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if s.responseNotWrittenBack {
+		return nil
+	}
 
 	body, err := json.Marshal(s.response.Object)
 	if err != nil {
@@ -132,6 +139,35 @@ func TestStatusApplyNoOpReturnsWithoutWaitingForACacheChange(t *testing.T) {
 	}
 	if elapsed := time.Since(start); elapsed > time.Second {
 		t.Fatalf("no-op status apply blocked for %s", elapsed)
+	}
+}
+
+func TestApplySkipsTheCacheWaitWhenTheResponseIsNotWrittenBack(t *testing.T) {
+	// controller-runtime before v0.24 leaves a typed ApplyConfiguration
+	// untouched, so the applied object has no resource version to wait for.
+	// The cache is behind here, yet waiting could only run into the timeout.
+	server := &applyServer{cached: policyObject("uid-1", "10"), responseNotWrittenBack: true}
+	c := &CacheClient{Client: server}
+
+	start := time.Now()
+	if err := c.Apply(context.Background(), policyApplyConfiguration(), client.FieldOwner("test")); err != nil {
+		t.Fatalf("apply returned %v, expected nil", err)
+	}
+	if elapsed := time.Since(start); elapsed > time.Second {
+		t.Fatalf("apply blocked for %s although the response was not written back", elapsed)
+	}
+}
+
+func TestStatusApplySkipsTheCacheWaitWhenTheResponseIsNotWrittenBack(t *testing.T) {
+	server := &applyServer{cached: policyObject("uid-1", "10"), responseNotWrittenBack: true}
+	c := &CacheClient{Client: server}
+
+	start := time.Now()
+	if err := c.Status().Apply(context.Background(), policyApplyConfiguration(), client.FieldOwner("test")); err != nil {
+		t.Fatalf("status apply returned %v, expected nil", err)
+	}
+	if elapsed := time.Since(start); elapsed > time.Second {
+		t.Fatalf("status apply blocked for %s although the response was not written back", elapsed)
 	}
 }
 

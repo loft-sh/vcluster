@@ -190,6 +190,14 @@ func (c *CacheClient) blockApply(ctx context.Context, obj runtime.ApplyConfigura
 		return err
 	}
 
+	// controller-runtime before v0.24 never decodes the apply response into a
+	// typed ApplyConfiguration, see kubernetes-sigs/controller-runtime#3475, so
+	// the applied object carries no resource version. Then there is nothing to
+	// wait for, and polling would only ever run into the timeout.
+	if applied.GetResourceVersion() == "" {
+		return nil
+	}
+
 	return c.poll(ctx, applied, func(newObj client.Object, appliedAccessor metav1.Object) (bool, error) {
 		err := c.Client.Get(ctx, types.NamespacedName{Namespace: appliedAccessor.GetNamespace(), Name: appliedAccessor.GetName()}, newObj)
 		if err != nil {
