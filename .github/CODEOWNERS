@@ -2,19 +2,68 @@
 
 * @loft-sh/eng-dev-vcluster-platform
 
+<<<<<<< ours
 /.github/workflows/e2e*.yaml @loft-sh/eng-qa @loft-sh/eng-tech-leads
 /.github/workflows/release.yaml @loft-sh/eng-tech-leads
 /.github/CODEOWNERS @loft-sh/eng-tech-leads
+=======
+# Packages
+>>>>>>> theirs
 
-/chart/templates/ @loft-sh/eng-tech-leads
+# Repository governance
+/.github/CODEOWNERS @loft-sh/eng-staff-engineers
 
-/cmd/vcluster/ @loft-sh/eng-tech-leads
+# CI
+/.github/workflows/e2e*.yaml @loft-sh/eng-qa @loft-sh/eng-staff-engineers
 
-/config/ @loft-sh/eng-tech-leads
+# Install and configuration
+/chart/templates/ @loft-sh/eng-staff-engineers
+/config/ @loft-sh/eng-staff-engineers
+/pkg/config/config.go @loft-sh/eng-staff-engineers
 
-/docs/ @loft-sh/Eng-Docs-Admin
+# Startup
+/cmd/vcluster/ @loft-sh/eng-staff-engineers
+/pkg/setup/ @loft-sh/eng-staff-engineers
 
+# Auth
+/pkg/authentication/ @loft-sh/eng-staff-engineers
+/pkg/authorization/ @loft-sh/eng-staff-engineers
+
+# Syncing and translation
+/pkg/controllers/k8sdefaultendpoint/ @loft-sh/eng-staff-engineers
+/pkg/controllers/register.go @loft-sh/eng-staff-engineers
+/pkg/controllers/resources/configmaps/ @loft-sh/eng-staff-engineers
+/pkg/controllers/resources/endpoints/ @loft-sh/eng-staff-engineers
+/pkg/controllers/resources/events/ @loft-sh/eng-staff-engineers
+/pkg/controllers/resources/pods/ @loft-sh/eng-staff-engineers
+/pkg/controllers/resources/secrets/ @loft-sh/eng-staff-engineers
+/pkg/controllers/resources/services/ @loft-sh/eng-staff-engineers
+/pkg/mappings/ @loft-sh/eng-staff-engineers
+/pkg/syncer/ @loft-sh/eng-staff-engineers
+/pkg/util/translate/ @loft-sh/eng-staff-engineers
+
+# Control plane and networking
+/pkg/k8s/ @loft-sh/eng-staff-engineers
+/pkg/server/ @loft-sh/eng-staff-engineers
+/pkg/util/portforward/ @loft-sh/eng-staff-engineers
+/pkg/util/servicecidr/ @loft-sh/eng-staff-engineers
+
+# Platform and plugins
+/pkg/platform/ @loft-sh/eng-staff-engineers
+/pkg/plugin/ @loft-sh/eng-staff-engineers
+
+# Images and dependencies
+Dockerfile @loft-sh/eng-staff-engineers
+Dockerfile.release @loft-sh/eng-staff-engineers
+go.mod @loft-sh/eng-staff-engineers
+
+# Docs
+/docs/ @loft-sh/eng-docs-admin
+netlify.toml @loft-sh/eng-docs-admin
+
+# Tests
 /test/ @loft-sh/eng-qa @loft-sh/eng-dev-vcluster-platform
+<<<<<<< ours
 /e2e-next/ @loft-sh/eng-qa
 
 /hack/email/ @zerbitx
@@ -49,3 +98,28 @@ Dockerfile.release @loft-sh/eng-tech-leads
 go.mod @loft-sh/eng-tech-leads
 
 netlify.toml @loft-sh/Eng-Docs-Admin
+=======
+/e2e/ @loft-sh/eng-qa
+
+# Paths
+
+# Core syncer / controller
+/pkg/mappings/generic/mapper.go @FabianKramm @janekbaraniewski @mfranczy
+/pkg/mappings/store/store.go @FabianKramm @janekbaraniewski @mfranczy
+/pkg/setup/controller_context.go @FabianKramm @mfranczy
+/pkg/syncer/ @FabianKramm
+
+# Core chart
+/chart/templates/service.yaml @FabianKramm @mfranczy
+/chart/templates/statefulset.yaml @FabianKramm @mfranczy
+
+# Core entrypoint
+/cmd/vcluster/cmd/start.go @FabianKramm @mfranczy @janekbaraniewski
+
+# Core vCluster API server
+/pkg/certs/ensure.go @FabianKramm @mfranczy @johannesfrey
+/pkg/k8s/k8s.go @FabianKramm @mfranczy
+/pkg/server/cert/cert.go @FabianKramm @mfranczy @johannesfrey
+/pkg/server/handler/handler.go @FabianKramm @mfranczy
+/pkg/server/server.go @FabianKramm @mfranczy
+>>>>>>> theirs
