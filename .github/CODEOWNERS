@@ -2,14 +2,6 @@
 
 * @loft-sh/eng-dev-vcluster-platform
 
-<<<<<<< ours
-/.github/workflows/e2e*.yaml @loft-sh/eng-qa @loft-sh/eng-tech-leads
-/.github/workflows/release.yaml @loft-sh/eng-tech-leads
-/.github/CODEOWNERS @loft-sh/eng-tech-leads
-=======
-# Packages
->>>>>>> theirs
-
 # Repository governance
 /.github/CODEOWNERS @loft-sh/eng-staff-engineers
 
@@ -59,49 +51,10 @@ go.mod @loft-sh/eng-staff-engineers
 
 # Docs
 /docs/ @loft-sh/eng-docs-admin
-netlify.toml @loft-sh/eng-docs-admin
 
 # Tests
-/test/ @loft-sh/eng-qa @loft-sh/eng-dev-vcluster-platform
-<<<<<<< ours
 /e2e-next/ @loft-sh/eng-qa
-
-/hack/email/ @zerbitx
-
-/pkg/authentication/ @loft-sh/eng-tech-leads
-/pkg/authorization/ @loft-sh/eng-tech-leads
-
-/pkg/config/config.go @loft-sh/eng-tech-leads
-
-/pkg/controllers/k8sdefaultendpoint/ @loft-sh/eng-tech-leads
-/pkg/controllers/register.go @loft-sh/eng-tech-leads
-/pkg/controllers/resources/configmaps/ @loft-sh/eng-tech-leads
-/pkg/controllers/resources/endpoints/ @loft-sh/eng-tech-leads
-/pkg/controllers/resources/events/ @loft-sh/eng-tech-leads
-/pkg/controllers/resources/pods/ @loft-sh/eng-tech-leads
-/pkg/controllers/resources/secrets/ @loft-sh/eng-tech-leads
-/pkg/controllers/resources/services/ @loft-sh/eng-tech-leads
-
-/pkg/k8s/ @loft-sh/eng-tech-leads
-/pkg/mappings/ @loft-sh/eng-tech-leads
-/pkg/platform/ @loft-sh/eng-tech-leads
-/pkg/plugin/ @loft-sh/eng-tech-leads
-/pkg/server/ @loft-sh/eng-tech-leads
-/pkg/setup/ @loft-sh/eng-tech-leads
-/pkg/syncer/ @loft-sh/eng-tech-leads
-/pkg/util/portforward/ @loft-sh/eng-tech-leads @lizardruss
-/pkg/util/servicecidr/ @loft-sh/eng-tech-leads @lizardruss
-/pkg/util/translate/ @loft-sh/eng-tech-leads
-
-Dockerfile @loft-sh/eng-tech-leads
-Dockerfile.release @loft-sh/eng-tech-leads
-go.mod @loft-sh/eng-tech-leads
-
-netlify.toml @loft-sh/Eng-Docs-Admin
-=======
-/e2e/ @loft-sh/eng-qa
-
-# Paths
+/test/ @loft-sh/eng-qa @loft-sh/eng-dev-vcluster-platform
 
 # Core syncer / controller
 /pkg/mappings/generic/mapper.go @FabianKramm @janekbaraniewski @mfranczy
@@ -122,4 +75,3 @@ netlify.toml @loft-sh/Eng-Docs-Admin
 /pkg/server/cert/cert.go @FabianKramm @mfranczy @johannesfrey
 /pkg/server/handler/handler.go @FabianKramm @mfranczy
 /pkg/server/server.go @FabianKramm @mfranczy
->>>>>>> theirs
