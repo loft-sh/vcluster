@@ -36,6 +36,7 @@ var (
 	Webhooks        = Label("webhooks")
 	Snapshots       = Label("snapshots")
 	VolumeSnapshots = Label("volumesnapshots")
+	Metrics         = Label("metrics")
 
 	// Suite-primary labels (one per opt-in suite).
 	Scheduler        = Label("scheduler")

@@ -40,6 +40,19 @@ tests:
       - equal:
           path: spec.endpoints[2].relabelings[0].replacement
           value: syncer
+      # Prometheus scrapes /metrics/syncer with these keys of the vc-<release>
+      # secret, which the syncer writes under the kubeconfig package's
+      # CADataSecretKey, CertificateSecretKey and CertificateKeySecretKey.
+      # Renaming one here breaks real scraping, so it has to break this test.
+      - equal:
+          path: spec.endpoints[2].tlsConfig.ca.secret.key
+          value: certificate-authority
+      - equal:
+          path: spec.endpoints[2].tlsConfig.cert.secret.key
+          value: client-certificate
+      - equal:
+          path: spec.endpoints[2].tlsConfig.keySecret.key
+          value: client-key
       - equal:
           path: spec.endpoints[3].path
           value: /metrics/kine

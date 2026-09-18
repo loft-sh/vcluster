@@ -12,6 +12,7 @@ import (
 	"github.com/loft-sh/vcluster/e2e/labels"
 	"github.com/loft-sh/vcluster/e2e/setup/lazyvcluster"
 	"github.com/loft-sh/vcluster/e2e/test_core/coredns"
+	"github.com/loft-sh/vcluster/e2e/test_core/metrics"
 	test_core "github.com/loft-sh/vcluster/e2e/test_core/sync"
 	"github.com/loft-sh/vcluster/e2e/test_core/sync/fromhost"
 	"github.com/loft-sh/vcluster/e2e/test_deploy"
@@ -42,6 +43,7 @@ func suiteCommonVCluster() {
 			test_core.NodeSyncLabelSelectorSpec()
 			test_core.ServiceBasicSyncSpec()
 			coredns.CoreDNSSpec()
+			metrics.SyncerMetricsSpec()
 			webhook.AdmissionWebhookSpec()
 			fromhost.EventSyncSpec()
 			fromhost.FromHostConfigMapsSpec()
