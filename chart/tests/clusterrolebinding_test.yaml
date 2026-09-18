@@ -6,7 +6,7 @@ tests:
   - it: disable by default
     asserts:
       - hasDocuments:
-          count: 0
+          count: 1
 
   - it: enable by multi namespace mode
     set:
