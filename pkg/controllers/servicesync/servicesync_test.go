@@ -186,3 +186,105 @@ func TestFromHostReconcile(t *testing.T) {
 		})
 	}
 }
+
+func TestFromHostReconcileLoadBalancerCreatesEndpoints(t *testing.T) {
+	name := "test-map-host-service-syncer"
+	hostService := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "host-namespace",
+			Name:      "host-service",
+		},
+		Spec: corev1.ServiceSpec{
+			Type:      corev1.ServiceTypeLoadBalancer,
+			ClusterIP: "10.0.0.1",
+			Ports: []corev1.ServicePort{
+				{
+					Name: "http",
+					Port: 8080,
+				},
+			},
+		},
+		Status: corev1.ServiceStatus{
+			LoadBalancer: corev1.LoadBalancerStatus{
+				Ingress: []corev1.LoadBalancerIngress{
+					{
+						IP: "10.0.0.2",
+					},
+				},
+			},
+		},
+	}
+	virtualService := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "virtual-namespace",
+			Name:      "virtual-service",
+			Labels: map[string]string{
+				translate.ControllerLabel: "vcluster",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			ClusterIP: corev1.ClusterIPNone,
+			Ports:     hostService.Spec.Ports,
+		},
+	}
+
+	pClient := testingutil.NewFakeClient(scheme.Scheme, hostService)
+	vClient := testingutil.NewFakeClient(scheme.Scheme, virtualService)
+	fakeConfig := testingutil.NewFakeConfig()
+	fakeContext := syncertesting.NewFakeRegisterContext(fakeConfig, pClient, vClient)
+	serviceSyncer := &ServiceSyncer{
+		Name:        name,
+		SyncContext: fakeContext.ToSyncContext(name),
+		SyncServices: map[string]types.NamespacedName{
+			"host-namespace/host-service": {
+				Namespace: "virtual-namespace",
+				Name:      "virtual-service",
+			},
+		},
+		CreateNamespace:       true,
+		CreateEndpoints:       true,
+		From:                  fakeContext.HostManager,
+		IsVirtualToHostSyncer: false,
+		To:                    fakeContext.VirtualManager,
+		Log:                   loghelper.New(name),
+	}
+
+	_, err := serviceSyncer.Reconcile(fakeContext, ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: hostService.Namespace,
+			Name:      hostService.Name,
+		},
+	})
+	assert.NilError(t, err)
+
+	actualVirtualService := &corev1.Service{}
+	err = vClient.Get(fakeContext, types.NamespacedName{
+		Namespace: virtualService.Namespace,
+		Name:      virtualService.Name,
+	}, actualVirtualService)
+	assert.NilError(t, err)
+	assert.Equal(t, len(actualVirtualService.Status.LoadBalancer.Ingress), 0)
+
+	//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
+	virtualEndpoints := &corev1.Endpoints{}
+	err = vClient.Get(fakeContext, types.NamespacedName{
+		Namespace: virtualService.Namespace,
+		Name:      virtualService.Name,
+	}, virtualEndpoints)
+	assert.NilError(t, err)
+	assert.DeepEqual(t, virtualEndpoints.Subsets, []corev1.EndpointSubset{
+		{
+			Addresses: []corev1.EndpointAddress{
+				{
+					IP: hostService.Spec.ClusterIP,
+				},
+			},
+			Ports: []corev1.EndpointPort{
+				{
+					Name: "http",
+					Port: 8080,
+				},
+			},
+		},
+	})
+}
