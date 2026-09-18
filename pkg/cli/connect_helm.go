@@ -469,8 +469,14 @@ func portForwardServer(server string, localPort int) (string, string, error) {
 		return "", "", err
 	}
 
-	parsed.Host = net.JoinHostPort("localhost", strconv.Itoa(localPort))
-	return parsed.String(), remotePort, nil
+	// Port-forwarding tunnels to the pod API, which serves at the root, so only
+	// the scheme carries over. Any path, query or user info from an ingress-facing
+	// server would be sent to an endpoint that does not serve it.
+	forwarded := &url.URL{
+		Scheme: parsed.Scheme,
+		Host:   net.JoinHostPort("localhost", strconv.Itoa(localPort)),
+	}
+	return forwarded.String(), remotePort, nil
 }
 
 func serverPort(parsed *url.URL) (string, error) {

@@ -136,6 +136,27 @@ func TestPortForwardServer(t *testing.T) {
 			expectedServer: "https://localhost:10443",
 			expectedPort:   "9443",
 		},
+		{
+			name:           "server with path",
+			server:         "https://example.com:443/prefix",
+			localPort:      10443,
+			expectedServer: "https://localhost:10443",
+			expectedPort:   "443",
+		},
+		{
+			name:           "server with path and no explicit port",
+			server:         "https://example.com/prefix/deeper",
+			localPort:      10443,
+			expectedServer: "https://localhost:10443",
+			expectedPort:   "8443",
+		},
+		{
+			name:           "server with query and user info",
+			server:         "https://user:pw@example.com:443/prefix?foo=bar",
+			localPort:      10443,
+			expectedServer: "https://localhost:10443",
+			expectedPort:   "443",
+		},
 	}
 
 	for _, tt := range tests {
