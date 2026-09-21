@@ -2375,6 +2375,10 @@ type EtcdEmbedded struct {
 	// SnapshotCount defines the number of snapshots to keep for the embedded etcd. Defaults to 10000 if less than 1.
 	SnapshotCount int `json:"snapshotCount,omitempty"`
 
+	// DefragTimeout defines how long the etcd defragmentation on startup may take, e.g. "5m".
+	// vCluster fails to start if exceeded. Set to "0s" to skip defragmentation entirely.
+	DefragTimeout Duration `json:"defragTimeout,omitempty" product:"pro"`
+
 	// ExtraArgs are additional arguments to pass to the embedded etcd.
 	ExtraArgs []string `json:"extraArgs,omitempty"`
 }

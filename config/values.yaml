@@ -183,6 +183,7 @@ controlPlane:
       embedded:
         enabled: false
         migrateFromDeployedEtcd: false
+        defragTimeout: 5m
         extraArgs: []
       external:
         enabled: false

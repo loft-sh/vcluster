@@ -1982,6 +1982,11 @@
           "type": "integer",
           "description": "SnapshotCount defines the number of snapshots to keep for the embedded etcd. Defaults to 10000 if less than 1."
         },
+        "defragTimeout": {
+          "type": "string",
+          "description": "DefragTimeout defines how long the etcd defragmentation on startup may take, e.g. \"5m\".\nvCluster fails to start if exceeded. Set to \"0s\" to skip defragmentation entirely.",
+          "pro": true
+        },
         "extraArgs": {
           "items": {
             "type": "string"
