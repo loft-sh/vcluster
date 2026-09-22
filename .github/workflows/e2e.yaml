@@ -24,7 +24,7 @@ jobs:
     # always validates, so it bypasses change detection. Entry jobs break the
     # skip-propagation with !cancelled().
     if: github.event_name == 'pull_request'
-    uses: loft-sh/github-actions/.github/workflows/detect-changes.yaml@0a42138464e0e451779f9cbaf21ed1b074bd7bdc # detect-changes/v1
+    uses: loft-sh/github-actions/.github/workflows/detect-changes.yaml@detect-changes/v1
     with:
       paths: |
         - "go.mod"

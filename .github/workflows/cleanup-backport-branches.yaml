@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   cleanup-backport-branches:
-    uses: loft-sh/github-actions/.github/workflows/cleanup-backport-branches.yaml@b52efbd927586ea78282073f79d2423e552c9f62 # cleanup-backport-branches/v1
+    uses: loft-sh/github-actions/.github/workflows/cleanup-backport-branches.yaml@cleanup-backport-branches/v1
     with:
       dry-run: ${{ github.event.inputs.dry_run || 'false' }}
     secrets:

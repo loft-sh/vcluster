@@ -59,7 +59,7 @@ jobs:
       # so it isn't duplicated across the e2e workflows. See DEVOPS-1057.
       - name: Parse label filter
         id: parse
-        uses: loft-sh/github-actions/.github/actions/parse-label-filter@92646199adf03559d0031bb8c6c551f70e7c9360 # parse-label-filter/v1
+        uses: loft-sh/github-actions/.github/actions/parse-label-filter@parse-label-filter/v1
         with:
           pr-body: ${{ github.event.pull_request.body }}
           previous-pr-body: ${{ github.event.changes.body.from }}
@@ -77,7 +77,7 @@ jobs:
     # skip-propagation with !cancelled().
     if: github.event_name == 'pull_request'
     needs: [parse_label-filter]
-    uses: loft-sh/github-actions/.github/workflows/detect-changes.yaml@0a42138464e0e451779f9cbaf21ed1b074bd7bdc # detect-changes/v1
+    uses: loft-sh/github-actions/.github/workflows/detect-changes.yaml@detect-changes/v1
     with:
       paths: |
         - "go.mod"
@@ -307,7 +307,7 @@ jobs:
         # Skip on fork PRs: GITHUB_TOKEN is read-only for forks regardless of
         # the permissions block, so the upsert would 403.
         if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-        uses: loft-sh/github-actions/.github/actions/sticky-pr-comment@ee112eee4fb449b7b1e78f63fdec314563be534d # sticky-pr-comment/v1
+        uses: loft-sh/github-actions/.github/actions/sticky-pr-comment@sticky-pr-comment/v1
         with:
           marker: '<!-- e2e-ginkgo-status -->'
           body: |
