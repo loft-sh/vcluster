@@ -1,0 +1,72 @@
+// protoc -I . plugin.proto  --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative
+syntax = "proto3";
+
+package remote;
+
+option go_package = "github.com/loft-sh/vcluster/pkg/plugin/v1/remote";
+
+service VCluster {
+    // Deprecated: Use GetContext & RegisterPlugin instead
+    rpc Register (PluginInfo) returns (Context) {}
+
+    rpc RegisterPlugin (RegisterPluginRequest) returns (RegisterPluginResult) {}
+    rpc GetContext (Empty) returns (Context) {}
+    rpc IsLeader (Empty) returns (LeaderInfo) {}
+}
+
+service Plugin {
+    rpc Mutate (MutateRequest) returns (MutateResult) {}
+}
+
+message RegisterPluginRequest {
+    string version = 1;
+    string name = 2;
+    string address = 3;
+    repeated ClientHook clientHooks = 4;
+}
+
+message RegisterPluginResult {
+
+}
+
+message PluginInfo {
+    string name = 1;
+}
+
+message MutateRequest {
+    string apiVersion = 1;
+    string kind = 2;
+    string object = 3;
+    string type = 4;
+}
+
+message MutateResult {
+    string object = 1;
+    bool mutated = 2;
+}
+
+message LeaderInfo {
+    bool leader = 1;
+    string runID = 2;
+}
+
+message ClientHook {
+    string apiVersion = 1;
+    string kind = 2;
+    repeated string types = 3;
+}
+
+message Context {
+    string virtualClusterConfig = 1;
+    string physicalClusterConfig = 2;
+    string syncerConfig = 3;
+
+    string targetNamespace = 4;
+    string currentNamespace = 5;
+
+    string options = 6;
+}
+
+message Empty {
+
+}
