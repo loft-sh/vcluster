@@ -415,6 +415,7 @@ controlPlane:
     enabled: false
     labels: {}
     annotations: {}
+    metricRelabelings: []
 
   advanced:
     defaultImageRegistry: ""
