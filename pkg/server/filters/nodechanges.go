@@ -10,6 +10,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/server/handler"
 	"github.com/loft-sh/vcluster/pkg/util/encoding"
 	requestpkg "github.com/loft-sh/vcluster/pkg/util/request"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversionscheme "k8s.io/apimachinery/pkg/apis/meta/internalversion/scheme"
@@ -125,6 +126,8 @@ func updateNode(ctx context.Context, decoder encoding.Decoder, localClient clien
 		return nil, err
 	} else if curVNode.ResourceVersion != vNode.ResourceVersion {
 		return nil, kerrors.NewConflict(corev1.Resource("nodes"), vNode.Name, fmt.Errorf("the object has been modified; please apply your changes to the latest version and try again"))
+	} else if curVNode.Labels[translate.MarkerLabel] != translate.VClusterName {
+		return nil, kerrors.NewForbidden(corev1.Resource("nodes"), vNode.Name, fmt.Errorf("node is not managed by this vcluster"))
 	}
 
 	// get the corresponding physical node
