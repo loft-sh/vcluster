@@ -1,0 +1,11 @@
+/apiserver.local.config
+/.devspace
+/.git
+/.vscode
+/api
+/kubeconfig.yaml
+/cmd/virtualclusterctl
+/test
+/conformance
+/docs
+devspace.yaml

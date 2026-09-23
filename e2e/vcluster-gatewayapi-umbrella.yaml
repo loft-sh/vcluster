@@ -1,0 +1,19 @@
+controlPlane:
+  statefulSet:
+    image:
+      registry: ""
+      repository: {{ .Repository }}
+      tag: {{ .Tag }}
+sync:
+  fromHost:
+    # The umbrella switch alone must drive the GatewayClass import; only the
+    # selector is set here to keep other suites' classes out of this tenant.
+    gatewayClasses:
+      selector:
+        matchLabels:
+          e2e.vcluster.loft.sh/gatewayclass: gatewayapi-umbrella
+  toHost:
+    services:
+      enabled: true
+    gatewayApi:
+      enabled: true

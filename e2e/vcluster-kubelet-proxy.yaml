@@ -1,0 +1,14 @@
+controlPlane:
+  statefulSet:
+    image:
+      registry: ""
+      repository: {{.Repository}}
+      tag: {{.Tag}}
+sync:
+  fromHost:
+    nodes:
+      enabled: true
+networking:
+  advanced:
+    proxyKubelets:
+      byHostname: true
