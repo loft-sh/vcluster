@@ -1,5 +1,5 @@
 /*
-Copyright 2024 The Kubernetes Authors.
+Copyright 2026 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,10 +19,12 @@ limitations under the License.
 package versioned
 
 import (
-	"fmt"
-	"net/http"
+	fmt "fmt"
+	http "net/http"
 
+	groupsnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/clientset/versioned/typed/volumegroupsnapshot/v1"
 	groupsnapshotv1beta1 "github.com/kubernetes-csi/external-snapshotter/client/v8/clientset/versioned/typed/volumegroupsnapshot/v1beta1"
+	groupsnapshotv1beta2 "github.com/kubernetes-csi/external-snapshotter/client/v8/clientset/versioned/typed/volumegroupsnapshot/v1beta2"
 	snapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/clientset/versioned/typed/volumesnapshot/v1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
@@ -31,20 +33,34 @@ import (
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
+	GroupsnapshotV1() groupsnapshotv1.GroupsnapshotV1Interface
 	GroupsnapshotV1beta1() groupsnapshotv1beta1.GroupsnapshotV1beta1Interface
+	GroupsnapshotV1beta2() groupsnapshotv1beta2.GroupsnapshotV1beta2Interface
 	SnapshotV1() snapshotv1.SnapshotV1Interface
 }
 
 // Clientset contains the clients for groups.
 type Clientset struct {
 	*discovery.DiscoveryClient
+	groupsnapshotV1      *groupsnapshotv1.GroupsnapshotV1Client
 	groupsnapshotV1beta1 *groupsnapshotv1beta1.GroupsnapshotV1beta1Client
+	groupsnapshotV1beta2 *groupsnapshotv1beta2.GroupsnapshotV1beta2Client
 	snapshotV1           *snapshotv1.SnapshotV1Client
+}
+
+// GroupsnapshotV1 retrieves the GroupsnapshotV1Client
+func (c *Clientset) GroupsnapshotV1() groupsnapshotv1.GroupsnapshotV1Interface {
+	return c.groupsnapshotV1
 }
 
 // GroupsnapshotV1beta1 retrieves the GroupsnapshotV1beta1Client
 func (c *Clientset) GroupsnapshotV1beta1() groupsnapshotv1beta1.GroupsnapshotV1beta1Interface {
 	return c.groupsnapshotV1beta1
+}
+
+// GroupsnapshotV1beta2 retrieves the GroupsnapshotV1beta2Client
+func (c *Clientset) GroupsnapshotV1beta2() groupsnapshotv1beta2.GroupsnapshotV1beta2Interface {
+	return c.groupsnapshotV1beta2
 }
 
 // SnapshotV1 retrieves the SnapshotV1Client
@@ -96,7 +112,15 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 
 	var cs Clientset
 	var err error
+	cs.groupsnapshotV1, err = groupsnapshotv1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
 	cs.groupsnapshotV1beta1, err = groupsnapshotv1beta1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
+	cs.groupsnapshotV1beta2, err = groupsnapshotv1beta2.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +149,9 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
+	cs.groupsnapshotV1 = groupsnapshotv1.New(c)
 	cs.groupsnapshotV1beta1 = groupsnapshotv1beta1.New(c)
+	cs.groupsnapshotV1beta2 = groupsnapshotv1beta2.New(c)
 	cs.snapshotV1 = snapshotv1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)

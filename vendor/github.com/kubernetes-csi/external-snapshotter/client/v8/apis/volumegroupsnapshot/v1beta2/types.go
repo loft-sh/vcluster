@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Kubernetes Authors.
+Copyright 2025 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 // +kubebuilder:object:generate=true
-package v1beta1
+package v1beta2
 
 import (
 	core_v1 "k8s.io/api/core/v1"
@@ -80,6 +80,7 @@ type VolumeGroupSnapshotStatus struct {
 	// VolumeGroupSnapshot and VolumeGroupSnapshotContent objects is successful
 	// (by validating that both VolumeGroupSnapshot and VolumeGroupSnapshotContent
 	// point at each other) before using this object.
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="boundVolumeGroupSnapshotContentName is immutable once set"
 	// +optional
 	BoundVolumeGroupSnapshotContentName *string `json:"boundVolumeGroupSnapshotContentName,omitempty" protobuf:"bytes,1,opt,name=boundVolumeGroupSnapshotContentName"`
 
@@ -87,9 +88,6 @@ type VolumeGroupSnapshotStatus struct {
 	// by the underlying storage system.
 	// If not specified, it may indicate that the creation time of the group snapshot
 	// is unknown.
-	// The format of this field is a Unix nanoseconds time encoded as an int64.
-	// On Unix, the command date +%s%N returns the current time in nanoseconds
-	// since 1970-01-01 00:00:00 UTC.
 	// This field is updated based on the CreationTime field in VolumeGroupSnapshotContentStatus
 	// +optional
 	CreationTime *metav1.Time `json:"creationTime,omitempty" protobuf:"bytes,2,opt,name=creationTime"`
@@ -117,9 +115,9 @@ type VolumeGroupSnapshotStatus struct {
 // VolumeGroupSnapshot is a user's request for creating either a point-in-time
 // group snapshot or binding to a pre-existing group snapshot.
 // +kubebuilder:object:root=true
+// +kubebuilder:storageversion
 // +kubebuilder:resource:scope=Namespaced,shortName=vgs
 // +kubebuilder:subresource:status
-// +kubebuilder:deprecatedversion
 // +kubebuilder:printcolumn:name="ReadyToUse",type=boolean,JSONPath=`.status.readyToUse`,description="Indicates if all the individual snapshots in the group are ready to be used to restore a group of volumes."
 // +kubebuilder:printcolumn:name="VolumeGroupSnapshotClass",type=string,JSONPath=`.spec.volumeGroupSnapshotClassName`,description="The name of the VolumeGroupSnapshotClass requested by the VolumeGroupSnapshot."
 // +kubebuilder:printcolumn:name="VolumeGroupSnapshotContent",type=string,JSONPath=`.status.boundVolumeGroupSnapshotContentName`,description="Name of the VolumeGroupSnapshotContent object to which the VolumeGroupSnapshot object intends to bind to. Please note that verification of binding actually requires checking both VolumeGroupSnapshot and VolumeGroupSnapshotContent to ensure both are pointing at each other. Binding MUST be verified prior to usage of this object."
@@ -163,7 +161,7 @@ type VolumeGroupSnapshotList struct {
 // is used by specifying its name in a VolumeGroupSnapshot object.
 // VolumeGroupSnapshotClasses are non-namespaced.
 // +kubebuilder:object:root=true
-// +kubebuilder:deprecatedversion
+// +kubebuilder:storageversion
 // +kubebuilder:resource:scope=Cluster,shortName=vgsclass;vgsclasses
 // +kubebuilder:printcolumn:name="Driver",type=string,JSONPath=`.driver`
 // +kubebuilder:printcolumn:name="DeletionPolicy",type=string,JSONPath=`.deletionPolicy`,description="Determines whether a VolumeGroupSnapshotContent created through the VolumeGroupSnapshotClass should be deleted when its bound VolumeGroupSnapshot is deleted."
@@ -177,11 +175,13 @@ type VolumeGroupSnapshotClass struct {
 
 	// Driver is the name of the storage driver expected to handle this VolumeGroupSnapshotClass.
 	// Required.
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="driver is immutable once set"
 	Driver string `json:"driver" protobuf:"bytes,2,opt,name=driver"`
 
 	// Parameters is a key-value map with storage driver specific parameters for
 	// creating group snapshots.
 	// These values are opaque to Kubernetes and are passed directly to the driver.
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="parameters are immutable once set"
 	// +optional
 	Parameters map[string]string `json:"parameters,omitempty" protobuf:"bytes,3,rep,name=parameters"`
 
@@ -194,6 +194,7 @@ type VolumeGroupSnapshotClass struct {
 	// "Delete" means that the VolumeGroupSnapshotContent and its physical group
 	// snapshot on underlying storage system are deleted.
 	// Required.
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="deletionPolicy is immutable once set"
 	DeletionPolicy snapshotv1.DeletionPolicy `json:"deletionPolicy" protobuf:"bytes,4,opt,name=deletionPolicy"`
 }
 
@@ -219,8 +220,8 @@ type VolumeGroupSnapshotClassList struct {
 // VolumeGroupSnapshotContent represents the actual "on-disk" group snapshot object
 // in the underlying storage system
 // +kubebuilder:object:root=true
+// +kubebuilder:storageversion
 // +kubebuilder:resource:scope=Cluster,shortName=vgsc;vgscs
-// +kubebuilder:deprecatedversion
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="ReadyToUse",type=boolean,JSONPath=`.status.readyToUse`,description="Indicates if all the individual snapshots in the group are ready to be used to restore a group of volumes."
 // +kubebuilder:printcolumn:name="DeletionPolicy",type=string,JSONPath=`.spec.deletionPolicy`,description="Determines whether this VolumeGroupSnapshotContent and its physical group snapshot on the underlying storage system should be deleted when its bound VolumeGroupSnapshot is deleted."
@@ -270,6 +271,8 @@ type VolumeGroupSnapshotContentSpec struct {
 	// This field is immutable after creation.
 	// Required.
 	// +kubebuilder:validation:XValidation:rule="has(self.name) && has(self.__namespace__)",message="both volumeGroupSnapshotRef.name and volumeGroupSnapshotRef.namespace must be set"
+	// +kubebuilder:validation:XValidation:rule="self.name == oldSelf.name && self.__namespace__ == oldSelf.__namespace__",message="volumeGroupSnapshotRef.name and volumeGroupSnapshotRef.namespace are immutable"
+	// +kubebuilder:validation:XValidation:rule="!has(oldSelf.uid) || (has(self.uid) && self.uid == oldSelf.uid)",message="volumeGroupSnapshotRef.uid is immutable once set"
 	VolumeGroupSnapshotRef core_v1.ObjectReference `json:"volumeGroupSnapshotRef" protobuf:"bytes,1,opt,name=volumeGroupSnapshotRef"`
 
 	// DeletionPolicy determines whether this VolumeGroupSnapshotContent and the
@@ -293,6 +296,7 @@ type VolumeGroupSnapshotContentSpec struct {
 	// This MUST be the same as the name returned by the CSI GetPluginName() call for
 	// that driver.
 	// Required.
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="driver is immutable once set"
 	Driver string `json:"driver" protobuf:"bytes,3,opt,name=driver"`
 
 	// VolumeGroupSnapshotClassName is the name of the VolumeGroupSnapshotClass from
@@ -303,6 +307,7 @@ type VolumeGroupSnapshotContentSpec struct {
 	// For dynamic provisioning, this field must be set.
 	// This field may be unset for pre-provisioned snapshots.
 	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="volumeGroupSnapshotClassName is immutable once set"
 	VolumeGroupSnapshotClassName *string `json:"volumeGroupSnapshotClassName,omitempty" protobuf:"bytes,4,opt,name=volumeGroupSnapshotClassName"`
 
 	// Source specifies whether the snapshot is (or should be) dynamically provisioned
@@ -312,6 +317,31 @@ type VolumeGroupSnapshotContentSpec struct {
 	Source VolumeGroupSnapshotContentSource `json:"source" protobuf:"bytes,5,opt,name=source"`
 }
 
+// The VolumeSnapshotInfo struct is added in v1beta2
+// VolumeSnapshotInfo contains information for a snapshot
+type VolumeSnapshotInfo struct {
+	// VolumeHandle specifies the CSI "volume_id" of the volume from which this snapshot
+	// was taken from.
+	VolumeHandle string `json:"volumeHandle,omitempty" protobuf:"bytes,1,opt,name=volumeHandle"`
+
+	// SnapshotHandle is the CSI "snapshot_id" of this snapshot on the underlying storage system.
+	SnapshotHandle string `json:"snapshotHandle,omitempty" protobuf:"bytes,2,opt,name=snapshotHandle"`
+
+	// creationTime is the timestamp when the point-in-time snapshot is taken
+	// by the underlying storage system.
+	// +optional
+	CreationTime *int64 `json:"creationTime,omitempty" protobuf:"varint,3,opt,name=creationTime"`
+
+	// ReadyToUse indicates if the snapshot is ready to be used to restore a volume.
+	// +optional
+	ReadyToUse *bool `json:"readyToUse,omitempty" protobuf:"varint,4,opt,name=readyToUse"`
+
+	// RestoreSize represents the minimum size of volume required to create a volume
+	// from this snapshot.
+	// +optional
+	RestoreSize *int64 `json:"restoreSize,omitempty" protobuf:"bytes,5,opt,name=restoreSize"`
+}
+
 // VolumeGroupSnapshotContentStatus defines the observed state of VolumeGroupSnapshotContent.
 type VolumeGroupSnapshotContentStatus struct {
 	// VolumeGroupSnapshotHandle is a unique id returned by the CSI driver
@@ -319,15 +349,13 @@ type VolumeGroupSnapshotContentStatus struct {
 	// If a storage system does not provide such an id, the
 	// CSI driver can choose to return the VolumeGroupSnapshot name.
 	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="volumeGroupSnapshotHandle is immutable once set"
 	VolumeGroupSnapshotHandle *string `json:"volumeGroupSnapshotHandle,omitempty" protobuf:"bytes,1,opt,name=volumeGroupSnapshotHandle"`
 
 	// CreationTime is the timestamp when the point-in-time group snapshot is taken
 	// by the underlying storage system.
 	// If not specified, it indicates the creation time is unknown.
 	// If not specified, it means the readiness of a group snapshot is unknown.
-	// The format of this field is a Unix nanoseconds time encoded as an int64.
-	// On Unix, the command date +%s%N returns the current time in nanoseconds
-	// since 1970-01-01 00:00:00 UTC.
 	// This field is the source for the CreationTime field in VolumeGroupSnapshotStatus
 	// +optional
 	CreationTime *metav1.Time `json:"creationTime,omitempty" protobuf:"bytes,2,opt,name=creationTime"`
@@ -343,11 +371,23 @@ type VolumeGroupSnapshotContentStatus struct {
 	// +optional
 	Error *snapshotv1.VolumeSnapshotError `json:"error,omitempty" protobuf:"bytes,4,opt,name=error,casttype=VolumeSnapshotError"`
 
+	// This field is introduced in v1beta1 but removed in v1beta2
+	// It is replaced by VolumeSnapshotInfoList
+	// Information in this field from an existing v1beta1 API object
+	// will be copied to VolumeSnapshotInfoList by the conversion logic
+	//
 	// VolumeSnapshotHandlePairList is a list of CSI "volume_id" and "snapshot_id"
 	// pair returned by the CSI driver to identify snapshots and their source volumes
 	// on the storage system.
 	// +optional
-	VolumeSnapshotHandlePairList []VolumeSnapshotHandlePair `json:"volumeSnapshotHandlePairList,omitempty" protobuf:"bytes,6,opt,name=volumeSnapshotHandlePairList"`
+	// VolumeSnapshotHandlePairList []VolumeSnapshotHandlePair `json:"volumeSnapshotHandlePairList,omitempty" protobuf:"bytes,6,opt,name=volumeSnapshotHandlePairList"`
+
+	// This field is introduced in v1beta2
+	// It is replacing VolumeSnapshotHandlePairList
+	// VolumeSnapshotInfoList is a list of snapshot information returned by
+	// by the CSI driver to identify snapshots on the storage system.
+	// +optional
+	VolumeSnapshotInfoList []VolumeSnapshotInfo `json:"volumeSnapshotInfoList,omitempty" protobuf:"bytes,5,opt,name=volumeSnapshotInfo"`
 }
 
 // VolumeGroupSnapshotContentSource represents the CSI source of a group snapshot.
