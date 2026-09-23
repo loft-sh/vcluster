@@ -1709,6 +1709,9 @@ type ServiceMonitor struct {
 
 	// Annotations are the extra annotations to add to the service monitor.
 	Annotations map[string]string `json:"annotations,omitempty"`
+
+	// Interval is the scrape interval used for every endpoint in the service monitor, e.g. "60s". Defaults to "30s".
+	Interval string `json:"interval,omitempty"`
 }
 
 type Networking struct {

@@ -4603,6 +4603,10 @@
           },
           "type": "object",
           "description": "Annotations are the extra annotations to add to the service monitor."
+        },
+        "interval": {
+          "type": "string",
+          "description": "Interval is the scrape interval used for every endpoint in the service monitor, e.g. \"60s\". Defaults to \"30s\"."
         }
       },
       "additionalProperties": false,
