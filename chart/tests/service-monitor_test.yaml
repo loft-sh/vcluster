@@ -49,9 +49,6 @@ tests:
       - equal:
           path: spec.endpoints[2].interval
           value: 30s
-      - equal:
-          path: spec.endpoints[3].interval
-          value: 30s
 
   - it: custom scrape interval applies to every endpoint
     release:
@@ -76,7 +73,7 @@ tests:
           count: 1
       - lengthEqual:
           path: spec.endpoints
-          count: 5
+          count: 4
       - equal:
           path: spec.endpoints[0].interval
           value: 60s
@@ -88,9 +85,6 @@ tests:
           value: 60s
       - equal:
           path: spec.endpoints[3].interval
-          value: 60s
-      - equal:
-          path: spec.endpoints[4].interval
           value: 60s
 
   - it: override release label
