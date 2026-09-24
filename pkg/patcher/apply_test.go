@@ -1,11 +1,18 @@
 package patcher
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 
+	"github.com/loft-sh/vcluster/pkg/scheme"
+	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
+	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
 	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -212,5 +219,77 @@ func wantFieldValues(field string, want map[string]string) func(t *testing.T, go
 				t.Fatalf("[%q][%q] = %q, want %q", field, k, gotVal, wantVal)
 			}
 		}
+	}
+}
+
+type conflictOnceClient struct {
+	client.Client
+
+	firstUpdate bool
+}
+
+func (c *conflictOnceClient) Update(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
+	if !c.firstUpdate {
+		c.firstUpdate = true
+
+		current := &corev1.ConfigMap{}
+		if err := c.Client.Get(ctx, client.ObjectKeyFromObject(obj), current); err != nil {
+			return err
+		}
+		current.Labels = map[string]string{"external": "true"}
+		if err := c.Client.Update(ctx, current, opts...); err != nil {
+			return err
+		}
+
+		return kerrors.NewConflict(schema.GroupResource{Group: "", Resource: "configmaps"}, obj.GetName(), fmt.Errorf("simulated conflict"))
+	}
+
+	return c.Client.Update(ctx, obj, opts...)
+}
+
+func TestApplyObjectRetriesConflictWithLatestObject(t *testing.T) {
+	t.Helper()
+
+	virtualClient := testingutil.NewFakeClient(scheme.Scheme, &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "example",
+			Namespace: "default",
+			Labels: map[string]string{
+				"initial": "true",
+			},
+		},
+	})
+
+	syncCtx := &synccontext.SyncContext{
+		Context:       context.Background(),
+		VirtualClient: &conflictOnceClient{Client: virtualClient},
+	}
+
+	before := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "example",
+			Namespace: "default",
+			Labels: map[string]string{
+				"initial": "true",
+			},
+		},
+	}
+	after := before.DeepCopy()
+	after.Labels["synced"] = "true"
+
+	if err := ApplyObject(syncCtx, before, after, synccontext.SyncHostToVirtual, false); err != nil {
+		t.Fatalf("ApplyObject() error = %v", err)
+	}
+
+	updated := &corev1.ConfigMap{}
+	if err := virtualClient.Get(context.Background(), client.ObjectKey{Name: "example", Namespace: "default"}, updated); err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+
+	if updated.Labels["synced"] != "true" {
+		t.Fatalf("expected synced label to be preserved after retry, got labels: %#v", updated.Labels)
+	}
+	if updated.Labels["external"] != "true" {
+		t.Fatalf("expected external label from concurrent update to survive retry, got labels: %#v", updated.Labels)
 	}
 }
