@@ -183,6 +183,72 @@ type translatePodAffinityTermTestCase struct {
 	expectedEvents []string
 }
 
+func TestTranslateTopologySpreadConstraints(t *testing.T) {
+	vPod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test-ns",
+			Labels: map[string]string{
+				"app":               "demo",
+				"pod-template-hash": "def456",
+			},
+		},
+	}
+	pPod := &corev1.Pod{
+		Spec: corev1.PodSpec{
+			TopologySpreadConstraints: []corev1.TopologySpreadConstraint{
+				{
+					MaxSkew:           1,
+					TopologyKey:       "kubernetes.io/hostname",
+					WhenUnsatisfiable: corev1.ScheduleAnyway,
+					MatchLabelKeys:    []string{"pod-template-hash"},
+					LabelSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app": "demo",
+						},
+						MatchExpressions: []metav1.LabelSelectorRequirement{
+							{
+								Key:      "pod-template-hash",
+								Operator: metav1.LabelSelectorOpIn,
+								Values:   []string{"abc123"},
+							},
+							{
+								Key:      "existing",
+								Operator: metav1.LabelSelectorOpIn,
+								Values:   []string{"value"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	translateTopologySpreadConstraints(vPod, pPod)
+
+	assert.Assert(t, cmp.DeepEqual(pPod.Spec.TopologySpreadConstraints, []corev1.TopologySpreadConstraint{
+		{
+			MaxSkew:           1,
+			TopologyKey:       "kubernetes.io/hostname",
+			WhenUnsatisfiable: corev1.ScheduleAnyway,
+			MatchLabelKeys:    []string{"pod-template-hash"},
+			LabelSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app":                    "demo",
+					translate.NamespaceLabel: "test-ns",
+					translate.MarkerLabel:    translate.VClusterName,
+				},
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{
+						Key:      "existing",
+						Operator: metav1.LabelSelectorOpIn,
+						Values:   []string{"value"},
+					},
+				},
+			},
+		},
+	}))
+}
+
 func TestVolumeTranslation(t *testing.T) {
 	virtualPath := fmt.Sprintf(VirtualPathTemplate, testingutil.DefaultTestCurrentNamespace, testingutil.DefaultTestVClusterName)
 	hostToContainer := corev1.MountPropagationHostToContainer
