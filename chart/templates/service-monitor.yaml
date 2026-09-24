@@ -27,8 +27,9 @@ spec:
       chart: "{{ include "vcluster.version.label"  $ }}"
       heritage: "{{ .Release.Service }}"
       vcluster.loft.sh/service: "true"
+  {{- $interval := .Values.controlPlane.serviceMonitor.interval | default "30s" }}
   endpoints:
-  - interval: 30s
+  - interval: {{ $interval }}
     port: https
     path: /metrics
     scheme: https
@@ -47,7 +48,7 @@ spec:
       keySecret:
         name: vc-{{ .Release.Name }}
         key: client-key
-  - interval: 30s
+  - interval: {{ $interval }}
     port: https
     path: /metrics/controller-manager
     scheme: https
@@ -67,7 +68,7 @@ spec:
         name: vc-{{ .Release.Name }}
         key: client-key
   {{- if or .Values.controlPlane.distro.k8s.scheduler.enabled .Values.controlPlane.advanced.virtualScheduler.enabled }}
-  - interval: 30s
+  - interval: {{ $interval }}
     port: https
     path: /metrics/scheduler
     scheme: https
@@ -88,7 +89,7 @@ spec:
         key: client-key
   {{- end }}
   {{- if .Values.controlPlane.backingStore.etcd.embedded.enabled }}
-  - interval: 30s
+  - interval: {{ $interval }}
     port: https
     path: /metrics/etcd
     scheme: https
@@ -109,7 +110,7 @@ spec:
         key: client-key
   {{- end }}
   {{- if not (or .Values.controlPlane.backingStore.etcd.embedded.enabled .Values.controlPlane.backingStore.etcd.deploy.enabled .Values.controlPlane.backingStore.etcd.external.enabled) }}
-  - interval: 30s
+  - interval: {{ $interval }}
     port: https
     path: /metrics/kine
     scheme: https

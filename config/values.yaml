@@ -414,6 +414,7 @@ controlPlane:
     enabled: false
     labels: {}
     annotations: {}
+    interval: 30s
 
   advanced:
     defaultImageRegistry: ""
