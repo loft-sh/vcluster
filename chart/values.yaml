@@ -788,6 +788,8 @@ controlPlane:
     enabled: false
     labels: {}
     annotations: {}
+    # Interval is the scrape interval used for every endpoint in the service monitor, e.g. "60s". Defaults to "30s".
+    interval: 30s
   
   # Advanced holds additional configuration for the vCluster control plane.
   advanced:
