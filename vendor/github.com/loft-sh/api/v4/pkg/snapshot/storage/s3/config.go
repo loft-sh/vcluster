@@ -17,7 +17,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-type configBuilder struct {
+// ConfigBuilder assembles the aws.Config an S3 client is built from.
+type ConfigBuilder struct {
 	log       logr.Logger
 	opts      []func(*config.LoadOptions) error
 	credsFlag bool
@@ -25,23 +26,24 @@ type configBuilder struct {
 	err error
 }
 
-func newConfigBuilder(logger logr.Logger) *configBuilder {
-	return &configBuilder{
+// NewConfigBuilder returns a builder for an S3 client's aws.Config.
+func NewConfigBuilder(logger logr.Logger) *ConfigBuilder {
+	return &ConfigBuilder{
 		log: logger,
 	}
 }
 
-func (cb *configBuilder) WithRegion(region string) *configBuilder {
+func (cb *ConfigBuilder) WithRegion(region string) *ConfigBuilder {
 	cb.opts = append(cb.opts, config.WithRegion(region))
 	return cb
 }
 
-func (cb *configBuilder) WithProfile(profile string) *configBuilder {
+func (cb *ConfigBuilder) WithProfile(profile string) *ConfigBuilder {
 	cb.opts = append(cb.opts, config.WithSharedConfigProfile(profile))
 	return cb
 }
 
-func (cb *configBuilder) WithCredentialsFile(credentialsFile string) *configBuilder {
+func (cb *ConfigBuilder) WithCredentialsFile(credentialsFile string) *ConfigBuilder {
 	if credentialsFile == "" && os.Getenv("AWS_SHARED_CREDENTIALS_FILE") != "" {
 		credentialsFile = os.Getenv("AWS_SHARED_CREDENTIALS_FILE")
 	}
@@ -65,7 +67,7 @@ func (cb *configBuilder) WithCredentialsFile(credentialsFile string) *configBuil
 //
 // Partial credentials are ignored so the default chain still applies, matching what the environment
 // provider did with a half-populated environment.
-func (cb *configBuilder) WithStaticCredentials(accessKeyID, secretAccessKey, sessionToken string) *configBuilder {
+func (cb *ConfigBuilder) WithStaticCredentials(accessKeyID, secretAccessKey, sessionToken string) *ConfigBuilder {
 	// neither set asks for the default chain, so it stays a no-op; exactly one set is always a mistake,
 	// and falling through would act under the host's own identity against a caller-chosen bucket
 	if (accessKeyID == "") != (secretAccessKey == "") {
@@ -84,7 +86,7 @@ func (cb *configBuilder) WithStaticCredentials(accessKeyID, secretAccessKey, ses
 	return cb
 }
 
-func (cb *configBuilder) WithTLSSettings(insecureSkipTLSVerify bool, caCert string) *configBuilder {
+func (cb *ConfigBuilder) WithTLSSettings(insecureSkipTLSVerify bool, caCert string) *ConfigBuilder {
 	cb.opts = append(cb.opts, config.WithHTTPClient(awshttp.NewBuildableClient().WithTransportOptions(func(tr *http.Transport) {
 		if tr.TLSClientConfig == nil {
 			tr.TLSClientConfig = &tls.Config{}
@@ -104,7 +106,7 @@ func (cb *configBuilder) WithTLSSettings(insecureSkipTLSVerify bool, caCert stri
 	return cb
 }
 
-func (cb *configBuilder) Build() (aws.Config, error) {
+func (cb *ConfigBuilder) Build() (aws.Config, error) {
 	if cb.err != nil {
 		return aws.Config{}, cb.err
 	}
@@ -121,7 +123,8 @@ func (cb *configBuilder) Build() (aws.Config, error) {
 	return conf, nil
 }
 
-func newS3Client(cfg aws.Config, url string, forcePathStyle bool) (*s3.Client, error) {
+// NewS3Client builds an S3 client for cfg, pointed at url when one is given.
+func NewS3Client(cfg aws.Config, url string, forcePathStyle bool) (*s3.Client, error) {
 	opts := []func(*s3.Options){
 		func(o *s3.Options) {
 			o.UsePathStyle = forcePathStyle

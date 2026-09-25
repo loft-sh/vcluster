@@ -641,6 +641,11 @@ func (in LoftUpgradeStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in Machine) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.Machine"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in MachineConfigTemplate) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.MachineConfigTemplate"
 }
@@ -661,6 +666,21 @@ func (in MachineConfigTemplateStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MachineList) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.MachineList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MachineSpec) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.MachineSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MachineStatus) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.MachineStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in MaintenanceWindow) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.MaintenanceWindow"
 }
@@ -673,6 +693,31 @@ func (in ManagementRole) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in NamespacedNameArgs) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.NamespacedNameArgs"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NetworkEnvironment) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.NetworkEnvironment"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NetworkEnvironmentData) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.NetworkEnvironmentData"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NetworkEnvironmentList) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.NetworkEnvironmentList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NetworkEnvironmentSpec) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.NetworkEnvironmentSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NetworkEnvironmentStatus) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.NetworkEnvironmentStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
@@ -733,31 +778,6 @@ func (in NodeClaimSpec) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in NodeClaimStatus) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.NodeClaimStatus"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in NodeEnvironment) OpenAPIModelName() string {
-	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.NodeEnvironment"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in NodeEnvironmentData) OpenAPIModelName() string {
-	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.NodeEnvironmentData"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in NodeEnvironmentList) OpenAPIModelName() string {
-	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.NodeEnvironmentList"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in NodeEnvironmentSpec) OpenAPIModelName() string {
-	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.NodeEnvironmentSpec"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in NodeEnvironmentStatus) OpenAPIModelName() string {
-	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.NodeEnvironmentStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
@@ -906,6 +926,26 @@ func (in OSImage) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in OSImageFinalize) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.OSImageFinalize"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in OSImageFinalizeList) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.OSImageFinalizeList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in OSImageFinalizeSpec) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.OSImageFinalizeSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in OSImageFinalizeStatus) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.OSImageFinalizeStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in OSImageList) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.OSImageList"
 }
@@ -918,6 +958,31 @@ func (in OSImageSpec) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in OSImageStatus) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.OSImageStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in OSImageUpload) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.OSImageUpload"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in OSImageUploadList) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.OSImageUploadList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in OSImageUploadSpec) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.OSImageUploadSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in OSImageUploadStatus) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.OSImageUploadStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in OSImageUploadTarget) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.management.v1.OSImageUploadTarget"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.

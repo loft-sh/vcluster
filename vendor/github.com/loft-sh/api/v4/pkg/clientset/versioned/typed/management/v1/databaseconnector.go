@@ -8,8 +8,6 @@ import (
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
 	scheme "github.com/loft-sh/api/v4/pkg/clientset/versioned/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
 )
 
@@ -21,16 +19,7 @@ type DatabaseConnectorsGetter interface {
 
 // DatabaseConnectorInterface has methods to work with DatabaseConnector resources.
 type DatabaseConnectorInterface interface {
-	Create(ctx context.Context, databaseConnector *managementv1.DatabaseConnector, opts metav1.CreateOptions) (*managementv1.DatabaseConnector, error)
-	Update(ctx context.Context, databaseConnector *managementv1.DatabaseConnector, opts metav1.UpdateOptions) (*managementv1.DatabaseConnector, error)
-	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, databaseConnector *managementv1.DatabaseConnector, opts metav1.UpdateOptions) (*managementv1.DatabaseConnector, error)
-	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
-	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*managementv1.DatabaseConnector, error)
 	List(ctx context.Context, opts metav1.ListOptions) (*managementv1.DatabaseConnectorList, error)
-	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *managementv1.DatabaseConnector, err error)
 	DatabaseConnectorExpansion
 }
 

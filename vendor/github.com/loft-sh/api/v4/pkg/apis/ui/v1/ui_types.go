@@ -56,6 +56,12 @@ type UISettingsSpec struct {
 	AgentNamespace string `json:"agentNamespace,omitempty"`
 }
 
+// NOTE for editors: the vCluster Platform serves this block per tenant, and
+// every field is resolved field by field from the global and per-tenant
+// settings (inherited, never inherited, or server-owned). When adding a field
+// here, add its resolution rule to the platform's pkg/tenancy/uisettings.go;
+// a guard test there fails until the new field is consciously classified.
+
 type UISettingsConfig struct {
 	// LoftVersion holds the current loft version
 	// +optional

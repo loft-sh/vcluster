@@ -31,10 +31,11 @@ type ManagementV1Interface interface {
 	IngressAuthTokensGetter
 	LicensesGetter
 	LoftUpgradesGetter
+	MachinesGetter
 	MachineConfigTemplatesGetter
+	NetworkEnvironmentsGetter
 	NetworkPeersGetter
 	NodeClaimsGetter
-	NodeEnvironmentsGetter
 	NodeProfilesGetter
 	NodeProvidersGetter
 	NodeTypesGetter
@@ -147,8 +148,16 @@ func (c *ManagementV1Client) LoftUpgrades() LoftUpgradeInterface {
 	return newLoftUpgrades(c)
 }
 
+func (c *ManagementV1Client) Machines() MachineInterface {
+	return newMachines(c)
+}
+
 func (c *ManagementV1Client) MachineConfigTemplates(namespace string) MachineConfigTemplateInterface {
 	return newMachineConfigTemplates(c, namespace)
+}
+
+func (c *ManagementV1Client) NetworkEnvironments() NetworkEnvironmentInterface {
+	return newNetworkEnvironments(c)
 }
 
 func (c *ManagementV1Client) NetworkPeers() NetworkPeerInterface {
@@ -157,10 +166,6 @@ func (c *ManagementV1Client) NetworkPeers() NetworkPeerInterface {
 
 func (c *ManagementV1Client) NodeClaims(namespace string) NodeClaimInterface {
 	return newNodeClaims(c, namespace)
-}
-
-func (c *ManagementV1Client) NodeEnvironments(namespace string) NodeEnvironmentInterface {
-	return newNodeEnvironments(c, namespace)
 }
 
 func (c *ManagementV1Client) NodeProfiles() NodeProfileInterface {

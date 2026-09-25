@@ -31,6 +31,15 @@ func ValidatePlatformConfig(fldPath *field.Path, platformConfig PlatformConfig) 
 // MaxStacks bounds how many stacks one vcluster.yaml may declare, set well above any real config.
 const MaxStacks = 50
 
+// ExactlyOneTemplateArm is the error for an entry that sets neither template nor templateRef.
+const ExactlyOneTemplateArm = "exactly one of template or templateRef must be set"
+
+// ExactlyOneTemplateArmNotBoth is the error for an entry that sets template and templateRef.
+const ExactlyOneTemplateArmNotBoth = ExactlyOneTemplateArm + ", not both"
+
+// TemplateRefNameRequired is the error for a templateRef with no name.
+const TemplateRefNameRequired = "templateRef.name must be set"
+
 // ValidateStacks checks the deploy.stacks rules that can be judged before conversion.
 func ValidateStacks(fldPath *field.Path, stacks []StackConfig) field.ErrorList {
 	errs := ValidateStackList(fldPath, stacks)
@@ -96,11 +105,11 @@ func ValidateStack(stackPath *field.Path, stack StackConfig) field.ErrorList {
 	hasTemplateRef := stack.TemplateRef != nil
 	switch {
 	case hasTemplate && hasTemplateRef:
-		errs = append(errs, field.Forbidden(stackPath, "exactly one of template or templateRef must be set, not both"))
+		errs = append(errs, field.Forbidden(stackPath, ExactlyOneTemplateArmNotBoth))
 	case !hasTemplate && !hasTemplateRef:
-		errs = append(errs, field.Required(stackPath, "exactly one of template or templateRef must be set"))
+		errs = append(errs, field.Required(stackPath, ExactlyOneTemplateArm))
 	case hasTemplateRef && stack.TemplateRef.Name == "":
-		errs = append(errs, field.Required(stackPath.Child("templateRef", "name"), "templateRef.name must be set"))
+		errs = append(errs, field.Required(stackPath.Child("templateRef", "name"), TemplateRefNameRequired))
 	}
 
 	switch storagev1.StackPrunePolicy(stack.PrunePolicy) {

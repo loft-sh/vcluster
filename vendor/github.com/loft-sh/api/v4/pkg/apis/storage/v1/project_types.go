@@ -117,6 +117,15 @@ type ProjectSpec struct {
 	// +optional
 	AllowedNodeProfiles []AllowedNodeProfile `json:"allowedNodeProfiles" jsonschema:"nullable"`
 
+	// AllowedNetworkEnvironments restricts which NetworkEnvironments can be
+	// referenced by NodeClaims in this project. NetworkEnvironments are cluster
+	// scoped and shared across projects, so this is how a project is scoped to a
+	// subset of them. Each entry is an exact NetworkEnvironment name ("shared-vpc").
+	// If unset (nil), all NetworkEnvironments are allowed; an empty list disallows
+	// all NetworkEnvironments.
+	// +optional
+	AllowedNetworkEnvironments []AllowedNetworkEnvironment `json:"allowedNetworkEnvironments" jsonschema:"nullable"`
+
 	// DefaultNodeProfile is the default NodeProfile applied to nodes in this
 	// project when none is selected explicitly. It is overridden by the
 	// vCluster-level privateNodes.defaultProfile and by per-node/per-pool
@@ -264,6 +273,18 @@ type AllowedNodeType struct {
 type AllowedNodeProfile struct {
 	// Name of the NodeProfile, or "<owner>.*" to allow all NodeProfiles
 	// with the given owner prefix.
+	// +optional
+	Name string `json:"name,omitempty"`
+}
+
+// AllowedNetworkEnvironment restricts which NetworkEnvironment a project's
+// consumers may reference.
+//
+// Unlike AllowedNodeType and AllowedNodeProfile, there is no "<provider>.*" wildcard
+// here: those resources are named "<provider>.<name>", whereas NetworkEnvironment names
+// are rejected at creation if they contain a dot, so no such prefix could ever match.
+type AllowedNetworkEnvironment struct {
+	// Name is the exact name of the NetworkEnvironment.
 	// +optional
 	Name string `json:"name,omitempty"`
 }

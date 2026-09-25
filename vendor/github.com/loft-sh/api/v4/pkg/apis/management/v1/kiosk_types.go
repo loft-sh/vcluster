@@ -44,7 +44,7 @@ type KioskSpec struct {
 	NodeProviderTerraformValidateResult NodeProviderTerraformValidateResult `json:"nodeProviderTerraformValidateResult,omitempty"`
 	NodeProviderExecResult              NodeProviderExecResult              `json:"nodeProviderExecResult,omitempty"`
 	NodeClaimData                       NodeClaimData                       `json:"nodeClaimData,omitempty"`
-	NodeEnvironmentData                 NodeEnvironmentData                 `json:"nodeEnvironmentData,omitempty"`
+	NetworkEnvironmentData              NetworkEnvironmentData              `json:"networkEnvironmentData,omitempty"`
 }
 
 type KioskStatus struct {

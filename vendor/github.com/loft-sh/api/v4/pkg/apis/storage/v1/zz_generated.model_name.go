@@ -91,6 +91,11 @@ func (in AllowedClusterAccountTemplate) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in AllowedNetworkEnvironment) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.AllowedNetworkEnvironment"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in AllowedNodeProfile) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.AllowedNodeProfile"
 }
@@ -351,6 +356,11 @@ func (in Bash) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in CPUResource) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.CPUResource"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in Chart) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.Chart"
 }
@@ -551,6 +561,16 @@ func (in LocalClusterRoleTemplateSpec) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in Machine) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.Machine"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MachineCapability) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.MachineCapability"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in MachineConfigTemplate) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.MachineConfigTemplate"
 }
@@ -568,6 +588,41 @@ func (in MachineConfigTemplateSpec) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in MachineConfigTemplateStatus) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.MachineConfigTemplateStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MachineHardware) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.MachineHardware"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MachineList) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.MachineList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MachineNetwork) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.MachineNetwork"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MachineNetworkInterface) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.MachineNetworkInterface"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MachineSpec) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.MachineSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MachineStatus) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.MachineStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MachineSystem) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.MachineSystem"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
@@ -621,6 +676,16 @@ func (in MultusDeployment) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NICoIdentity) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.NICoIdentity"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NICoPlatformIssued) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.NICoPlatformIssued"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in NamedNodeTypeSpec) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.NamedNodeTypeSpec"
 }
@@ -633,6 +698,26 @@ func (in NamespacePattern) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in NamespacedRef) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.NamespacedRef"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NetworkEnvironment) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.NetworkEnvironment"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NetworkEnvironmentList) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.NetworkEnvironmentList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NetworkEnvironmentSpec) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.NetworkEnvironmentSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NetworkEnvironmentStatus) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.NetworkEnvironmentStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
@@ -678,26 +763,6 @@ func (in NodeClaimSpec) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in NodeClaimStatus) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.NodeClaimStatus"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in NodeEnvironment) OpenAPIModelName() string {
-	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.NodeEnvironment"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in NodeEnvironmentList) OpenAPIModelName() string {
-	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.NodeEnvironmentList"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in NodeEnvironmentSpec) OpenAPIModelName() string {
-	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.NodeEnvironmentSpec"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in NodeEnvironmentStatus) OpenAPIModelName() string {
-	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.NodeEnvironmentStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
@@ -756,8 +821,28 @@ func (in NodeProviderMetal3) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NodeProviderMetal3NetBox) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.NodeProviderMetal3NetBox"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NodeProviderMetal3NetBoxBareMetalHostTemplate) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.NodeProviderMetal3NetBoxBareMetalHostTemplate"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NodeProviderMetal3NetBoxCustomFields) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.NodeProviderMetal3NetBoxCustomFields"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in NodeProviderMetal3Netris) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.NodeProviderMetal3Netris"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NodeProviderNICo) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.NodeProviderNICo"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
@@ -823,6 +908,11 @@ func (in OSImageSpec) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in OSImageStatus) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.OSImageStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in OSImageStoreStatus) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.OSImageStoreStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
@@ -908,6 +998,11 @@ func (in RequirePreset) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in RequireTemplate) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.RequireTemplate"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in Resources) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.Resources"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
@@ -1216,18 +1311,18 @@ func (in Tenant) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in TenantAdminAllowance) OpenAPIModelName() string {
-	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.TenantAdminAllowance"
+func (in TenantControlPlaneClusterAllow) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.TenantControlPlaneClusterAllow"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in TenantAdminException) OpenAPIModelName() string {
-	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.TenantAdminException"
+func (in TenantControlPlaneClusters) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.TenantControlPlaneClusters"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in TenantAllowance) OpenAPIModelName() string {
-	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.TenantAllowance"
+func (in TenantCustomAllow) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.TenantCustomAllow"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
@@ -1241,13 +1336,53 @@ func (in TenantList) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in TenantResourceAllowance) OpenAPIModelName() string {
-	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.TenantResourceAllowance"
+func (in TenantNICoStatus) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.TenantNICoStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in TenantResourceQuota) OpenAPIModelName() string {
-	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.TenantResourceQuota"
+func (in TenantNodeTypeAllow) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.TenantNodeTypeAllow"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in TenantNodeTypeQuota) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.TenantNodeTypeQuota"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in TenantNodeTypes) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.TenantNodeTypes"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in TenantOSImageAllow) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.TenantOSImageAllow"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in TenantOSImages) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.TenantOSImages"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in TenantPlatformConfig) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.TenantPlatformConfig"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in TenantResourceBoundary) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.TenantResourceBoundary"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in TenantSSHKeyAllow) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.TenantSSHKeyAllow"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in TenantSSHKeys) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.TenantSSHKeys"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
@@ -1261,8 +1396,28 @@ func (in TenantStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in TerraformNodeEnvironmentTemplate) OpenAPIModelName() string {
-	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.TerraformNodeEnvironmentTemplate"
+func (in TenantTemplateAllow) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.TenantTemplateAllow"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in TenantTemplates) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.TenantTemplates"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in TenantUISettingsAllow) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.TenantUISettingsAllow"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in TenantUISettingsControl) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.TenantUISettingsControl"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in TerraformNetworkEnvironmentTemplate) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.TerraformNetworkEnvironmentTemplate"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.

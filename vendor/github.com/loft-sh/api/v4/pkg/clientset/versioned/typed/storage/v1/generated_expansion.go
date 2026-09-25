@@ -18,13 +18,15 @@ type ClusterAccessExpansion interface{}
 
 type ClusterRoleTemplateExpansion interface{}
 
+type MachineExpansion interface{}
+
 type MachineConfigTemplateExpansion interface{}
+
+type NetworkEnvironmentExpansion interface{}
 
 type NetworkPeerExpansion interface{}
 
 type NodeClaimExpansion interface{}
-
-type NodeEnvironmentExpansion interface{}
 
 type NodeProfileExpansion interface{}
 

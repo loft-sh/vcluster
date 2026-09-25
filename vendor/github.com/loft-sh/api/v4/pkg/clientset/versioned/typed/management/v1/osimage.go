@@ -31,6 +31,9 @@ type OSImageInterface interface {
 	List(ctx context.Context, opts metav1.ListOptions) (*managementv1.OSImageList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *managementv1.OSImage, err error)
+	Upload(ctx context.Context, oSImageName string, oSImageUpload *managementv1.OSImageUpload, opts metav1.CreateOptions) (*managementv1.OSImageUpload, error)
+	Finalize(ctx context.Context, oSImageName string, oSImageFinalize *managementv1.OSImageFinalize, opts metav1.CreateOptions) (*managementv1.OSImageFinalize, error)
+
 	OSImageExpansion
 }
 
@@ -51,4 +54,32 @@ func newOSImages(c *ManagementV1Client) *oSImages {
 			func() *managementv1.OSImageList { return &managementv1.OSImageList{} },
 		),
 	}
+}
+
+// Upload takes the representation of a oSImageUpload and creates it.  Returns the server's representation of the oSImageUpload, and an error, if there is any.
+func (c *oSImages) Upload(ctx context.Context, oSImageName string, oSImageUpload *managementv1.OSImageUpload, opts metav1.CreateOptions) (result *managementv1.OSImageUpload, err error) {
+	result = &managementv1.OSImageUpload{}
+	err = c.GetClient().Post().
+		Resource("osimages").
+		Name(oSImageName).
+		SubResource("upload").
+		VersionedParams(&opts, scheme.ParameterCodec).
+		Body(oSImageUpload).
+		Do(ctx).
+		Into(result)
+	return
+}
+
+// Finalize takes the representation of a oSImageFinalize and creates it.  Returns the server's representation of the oSImageFinalize, and an error, if there is any.
+func (c *oSImages) Finalize(ctx context.Context, oSImageName string, oSImageFinalize *managementv1.OSImageFinalize, opts metav1.CreateOptions) (result *managementv1.OSImageFinalize, err error) {
+	result = &managementv1.OSImageFinalize{}
+	err = c.GetClient().Post().
+		Resource("osimages").
+		Name(oSImageName).
+		SubResource("finalize").
+		VersionedParams(&opts, scheme.ParameterCodec).
+		Body(oSImageFinalize).
+		Do(ctx).
+		Into(result)
+	return
 }

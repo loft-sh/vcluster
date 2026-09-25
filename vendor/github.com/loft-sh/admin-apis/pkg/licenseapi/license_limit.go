@@ -25,6 +25,10 @@ var Limits = map[ResourceName]*Limit{
 		DisplayName: "Instances",
 		Name:        string(InstanceLimit),
 	},
+	TenantLimit: {
+		DisplayName: "Tenants",
+		Name:        string(TenantLimit),
+	},
 }
 
 // Limit defines a limit set in the license

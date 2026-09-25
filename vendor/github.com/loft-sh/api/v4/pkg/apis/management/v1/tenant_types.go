@@ -30,6 +30,13 @@ type TenantSpec struct {
 }
 
 // TenantStatus holds the status.
+//
+// status.hostnames comes from the inlined storage status, where the Tenant controller
+// writes it. It reads the same as it always did, a caller listing Tenants seeing each
+// tenant's hostnames without a request per tenant, but it is now a stored field rather
+// than a read-time join, so it costs nothing to serve and needs no ?extended=true.
+// Writing it here still does nothing: hostnames are set through the tenants/config
+// subresource, and the controller overwrites this projection from there.
 type TenantStatus struct {
 	storagev1.TenantStatus `json:",inline"`
 }

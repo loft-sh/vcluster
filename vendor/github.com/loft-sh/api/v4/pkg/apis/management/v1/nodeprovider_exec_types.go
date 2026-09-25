@@ -70,7 +70,7 @@ type NodeClaimData struct {
 	// UserData that should be used to start the node.
 	UserData string `json:"userData,omitempty"`
 
-	// Outputs of the node environment.
+	// Outputs of the network environment.
 	Outputs []byte `json:"outputs,omitempty"`
 
 	// Terraform state of the node claim.
@@ -80,14 +80,14 @@ type NodeClaimData struct {
 	Operations map[string]*Operation `json:"operations,omitempty"`
 }
 
-type NodeEnvironmentData struct {
-	// Outputs of the node environment.
+type NetworkEnvironmentData struct {
+	// Outputs of the network environment.
 	Outputs []byte `json:"outputs,omitempty"`
 
-	// Terraform state of the node environment.
+	// Terraform state of the network environment.
 	State []byte `json:"state,omitempty"`
 
-	// Operations that were applied to the node environment.
+	// Operations that were applied to the network environment.
 	Operations map[string]*Operation `json:"operations,omitempty"`
 }
 

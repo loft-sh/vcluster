@@ -92,7 +92,7 @@ func NewStore(logger logr.Logger) *ObjectStore {
 }
 
 func (o *ObjectStore) Init(config *snapshotapi.S3Options) error {
-	builder := newConfigBuilder(o.log).WithRegion(config.Region).WithProfile(config.Profile)
+	builder := NewConfigBuilder(o.log).WithRegion(config.Region).WithProfile(config.Profile)
 
 	// Only consult a credentials file when there is nothing to pin. Static credentials win over it
 	// anyway, so the call would be a no-op for resolution, but it also clears the IRSA environment
@@ -113,7 +113,7 @@ func (o *ObjectStore) Init(config *snapshotapi.S3Options) error {
 	// GetBucketRegion will attempt to get the region for a bucket using the
 	// client's configured region to determine which AWS partition to perform the query on.
 	if config.S3URL == "" && config.Region == "" {
-		regionClient, err := newS3Client(cfg, config.S3URL, config.S3ForcePathStyle)
+		regionClient, err := NewS3Client(cfg, config.S3URL, config.S3ForcePathStyle)
 		if err != nil {
 			return errors.WithStack(err)
 		}
@@ -128,7 +128,7 @@ func (o *ObjectStore) Init(config *snapshotapi.S3Options) error {
 		cfg.Region = config.Region
 	}
 
-	client, err := newS3Client(cfg, config.S3URL, config.S3ForcePathStyle)
+	client, err := NewS3Client(cfg, config.S3URL, config.S3ForcePathStyle)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -156,7 +156,7 @@ func (o *ObjectStore) Init(config *snapshotapi.S3Options) error {
 	}
 
 	if config.PublicURL != "" {
-		publicClient, err := newS3Client(cfg, config.PublicURL, config.S3ForcePathStyle)
+		publicClient, err := NewS3Client(cfg, config.PublicURL, config.S3ForcePathStyle)
 		if err != nil {
 			return err
 		}

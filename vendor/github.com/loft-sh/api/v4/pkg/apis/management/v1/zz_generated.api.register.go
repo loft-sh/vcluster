@@ -63,15 +63,17 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&LicenseRequest{},
 		&LoftUpgrade{},
 		&LoftUpgradeList{},
+		&Machine{},
+		&MachineList{},
 		&MachineConfigTemplate{},
 		&MachineConfigTemplateList{},
+		&NetworkEnvironment{},
+		&NetworkEnvironmentList{},
 		&NetworkPeer{},
 		&NetworkPeerList{},
 		&NetworkPeerDebug{},
 		&NodeClaim{},
 		&NodeClaimList{},
-		&NodeEnvironment{},
-		&NodeEnvironmentList{},
 		&NodeProfile{},
 		&NodeProfileList{},
 		&NodeProvider{},
@@ -83,6 +85,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&OIDCClientList{},
 		&OSImage{},
 		&OSImageList{},
+		&OSImageFinalize{},
+		&OSImageUpload{},
 		&OwnedAccessKey{},
 		&OwnedAccessKeyList{},
 		&Project{},
@@ -259,7 +263,14 @@ var (
 			management.NewLicenseRequestREST,
 		),
 		management.ManagementLoftUpgradeStorage,
+		management.ManagementMachineStorage,
 		management.ManagementMachineConfigTemplateStorage,
+		management.ManagementNetworkEnvironmentStorage,
+		builders.NewApiResourceWithStorage(
+			management.InternalNetworkEnvironmentStatus,
+			func() runtime.Object { return &NetworkEnvironment{} },     // Register versioned resource
+			func() runtime.Object { return &NetworkEnvironmentList{} }, // Register versioned resource list
+			management.NewNetworkEnvironmentStatusREST),
 		management.ManagementNetworkPeerStorage,
 		builders.NewApiResourceWithStorage(
 			management.InternalNetworkPeerDebugREST,
@@ -273,12 +284,6 @@ var (
 			func() runtime.Object { return &NodeClaim{} },     // Register versioned resource
 			func() runtime.Object { return &NodeClaimList{} }, // Register versioned resource list
 			management.NewNodeClaimStatusREST),
-		management.ManagementNodeEnvironmentStorage,
-		builders.NewApiResourceWithStorage(
-			management.InternalNodeEnvironmentStatus,
-			func() runtime.Object { return &NodeEnvironment{} },     // Register versioned resource
-			func() runtime.Object { return &NodeEnvironmentList{} }, // Register versioned resource list
-			management.NewNodeEnvironmentStatusREST),
 		management.ManagementNodeProfileStorage,
 		management.ManagementNodeProviderStorage,
 		builders.NewApiResourceWithStorage(
@@ -300,6 +305,18 @@ var (
 			management.NewNodeTypeStatusREST),
 		management.ManagementOIDCClientStorage,
 		management.ManagementOSImageStorage,
+		builders.NewApiResourceWithStorage(
+			management.InternalOSImageFinalizeREST,
+			func() runtime.Object { return &OSImageFinalize{} }, // Register versioned resource
+			nil,
+			management.NewOSImageFinalizeREST,
+		),
+		builders.NewApiResourceWithStorage(
+			management.InternalOSImageUploadREST,
+			func() runtime.Object { return &OSImageUpload{} }, // Register versioned resource
+			nil,
+			management.NewOSImageUploadREST,
+		),
 		management.ManagementOwnedAccessKeyStorage,
 		management.ManagementProjectStorage,
 		builders.NewApiResourceWithStorage(
@@ -794,10 +811,26 @@ type LoftUpgradeList struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+type MachineList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []Machine `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
 type MachineConfigTemplateList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []MachineConfigTemplate `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type NetworkEnvironmentList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []NetworkEnvironment `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -822,14 +855,6 @@ type NodeClaimList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []NodeClaim `json:"items"`
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type NodeEnvironmentList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []NodeEnvironment `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -878,6 +903,22 @@ type OSImageList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []OSImage `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type OSImageFinalizeList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []OSImageFinalize `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type OSImageUploadList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []OSImageUpload `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

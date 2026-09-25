@@ -237,7 +237,17 @@ var (
 	NewLoftUpgradeREST = func(getter generic.RESTOptionsGetter) rest.Storage {
 		return NewLoftUpgradeRESTFunc(Factory)
 	}
-	NewLoftUpgradeRESTFunc                 NewRESTFunc
+	NewLoftUpgradeRESTFunc   NewRESTFunc
+	ManagementMachineStorage = builders.NewApiResourceWithStorage( // Resource status endpoint
+		InternalMachine,
+		func() runtime.Object { return &Machine{} },     // Register versioned resource
+		func() runtime.Object { return &MachineList{} }, // Register versioned resource list
+		NewMachineREST,
+	)
+	NewMachineREST = func(getter generic.RESTOptionsGetter) rest.Storage {
+		return NewMachineRESTFunc(Factory)
+	}
+	NewMachineRESTFunc                     NewRESTFunc
 	ManagementMachineConfigTemplateStorage = builders.NewApiResourceWithStorage( // Resource status endpoint
 		InternalMachineConfigTemplate,
 		func() runtime.Object { return &MachineConfigTemplate{} },     // Register versioned resource
@@ -247,8 +257,22 @@ var (
 	NewMachineConfigTemplateREST = func(getter generic.RESTOptionsGetter) rest.Storage {
 		return NewMachineConfigTemplateRESTFunc(Factory)
 	}
-	NewMachineConfigTemplateRESTFunc NewRESTFunc
-	ManagementNetworkPeerStorage     = builders.NewApiResourceWithStorage( // Resource status endpoint
+	NewMachineConfigTemplateRESTFunc    NewRESTFunc
+	ManagementNetworkEnvironmentStorage = builders.NewApiResourceWithStorage( // Resource status endpoint
+		InternalNetworkEnvironment,
+		func() runtime.Object { return &NetworkEnvironment{} },     // Register versioned resource
+		func() runtime.Object { return &NetworkEnvironmentList{} }, // Register versioned resource list
+		NewNetworkEnvironmentREST,
+	)
+	NewNetworkEnvironmentREST = func(getter generic.RESTOptionsGetter) rest.Storage {
+		return NewNetworkEnvironmentRESTFunc(Factory)
+	}
+	NewNetworkEnvironmentRESTFunc   NewRESTFunc
+	NewNetworkEnvironmentStatusREST = func(getter generic.RESTOptionsGetter) rest.Storage {
+		return NewNetworkEnvironmentStatusRESTFunc(Factory)
+	}
+	NewNetworkEnvironmentStatusRESTFunc NewRESTFunc
+	ManagementNetworkPeerStorage        = builders.NewApiResourceWithStorage( // Resource status endpoint
 		InternalNetworkPeer,
 		func() runtime.Object { return &NetworkPeer{} },     // Register versioned resource
 		func() runtime.Object { return &NetworkPeerList{} }, // Register versioned resource list
@@ -271,22 +295,8 @@ var (
 	NewNodeClaimStatusREST = func(getter generic.RESTOptionsGetter) rest.Storage {
 		return NewNodeClaimStatusRESTFunc(Factory)
 	}
-	NewNodeClaimStatusRESTFunc       NewRESTFunc
-	ManagementNodeEnvironmentStorage = builders.NewApiResourceWithStorage( // Resource status endpoint
-		InternalNodeEnvironment,
-		func() runtime.Object { return &NodeEnvironment{} },     // Register versioned resource
-		func() runtime.Object { return &NodeEnvironmentList{} }, // Register versioned resource list
-		NewNodeEnvironmentREST,
-	)
-	NewNodeEnvironmentREST = func(getter generic.RESTOptionsGetter) rest.Storage {
-		return NewNodeEnvironmentRESTFunc(Factory)
-	}
-	NewNodeEnvironmentRESTFunc   NewRESTFunc
-	NewNodeEnvironmentStatusREST = func(getter generic.RESTOptionsGetter) rest.Storage {
-		return NewNodeEnvironmentStatusRESTFunc(Factory)
-	}
-	NewNodeEnvironmentStatusRESTFunc NewRESTFunc
-	ManagementNodeProfileStorage     = builders.NewApiResourceWithStorage( // Resource status endpoint
+	NewNodeClaimStatusRESTFunc   NewRESTFunc
+	ManagementNodeProfileStorage = builders.NewApiResourceWithStorage( // Resource status endpoint
 		InternalNodeProfile,
 		func() runtime.Object { return &NodeProfile{} },     // Register versioned resource
 		func() runtime.Object { return &NodeProfileList{} }, // Register versioned resource list
@@ -908,6 +918,18 @@ var (
 		func() runtime.Object { return &LoftUpgrade{} },
 		func() runtime.Object { return &LoftUpgradeList{} },
 	)
+	InternalMachine = builders.NewInternalResource(
+		"machines",
+		"Machine",
+		func() runtime.Object { return &Machine{} },
+		func() runtime.Object { return &MachineList{} },
+	)
+	InternalMachineStatus = builders.NewInternalResourceStatus(
+		"machines",
+		"MachineStatus",
+		func() runtime.Object { return &Machine{} },
+		func() runtime.Object { return &MachineList{} },
+	)
 	InternalMachineConfigTemplate = builders.NewInternalResource(
 		"machineconfigtemplates",
 		"MachineConfigTemplate",
@@ -919,6 +941,18 @@ var (
 		"MachineConfigTemplateStatus",
 		func() runtime.Object { return &MachineConfigTemplate{} },
 		func() runtime.Object { return &MachineConfigTemplateList{} },
+	)
+	InternalNetworkEnvironment = builders.NewInternalResource(
+		"networkenvironments",
+		"NetworkEnvironment",
+		func() runtime.Object { return &NetworkEnvironment{} },
+		func() runtime.Object { return &NetworkEnvironmentList{} },
+	)
+	InternalNetworkEnvironmentStatus = builders.NewInternalResourceStatus(
+		"networkenvironments",
+		"NetworkEnvironmentStatus",
+		func() runtime.Object { return &NetworkEnvironment{} },
+		func() runtime.Object { return &NetworkEnvironmentList{} },
 	)
 	InternalNetworkPeer = builders.NewInternalResource(
 		"networkpeers",
@@ -951,18 +985,6 @@ var (
 		"NodeClaimStatus",
 		func() runtime.Object { return &NodeClaim{} },
 		func() runtime.Object { return &NodeClaimList{} },
-	)
-	InternalNodeEnvironment = builders.NewInternalResource(
-		"nodeenvironments",
-		"NodeEnvironment",
-		func() runtime.Object { return &NodeEnvironment{} },
-		func() runtime.Object { return &NodeEnvironmentList{} },
-	)
-	InternalNodeEnvironmentStatus = builders.NewInternalResourceStatus(
-		"nodeenvironments",
-		"NodeEnvironmentStatus",
-		func() runtime.Object { return &NodeEnvironment{} },
-		func() runtime.Object { return &NodeEnvironmentList{} },
 	)
 	InternalNodeProfile = builders.NewInternalResource(
 		"nodeprofiles",
@@ -1032,7 +1054,23 @@ var (
 		func() runtime.Object { return &OSImage{} },
 		func() runtime.Object { return &OSImageList{} },
 	)
-	InternalOwnedAccessKey = builders.NewInternalResource(
+	InternalOSImageFinalizeREST = builders.NewInternalSubresource(
+		"osimages", "OSImageFinalize", "finalize",
+		func() runtime.Object { return &OSImageFinalize{} },
+	)
+	NewOSImageFinalizeREST = func(getter generic.RESTOptionsGetter) rest.Storage {
+		return NewOSImageFinalizeRESTFunc(Factory)
+	}
+	NewOSImageFinalizeRESTFunc NewRESTFunc
+	InternalOSImageUploadREST  = builders.NewInternalSubresource(
+		"osimages", "OSImageUpload", "upload",
+		func() runtime.Object { return &OSImageUpload{} },
+	)
+	NewOSImageUploadREST = func(getter generic.RESTOptionsGetter) rest.Storage {
+		return NewOSImageUploadRESTFunc(Factory)
+	}
+	NewOSImageUploadRESTFunc NewRESTFunc
+	InternalOwnedAccessKey   = builders.NewInternalResource(
 		"ownedaccesskeys",
 		"OwnedAccessKey",
 		func() runtime.Object { return &OwnedAccessKey{} },
@@ -1628,15 +1666,17 @@ var (
 		InternalLicenseRequestREST,
 		InternalLoftUpgrade,
 		InternalLoftUpgradeStatus,
+		InternalMachine,
+		InternalMachineStatus,
 		InternalMachineConfigTemplate,
 		InternalMachineConfigTemplateStatus,
+		InternalNetworkEnvironment,
+		InternalNetworkEnvironmentStatus,
 		InternalNetworkPeer,
 		InternalNetworkPeerStatus,
 		InternalNetworkPeerDebugREST,
 		InternalNodeClaim,
 		InternalNodeClaimStatus,
-		InternalNodeEnvironment,
-		InternalNodeEnvironmentStatus,
 		InternalNodeProfile,
 		InternalNodeProfileStatus,
 		InternalNodeProvider,
@@ -1648,6 +1688,8 @@ var (
 		InternalOIDCClientStatus,
 		InternalOSImage,
 		InternalOSImageStatus,
+		InternalOSImageFinalizeREST,
+		InternalOSImageUploadREST,
 		InternalOwnedAccessKey,
 		InternalOwnedAccessKeyStatus,
 		InternalProject,
@@ -2370,7 +2412,7 @@ type KioskSpec struct {
 	NodeProviderTerraformValidateResult NodeProviderTerraformValidateResult `json:"nodeProviderTerraformValidateResult,omitempty"`
 	NodeProviderExecResult              NodeProviderExecResult              `json:"nodeProviderExecResult,omitempty"`
 	NodeClaimData                       NodeClaimData                       `json:"nodeClaimData,omitempty"`
-	NodeEnvironmentData                 NodeEnvironmentData                 `json:"nodeEnvironmentData,omitempty"`
+	NetworkEnvironmentData              NetworkEnvironmentData              `json:"networkEnvironmentData,omitempty"`
 }
 
 type KioskStatus struct {
@@ -2435,6 +2477,17 @@ type LoftUpgradeStatus struct {
 }
 
 // +genclient
+// +genclient:nonNamespaced
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type Machine struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              MachineSpec   `json:"spec,omitempty"`
+	Status            MachineStatus `json:"status,omitempty"`
+}
+
+// +genclient
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
@@ -2453,6 +2506,14 @@ type MachineConfigTemplateStatus struct {
 	storagev1.MachineConfigTemplateStatus `json:",inline"`
 }
 
+type MachineSpec struct {
+	storagev1.MachineSpec `json:",inline"`
+}
+
+type MachineStatus struct {
+	storagev1.MachineStatus `json:",inline"`
+}
+
 type MaintenanceWindow struct {
 	DayOfWeek  string `json:"dayOfWeek,omitempty"`
 	TimeWindow string `json:"timeWindow,omitempty"`
@@ -2461,6 +2522,31 @@ type MaintenanceWindow struct {
 type ManagementRole struct {
 	ObjectName  `json:",inline"`
 	AssignedVia AssignedVia `json:"assignedVia,omitempty"`
+}
+
+// +genclient
+// +genclient:nonNamespaced
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type NetworkEnvironment struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              NetworkEnvironmentSpec   `json:"spec,omitempty"`
+	Status            NetworkEnvironmentStatus `json:"status,omitempty"`
+}
+
+type NetworkEnvironmentData struct {
+	Outputs    []byte                `json:"outputs,omitempty"`
+	State      []byte                `json:"state,omitempty"`
+	Operations map[string]*Operation `json:"operations,omitempty"`
+}
+
+type NetworkEnvironmentSpec struct {
+	storagev1.NetworkEnvironmentSpec `json:",inline"`
+}
+
+type NetworkEnvironmentStatus struct {
+	storagev1.NetworkEnvironmentStatus `json:",inline"`
 }
 
 // +genclient
@@ -2513,31 +2599,6 @@ type NodeClaimSpec struct {
 
 type NodeClaimStatus struct {
 	storagev1.NodeClaimStatus `json:",inline"`
-}
-
-// +genclient
-// +genclient
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type NodeEnvironment struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              NodeEnvironmentSpec   `json:"spec,omitempty"`
-	Status            NodeEnvironmentStatus `json:"status,omitempty"`
-}
-
-type NodeEnvironmentData struct {
-	Outputs    []byte                `json:"outputs,omitempty"`
-	State      []byte                `json:"state,omitempty"`
-	Operations map[string]*Operation `json:"operations,omitempty"`
-}
-
-type NodeEnvironmentSpec struct {
-	storagev1.NodeEnvironmentSpec `json:",inline"`
-}
-
-type NodeEnvironmentStatus struct {
-	storagev1.NodeEnvironmentStatus `json:",inline"`
 }
 
 // +genclient
@@ -2687,12 +2748,56 @@ type OSImage struct {
 	Status            OSImageStatus `json:"status,omitempty"`
 }
 
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type OSImageFinalize struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              OSImageFinalizeSpec   `json:"spec"`
+	Status            OSImageFinalizeStatus `json:"status,omitempty"`
+}
+
+type OSImageFinalizeSpec struct {
+	Checksum string `json:"checksum"`
+}
+
+type OSImageFinalizeStatus struct {
+	CompletedAt metav1.Time `json:"completedAt,omitempty"`
+}
+
 type OSImageSpec struct {
 	storagev1.OSImageSpec `json:",inline"`
 }
 
 type OSImageStatus struct {
 	storagev1.OSImageStatus `json:",inline"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type OSImageUpload struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              OSImageUploadSpec   `json:"spec"`
+	Status            OSImageUploadStatus `json:"status,omitempty"`
+}
+
+type OSImageUploadSpec struct {
+	SizeBytes int64 `json:"sizeBytes"`
+	FromPart  int32 `json:"fromPart,omitempty"`
+}
+
+type OSImageUploadStatus struct {
+	PartSizeBytes int64                 `json:"partSizeBytes,omitempty"`
+	TotalParts    int32                 `json:"totalParts,omitempty"`
+	NextPart      *int32                `json:"nextPart,omitempty"`
+	Targets       []OSImageUploadTarget `json:"targets,omitempty"`
+	ExpiresAt     metav1.Time           `json:"expiresAt,omitempty"`
+}
+
+type OSImageUploadTarget struct {
+	PartNumber int32  `json:"partNumber"`
+	URL        string `json:"url"`
 }
 
 type ObjectName struct {
@@ -2837,12 +2942,13 @@ type ProjectMigrateVirtualClusterInstanceSource struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ProjectNodeTypes struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-	NodeProviders     []storagev1.NodeProvider `json:"nodeProviders,omitempty"`
-	NodeTypes         []storagev1.NodeType     `json:"nodeTypes,omitempty"`
-	NodeProfiles      []storagev1.NodeProfile  `json:"nodeProfiles,omitempty"`
-	OSImages          []storagev1.OSImage      `json:"osImages,omitempty"`
+	metav1.TypeMeta     `json:",inline"`
+	metav1.ObjectMeta   `json:"metadata,omitempty"`
+	NodeProviders       []storagev1.NodeProvider       `json:"nodeProviders,omitempty"`
+	NodeTypes           []storagev1.NodeType           `json:"nodeTypes,omitempty"`
+	NodeProfiles        []storagev1.NodeProfile        `json:"nodeProfiles,omitempty"`
+	NetworkEnvironments []storagev1.NetworkEnvironment `json:"networkEnvironments,omitempty"`
+	OSImages            []storagev1.OSImage            `json:"osImages,omitempty"`
 }
 
 type ProjectRole struct {
@@ -3310,8 +3416,9 @@ type TenantConfig struct {
 }
 
 type TenantConfigSpec struct {
-	Authentication *storagev1.Authentication `json:"authentication,omitempty"`
-	UISettings     *uiv1.UISettingsConfig    `json:"uiSettings,omitempty"`
+	Hostnames      []storagev1.TenantHostnameBinding `json:"hostnames,omitempty"`
+	UISettings     *uiv1.UISettingsConfig            `json:"uiSettings,omitempty"`
+	Authentication *storagev1.Authentication         `json:"authentication,omitempty"`
 }
 
 type TenantSpec struct {
@@ -3390,6 +3497,7 @@ type UserClusters struct {
 type UserInfo struct {
 	storagev1.EntityInfo `json:",inline"`
 	Teams                []*storagev1.EntityInfo `json:"teams,omitempty"`
+	Tenant               string                  `json:"tenant,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -6221,6 +6329,125 @@ func (s *storageLoftUpgrade) DeleteLoftUpgrade(ctx context.Context, id string) (
 	return sync, err
 }
 
+// Machine Functions and Structs
+//
+// +k8s:deepcopy-gen=false
+type MachineStrategy struct {
+	builders.DefaultStorageStrategy
+}
+
+// +k8s:deepcopy-gen=false
+type MachineStatusStrategy struct {
+	builders.DefaultStatusStorageStrategy
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type MachineList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []Machine `json:"items"`
+}
+
+func (Machine) NewStatus() interface{} {
+	return MachineStatus{}
+}
+
+func (pc *Machine) GetStatus() interface{} {
+	return pc.Status
+}
+
+func (pc *Machine) SetStatus(s interface{}) {
+	pc.Status = s.(MachineStatus)
+}
+
+func (pc *Machine) GetSpec() interface{} {
+	return pc.Spec
+}
+
+func (pc *Machine) SetSpec(s interface{}) {
+	pc.Spec = s.(MachineSpec)
+}
+
+func (pc *Machine) GetObjectMeta() *metav1.ObjectMeta {
+	return &pc.ObjectMeta
+}
+
+func (pc *Machine) SetGeneration(generation int64) {
+	pc.ObjectMeta.Generation = generation
+}
+
+func (pc Machine) GetGeneration() int64 {
+	return pc.ObjectMeta.Generation
+}
+
+// Registry is an interface for things that know how to store Machine.
+// +k8s:deepcopy-gen=false
+type MachineRegistry interface {
+	ListMachines(ctx context.Context, options *internalversion.ListOptions) (*MachineList, error)
+	GetMachine(ctx context.Context, id string, options *metav1.GetOptions) (*Machine, error)
+	CreateMachine(ctx context.Context, id *Machine) (*Machine, error)
+	UpdateMachine(ctx context.Context, id *Machine) (*Machine, error)
+	DeleteMachine(ctx context.Context, id string) (bool, error)
+}
+
+// NewRegistry returns a new Registry interface for the given Storage. Any mismatched types will panic.
+func NewMachineRegistry(sp builders.StandardStorageProvider) MachineRegistry {
+	return &storageMachine{sp}
+}
+
+// Implement Registry
+// storage puts strong typing around storage calls
+// +k8s:deepcopy-gen=false
+type storageMachine struct {
+	builders.StandardStorageProvider
+}
+
+func (s *storageMachine) ListMachines(ctx context.Context, options *internalversion.ListOptions) (*MachineList, error) {
+	if options != nil && options.FieldSelector != nil && !options.FieldSelector.Empty() {
+		return nil, fmt.Errorf("field selector not supported yet")
+	}
+	st := s.GetStandardStorage()
+	obj, err := st.List(ctx, options)
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*MachineList), err
+}
+
+func (s *storageMachine) GetMachine(ctx context.Context, id string, options *metav1.GetOptions) (*Machine, error) {
+	st := s.GetStandardStorage()
+	obj, err := st.Get(ctx, id, options)
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*Machine), nil
+}
+
+func (s *storageMachine) CreateMachine(ctx context.Context, object *Machine) (*Machine, error) {
+	st := s.GetStandardStorage()
+	obj, err := st.Create(ctx, object, nil, &metav1.CreateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*Machine), nil
+}
+
+func (s *storageMachine) UpdateMachine(ctx context.Context, object *Machine) (*Machine, error) {
+	st := s.GetStandardStorage()
+	obj, _, err := st.Update(ctx, object.Name, rest.DefaultUpdatedObjectInfo(object), nil, nil, false, &metav1.UpdateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*Machine), nil
+}
+
+func (s *storageMachine) DeleteMachine(ctx context.Context, id string) (bool, error) {
+	st := s.GetStandardStorage()
+	_, sync, err := st.Delete(ctx, id, nil, &metav1.DeleteOptions{})
+	return sync, err
+}
+
 // MachineConfigTemplate Functions and Structs
 //
 // +k8s:deepcopy-gen=false
@@ -6335,6 +6562,125 @@ func (s *storageMachineConfigTemplate) UpdateMachineConfigTemplate(ctx context.C
 }
 
 func (s *storageMachineConfigTemplate) DeleteMachineConfigTemplate(ctx context.Context, id string) (bool, error) {
+	st := s.GetStandardStorage()
+	_, sync, err := st.Delete(ctx, id, nil, &metav1.DeleteOptions{})
+	return sync, err
+}
+
+// NetworkEnvironment Functions and Structs
+//
+// +k8s:deepcopy-gen=false
+type NetworkEnvironmentStrategy struct {
+	builders.DefaultStorageStrategy
+}
+
+// +k8s:deepcopy-gen=false
+type NetworkEnvironmentStatusStrategy struct {
+	builders.DefaultStatusStorageStrategy
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type NetworkEnvironmentList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []NetworkEnvironment `json:"items"`
+}
+
+func (NetworkEnvironment) NewStatus() interface{} {
+	return NetworkEnvironmentStatus{}
+}
+
+func (pc *NetworkEnvironment) GetStatus() interface{} {
+	return pc.Status
+}
+
+func (pc *NetworkEnvironment) SetStatus(s interface{}) {
+	pc.Status = s.(NetworkEnvironmentStatus)
+}
+
+func (pc *NetworkEnvironment) GetSpec() interface{} {
+	return pc.Spec
+}
+
+func (pc *NetworkEnvironment) SetSpec(s interface{}) {
+	pc.Spec = s.(NetworkEnvironmentSpec)
+}
+
+func (pc *NetworkEnvironment) GetObjectMeta() *metav1.ObjectMeta {
+	return &pc.ObjectMeta
+}
+
+func (pc *NetworkEnvironment) SetGeneration(generation int64) {
+	pc.ObjectMeta.Generation = generation
+}
+
+func (pc NetworkEnvironment) GetGeneration() int64 {
+	return pc.ObjectMeta.Generation
+}
+
+// Registry is an interface for things that know how to store NetworkEnvironment.
+// +k8s:deepcopy-gen=false
+type NetworkEnvironmentRegistry interface {
+	ListNetworkEnvironments(ctx context.Context, options *internalversion.ListOptions) (*NetworkEnvironmentList, error)
+	GetNetworkEnvironment(ctx context.Context, id string, options *metav1.GetOptions) (*NetworkEnvironment, error)
+	CreateNetworkEnvironment(ctx context.Context, id *NetworkEnvironment) (*NetworkEnvironment, error)
+	UpdateNetworkEnvironment(ctx context.Context, id *NetworkEnvironment) (*NetworkEnvironment, error)
+	DeleteNetworkEnvironment(ctx context.Context, id string) (bool, error)
+}
+
+// NewRegistry returns a new Registry interface for the given Storage. Any mismatched types will panic.
+func NewNetworkEnvironmentRegistry(sp builders.StandardStorageProvider) NetworkEnvironmentRegistry {
+	return &storageNetworkEnvironment{sp}
+}
+
+// Implement Registry
+// storage puts strong typing around storage calls
+// +k8s:deepcopy-gen=false
+type storageNetworkEnvironment struct {
+	builders.StandardStorageProvider
+}
+
+func (s *storageNetworkEnvironment) ListNetworkEnvironments(ctx context.Context, options *internalversion.ListOptions) (*NetworkEnvironmentList, error) {
+	if options != nil && options.FieldSelector != nil && !options.FieldSelector.Empty() {
+		return nil, fmt.Errorf("field selector not supported yet")
+	}
+	st := s.GetStandardStorage()
+	obj, err := st.List(ctx, options)
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*NetworkEnvironmentList), err
+}
+
+func (s *storageNetworkEnvironment) GetNetworkEnvironment(ctx context.Context, id string, options *metav1.GetOptions) (*NetworkEnvironment, error) {
+	st := s.GetStandardStorage()
+	obj, err := st.Get(ctx, id, options)
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*NetworkEnvironment), nil
+}
+
+func (s *storageNetworkEnvironment) CreateNetworkEnvironment(ctx context.Context, object *NetworkEnvironment) (*NetworkEnvironment, error) {
+	st := s.GetStandardStorage()
+	obj, err := st.Create(ctx, object, nil, &metav1.CreateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*NetworkEnvironment), nil
+}
+
+func (s *storageNetworkEnvironment) UpdateNetworkEnvironment(ctx context.Context, object *NetworkEnvironment) (*NetworkEnvironment, error) {
+	st := s.GetStandardStorage()
+	obj, _, err := st.Update(ctx, object.Name, rest.DefaultUpdatedObjectInfo(object), nil, nil, false, &metav1.UpdateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*NetworkEnvironment), nil
+}
+
+func (s *storageNetworkEnvironment) DeleteNetworkEnvironment(ctx context.Context, id string) (bool, error) {
 	st := s.GetStandardStorage()
 	_, sync, err := st.Delete(ctx, id, nil, &metav1.DeleteOptions{})
 	return sync, err
@@ -6581,125 +6927,6 @@ func (s *storageNodeClaim) UpdateNodeClaim(ctx context.Context, object *NodeClai
 }
 
 func (s *storageNodeClaim) DeleteNodeClaim(ctx context.Context, id string) (bool, error) {
-	st := s.GetStandardStorage()
-	_, sync, err := st.Delete(ctx, id, nil, &metav1.DeleteOptions{})
-	return sync, err
-}
-
-// NodeEnvironment Functions and Structs
-//
-// +k8s:deepcopy-gen=false
-type NodeEnvironmentStrategy struct {
-	builders.DefaultStorageStrategy
-}
-
-// +k8s:deepcopy-gen=false
-type NodeEnvironmentStatusStrategy struct {
-	builders.DefaultStatusStorageStrategy
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type NodeEnvironmentList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []NodeEnvironment `json:"items"`
-}
-
-func (NodeEnvironment) NewStatus() interface{} {
-	return NodeEnvironmentStatus{}
-}
-
-func (pc *NodeEnvironment) GetStatus() interface{} {
-	return pc.Status
-}
-
-func (pc *NodeEnvironment) SetStatus(s interface{}) {
-	pc.Status = s.(NodeEnvironmentStatus)
-}
-
-func (pc *NodeEnvironment) GetSpec() interface{} {
-	return pc.Spec
-}
-
-func (pc *NodeEnvironment) SetSpec(s interface{}) {
-	pc.Spec = s.(NodeEnvironmentSpec)
-}
-
-func (pc *NodeEnvironment) GetObjectMeta() *metav1.ObjectMeta {
-	return &pc.ObjectMeta
-}
-
-func (pc *NodeEnvironment) SetGeneration(generation int64) {
-	pc.ObjectMeta.Generation = generation
-}
-
-func (pc NodeEnvironment) GetGeneration() int64 {
-	return pc.ObjectMeta.Generation
-}
-
-// Registry is an interface for things that know how to store NodeEnvironment.
-// +k8s:deepcopy-gen=false
-type NodeEnvironmentRegistry interface {
-	ListNodeEnvironments(ctx context.Context, options *internalversion.ListOptions) (*NodeEnvironmentList, error)
-	GetNodeEnvironment(ctx context.Context, id string, options *metav1.GetOptions) (*NodeEnvironment, error)
-	CreateNodeEnvironment(ctx context.Context, id *NodeEnvironment) (*NodeEnvironment, error)
-	UpdateNodeEnvironment(ctx context.Context, id *NodeEnvironment) (*NodeEnvironment, error)
-	DeleteNodeEnvironment(ctx context.Context, id string) (bool, error)
-}
-
-// NewRegistry returns a new Registry interface for the given Storage. Any mismatched types will panic.
-func NewNodeEnvironmentRegistry(sp builders.StandardStorageProvider) NodeEnvironmentRegistry {
-	return &storageNodeEnvironment{sp}
-}
-
-// Implement Registry
-// storage puts strong typing around storage calls
-// +k8s:deepcopy-gen=false
-type storageNodeEnvironment struct {
-	builders.StandardStorageProvider
-}
-
-func (s *storageNodeEnvironment) ListNodeEnvironments(ctx context.Context, options *internalversion.ListOptions) (*NodeEnvironmentList, error) {
-	if options != nil && options.FieldSelector != nil && !options.FieldSelector.Empty() {
-		return nil, fmt.Errorf("field selector not supported yet")
-	}
-	st := s.GetStandardStorage()
-	obj, err := st.List(ctx, options)
-	if err != nil {
-		return nil, err
-	}
-	return obj.(*NodeEnvironmentList), err
-}
-
-func (s *storageNodeEnvironment) GetNodeEnvironment(ctx context.Context, id string, options *metav1.GetOptions) (*NodeEnvironment, error) {
-	st := s.GetStandardStorage()
-	obj, err := st.Get(ctx, id, options)
-	if err != nil {
-		return nil, err
-	}
-	return obj.(*NodeEnvironment), nil
-}
-
-func (s *storageNodeEnvironment) CreateNodeEnvironment(ctx context.Context, object *NodeEnvironment) (*NodeEnvironment, error) {
-	st := s.GetStandardStorage()
-	obj, err := st.Create(ctx, object, nil, &metav1.CreateOptions{})
-	if err != nil {
-		return nil, err
-	}
-	return obj.(*NodeEnvironment), nil
-}
-
-func (s *storageNodeEnvironment) UpdateNodeEnvironment(ctx context.Context, object *NodeEnvironment) (*NodeEnvironment, error) {
-	st := s.GetStandardStorage()
-	obj, _, err := st.Update(ctx, object.Name, rest.DefaultUpdatedObjectInfo(object), nil, nil, false, &metav1.UpdateOptions{})
-	if err != nil {
-		return nil, err
-	}
-	return obj.(*NodeEnvironment), nil
-}
-
-func (s *storageNodeEnvironment) DeleteNodeEnvironment(ctx context.Context, id string) (bool, error) {
 	st := s.GetStandardStorage()
 	_, sync, err := st.Delete(ctx, id, nil, &metav1.DeleteOptions{})
 	return sync, err
@@ -7207,6 +7434,22 @@ type OSImageList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []OSImage `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type OSImageFinalizeList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []OSImageFinalize `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type OSImageUploadList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []OSImageUpload `json:"items"`
 }
 
 func (OSImage) NewStatus() interface{} {

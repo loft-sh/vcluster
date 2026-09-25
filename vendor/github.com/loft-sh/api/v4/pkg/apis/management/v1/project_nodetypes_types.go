@@ -21,6 +21,9 @@ type ProjectNodeTypes struct {
 	// NodeProfiles holds all the allowed node profiles for the project
 	NodeProfiles []storagev1.NodeProfile `json:"nodeProfiles,omitempty"`
 
+	// NetworkEnvironments holds all the allowed network environments for the project
+	NetworkEnvironments []storagev1.NetworkEnvironment `json:"networkEnvironments,omitempty"`
+
 	// OSImages holds all the allowed OS images for the project
 	OSImages []storagev1.OSImage `json:"osImages,omitempty"`
 }

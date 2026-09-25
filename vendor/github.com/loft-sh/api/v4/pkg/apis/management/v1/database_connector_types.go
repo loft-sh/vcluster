@@ -6,6 +6,8 @@ import (
 
 // +genclient
 // +genclient:nonNamespaced
+// +genclient:noStatus
+// +genclient:onlyVerbs=list
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // DatabaseConnector represents a connector that can be used to provision and manage a backingstore
