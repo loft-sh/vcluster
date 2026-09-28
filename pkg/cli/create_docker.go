@@ -918,8 +918,43 @@ func loadUserValues(options *CreateOptions, globalFlags *flags.GlobalFlags, log 
 		return nil, fmt.Errorf("unmarshal user values: %w", err)
 	}
 
+	// pin the kubernetes version this CLI pulls and mounts into the containers. Without it
+	// a vCluster started with an older --chart-version falls back to its own default, finds
+	// the mounted binaries at a different version and re-downloads them into /tmp, which is
+	// a noexec tmpfs in the control plane container.
+	pinKubernetesVersion(userValuesMap, defaultConfig.ControlPlane.Distro.K8S.Image.Tag)
+
 	// merge the configs
 	return userValuesMap, nil
+}
+
+// pinKubernetesVersion sets controlPlane.distro.k8s.version to version unless the user
+// already chose one via controlPlane.distro.k8s.version or controlPlane.distro.k8s.image.tag.
+func pinKubernetesVersion(values map[string]interface{}, version string) {
+	if version == "" {
+		return
+	}
+
+	k8s := values
+	for _, key := range []string{"controlPlane", "distro", "k8s"} {
+		next, ok := k8s[key].(map[string]interface{})
+		if !ok {
+			next = map[string]interface{}{}
+			k8s[key] = next
+		}
+		k8s = next
+	}
+
+	if v, _ := k8s["version"].(string); v != "" {
+		return
+	}
+	if image, ok := k8s["image"].(map[string]interface{}); ok {
+		if tag, _ := image["tag"].(string); tag != "" {
+			return
+		}
+	}
+
+	k8s["version"] = version
 }
 
 func configureNetwork(ctx context.Context, fullConfigRaw map[string]interface{}, vClusterName string, log log.Logger) (string, []string, error) {
