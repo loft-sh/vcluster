@@ -3,6 +3,41 @@ templates:
   - clusterrole.yaml
 
 tests:
+  - it: disable when volume snapshot rules are disabled
+    set:
+      rbac:
+        enableVolumeSnapshotRules:
+          enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: enabled by default with default rules
+    asserts:
+      - hasDocuments:
+          count: 1
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resources: [ "persistentvolumes" ]
+            verbs:
+              [ "get", "list" ]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "snapshot.storage.k8s.io" ]
+            resources: [ "volumesnapshotclasses" ]
+            verbs:
+              [ "get", "list" ]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "snapshot.storage.k8s.io" ]
+            resources: [ "volumesnapshotcontents" ]
+            verbs:
+              [ "create", "delete", "patch", "update", "get", "list" ]
+
   - it: force enable
     set:
       rbac:
@@ -127,7 +162,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 1
+          count: 4
       - contains:
           path: rules
           content:
@@ -177,7 +212,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 2
+          count: 5
       - contains:
           path: rules
           content:
@@ -208,7 +243,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 2
+          count: 5
       - contains:
           path: rules
           content:
@@ -234,7 +269,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 1
+          count: 4
       - contains:
           path: rules
           content:
@@ -253,7 +288,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 2
+          count: 5
       - contains:
           path: rules
           content:
@@ -283,7 +318,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 1
+          count: 4
       - contains:
           path: rules
           content:
@@ -308,7 +343,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 1
+          count: 4
       - contains:
           path: rules
           content:
@@ -324,7 +359,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 3
+          count: 6
       - contains:
           path: rules
           content:
@@ -384,7 +419,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 1
+          count: 4
       - contains:
           path: rules
           content:
@@ -404,7 +439,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 2
+          count: 5
       - contains:
           path: rules
           content:
@@ -430,7 +465,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 2
+          count: 5
       - contains:
           path: rules
           content:
@@ -452,7 +487,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 1
+          count: 4
       - contains:
           path: rules
           content:
@@ -479,7 +514,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 3
+          count: 6
       - contains:
           path: rules
           content:
@@ -536,7 +571,7 @@ tests:
             enabled: false
     asserts:
       - hasDocuments:
-          count: 0
+          count: 1
 
   - it: fromHost sync configmaps enabled with wildcard namespace
     set:
@@ -553,7 +588,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 3
+          count: 6
       - contains:
           path: rules
           content:
@@ -589,7 +624,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 3
+          count: 6
       - contains:
           path: rules
           content:
@@ -625,7 +660,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 3
+          count: 6
       - contains:
           path: rules
           content:
@@ -655,7 +690,7 @@ tests:
             enabled: false
     asserts:
       - hasDocuments:
-          count: 0
+          count: 1
 
   - it: fromHost sync secrets enabled with wildcard namespace
     set:
@@ -672,7 +707,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 3
+          count: 6
       - contains:
           path: rules
           content:
@@ -708,7 +743,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 3
+          count: 6
       - contains:
           path: rules
           content:
@@ -744,7 +779,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 3
+          count: 6
       - contains:
           path: rules
           content:
@@ -778,13 +813,49 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 1
+          count: 4
       - contains:
           path: rules
           content:
             apiGroups: [ "apiextensions.k8s.io" ]
             resources: [ "customresourcedefinitions" ]
             verbs: [ "get", "list", "watch" ]
+
+  - it: volume snapshot rules
+    set:
+      rbac:
+        enableVolumeSnapshotRules:
+          enabled: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: ClusterRole
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resources: [ "persistentvolumes" ]
+            verbs:
+              [ "get", "list" ]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "snapshot.storage.k8s.io" ]
+            resources: [ "volumesnapshotclasses" ]
+            verbs:
+              [ "get", "list" ]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "snapshot.storage.k8s.io" ]
+            resources: [ "volumesnapshotcontents" ]
+            verbs:
+              [ "create", "delete", "patch", "update", "get", "list" ]
 
   - it: resourceClaims rules
     set:

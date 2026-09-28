@@ -135,6 +135,14 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 		return errors.New("cannot sync priorityclasses to and from host at the same time")
 	}
 
+	// volumesnapshots and volumesnapshotcontents are dependant on each other
+	if vConfig.Sync.ToHost.VolumeSnapshotContents.Enabled && !vConfig.Sync.ToHost.VolumeSnapshots.Enabled {
+		return errors.New("when syncing volume snapshots contents to the host, one must set sync.toHost.volumeSnapshots.enabled to true")
+	}
+	if vConfig.Sync.ToHost.VolumeSnapshots.Enabled && !vConfig.Sync.ToHost.VolumeSnapshotContents.Enabled {
+		return errors.New("when syncing volume snapshots to the host, one must set sync.toHost.volumeSnapshotContents.enabled to true")
+	}
+
 	// validate central admission control
 	err = validateCentralAdmissionControl(vConfig)
 	if err != nil {
@@ -211,6 +219,11 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 	err = ValidateSyncFromHostClasses(vConfig.Config.Sync.FromHost)
 	if err != nil {
 		return err
+	}
+
+	// auto-enable volume snapshot rules in shared mode
+	if !vConfig.Config.PrivateNodes.Enabled && vConfig.RBAC.EnableVolumeSnapshotRules.Enabled == "auto" {
+		vConfig.RBAC.EnableVolumeSnapshotRules.Enabled = "true"
 	}
 
 	return nil
@@ -427,6 +440,8 @@ func ValidateAllSyncPatches(sync config.Sync) error {
 			{"sync.toHost.resourceClaims.patches", sync.ToHost.ResourceClaims.Patches},
 			{"sync.toHost.resourceClaimTemplates.patches", sync.ToHost.ResourceClaimTemplates.Patches},
 			{"sync.toHost.storageClasses.patches", sync.ToHost.StorageClasses.Patches},
+			{"sync.toHost.volumeSnapshots.patches", sync.ToHost.VolumeSnapshots.Patches},
+			{"sync.toHost.volumeSnapshotContents.patches", sync.ToHost.VolumeSnapshotContents.Patches},
 			{"sync.fromHost.nodes.patches", sync.FromHost.Nodes.Patches},
 			{"sync.fromHost.storageClasses.patches", sync.FromHost.StorageClasses.Patches},
 			{"sync.fromHost.priorityClasses.patches", sync.FromHost.PriorityClasses.Patches},
@@ -438,6 +453,7 @@ func ValidateAllSyncPatches(sync config.Sync) error {
 			{"sync.fromHost.csiNodes.patches", sync.FromHost.CSINodes.Patches},
 			{"sync.fromHost.csiStorageCapacities.patches", sync.FromHost.CSIStorageCapacities.Patches},
 			{"sync.fromHost.events.patches", sync.FromHost.Events.Patches},
+			{"sync.fromHost.volumeSnapshotClasses.patches", sync.FromHost.VolumeSnapshotClasses.Patches},
 			{"sync.fromHost.configMaps.patches", sync.FromHost.ConfigMaps.Patches},
 			{"sync.fromHost.deviceClasses.patches", sync.FromHost.DeviceClasses.Patches},
 		}...,

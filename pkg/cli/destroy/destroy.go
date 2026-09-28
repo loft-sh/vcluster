@@ -37,6 +37,7 @@ var resourceOrder = []string{
 	"devpodworkspaceinstances",
 	"spaceinstances",
 	"argocdapplications",
+	"stackinstances",
 	"appinstances",
 
 	// templates
@@ -49,6 +50,7 @@ var resourceOrder = []string{
 	"apps",
 	"spaceconstraints",
 	"argocdapplicationtemplates",
+	"stacktemplates",
 
 	// infra
 	"tasks",
@@ -58,6 +60,8 @@ var resourceOrder = []string{
 	"clusters",
 	"clusteraccesses",
 	"nodeclaims",
+	"machines",
+	"nodeprofiles",
 	"nodeenvironments",
 	"nodeproviders",
 	"nodetypes",
@@ -66,6 +70,7 @@ var resourceOrder = []string{
 	"sshkeys",
 
 	// access
+	"tenants",
 	"teams",
 	"users",
 	"sharedsecrets",

@@ -38,6 +38,8 @@ func suiteMetricsProxyVCluster() {
 			})
 
 			metricsproxy.MetricsProxySpec()
+			// last, because it restarts the control plane and the suite connection does not survive that
+			metricsproxy.MetricsProxyRestartSpec()
 		},
 	)
 }

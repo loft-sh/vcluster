@@ -6,11 +6,25 @@ import (
 	"testing"
 
 	"github.com/go-logr/zapr"
+	"github.com/loft-sh/vcluster/pkg/util/logtest"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 	"k8s.io/klog/v2"
 )
+
+func TestServeHTTPWritesJSONFile(t *testing.T) {
+	logger, path := logtest.NewFileJSONLogger(t)
+	request := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+	request = request.WithContext(klog.NewContext(request.Context(), logger))
+
+	(&WebsocketProxy{}).ServeHTTP(httptest.NewRecorder(), request)
+
+	record := logtest.ReadJSONRecord(t, path)
+	if record["logger"] != "websocketproxy" || record["msg"] != "Cannot proxy WebSocket connection" {
+		t.Fatalf("unexpected file record: %#v", record)
+	}
+}
 
 func TestServeHTTPLogsThroughRequestContext(t *testing.T) {
 	core, observed := observer.New(zapcore.DebugLevel)

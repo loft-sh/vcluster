@@ -5,6 +5,7 @@ import (
 	"maps"
 	"sync"
 
+	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
 	"github.com/loft-sh/vcluster/pkg/scheme"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	corev1 "k8s.io/api/core/v1"
@@ -75,8 +76,20 @@ func (m *Registry) ByGVK(gvk schema.GroupVersionKind) (synccontext.Mapper, error
 	return mapper, nil
 }
 
+func VolumeSnapshotContents() schema.GroupVersionKind {
+	return volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotContent")
+}
+
 func Nodes() schema.GroupVersionKind {
 	return corev1.SchemeGroupVersion.WithKind("Node")
+}
+
+func VolumeSnapshots() schema.GroupVersionKind {
+	return volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshot")
+}
+
+func VolumeSnapshotClasses() schema.GroupVersionKind {
+	return volumesnapshotv1.SchemeGroupVersion.WithKind("VolumeSnapshotClass")
 }
 
 func Events() schema.GroupVersionKind {

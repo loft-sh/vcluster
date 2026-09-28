@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr/funcr"
+	"github.com/loft-sh/vcluster/pkg/util/logtest"
 )
 
 func TestLogApplyOutput(t *testing.T) {
@@ -73,5 +74,16 @@ func TestLogApplyOutput(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestLogApplyOutputWritesJSONFile(t *testing.T) {
+	logger, path := logtest.NewFileJSONLogger(t)
+
+	logApplyOutput(logger.WithName("kubectl"), "configmap/file-logging-marker configured\n", "", nil)
+
+	record := logtest.ReadJSONRecord(t, path)
+	if record["logger"] != "kubectl" || record["stdout"] != "configmap/file-logging-marker configured" {
+		t.Fatalf("unexpected file record: %#v", record)
 	}
 }
