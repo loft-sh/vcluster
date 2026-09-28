@@ -15,6 +15,7 @@ import (
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/set"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/share"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/sleep"
+	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/upload"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform/wakeup"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform/defaults"
@@ -76,6 +77,7 @@ func NewPlatformCmd(globalFlags *flags.GlobalFlags) (*cobra.Command, error) {
 	platformCmd.AddCommand(share.NewShareCmd(globalFlags, defaults))
 	platformCmd.AddCommand(create.NewCreateCmd(globalFlags, defaults))
 	platformCmd.AddCommand(cmddelete.NewDeleteCmd(globalFlags, defaults))
+	platformCmd.AddCommand(upload.NewUploadCmd(globalFlags))
 	platformCmd.AddCommand(loginCmd)
 	platformCmd.AddCommand(logoutCmd)
 
