@@ -322,7 +322,7 @@ controlPlane:
         # Repository is the repository of the container image, e.g. my-repo/my-image
         repository: "loft-sh/kubernetes"
         # Tag is the tag of the container image, and is the default version.
-        tag: "v1.36.0"
+        tag: "v1.36.5"
       # APIServer holds configuration specific to starting the api server.
       apiServer:
         enabled: true
