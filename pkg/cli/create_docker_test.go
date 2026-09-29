@@ -61,6 +61,31 @@ func TestPinKubernetesVersion(t *testing.T) {
 		assert.Assert(t, !hasVersion)
 	})
 
+	t.Run("user string image with a tag wins", func(t *testing.T) {
+		values := map[string]interface{}{
+			"controlPlane": map[string]interface{}{
+				"distro": map[string]interface{}{
+					"k8s": map[string]interface{}{"image": "ghcr.io/loft-sh/kubernetes:v1.35.9"},
+				},
+			},
+		}
+		pinKubernetesVersion(values, "v1.36.5")
+		_, hasVersion := k8sOf(values)["version"]
+		assert.Assert(t, !hasVersion)
+	})
+
+	t.Run("user string image without a tag gets the version", func(t *testing.T) {
+		values := map[string]interface{}{
+			"controlPlane": map[string]interface{}{
+				"distro": map[string]interface{}{
+					"k8s": map[string]interface{}{"image": "my-registry.io:5000/loft-sh/kubernetes"},
+				},
+			},
+		}
+		pinKubernetesVersion(values, "v1.36.5")
+		assert.Equal(t, k8sOf(values)["version"], "v1.36.5")
+	})
+
 	t.Run("empty version is a no-op", func(t *testing.T) {
 		values := map[string]interface{}{}
 		pinKubernetesVersion(values, "")
