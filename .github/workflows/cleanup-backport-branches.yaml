@@ -8,11 +8,8 @@ on:
       dry_run:
         description: 'Dry run mode'
         required: false
-        default: 'true'
-        type: choice
-        options:
-          - 'true'
-          - 'false'
+        default: true
+        type: boolean
 
 permissions:
   contents: write
@@ -21,6 +18,6 @@ jobs:
   cleanup-backport-branches:
     uses: loft-sh/github-actions/.github/workflows/cleanup-backport-branches.yaml@cleanup-backport-branches/v1
     with:
-      dry-run: ${{ github.event.inputs.dry_run || 'false' }}
+      dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
     secrets:
       gh-access-token: ${{ secrets.GH_ACCESS_TOKEN }}
