@@ -1,7 +1,9 @@
 package certs
 
 import (
+	"bytes"
 	"context"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"io"
@@ -14,6 +16,7 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/config"
 	setupconfig "github.com/loft-sh/vcluster/pkg/setup/config"
+	"github.com/loft-sh/vcluster/pkg/util/certhelper"
 	"github.com/loft-sh/vcluster/pkg/util/servicecidr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -32,11 +35,20 @@ type Info struct {
 // If running non-standalone it also updates the cert secret to contain the newly created certificates.
 // Depending on the withCA argument this either means rotation the leaf certificates (withCA=false)
 // or the whole PKI infra (withCA=true). In both cases the current SA pub and private keys are untouched.
+// Rotating the CA replaces it with a newly generated self-signed one, so if the current CA is not
+// self-signed (i.e. it was supplied by an external PKI) the rotation is refused unless force is set.
 func Rotate(ctx context.Context,
 	vConfig *config.VirtualClusterConfig,
 	pkiPath string,
 	withCA bool,
+	force bool,
 	log log.Logger) error {
+	if withCA && !force {
+		if err := ensureCARotationAllowed(pkiPath); err != nil {
+			return err
+		}
+	}
+
 	var err error
 	vConfig.HostConfig, vConfig.HostNamespace, err = setupconfig.InitClientConfig()
 	if err != nil {
@@ -103,6 +115,46 @@ func Rotate(ctx context.Context,
 
 	// Sync the secret so in case of a restart without persistence we don't loose data.
 	return SyncSecret(ctx, vConfig.HostNamespace, CertSecretName(vConfig.Name), pkiPath, vConfig.HostClient)
+}
+
+// ensureCARotationAllowed returns an error if the CA certificate in the PKI
+// directory is not self-signed. In that case the CA was most likely supplied
+// by an external PKI (e.g. an intermediate CA issued by a corporate root) and
+// regenerating the PKI would silently replace it with a self-signed CA,
+// breaking every consumer that trusts the external chain.
+func ensureCARotationAllowed(pkiPath string) error {
+	pemBytes, err := os.ReadFile(filepath.Join(pkiPath, CACertName))
+	if errors.Is(err, fs.ErrNotExist) {
+		// Nothing to protect, a new CA will be generated.
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("reading CA certificate: %w", err)
+	}
+
+	caCerts, err := certhelper.ParseCertsPEM(pemBytes)
+	if err != nil {
+		return fmt.Errorf("parsing CA certificate: %w", err)
+	}
+
+	// The CA cert may be a bundle, in which case the active CA is required to
+	// be the first certificate in it.
+	caCert := caCerts[0]
+	if isSelfIssued(caCert) {
+		return nil
+	}
+
+	return fmt.Errorf(
+		"refusing to rotate the CA: it is not self-signed (subject %q, issuer %q), so it was likely supplied by an external PKI and rotating would replace it with a new self-signed CA. "+
+			"Use --force to do it anyway, or see \"vcluster certs rotate --help\" to switch to a renewed external CA instead",
+		caCert.Subject.String(), caCert.Issuer.String(),
+	)
+}
+
+// isSelfIssued returns true if the certificate's issuer equals its subject,
+// which is the case for the self-signed CAs that vCluster generates itself.
+func isSelfIssued(cert *x509.Certificate) bool {
+	return bytes.Equal(cert.RawIssuer, cert.RawSubject)
 }
 
 // backupPKI creates a timestamped backup of the PKI directory and returns the
