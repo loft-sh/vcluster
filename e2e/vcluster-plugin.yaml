@@ -1,0 +1,22 @@
+controlPlane:
+  statefulSet:
+    image:
+      registry: ""
+      repository: {{.Repository}}
+      tag: {{.Tag}}
+
+plugin:
+  bootstrap-with-deployment:
+    # NOTE: v2 is amd64-only; plugin tests require Linux CI or amd64 Kind cluster.
+    # v4 is multi-arch but uses a newer plugin protocol incompatible with the current syncer.
+    image: ghcr.io/loft-sh/vcluster-example-bootstrap-with-deployment:v2
+    imagePullPolicy: IfNotPresent
+  import-secrets:
+    version: v2
+    image: ghcr.io/loft-sh/vcluster-example-import-secrets:v1
+    imagePullPolicy: IfNotPresent
+
+plugins:
+  hooks:
+    image: ghcr.io/loft-sh/vcluster-example-hooks:v1
+    imagePullPolicy: IfNotPresent

@@ -1,0 +1,18 @@
+version: v1beta1
+# export:
+#   - kind: Task
+#     apiVersion: tekton.dev/v1
+#   - kind: TaskRun
+#     apiVersion: tekton.dev/v1
+#   - kind: Pipeline
+#     apiVersion: tekton.dev/v1
+#   - kind: PipelineRun
+#     apiVersion: tekton.dev/v1
+# import:
+#   - kind: PipelineRun
+#     apiVersion: tekton.dev/v1
+#   - kind: TaskRun
+#     apiVersion: tekton.dev/v1
+#   - kind: Pod
+#     apiVersion: v1
+#     replaceOnConflict: true

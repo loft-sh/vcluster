@@ -1,0 +1,25 @@
+sync:
+  fromHost:
+    gatewayClasses:
+      enabled: true
+    gateways:
+      enabled: true
+      mappings:
+        byName:
+          "platform-gateways/public-web": "example-virtual-namespace/shared-web"
+      allowedRoutes:
+        overrides:
+          - hostNamespace: platform-gateways
+            name: private-api
+            allowedHostnames:
+              - "*.team-a.example.com"
+            virtualNamespacePolicy:
+              from: All
+  toHost:
+    gatewayApi:
+      gateways:
+        enabled: false
+      httpRoutes:
+        enabled: true
+      referenceGrants:
+        enabled: auto
