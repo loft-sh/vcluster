@@ -17,6 +17,9 @@ const (
 	// StackInstanceReady is the top-level readiness condition of a StackInstance.
 	StackInstanceReady agentstoragev1.ConditionType = "Ready"
 
+	// StackInstanceReasonInvalid is set on the Ready condition when the spec itself is malformed,
+	// so no task can run until a person edits it.
+	StackInstanceReasonInvalid = "Invalid"
 	// StackInstanceReasonTemplateNotFound is set on the Ready condition when the StackTemplate
 	// referenced by spec.templateRef does not exist.
 	StackInstanceReasonTemplateNotFound = "TemplateNotFound"
@@ -129,8 +132,9 @@ type StackInstanceSpec struct {
 	Defaults *StackDefaults `json:"defaults,omitempty"`
 
 	// PrunePolicy controls what happens to an owned application whose task is removed
-	// from the resolved task set. The empty value is treated as Retain.
+	// from the resolved task set. Leaving it out is treated as Retain.
 	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == 'Retain' || self == 'Prune'",message="prunePolicy must be Retain or Prune"
 	PrunePolicy StackPrunePolicy `json:"prunePolicy,omitempty"`
 
 	// Owner holds the owner of this object

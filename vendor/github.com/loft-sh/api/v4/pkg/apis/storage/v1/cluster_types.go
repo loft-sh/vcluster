@@ -137,6 +137,19 @@ type ArgoCD struct {
 	// Connector specifies the argo cd connector name
 	// +optional
 	Connector string `json:"connector,omitempty"`
+
+	// Cluster holds settings for the cluster entry that is registered in argo cd
+	// +optional
+	Cluster *ArgoCDClusterSpec `json:"cluster,omitempty"`
+}
+
+// ArgoCDClusterSpec holds settings for the cluster entry that is registered in argo cd.
+type ArgoCDClusterSpec struct {
+	// Metadata is set on the argo cd cluster, so an ApplicationSet can select it.
+	// The platform's own loft.sh/cluster label wins over it.
+	// On Akuity, a key removed here stays on the cluster until it is removed in Akuity.
+	// +optional
+	Metadata TemplateMetadata `json:"metadata,omitempty"`
 }
 
 type AllowedClusterAccountTemplate struct {

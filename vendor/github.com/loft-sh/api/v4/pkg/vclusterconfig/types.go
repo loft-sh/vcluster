@@ -354,6 +354,30 @@ type ArgoCDIntegration struct {
 	// Connector specifies the argo cd connector name
 	// +optional
 	Connector string `json:"connector,omitempty"`
+
+	// Cluster holds settings for the cluster entry that is registered in argo cd
+	// +optional
+	Cluster *ArgoCDIntegrationCluster `json:"cluster,omitempty"`
+}
+
+// ArgoCDIntegrationCluster holds settings for the cluster entry that is registered in argo cd.
+type ArgoCDIntegrationCluster struct {
+	// Metadata is set on the argo cd cluster, so an ApplicationSet cluster generator can select it.
+	// On Akuity, a key removed here stays on the cluster until it is removed in Akuity.
+	// +optional
+	Metadata ArgoCDClusterMetadata `json:"metadata,omitempty"`
+}
+
+// ArgoCDClusterMetadata holds the labels and annotations to set on the argo cd cluster.
+// The platform's own loft.sh/project, loft.sh/vcluster-instance-name and loft.sh/vcluster-instance-namespace labels win over it.
+type ArgoCDClusterMetadata struct {
+	// Labels are set on the argo cd cluster
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
+
+	// Annotations are set on the argo cd cluster
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // ArgoCDDeploy holds argo cd deploy configuration.

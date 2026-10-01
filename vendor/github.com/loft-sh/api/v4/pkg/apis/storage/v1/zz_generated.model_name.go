@@ -251,6 +251,11 @@ func (in ArgoCDApplicationTemplateStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ArgoCDClusterSpec) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.ArgoCDClusterSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ArgoCDDestination) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v4.pkg.apis.storage.v1.ArgoCDDestination"
 }

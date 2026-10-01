@@ -31,6 +31,15 @@ func ValidatePlatformConfig(fldPath *field.Path, platformConfig PlatformConfig) 
 // MaxStacks bounds how many stacks one vcluster.yaml may declare, set well above any real config.
 const MaxStacks = 50
 
+// ExactlyOneTemplateArm is the error for an entry that sets neither template nor templateRef.
+const ExactlyOneTemplateArm = "exactly one of template or templateRef must be set"
+
+// ExactlyOneTemplateArmNotBoth is the error for an entry that sets template and templateRef.
+const ExactlyOneTemplateArmNotBoth = ExactlyOneTemplateArm + ", not both"
+
+// TemplateRefNameRequired is the error for a templateRef with no name.
+const TemplateRefNameRequired = "templateRef.name must be set"
+
 // ValidateStacks checks the deploy.stacks rules that can be judged before conversion.
 func ValidateStacks(fldPath *field.Path, stacks []StackConfig) field.ErrorList {
 	errs := ValidateStackList(fldPath, stacks)
@@ -96,11 +105,11 @@ func ValidateStack(stackPath *field.Path, stack StackConfig) field.ErrorList {
 	hasTemplateRef := stack.TemplateRef != nil
 	switch {
 	case hasTemplate && hasTemplateRef:
-		errs = append(errs, field.Forbidden(stackPath, "exactly one of template or templateRef must be set, not both"))
+		errs = append(errs, field.Forbidden(stackPath, ExactlyOneTemplateArmNotBoth))
 	case !hasTemplate && !hasTemplateRef:
-		errs = append(errs, field.Required(stackPath, "exactly one of template or templateRef must be set"))
+		errs = append(errs, field.Required(stackPath, ExactlyOneTemplateArm))
 	case hasTemplateRef && stack.TemplateRef.Name == "":
-		errs = append(errs, field.Required(stackPath.Child("templateRef", "name"), "templateRef.name must be set"))
+		errs = append(errs, field.Required(stackPath.Child("templateRef", "name"), TemplateRefNameRequired))
 	}
 
 	switch storagev1.StackPrunePolicy(stack.PrunePolicy) {
@@ -166,13 +175,23 @@ func ValidateObservability(fldPath *field.Path, integration *ObservabilityIntegr
 
 // ValidateArgoCD validates the Argo CD integration and deploy configuration.
 func ValidateArgoCD(fldPath *field.Path, integration *ArgoCDIntegration, deploy *ArgoCDDeploy) field.ErrorList {
-	if deploy == nil || len(deploy.Applications) == 0 {
-		return nil
+	var errs field.ErrorList
+	integrationPath := fldPath.Child("integrations", "argoCD")
+
+	// Check metadata first, since labels with no applications is the common case.
+	if integration != nil && integration.Cluster != nil {
+		errs = append(errs, storagev1.ValidateTemplateMetadata(
+			integrationPath.Child("cluster", "metadata"),
+			integration.Cluster.Metadata.Labels,
+			integration.Cluster.Metadata.Annotations,
+		)...)
 	}
 
-	var errs field.ErrorList
+	if deploy == nil || len(deploy.Applications) == 0 {
+		return errs
+	}
+
 	deployPath := fldPath.Child("deploy", "argoCD")
-	integrationPath := fldPath.Child("integrations", "argoCD")
 
 	if integration == nil || !integration.Enabled {
 		errs = append(errs, field.Invalid(deployPath.Child("applications"), deploy.Applications, "argoCD integration must be enabled when applications are configured"))
