@@ -2,8 +2,8 @@ package filters
 
 import (
 	"context"
+	"net"
 	"net/http"
-	"strings"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/controllers/resources/nodes/nodeservice"
@@ -37,11 +37,10 @@ func NodeNameFrom(ctx context.Context) (string, bool) {
 }
 
 func nodeNameFromHost(req *http.Request, currentNamespace string, fakeKubeletIPs bool, virtualClient client.Client, physicalClient client.Client) string {
-	splitted := strings.Split(req.Host, ":")
-	if len(splitted) == 2 {
-		hostname := splitted[0]
+	hostname, _, err := net.SplitHostPort(req.Host)
+	if err == nil {
 		nodeList := &corev1.NodeList{}
-		err := virtualClient.List(req.Context(), nodeList, client.MatchingFields{constants.IndexByHostName: hostname})
+		err = virtualClient.List(req.Context(), nodeList, client.MatchingFields{constants.IndexByHostName: hostname})
 		if err != nil && !kerrors.IsNotFound(err) {
 			klog.Error(err, "couldn't fetch nodename for hostname")
 		}
