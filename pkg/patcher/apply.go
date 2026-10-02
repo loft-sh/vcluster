@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -226,14 +227,16 @@ func applyObjectWithPatch(ctx *synccontext.SyncContext, objPatch patch.Patch, ob
 
 	// check if we should create or update the object
 	isUpdate := false
+	currentObj := obj.DeepCopyObject().(client.Object)
 	err := kubeClient.Get(ctx, types.NamespacedName{
 		Namespace: obj.GetNamespace(),
 		Name:      obj.GetName(),
-	}, obj.DeepCopyObject().(client.Object))
+	}, currentObj)
 	if err != nil && !kerrors.IsNotFound(err) {
 		return fmt.Errorf("get object: %w", err)
 	} else if err == nil {
 		isUpdate = true
+		obj = currentObj
 	}
 
 	// we cannot create a status only object
@@ -264,22 +267,42 @@ func applyObjectWithPatch(ctx *synccontext.SyncContext, objPatch patch.Patch, ob
 
 	// create / update
 	afterObj := obj.DeepCopyObject().(client.Object)
-	if isStatus {
-		err = kubeClient.Status().Update(ctx, obj)
+	if isUpdate {
+		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			latestObj := afterObj.DeepCopyObject().(client.Object)
+			if err := kubeClient.Get(ctx, types.NamespacedName{
+				Namespace: afterObj.GetNamespace(),
+				Name:      afterObj.GetName(),
+			}, latestObj); err != nil {
+				return err
+			}
+
+			if err := objPatch.Apply(latestObj); err != nil {
+				return fmt.Errorf("apply patch: %w", err)
+			}
+
+			if isStatus {
+				return kubeClient.Status().Update(ctx, latestObj)
+			}
+			return kubeClient.Update(ctx, latestObj)
+		})
 		if err != nil {
-			return fmt.Errorf("update object status: %w", err)
+			if isStatus {
+				return fmt.Errorf("update object status: %w", err)
+			}
+			return fmt.Errorf("update object: %w", err)
+		}
+
+		if err := kubeClient.Get(ctx, types.NamespacedName{
+			Namespace: afterObj.GetNamespace(),
+			Name:      afterObj.GetName(),
+		}, afterObj); err != nil {
+			return fmt.Errorf("get updated object: %w", err)
 		}
 	} else {
-		if isUpdate {
-			err = kubeClient.Update(ctx, obj)
-			if err != nil {
-				return fmt.Errorf("update object: %w", err)
-			}
-		} else {
-			err = kubeClient.Create(ctx, obj)
-			if err != nil {
-				return fmt.Errorf("create object: %w", err)
-			}
+		err = kubeClient.Create(ctx, obj)
+		if err != nil {
+			return fmt.Errorf("create object: %w", err)
 		}
 	}
 
