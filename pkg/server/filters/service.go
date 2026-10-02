@@ -173,11 +173,8 @@ func updateService(ctx *synccontext.SyncContext, req *http.Request, decoder enco
 
 	err = ctx.VirtualClient.Update(ctx, newVService)
 	if err != nil {
-		// this is actually worst case that can happen, as we have somehow now a really strange
-		// state in the cluster. This needs to be cleaned up by the controller via delete and create
-		// and we delete the physical service here. Maybe there is a better solution to this, but for
-		// now it works
-		_ = ctx.HostClient.Delete(ctx, pService)
+		// Do not delete the host Service: a denied virtual update must not
+		// destroy the mapped host object.
 		return nil, err
 	}
 
