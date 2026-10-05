@@ -1,0 +1,28 @@
+name: Feature Request
+description:  Suggest an idea for vcluster
+labels: 
+- kind/feature
+body:
+  - type: textarea
+    id: feature
+    attributes:
+      label: Is your feature request related to a problem?
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Which solution do you suggest?  
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternateSolution
+    attributes:
+      label: Which alternative solutions exist?
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context

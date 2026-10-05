@@ -1,0 +1,39 @@
+controlPlane:
+  statefulSet:
+    image:
+      registry: ""
+      repository: {{.Repository}}
+      tag: {{.Tag}}
+
+sync:
+  toHost:
+    pods:
+      useSecretsForSATokens: true
+    networkPolicies:
+      enabled: true
+    persistentVolumeClaims:
+      enabled: true
+    persistentVolumes:
+      enabled: true
+  fromHost:
+    nodes:
+      enabled: true
+      selector:
+        labels:
+          kubernetes.io/hostname: "{{.HostClusterName}}-control-plane"
+    runtimeClasses:
+      enabled: true
+    storageClasses:
+      enabled: true
+
+policies:
+  podSecurityStandard: baseline
+  resourceQuota:
+    enabled: true
+    quota:
+      services.loadbalancers: 3
+      services.nodeports: 6
+  limitRange:
+    enabled: true
+  networkPolicy:
+    enabled: true

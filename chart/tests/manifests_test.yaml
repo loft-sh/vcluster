@@ -1,0 +1,94 @@
+suite: Manifests
+templates:
+  - manifests.yaml
+
+tests:
+  - it: should not create manifests by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: check defaults
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      experimental:
+        deploy:
+          vcluster:
+            manifests: |-
+              apiVersion: v1
+              kind: Pod
+              metadata:
+                name: nginx
+                labels:
+                  app: nginx
+              spec:
+                containers:
+                  - image: nginx
+                    name: nginx
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: check defaults
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      experimental:
+        deploy:
+          host:
+            manifests: |-
+              apiVersion: v1
+              kind: Pod
+              metadata:
+                name: nginx
+                labels:
+                  app: nginx
+              spec:
+                containers:
+                  - image: nginx
+                    name: nginx
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: Pod
+      - equal:
+          path: spec.containers[0].name
+          value: nginx
+
+  - it: check defaults
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      experimental:
+        deploy:
+          host:
+            manifestsTemplate: |-
+              apiVersion: v1
+              kind: Pod
+              metadata:
+                name: nginx
+                namespace: {{ .Release.Namespace }}
+                labels:
+                  app: nginx
+              spec:
+                containers:
+                  - image: nginx
+                    name: nginx
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: kind
+          value: Pod
+      - equal:
+          path: metadata.namespace
+          value: my-namespace
+      - equal:
+          path: spec.containers[0].name
+          value: nginx

@@ -1,0 +1,19 @@
+name: Workflow Linting
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  actionlint:
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: loft-sh/github-actions/.github/workflows/actionlint.yaml@fc90a2f77d73956d83acfd4c35eb7b9c36d1cc98 # actionlint/v1
+    with:
+      reporter: github-pr-check
