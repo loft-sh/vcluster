@@ -1,0 +1,154 @@
+version: v2beta1
+name: vcluster
+
+# Variables used
+vars:
+  # Make sure vcluster is the default namespace
+  DEVSPACE_FLAGS: "-n vcluster"
+  SYNCER_IMAGE: ghcr.io/loft-sh/loft-enterprise/dev-vcluster
+  COMMON_VALUES: ./test/commonValues.yaml
+  CONFORMANCE_VALUES: ./test/conformanceValues.yaml
+  PRO_VALUES: ./test/proValues.yaml
+  VALUES_FILE: ./test/e2e/values.yaml
+
+# Images DevSpace will build for vcluster
+images:
+  vcluster:
+    dockerfile: ./Dockerfile
+    image: ${SYNCER_IMAGE}
+    rebuildStrategy: ignoreContextChanges
+    target: builder
+    buildKit: {}
+
+# Deployment used for vcluster
+deployments:
+  vcluster:
+    helm:
+      releaseName: vcluster
+      chart:
+        name: ./chart
+      values:
+        controlPlane:
+          distro:
+            k8s:
+              image:
+                tag: v1.36.0
+          statefulSet:
+            image:
+              registry: ""
+              repository: image(${SYNCER_IMAGE})
+              tag: tag(${SYNCER_IMAGE})
+            scheduling:
+              tolerations:
+                - operator: "Exists"
+          service:
+            spec:
+              type: NodePort
+          advanced:
+            serviceAccount:
+              enabled: false
+              name: default
+        telemetry:
+          enabled: false
+
+
+# Dev Configuration for vcluster
+dev:
+  vcluster:
+    imageSelector: ${SYNCER_IMAGE}
+    container: syncer
+    workingDir: /vcluster-dev
+    resources:
+      limits:
+        cpu: "0" # to prevent CPU throttling during compilation
+        memory: "0" # to prevent OOM kills which can happen during first compilation due to high number of deps
+    terminal:
+      command: "./devspace_start.sh"
+    ports:
+      - port: 2346:2345
+    sync:
+      - excludePaths:
+          - "**"
+          - "!/pkg"
+          - "cmd/vclusterctl/cmd/charts"
+          - "!/cmd"
+          - "!/vendor"
+          - "!/config"
+          - "!/hack"
+          - "!/go.mod"
+          - "!/go.sum"
+          - "!/devspace_start.sh"
+          - "!/manifests"
+          - "/manifests/coredns" # shouldn't sync to this path because it is mounted from a ConfigMap as ReadOnly
+
+# Pipelines used for vcluster
+pipelines:
+  dev:
+    run: |-
+      # Deploy the vcluster
+      run_pipelines deploy
+
+      # Start dev mode
+      start_dev --all
+
+  deploy:
+    run: |-
+      # Make sure pull secrets are there
+      ensure_pull_secrets --all
+
+      # Build the vcluster image
+      build_images --all
+
+      if $(is_in "test-conformance" "${DEVSPACE_PROFILES}"); then
+        minikube image load $(get_image "vcluster") --overwrite=false || true
+      fi
+
+      # Deploy the vcluster
+      create_deployments vcluster
+
+  purge:
+    run: |-
+      # Purge the vcluster
+      run_default_pipeline purge
+
+      # Make sure the pvcs are deleted as well
+      kubectl delete pvc --all -n ${DEVSPACE_NAMESPACE}
+
+profiles:
+  - name: test-k8s
+    patches:
+      - op: add
+        path: deployments.vcluster.helm
+        value:
+          valuesFiles:
+            - ${COMMON_VALUES}
+            - ${VALUES_FILE}
+
+  - name: test-pro
+    patches:
+      - op: add
+        path: deployments.vcluster.helm
+        value:
+          valuesFiles:
+            - ${COMMON_VALUES}
+            - ${VALUES_FILE}
+            - ${PRO_VALUES}
+
+  - name: test-conformance
+    patches:
+      - op: replace
+        path: images.vcluster.buildKit
+        value:
+          preferMinikube: false
+      - op: add
+        path: deployments.vcluster.helm
+        value:
+          valuesFiles:
+            - ${CONFORMANCE_VALUES}
+
+commands:
+  # e.g. devspace run test k8s
+  # e.g. devspace run test k8s --var VALUES_FILE=./test/e2e_node
+  test: |-
+    devspace purge -n ${DEVSPACE_NAMESPACE} --debug
+    devspace dev -n ${DEVSPACE_NAMESPACE} --profile test-$@
