@@ -61,7 +61,7 @@ jobs:
       - name: Setup Helm
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4
         with:
-          version: "v3.21.4"
+          version: "v3.22.0"
 
       - name: Build vcluster image and CLI
         run: |
