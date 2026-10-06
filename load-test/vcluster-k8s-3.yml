@@ -1,0 +1,35 @@
+proxy:
+  metricsServer:
+    nodes:
+      enabled: true
+    pods:
+      enabled: true
+monitoring:
+  serviceMonitor:
+    enabled: true
+sync:
+  nodes:
+    enabled: true
+    # If nodes sync is enabled, and syncAllNodes = true, the virtual cluster
+    # will sync all nodes instead of only the ones where some pods are running.
+    syncAllNodes: true
+
+# Scale up syncer replicas
+syncer:
+  replicas: 3
+
+# Scale up etcd
+etcd:
+  replicas: 3
+
+# Scale up controller manager
+controller:
+  replicas: 3
+
+# Scale up api server
+api:
+  replicas: 3
+
+# Scale up DNS server
+coredns:
+  replicas: 3

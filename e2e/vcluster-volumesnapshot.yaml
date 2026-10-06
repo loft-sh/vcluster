@@ -1,0 +1,21 @@
+controlPlane:
+  statefulSet:
+    image:
+      registry: ""
+      repository: {{.Repository}}
+      tag: {{.Tag}}
+sync:
+  toHost:
+    persistentVolumeClaims:
+      enabled: true
+    persistentVolumes:
+      enabled: true
+    volumeSnapshots:
+      enabled: true
+    volumeSnapshotContents:
+      enabled: true
+  fromHost:
+    storageClasses:
+      enabled: true
+    volumeSnapshotClasses:
+      enabled: true
