@@ -26,6 +26,7 @@ import (
 var (
 	ServiceBlockDeletion             = "vcluster.loft.sh/block-deletion"
 	RancherPublicEndpointsAnnotation = "field.cattle.io/publicEndpoints"
+	ArgoRolloutsManagedByAnnotation  = "argo-rollouts.argoproj.io/managed-by-rollouts"
 )
 
 func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
@@ -38,11 +39,18 @@ func New(ctx *synccontext.RegisterContext) (syncertypes.Object, error) {
 		// exclude "field.cattle.io/publicEndpoints" annotation used by Rancher,
 		// because if it is also installed in the host cluster, it will be
 		// overriding it, which would cause endless updates back and forth.
+		//
+		// exclude "argo-rollouts.argoproj.io/managed-by-rollouts" annotation used by
+		// Argo Rollouts, because if it is also installed in the host cluster, it will
+		// not find the referenced Rollout there, consider the service orphaned and
+		// strip the annotation as well as the rollouts-pod-template-hash selector,
+		// which would then get synced back into the virtual cluster.
 		GenericTranslator: translator.NewGenericTranslator(ctx, "service", &corev1.Service{}, mapper),
 		Importer:          pro.NewImporter(mapper),
 
 		excludedAnnotations: []string{
 			RancherPublicEndpointsAnnotation,
+			ArgoRolloutsManagedByAnnotation,
 		},
 
 		serviceName: ctx.Config.Name,
