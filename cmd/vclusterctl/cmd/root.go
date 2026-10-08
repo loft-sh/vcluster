@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/certs"
@@ -88,7 +90,12 @@ func Execute() {
 	}
 
 	// Execute command
-	err = rootCmd.ExecuteContext(context.Background())
+	ctx := context.Background()
+	if requested, helpCmd := helpRequested(rootCmd, os.Args[1:]); requested {
+		err = executeHelp(ctx, rootCmd, helpCmd)
+	} else {
+		err = rootCmd.ExecuteContext(ctx)
+	}
 	recordAndFlush(err, log, globalFlags)
 	if err != nil {
 		if globalFlags != nil && globalFlags.Debug {
@@ -97,6 +104,46 @@ func Execute() {
 
 		log.Fatal(err)
 	}
+}
+
+// helpRequested reports whether args contain a bare "-h"/"--help" that a value
+// taking flag would otherwise swallow, and the command to print help for. args
+// are the arguments without the binary name, exactly what cobra's Find expects.
+func helpRequested(rootCmd *cobra.Command, args []string) (bool, *cobra.Command) {
+	if len(args) == 0 || args[0] == cobra.ShellCompRequestCmd || args[0] == cobra.ShellCompNoDescRequestCmd {
+		return false, nil
+	}
+
+	// everything after the "--" terminator is positional
+	if i := slices.Index(args, "--"); i >= 0 {
+		args = args[:i]
+	}
+	if !slices.Contains(args, "-h") && !slices.Contains(args, "--help") {
+		return false, nil
+	}
+
+	cmd, _, err := rootCmd.Find(args)
+	if err != nil {
+		// unknown command, let cobra report it
+		return false, nil
+	}
+
+	return true, cmd
+}
+
+// executeHelp prints helpCmd's help by handing its path plus "--help" back to
+// cobra, so the output goes through the same initialization as a help flag
+// cobra parsed itself. Cobra stops before PersistentPreRunE, so nothing runs.
+func executeHelp(ctx context.Context, rootCmd, helpCmd *cobra.Command) error {
+	rootCmd.SetArgs(append(commandArgs(helpCmd), "--help"))
+
+	return rootCmd.ExecuteContext(ctx)
+}
+
+// commandArgs returns the args that reach cmd, without the binary name. Command
+// names cannot contain spaces, so splitting the path is unambiguous.
+func commandArgs(cmd *cobra.Command) []string {
+	return strings.Fields(cmd.CommandPath())[1:]
 }
 
 var globalFlags *flags.GlobalFlags
