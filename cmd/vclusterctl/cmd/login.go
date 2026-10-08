@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/loft-sh/api/v4/pkg/product"
+	"github.com/loft-sh/api/v5/pkg/product"
 	"github.com/loft-sh/log"
 	platformcli "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/platform"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"

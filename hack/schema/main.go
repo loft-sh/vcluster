@@ -156,7 +156,7 @@ func getReflector() (*jsonschema.Reflector, error) {
 		return nil, err
 	}
 
-	err = r.AddGoComments("./", "vendor/github.com/loft-sh/api/v4/pkg/vclusterconfig")
+	err = r.AddGoComments("./", "vendor/github.com/loft-sh/api/v5/pkg/vclusterconfig")
 	if err != nil {
 		return nil, err
 	}
@@ -171,7 +171,7 @@ func getReflector() (*jsonschema.Reflector, error) {
 
 	renamedMap := make(map[string]string, len(commentMap))
 	for k, v := range commentMap {
-		newKey := strings.Replace(k, "vendor/github.com/loft-sh/api/v4/pkg/vclusterconfig.", "github.com/loft-sh/api/v4/pkg/vclusterconfig.", 1)
+		newKey := strings.Replace(k, "vendor/github.com/loft-sh/api/v5/pkg/vclusterconfig.", "github.com/loft-sh/api/v5/pkg/vclusterconfig.", 1)
 		renamedMap[newKey] = v
 	}
 	r.CommentMap = renamedMap

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/loft-sh/api/v4/pkg/product"
+	"github.com/loft-sh/api/v5/pkg/product"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform"

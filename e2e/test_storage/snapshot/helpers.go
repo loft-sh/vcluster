@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"time"
 
-	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
+	snapshotapi "github.com/loft-sh/api/v5/pkg/snapshot"
 	"github.com/loft-sh/vcluster/e2e/constants"
 	pkgconstants "github.com/loft-sh/vcluster/pkg/constants"
 	. "github.com/onsi/ginkgo/v2"

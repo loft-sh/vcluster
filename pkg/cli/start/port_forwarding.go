@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/loft-sh/api/v4/pkg/product"
+	"github.com/loft-sh/api/v5/pkg/product"
 	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
 	utilhttp "github.com/loft-sh/vcluster/pkg/util/http"
 	corev1 "k8s.io/api/core/v1"

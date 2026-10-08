@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
-	"github.com/loft-sh/api/v4/pkg/snapshot/storage/azure"
+	snapshotapi "github.com/loft-sh/api/v5/pkg/snapshot"
+	"github.com/loft-sh/api/v5/pkg/snapshot/storage/azure"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/table"
 	"github.com/loft-sh/vcluster/pkg/config"

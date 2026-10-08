@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
-	"github.com/loft-sh/api/v4/pkg/snapshot/storage/types"
+	snapshotapi "github.com/loft-sh/api/v5/pkg/snapshot"
+	"github.com/loft-sh/api/v5/pkg/snapshot/storage/types"
 	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"

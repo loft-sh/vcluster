@@ -729,47 +729,47 @@ github.com/liggitt/tabwriter
 # github.com/lithammer/dedent v1.1.0
 ## explicit
 github.com/lithammer/dedent
-# github.com/loft-sh/admin-apis v0.0.0-20260910093256-7282e704deab
+# github.com/loft-sh/admin-apis v0.0.0-20260928151145-c0a92a2b2cf8
 ## explicit; go 1.24.11
 github.com/loft-sh/admin-apis/pkg/licenseapi
-# github.com/loft-sh/agentapi/v4 v4.13.0-alpha.15
+# github.com/loft-sh/agentapi/v5 v5.0.0-alpha.1
 ## explicit; go 1.26.3
-github.com/loft-sh/agentapi/v4/pkg/apis/loft/cluster
-github.com/loft-sh/agentapi/v4/pkg/apis/loft/cluster/v1
-github.com/loft-sh/agentapi/v4/pkg/apis/loft/storage/v1
-github.com/loft-sh/agentapi/v4/pkg/clientset/versioned
-github.com/loft-sh/agentapi/v4/pkg/clientset/versioned/scheme
-github.com/loft-sh/agentapi/v4/pkg/clientset/versioned/typed/cluster/v1
-github.com/loft-sh/agentapi/v4/pkg/clientset/versioned/typed/storage/v1
+github.com/loft-sh/agentapi/v5/pkg/apis/loft/cluster
+github.com/loft-sh/agentapi/v5/pkg/apis/loft/cluster/v1
+github.com/loft-sh/agentapi/v5/pkg/apis/loft/storage/v1
+github.com/loft-sh/agentapi/v5/pkg/clientset/versioned
+github.com/loft-sh/agentapi/v5/pkg/clientset/versioned/scheme
+github.com/loft-sh/agentapi/v5/pkg/clientset/versioned/typed/cluster/v1
+github.com/loft-sh/agentapi/v5/pkg/clientset/versioned/typed/storage/v1
 # github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e
 ## explicit; go 1.21
 github.com/loft-sh/analytics-client/client
-# github.com/loft-sh/api/v4 v4.13.0-alpha.15
+# github.com/loft-sh/api/v5 v5.0.0-alpha.1
 ## explicit; go 1.26.3
-github.com/loft-sh/api/v4/pkg/apis/audit/v1
-github.com/loft-sh/api/v4/pkg/apis/management
-github.com/loft-sh/api/v4/pkg/apis/management/v1
-github.com/loft-sh/api/v4/pkg/apis/storage/v1
-github.com/loft-sh/api/v4/pkg/apis/ui/v1
-github.com/loft-sh/api/v4/pkg/auth
-github.com/loft-sh/api/v4/pkg/clientset/versioned
-github.com/loft-sh/api/v4/pkg/clientset/versioned/fake
-github.com/loft-sh/api/v4/pkg/clientset/versioned/scheme
-github.com/loft-sh/api/v4/pkg/clientset/versioned/typed/management/v1
-github.com/loft-sh/api/v4/pkg/clientset/versioned/typed/management/v1/fake
-github.com/loft-sh/api/v4/pkg/clientset/versioned/typed/storage/v1
-github.com/loft-sh/api/v4/pkg/clientset/versioned/typed/storage/v1/fake
-github.com/loft-sh/api/v4/pkg/managerfactory
-github.com/loft-sh/api/v4/pkg/product
-github.com/loft-sh/api/v4/pkg/snapshot
-github.com/loft-sh/api/v4/pkg/snapshot/storage
-github.com/loft-sh/api/v4/pkg/snapshot/storage/azure
-github.com/loft-sh/api/v4/pkg/snapshot/storage/container
-github.com/loft-sh/api/v4/pkg/snapshot/storage/oci
-github.com/loft-sh/api/v4/pkg/snapshot/storage/s3
-github.com/loft-sh/api/v4/pkg/snapshot/storage/types
-github.com/loft-sh/api/v4/pkg/vclusterconfig
-github.com/loft-sh/api/v4/pkg/vclusterconfig/constants
+github.com/loft-sh/api/v5/pkg/apis/audit/v1
+github.com/loft-sh/api/v5/pkg/apis/management
+github.com/loft-sh/api/v5/pkg/apis/management/v1
+github.com/loft-sh/api/v5/pkg/apis/storage/v1
+github.com/loft-sh/api/v5/pkg/apis/ui/v1
+github.com/loft-sh/api/v5/pkg/auth
+github.com/loft-sh/api/v5/pkg/clientset/versioned
+github.com/loft-sh/api/v5/pkg/clientset/versioned/fake
+github.com/loft-sh/api/v5/pkg/clientset/versioned/scheme
+github.com/loft-sh/api/v5/pkg/clientset/versioned/typed/management/v1
+github.com/loft-sh/api/v5/pkg/clientset/versioned/typed/management/v1/fake
+github.com/loft-sh/api/v5/pkg/clientset/versioned/typed/storage/v1
+github.com/loft-sh/api/v5/pkg/clientset/versioned/typed/storage/v1/fake
+github.com/loft-sh/api/v5/pkg/managerfactory
+github.com/loft-sh/api/v5/pkg/product
+github.com/loft-sh/api/v5/pkg/snapshot
+github.com/loft-sh/api/v5/pkg/snapshot/storage
+github.com/loft-sh/api/v5/pkg/snapshot/storage/azure
+github.com/loft-sh/api/v5/pkg/snapshot/storage/container
+github.com/loft-sh/api/v5/pkg/snapshot/storage/oci
+github.com/loft-sh/api/v5/pkg/snapshot/storage/s3
+github.com/loft-sh/api/v5/pkg/snapshot/storage/types
+github.com/loft-sh/api/v5/pkg/vclusterconfig
+github.com/loft-sh/api/v5/pkg/vclusterconfig/constants
 # github.com/loft-sh/apiserver v0.0.0-20260707184419-aef558a5ae8d
 ## explicit; go 1.26.0
 github.com/loft-sh/apiserver/pkg/builders

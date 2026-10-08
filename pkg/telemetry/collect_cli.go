@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/loft-sh/analytics-client/client"
-	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
+	managementv1 "github.com/loft-sh/api/v5/pkg/apis/management/v1"
 	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"

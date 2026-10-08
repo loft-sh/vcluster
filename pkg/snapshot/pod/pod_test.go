@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
+	snapshotapi "github.com/loft-sh/api/v5/pkg/snapshot"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/constants"

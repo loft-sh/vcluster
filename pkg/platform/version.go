@@ -9,7 +9,7 @@ import (
 
 	"github.com/blang/semver/v4"
 	"github.com/google/go-github/v53/github"
-	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
+	storagev1 "github.com/loft-sh/api/v5/pkg/apis/storage/v1"
 	"github.com/loft-sh/log"
 	"github.com/samber/lo"
 )

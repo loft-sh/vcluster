@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
+	storagev1 "github.com/loft-sh/api/v5/pkg/apis/storage/v1"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"

@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/blang/semver"
-	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
-	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
-	"github.com/loft-sh/api/v4/pkg/auth"
+	managementv1 "github.com/loft-sh/api/v5/pkg/apis/management/v1"
+	storagev1 "github.com/loft-sh/api/v5/pkg/apis/storage/v1"
+	"github.com/loft-sh/api/v5/pkg/auth"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/cli/util"

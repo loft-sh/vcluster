@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
+	snapshotapi "github.com/loft-sh/api/v5/pkg/snapshot"
 )
 
 // ErrSnapshotCredentialsMalformed marks a response that arrived but could not be read. Terminal: the

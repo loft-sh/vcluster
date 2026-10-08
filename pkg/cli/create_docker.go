@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
+	managementv1 "github.com/loft-sh/api/v5/pkg/apis/management/v1"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/hash"
 	"github.com/loft-sh/vcluster/config"

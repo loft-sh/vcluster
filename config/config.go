@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/invopop/jsonschema"
-	"github.com/loft-sh/api/v4/pkg/vclusterconfig"
+	"github.com/loft-sh/api/v5/pkg/vclusterconfig"
 	yamlv3 "gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"

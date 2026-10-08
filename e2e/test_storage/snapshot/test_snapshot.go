@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
+	snapshotapi "github.com/loft-sh/api/v5/pkg/snapshot"
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	loftlog "github.com/loft-sh/log"
 	connectcmd "github.com/loft-sh/vcluster/cmd/vclusterctl/cmd"

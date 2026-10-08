@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"time"
 
-	clusterv1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/cluster/v1"
-	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
-	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
+	clusterv1 "github.com/loft-sh/agentapi/v5/pkg/apis/loft/cluster/v1"
+	managementv1 "github.com/loft-sh/api/v5/pkg/apis/management/v1"
+	storagev1 "github.com/loft-sh/api/v5/pkg/apis/storage/v1"
 	"github.com/loft-sh/log"
 	cliconfig "github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/cli/find"

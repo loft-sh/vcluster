@@ -3,7 +3,7 @@ package config
 import (
 	"strings"
 
-	"github.com/loft-sh/api/v4/pkg/vclusterconfig"
+	"github.com/loft-sh/api/v5/pkg/vclusterconfig"
 	"github.com/loft-sh/log"
 	"sigs.k8s.io/yaml"
 )

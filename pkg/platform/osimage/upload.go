@@ -15,9 +15,9 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
-	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
-	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
-	managementv1client "github.com/loft-sh/api/v4/pkg/clientset/versioned/typed/management/v1"
+	managementv1 "github.com/loft-sh/api/v5/pkg/apis/management/v1"
+	storagev1 "github.com/loft-sh/api/v5/pkg/apis/storage/v1"
+	managementv1client "github.com/loft-sh/api/v5/pkg/clientset/versioned/typed/management/v1"
 	"github.com/loft-sh/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"

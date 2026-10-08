@@ -1,7 +1,7 @@
 package connect
 
 import (
-	"github.com/loft-sh/api/v4/pkg/product"
+	"github.com/loft-sh/api/v5/pkg/product"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/platform/defaults"
 	"github.com/spf13/cobra"

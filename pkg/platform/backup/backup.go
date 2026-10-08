@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
-	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
+	storagev1 "github.com/loft-sh/api/v5/pkg/apis/storage/v1"
 	"github.com/loft-sh/vcluster/pkg/projectutil"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"

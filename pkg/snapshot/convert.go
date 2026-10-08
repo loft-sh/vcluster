@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/coreos/go-semver/semver"
-	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
+	snapshotapi "github.com/loft-sh/api/v5/pkg/snapshot"
 	"github.com/loft-sh/vcluster/pkg/etcd"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/etcdutl/v3/snapshot"

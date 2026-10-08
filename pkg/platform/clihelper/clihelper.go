@@ -18,9 +18,9 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
-	loftclientset "github.com/loft-sh/api/v4/pkg/clientset/versioned"
-	"github.com/loft-sh/api/v4/pkg/product"
+	storagev1 "github.com/loft-sh/api/v5/pkg/apis/storage/v1"
+	loftclientset "github.com/loft-sh/api/v5/pkg/clientset/versioned"
+	"github.com/loft-sh/api/v5/pkg/product"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
 	"github.com/loft-sh/vcluster/pkg/platform/kubeconfig"

@@ -12,8 +12,8 @@ import (
 	"os/exec"
 	"strings"
 
-	types "github.com/loft-sh/api/v4/pkg/auth"
-	"github.com/loft-sh/api/v4/pkg/product"
+	types "github.com/loft-sh/api/v5/pkg/auth"
+	"github.com/loft-sh/api/v5/pkg/product"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/mgutz/ansi"
 	"github.com/sirupsen/logrus"

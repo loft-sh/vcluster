@@ -9,9 +9,9 @@ import (
 
 	dockerconfig "github.com/docker/cli/cli/config"
 	"github.com/docker/cli/cli/config/configfile"
-	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
-	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
-	"github.com/loft-sh/api/v4/pkg/product"
+	managementv1 "github.com/loft-sh/api/v5/pkg/apis/management/v1"
+	storagev1 "github.com/loft-sh/api/v5/pkg/apis/storage/v1"
+	"github.com/loft-sh/api/v5/pkg/product"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/cmd/vclusterctl/cmd/use"
 	"github.com/loft-sh/vcluster/pkg/cli/config"

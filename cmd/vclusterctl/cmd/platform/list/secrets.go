@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
-	"github.com/loft-sh/api/v4/pkg/product"
+	managementv1 "github.com/loft-sh/api/v5/pkg/apis/management/v1"
+	"github.com/loft-sh/api/v5/pkg/product"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/table"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"

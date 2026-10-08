@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
-	"github.com/loft-sh/api/v4/pkg/snapshot/storage/container"
+	snapshotapi "github.com/loft-sh/api/v5/pkg/snapshot"
+	"github.com/loft-sh/api/v5/pkg/snapshot/storage/container"
 	"github.com/loft-sh/vcluster/pkg/etcd"
 )
 

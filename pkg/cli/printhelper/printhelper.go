@@ -3,7 +3,7 @@ package printhelper
 import (
 	"fmt"
 
-	"github.com/loft-sh/api/v4/pkg/product"
+	"github.com/loft-sh/api/v5/pkg/product"
 	"github.com/loft-sh/log"
 	"github.com/mgutz/ansi"
 	"github.com/sirupsen/logrus"

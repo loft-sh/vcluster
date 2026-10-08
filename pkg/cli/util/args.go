@@ -10,7 +10,7 @@ import (
 	"github.com/loft-sh/log/terminal"
 	"github.com/spf13/cobra"
 
-	agentstoragev1 "github.com/loft-sh/agentapi/v4/pkg/apis/loft/storage/v1"
+	agentstoragev1 "github.com/loft-sh/agentapi/v5/pkg/apis/loft/storage/v1"
 )
 
 var (

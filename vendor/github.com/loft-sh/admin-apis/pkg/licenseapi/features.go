@@ -126,6 +126,8 @@ const (
 
 	AutoNodesNICo FeatureName = "auto-nodes-nico" // NICo Node Provider
 
+	AutoNodesExternalPlatform FeatureName = "auto-nodes-external-platform" // External Platform Node Provider
+
 	VirtualClusterProDistroGenericSync FeatureName = "vcp-distro-generic-sync" // Generic Sync
 
 	VirtualClusterProDistroSyncPatches FeatureName = "vcp-distro-sync-patches" // Sync Patches
@@ -223,6 +225,7 @@ func GetFeatures() []FeatureName {
 		AutoNodesClusterapi,
 		AutoNodesMetal3,
 		AutoNodesNICo,
+		AutoNodesExternalPlatform,
 		VirtualClusterProDistroGenericSync,
 		VirtualClusterProDistroSyncPatches,
 		VirtualClusterProDistroTranslatePatches,
@@ -547,6 +550,11 @@ func GetAllFeatures() []*Feature {
 		{
 			DisplayName: "NICo Node Provider",
 			Name:        "auto-nodes-nico",
+			Module:      "auto-nodes",
+		},
+		{
+			DisplayName: "External Platform Node Provider",
+			Name:        "auto-nodes-external-platform",
 			Module:      "auto-nodes",
 		},
 		{
