@@ -42,6 +42,7 @@ func suiteCommonVCluster() {
 			test_core.K8sDefaultEndpointSpec()
 			test_core.NodeSyncLabelSelectorSpec()
 			test_core.ServiceBasicSyncSpec()
+			test_core.EndpointSliceSelectorlessLongNameSpec()
 			coredns.CoreDNSSpec()
 			metrics.SyncerMetricsSpec()
 			webhook.AdmissionWebhookSpec()
