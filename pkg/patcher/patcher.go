@@ -7,6 +7,8 @@ import (
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/clienthelper"
+	"github.com/loft-sh/vcluster/pkg/util/patch"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -66,12 +68,23 @@ type SyncerPatcher struct {
 }
 
 // Patch will attempt to patch the given object, including its status.
-func (h *SyncerPatcher) Patch(ctx *synccontext.SyncContext, pObj, vObj client.Object) error {
+func (h *SyncerPatcher) Patch(ctx *synccontext.SyncContext, pObj, vObj client.Object) (retErr error) {
 	h.vPatcher.vObj = vObj
 	h.vPatcher.pObj = pObj
 
 	h.pPatcher.vObj = vObj
 	h.pPatcher.pObj = pObj
+
+	if ctx.ObjectCache != nil {
+		vRebase := newCacheRebase(ctx.ObjectCache.Virtual(), h.vPatcher.beforeObject)
+		pRebase := newCacheRebase(ctx.ObjectCache.Host(), h.pPatcher.beforeObject)
+		defer func() {
+			if retErr != nil {
+				vRebase.apply(ctx)
+				pRebase.apply(ctx)
+			}
+		}()
+	}
 
 	err := h.vPatcher.Patch(ctx, vObj)
 	if err != nil {
@@ -84,6 +97,68 @@ func (h *SyncerPatcher) Patch(ctx *synccontext.SyncContext, pObj, vObj client.Ob
 	}
 
 	return nil
+}
+
+// cacheRebase fixes the object cache entry of one side after a sync that failed part way.
+//
+// The next sync detects changes by comparing each object with its cache entry, and a
+// successful write moves the cache entry to the written object. That object also holds
+// changes made on the same side that the sync had not delivered to the other side yet,
+// for example a condition an in-cluster controller set on the virtual pod while the host
+// pod write then conflicted. Left like this, the next sync would treat those changes as
+// synced and copy the older values from the other side over them.
+//
+// Restoring the old cache entry is not enough either: the values the syncer copied from the
+// other side would then look like changes on this side and be written back over newer
+// values. So the cache entry becomes the old entry plus only what the syncer wrote.
+type cacheRebase struct {
+	cache *synccontext.ObjectCache
+	key   types.NamespacedName
+
+	// before is the object as read at the start of the sync
+	before client.Object
+	// cached is the cache entry before the sync wrote anything, nil if there was none
+	cached client.Object
+}
+
+func newCacheRebase(cache *synccontext.ObjectCache, before client.Object) *cacheRebase {
+	key := client.ObjectKeyFromObject(before)
+	cached, _ := cache.Get(key)
+	return &cacheRebase{
+		cache:  cache,
+		key:    key,
+		before: before.DeepCopyObject().(client.Object),
+		cached: cached,
+	}
+}
+
+func (r *cacheRebase) apply(ctx *synccontext.SyncContext) {
+	written, ok := r.cache.Get(r.key)
+	if !ok || written == r.cached {
+		// nothing was written
+		return
+	} else if r.cached == nil {
+		r.cache.Delete(written)
+		return
+	}
+
+	syncerPatch, err := patch.CalculateMergePatch(r.before, written)
+	if err != nil {
+		ctx.Log.Errorf("rebase object cache entry %s: %v", r.key.String(), err)
+		return
+	}
+
+	rebased := r.cached.DeepCopyObject().(client.Object)
+	err = syncerPatch.Apply(rebased)
+	if err != nil {
+		ctx.Log.Errorf("rebase object cache entry %s: %v", r.key.String(), err)
+		return
+	}
+
+	// keep the written resource version, so the next sync waits until the informer has
+	// seen the write
+	rebased.SetResourceVersion(written.GetResourceVersion())
+	r.cache.Put(rebased)
 }
 
 // Patcher is a utility for ensuring the proper patching of objects.
