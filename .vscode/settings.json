@@ -1,0 +1,7 @@
+{
+  "gopls": {
+    "build.env": {
+      "GOFLAGS": "-tags=pro"
+    }
+  }
+}

@@ -1,0 +1,21 @@
+---
+title: Open Source Licenses
+sidebar_label: OSS Licenses
+---
+
+# vCluster and vclusterctl dependencies
+
+The following open source dependencies are used to build [vCluster][] and
+[vclusterctl][].
+
+[vCluster]: https://www.vcluster.com
+[vclusterctl]: https://github.com/loft-sh/vcluster/tree/main/cmd/vclusterctl
+
+## Go Packages
+
+Some packages may only be included on certain architectures or operating systems.
+
+{{ range . }}
+ - [{{.Name}}](https://pkg.go.dev/{{.Name}}) ([{{.LicenseName}}]({{.LicenseURL}}))
+{{- end }}
+

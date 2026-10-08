@@ -1,0 +1,28 @@
+controlPlane:
+  statefulSet:
+    image:
+      registry: ""
+      repository: {{.Repository}}
+      tag: {{.Tag}}
+    resources:
+      requests:
+        cpu: "0"
+
+  backingStore:
+    etcd:
+      deploy:
+        statefulSet:
+          resources:
+            requests:
+              cpu: "0"
+
+sync:
+  toHost:
+    pods:
+      useSecretsForSATokens: true
+  fromHost:
+    nodes:
+      enabled: true
+      selector:
+        labels:
+          kubernetes.io/hostname: "{{.HostClusterName}}-control-plane"
