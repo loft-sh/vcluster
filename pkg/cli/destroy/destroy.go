@@ -61,13 +61,18 @@ var resourceOrder = []string{
 	"clusteraccesses",
 	"nodeclaims",
 	"machines",
-	"nodeprofiles",
+	// after nodeclaims: a claim holds its environment until the claim is gone
+	"networkenvironments",
+	// nodeenvironments is the 4.12 name of networkenvironments
 	"nodeenvironments",
+	"nodeprofiles",
 	"nodeproviders",
 	"nodetypes",
 	"osimages",
 	"machineconfigtemplates",
 	"sshkeys",
+	"tenantstorages",
+	"storageprofiles",
 
 	// access
 	"tenants",
@@ -87,6 +92,7 @@ var resourceOrder = []string{
 // things listed here should also be included in resourceOrder
 var legacyResources = []string{
 	"virtualclusters",
+	"nodeenvironments",
 	"tasks",
 	"spaceconstraints",
 	"localclusteraccesses",
