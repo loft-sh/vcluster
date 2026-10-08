@@ -304,13 +304,25 @@ func warnIfCAExpiring(secretData map[string][]byte) {
 		if err != nil {
 			continue
 		}
+		// The advice depends on the active CA, which is the first certificate in a bundle.
+		hint := caRenewalHint(certs[0])
 		for _, cert := range certs {
 			if certhelper.IsCertExpired(cert) {
-				klog.Warningf("CA certificate (CN=%s) expires at %s; run %q to renew",
-					cert.Subject.CommonName, cert.NotAfter.Format(time.RFC3339), "vcluster certs rotate-ca")
+				klog.Warningf("CA certificate (CN=%s) expires at %s; %s",
+					cert.Subject.CommonName, cert.NotAfter.Format(time.RFC3339), hint)
 			}
 		}
 	}
+}
+
+// caRenewalHint returns how to renew the given active CA. rotate-ca must not be
+// suggested for a CA that is not self-signed, as it would replace it with a
+// self-signed one.
+func caRenewalHint(activeCA *x509.Certificate) string {
+	if isSelfIssued(activeCA) {
+		return fmt.Sprintf("run %q to renew", "vcluster certs rotate-ca")
+	}
+	return fmt.Sprintf("the vCluster CA is not self-signed, renew it in the issuing PKI and see %q for how to replace it", "vcluster certs rotate --help")
 }
 
 func CertSecretName(vClusterName string) string {

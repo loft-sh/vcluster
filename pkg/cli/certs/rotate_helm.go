@@ -29,7 +29,7 @@ const minVersion = "0.27.0-alpha.9"
 // Depending on if the virtual cluster has persistence it either:
 // - Pauses the current virtual cluster, spawns an extra pod, executes the rotation and resumes the virtual cluster.
 // - Executes the rotation directly in the currently running syncer pod.
-func Rotate(ctx context.Context, vClusterName string, rotationCmd RotationCmd, globalFlags *flags.GlobalFlags, log log.Logger) error {
+func Rotate(ctx context.Context, vClusterName string, rotationCmd RotationCmd, force bool, globalFlags *flags.GlobalFlags, log log.Logger) error {
 	vCluster, err := find.GetVCluster(ctx, globalFlags.Context, vClusterName, globalFlags.Namespace, log)
 	if err != nil {
 		return fmt.Errorf("finding virtual cluster: %w", err)
@@ -70,6 +70,9 @@ func Rotate(ctx context.Context, vClusterName string, rotationCmd RotationCmd, g
 		cmd = fmt.Sprintf("%s/vcluster certs %s", cmd, RotationCmdCerts)
 	case RotationCmdCACerts:
 		cmd = fmt.Sprintf("%s/vcluster certs %s", cmd, RotationCmdCACerts)
+		if force {
+			cmd += " --force"
+		}
 	default:
 		return fmt.Errorf("unknown rotation command: %s", rotationCmd)
 	}
@@ -97,14 +100,19 @@ func execRotate(ctx context.Context, containerName, cmd string, kubeClient *kube
 		}
 
 		log.Infof("Running %s pod", containerName)
-		err = podhelper.RunSyncerPod(ctx, containerName, kubeClient, []string{"sh", "-c", cmd}, vCluster, nil, log)
-		if err != nil {
-			return fmt.Errorf("running %s pod: %w", containerName, err)
-		}
+		runErr := podhelper.RunSyncerPod(ctx, containerName, kubeClient, []string{"sh", "-c", cmd}, vCluster, nil, log)
 
+		// Resume even if the rotation pod failed, e.g. because the rotation was
+		// refused. Otherwise the virtual cluster stays scaled down.
 		log.Infof("Resuming vCluster %s after it was paused", vCluster.Name)
 		if err := lifecycle.ResumeVCluster(ctx, kubeClient, vCluster.Name, vCluster.Namespace, true, log); err != nil {
+			if runErr != nil {
+				return fmt.Errorf("running %s pod: %w (resuming virtual cluster also failed: %v)", containerName, runErr, err)
+			}
 			return fmt.Errorf("resuming virtual cluster %s: %w", vCluster.Name, err)
+		}
+		if runErr != nil {
+			return fmt.Errorf("running %s pod: %w", containerName, runErr)
 		}
 
 		// Won't do anything in case deployed etcd does not exist.
