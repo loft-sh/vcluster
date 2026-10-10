@@ -10,9 +10,9 @@ import (
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
-
 var (
 	cacheTime = 5 * time.Second
 )
@@ -53,9 +53,12 @@ func (d *delegatingAuthenticator) AuthenticateToken(ctx context.Context, token s
 	if err != nil {
 		return nil, false, err
 	} else if !tokReview.Status.Authenticated {
+		if tokReview.Status.Error != "" {
+			klog.FromContext(ctx).V(1).Info("Virtual cluster api server rejected bearer token", "reason", tokReview.Status.Error)
+		}
+
 		return nil, false, nil
 	}
-
 	response := &authenticator.Response{
 		Audiences: tokReview.Status.Audiences,
 		User: &user.DefaultInfo{
