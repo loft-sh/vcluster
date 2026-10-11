@@ -39,10 +39,10 @@ We recommend developing vCluster directly on a local Kubernetes cluster as it pr
 
 ### Tools
 
-- Docker needs to be installed (e.g. docker-desktop, orbstack, rancher desktop etc.)
+- Docker needs to be installed (e.g. docker-desktop, orbstack, rancher desktop etc.). Required for the DevSpace workflow below, since it builds images via `docker buildx`. If developing [without DevSpace](#developing-without-devspace), Apple's [`container`](https://github.com/apple/container) CLI works as a Docker-free alternative on Apple Silicon
 - [kubectl](https://kubernetes.io/docs/tasks/tools/)
 - [Helm v3.10.0+](https://helm.sh/docs/intro/install/)
-- Local Kubernetes v1.26+ cluster (i.e. Docker Desktop, [minikube](https://minikube.sigs.k8s.io/docs/start/), KinD, [vind](https://www.vcluster.com/docs/vcluster/deploy/topologies/extracting-the-docker-driver) or similar)
+- Local Kubernetes v1.26+ cluster (i.e. Docker Desktop, [minikube](https://minikube.sigs.k8s.io/docs/start/), KinD, [vind](https://www.vcluster.com/docs/vcluster/deploy/topologies/extracting-the-docker-driver), or Apple's `container` `k8s` plugin (experimental, Apple Silicon only))
 
 ### Fork and Clone the vcluster repo
 
@@ -213,7 +213,7 @@ Test the built CLI tool
 - [Golang v1.25](https://go.dev/doc/install)
 - [Goreleaser](https://goreleaser.com/install/)
 - [Just](https://github.com/casey/just)
-- [Kind](https://kind.sigs.k8s.io/) or [vind](https://www.vcluster.com/docs/vcluster/deploy/topologies/extracting-the-docker-driver) (recommended — vCluster Docker driver)
+- [Kind](https://kind.sigs.k8s.io/) or [vind](https://www.vcluster.com/docs/vcluster/deploy/topologies/extracting-the-docker-driver) (recommended — vCluster Docker driver), or Apple's [`container`](https://github.com/apple/container) `k8s` plugin (experimental, Apple Silicon only)
 
 ### Uninstall vCluster CLI
 
@@ -282,11 +282,41 @@ Your kubeconfig is automatically updated. Verify with:
 kubectl get namespaces
 ```
 
+### Alternative: Bring up a local K8s cluster using Apple container
+
+[Apple's `container` CLI](https://github.com/apple/container) is a native, Docker-free way to run Linux containers on Apple Silicon Macs (macOS 15+, macOS 26+ recommended). It ships an experimental `k8s` plugin that stands up a local Kubernetes cluster with no Docker/kind/vind required.
+
+Install and start the runtime (it's a Homebrew formula, not a cask):
+
+```
+brew install container
+container system start
+```
+
+Create the cluster:
+
+```
+container k8s create --name vcluster-dev
+kubectl config use-context vcluster-dev
+```
+
+> **Known gap:** unlike Kind, `container k8s` does not install a default StorageClass, so vcluster's PVC-backed syncer pod will stay stuck in `Pending`. Install one before deploying vcluster:
+>
+> ```
+> kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/master/deploy/local-path-storage.yaml
+> kubectl patch storageclass local-path -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+> ```
+
 ### Build vCluster Container Image
 
 ```
 docker build . -t my-vcluster:0.0.1
 ```
+
+> **Apple container users:** build with `container` instead of `docker`:
+> ```
+> container build -t my-vcluster:0.0.1 .
+> ```
 
 Note: Feel free to push this image into your own registry.
 
@@ -300,13 +330,18 @@ kind load docker-image my-vcluster:0.0.1
 
 > **Note for vind users:** This step is not needed. vind shares the Docker daemon with the host, so locally built images are available immediately.
 
+> **Note for Apple container users:** load the image into the cluster's containerd:
+> ```
+> container k8s load-image --name vcluster-dev my-vcluster:0.0.1
+> ```
+
 ### Create vCluster with self-compiled vCluster CLI
 
 For vCluster v0.20+:
 
 #### Create a `vcluster.yaml`
 
-Create a `vcluster.yaml` that sets the image to be your locally built Docker image.
+Create a `vcluster.yaml` that sets the image to be your locally built container image.
 
 ```yaml
 controlPlane:
@@ -355,8 +390,8 @@ just delete-kind
 just e2e
 ```
 
-> Note: The e2e test suite currently uses Kind. If you use vind for local development,
-> you can still run unit tests with `./hack/test.sh`.
+> Note: The e2e test suite currently uses Kind. If you use vind or Apple container for
+> local development, you can still run unit tests with `./hack/test.sh`.
 
 If [Ginkgo](https://github.com/onsi/ginkgo#global-installation) is already installed, run  `ginkgo -v`.
 
