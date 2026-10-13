@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"golang.org/x/net/http2"
 	"k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/dynamiccertificates"
 	certutil "k8s.io/client-go/util/cert"
@@ -59,7 +58,12 @@ func TestServeSecureClosesBlackholedConnection(t *testing.T) {
 	clientCtx, cancelClient := context.WithCancel(context.Background())
 	t.Cleanup(cancelClient)
 	go func() {
-		client := &http.Client{Transport: &http2.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}}
+		protocols := new(http.Protocols)
+		protocols.SetHTTP2(true)
+		client := &http.Client{Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			Protocols:       protocols,
+		}}
 		req, _ := http.NewRequestWithContext(clientCtx, http.MethodGet, "https://"+relay.addr+"/", nil)
 		resp, err := client.Do(req)
 		if err == nil {

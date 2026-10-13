@@ -27,7 +27,6 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/net/http2"
 	"k8s.io/apiserver/pkg/endpoints/metrics"
 	"k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/dynamiccertificates"
@@ -82,32 +81,30 @@ func newSecureServer(s *server.SecureServingInfo, handler http.Handler, tlsConfi
 		// and small enough to allow a per connection buffer of this size multiplied by `MaxConcurrentStreams`.
 		const resourceBody99Percentile = 256 * 1024
 
-		http2Options := &http2.Server{
-			IdleTimeout: 90 * time.Second, // matches http.DefaultTransport keep-alive timeout
+		// Upstream configures x/net/http2.Server; these are the same settings on
+		// the net/http HTTP/2 server. IdleTimeout comes from secureServer.
+		http2Config := &http.HTTP2Config{
 			// shrink the per-stream buffer and max framesize from the 1MB default while still accommodating most API POST requests in a single frame
-			MaxUploadBufferPerStream: resourceBody99Percentile,
-			MaxReadFrameSize:         resourceBody99Percentile,
+			MaxReceiveBufferPerStream: resourceBody99Percentile,
+			MaxReadFrameSize:          resourceBody99Percentile,
 
-			ReadIdleTimeout: http2ReadIdleTimeout,
+			SendPingTimeout: http2ReadIdleTimeout,
 			PingTimeout:     http2PingTimeout,
 		}
 
-		// use the overridden concurrent streams setting or make the default of 250 explicit so we can size MaxUploadBufferPerConnection appropriately
+		// use the overridden concurrent streams setting or make the default of 250 explicit so we can size MaxReceiveBufferPerConnection appropriately
 		if s.HTTP2MaxStreamsPerConnection > 0 {
-			http2Options.MaxConcurrentStreams = uint32(s.HTTP2MaxStreamsPerConnection)
+			http2Config.MaxConcurrentStreams = s.HTTP2MaxStreamsPerConnection
 		} else {
 			// match http2.initialMaxConcurrentStreams used by clients
 			// this makes it so that a malicious client can only open 400 streams before we forcibly close the connection
 			// https://github.com/golang/net/commit/b225e7ca6dde1ef5a5ae5ce922861bda011cfabd
-			http2Options.MaxConcurrentStreams = 100
+			http2Config.MaxConcurrentStreams = 100
 		}
 
 		// increase the connection buffer size from the 1MB default to handle the specified number of concurrent streams
-		http2Options.MaxUploadBufferPerConnection = http2Options.MaxUploadBufferPerStream * int32(http2Options.MaxConcurrentStreams)
-		// apply settings to the server
-		if err := http2.ConfigureServer(secureServer, http2Options); err != nil {
-			return nil, fmt.Errorf("error configuring http2: %w", err)
-		}
+		http2Config.MaxReceiveBufferPerConnection = http2Config.MaxReceiveBufferPerStream * http2Config.MaxConcurrentStreams
+		secureServer.HTTP2 = http2Config
 	}
 
 	// use tlsHandshakeErrorWriter to handle messages of tls handshake error
