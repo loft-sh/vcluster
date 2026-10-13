@@ -205,3 +205,99 @@ func PauseResumeScaledDownSpec() {
 		})
 	})
 }
+
+// PauseResumeDeployedEtcdSpec registers pause/resume tests for a tenant cluster with a deployed etcd.
+// These tests create their own vcluster via the CLI (not framework-provisioned).
+func PauseResumeDeployedEtcdSpec() {
+	Describe("pause and resume a tenant cluster with deployed etcd", labels.PR, labels.Core, Ordered, func() {
+		// Ordered because each spec depends on the state from the prior spec:
+		// create → pause → resume.
+		var (
+			suffix      string
+			clusterName string
+			namespace   string
+			hostClient  kubernetes.Interface
+		)
+
+		BeforeAll(func(ctx context.Context) {
+			suffix = random.String(6)
+			clusterName = "e2e-pause-resume-etcd-" + suffix
+			namespace = clusterName
+			hostClient = hostKubeClient()
+			// The volume claim makes the control plane a StatefulSet, which is
+			// the layout where pause used to skip the deployed etcd.
+			createAndWaitForReady(ctx, hostClient, clusterName, namespace,
+				"--set", "controlPlane.backingStore.etcd.deploy.enabled=true",
+				"--set", "controlPlane.statefulSet.persistence.volumeClaim.enabled=true")
+		})
+
+		AfterAll(func(ctx context.Context) {
+			_, err := runVClusterCmd(ctx, "delete", clusterName, "-n", namespace, "--delete-namespace")
+			Expect(err).To(Succeed())
+		})
+
+		It("should pause the tenant cluster and its etcd", func(ctx context.Context) {
+			By("Pausing the tenant cluster", func() {
+				_, err := runVClusterCmd(ctx, "pause", clusterName, "-n", namespace)
+				Expect(err).To(Succeed())
+			})
+
+			By("Verifying paused annotations are set on the etcd StatefulSet", func() {
+				sts, err := hostClient.AppsV1().StatefulSets(namespace).Get(ctx, clusterName+"-etcd", metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(sts.Annotations).To(HaveKeyWithValue("loft.sh/paused", "true"),
+					"StatefulSet %s/%s-etcd should have loft.sh/paused=true annotation", namespace, clusterName)
+				Expect(sts.Annotations).To(HaveKeyWithValue("loft.sh/paused-replicas", "1"),
+					"StatefulSet %s/%s-etcd should have loft.sh/paused-replicas=1 annotation", namespace, clusterName)
+				Expect(sts.Spec.Replicas).NotTo(BeNil())
+				Expect(*sts.Spec.Replicas).To(Equal(int32(0)),
+					"StatefulSet %s/%s-etcd should have 0 replicas, got %d", namespace, clusterName, *sts.Spec.Replicas)
+			})
+
+			By("Verifying etcd pods are gone", func() {
+				Eventually(func(g Gomega, ctx context.Context) {
+					pods, err := hostClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+						LabelSelector: "app=vcluster-etcd,release=" + clusterName,
+					})
+					g.Expect(err).To(Succeed())
+					g.Expect(pods.Items).To(BeEmpty(), "etcd pods should be gone after pause")
+				}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+			})
+		})
+
+		It("should resume the tenant cluster and its etcd", func(ctx context.Context) {
+			By("Resuming the tenant cluster", func() {
+				_, err := runVClusterCmd(ctx, "resume", clusterName, "-n", namespace)
+				Expect(err).To(Succeed())
+			})
+
+			By("Verifying etcd StatefulSet has correct replica count", func() {
+				sts, err := hostClient.AppsV1().StatefulSets(namespace).Get(ctx, clusterName+"-etcd", metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(sts.Annotations).NotTo(HaveKey("loft.sh/paused"),
+					"StatefulSet %s/%s-etcd should not have loft.sh/paused annotation after resume", namespace, clusterName)
+				Expect(sts.Spec.Replicas).NotTo(BeNil())
+				Expect(*sts.Spec.Replicas).To(Equal(int32(1)),
+					"StatefulSet %s/%s-etcd should have 1 replica, got %d", namespace, clusterName, *sts.Spec.Replicas)
+			})
+
+			By("Waiting for etcd pods to be running again", func() {
+				Eventually(func(g Gomega, ctx context.Context) {
+					pods, err := hostClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+						LabelSelector: "app=vcluster-etcd,release=" + clusterName,
+					})
+					g.Expect(err).To(Succeed())
+					g.Expect(pods.Items).NotTo(BeEmpty(), "no etcd pods found")
+					for _, pod := range pods.Items {
+						g.Expect(pod.Status.Phase).To(Equal(corev1.PodRunning),
+							"pod %s phase is %s, expected Running", pod.Name, pod.Status.Phase)
+					}
+				}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutVeryLong).Should(Succeed())
+			})
+
+			By("Waiting for tenant cluster to be ready", func() {
+				waitForVClusterReady(ctx, hostClient, clusterName, namespace)
+			})
+		})
+	})
+}
