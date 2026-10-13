@@ -306,7 +306,7 @@ func (s *Server) ServeOnListenerTLS(ctx *synccontext.ControllerContext) error {
 
 	// create server
 	klog.Info("Starting tls proxy server at " + ctx.Config.ControlPlane.Proxy.BindAddress + ":" + strconv.Itoa(ctx.Config.ControlPlane.Proxy.Port))
-	stopped, _, err := serverConfig.SecureServing.Serve(s.buildHandlerChain(ctx, serverConfig), serverConfig.RequestTimeout, ctx.StopChan)
+	stopped, _, err := serveSecure(serverConfig.SecureServing, s.buildHandlerChain(ctx, serverConfig), serverConfig.RequestTimeout, ctx.StopChan)
 	if err != nil {
 		return err
 	}
