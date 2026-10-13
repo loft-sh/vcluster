@@ -18,9 +18,9 @@ import (
 // A client connection that goes silent without closing must not keep its
 // streams open on the server.
 func TestServeSecureClosesBlackholedConnection(t *testing.T) {
-	oldReadIdle, oldPing := http2ReadIdleTimeout, http2PingTimeout
-	http2ReadIdleTimeout, http2PingTimeout = time.Second, time.Second
-	t.Cleanup(func() { http2ReadIdleTimeout, http2PingTimeout = oldReadIdle, oldPing })
+	oldSendPing, oldPing := http2SendPingTimeout, http2PingTimeout
+	http2SendPingTimeout, http2PingTimeout = time.Second, time.Second
+	t.Cleanup(func() { http2SendPingTimeout, http2PingTimeout = oldSendPing, oldPing })
 
 	certPEM, keyPEM, err := certutil.GenerateSelfSignedCertKey("127.0.0.1", nil, nil)
 	if err != nil {

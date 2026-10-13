@@ -34,13 +34,13 @@ import (
 	"k8s.io/klog/v2"
 )
 
-// Copied from k8s.io/apiserver/pkg/server/secure_serving.go so the HTTP/2
-// server can ping its clients. Without pings, a client connection that dies
-// without a FIN or RST (a blackholed konnectivity agent) stays open until
+// Copied from k8s.io/apiserver/pkg/server/secure_serving.go (v0.36.3) so the
+// HTTP/2 server can ping its clients. Without pings, a client connection that
+// dies without a FIN or RST (a blackholed konnectivity agent) stays open until
 // kernel TCP retransmissions give up, about 15 minutes, and every stream
 // proxied over it stays open with it.
 var (
-	http2ReadIdleTimeout = 30 * time.Second
+	http2SendPingTimeout = 30 * time.Second
 	http2PingTimeout     = 15 * time.Second
 )
 
@@ -55,16 +55,12 @@ func serveSecure(s *server.SecureServingInfo, handler http.Handler, shutdownTime
 		return nil, nil, err
 	}
 
-	secureServer, err := newSecureServer(s, handler, tlsConfig)
-	if err != nil {
-		return nil, nil, err
-	}
-
+	secureServer := newSecureServer(s, handler, tlsConfig)
 	klog.Infof("Serving securely on %s", secureServer.Addr)
 	return server.RunServer(secureServer, s.Listener, shutdownTimeout, stopCh)
 }
 
-func newSecureServer(s *server.SecureServingInfo, handler http.Handler, tlsConfig *tls.Config) (*http.Server, error) {
+func newSecureServer(s *server.SecureServingInfo, handler http.Handler, tlsConfig *tls.Config) *http.Server {
 	secureServer := &http.Server{
 		Addr:           s.Listener.Addr().String(),
 		Handler:        handler,
@@ -88,7 +84,7 @@ func newSecureServer(s *server.SecureServingInfo, handler http.Handler, tlsConfi
 			MaxReceiveBufferPerStream: resourceBody99Percentile,
 			MaxReadFrameSize:          resourceBody99Percentile,
 
-			SendPingTimeout: http2ReadIdleTimeout,
+			SendPingTimeout: http2SendPingTimeout,
 			PingTimeout:     http2PingTimeout,
 		}
 
@@ -112,7 +108,7 @@ func newSecureServer(s *server.SecureServingInfo, handler http.Handler, tlsConfi
 	tlsErrorLogger := log.New(tlsErrorWriter, "", 0)
 	secureServer.ErrorLog = tlsErrorLogger
 
-	return secureServer, nil
+	return secureServer
 }
 
 // secureTLSConfig is server.SecureServingInfo.tlsConfig.
