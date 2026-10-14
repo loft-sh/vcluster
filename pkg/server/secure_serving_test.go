@@ -77,6 +77,13 @@ func TestServeSecureClosesBlackholedConnection(t *testing.T) {
 		t.Fatal("stream never reached the handler")
 	}
 
+	// A quiet stream on a healthy connection must survive several ping rounds.
+	select {
+	case <-streamClosed:
+		t.Fatal("server closed a healthy idle stream")
+	case <-time.After(3 * (http2SendPingTimeout + http2PingTimeout)):
+	}
+
 	relay.blackhole.Store(true)
 
 	select {
