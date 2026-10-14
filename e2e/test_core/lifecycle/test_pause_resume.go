@@ -259,7 +259,7 @@ func PauseResumeDeployedEtcdSpec() {
 					pods, err := hostClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
 						LabelSelector: "app=vcluster-etcd,release=" + clusterName,
 					})
-					g.Expect(err).To(Succeed())
+					g.Expect(err).To(Succeed(), "failed to list etcd pods in namespace %s", namespace)
 					g.Expect(pods.Items).To(BeEmpty(), "etcd pods should be gone after pause")
 				}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 			})
@@ -286,7 +286,7 @@ func PauseResumeDeployedEtcdSpec() {
 					pods, err := hostClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
 						LabelSelector: "app=vcluster-etcd,release=" + clusterName,
 					})
-					g.Expect(err).To(Succeed())
+					g.Expect(err).To(Succeed(), "failed to list etcd pods in namespace %s", namespace)
 					g.Expect(pods.Items).NotTo(BeEmpty(), "no etcd pods found")
 					for _, pod := range pods.Items {
 						g.Expect(pod.Status.Phase).To(Equal(corev1.PodRunning),
