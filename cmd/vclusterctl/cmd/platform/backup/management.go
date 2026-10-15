@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"slices"
+	"strings"
 
 	storagev1 "github.com/loft-sh/api/v4/pkg/apis/storage/v1"
 	"github.com/loft-sh/api/v4/pkg/product"
@@ -68,7 +70,7 @@ vcluster platform backup management
 		},
 	}
 
-	c.Flags().StringSliceVar(&cmd.Skip, "skip", []string{}, "What resources the backup should skip. Valid options are: users, teams, accesskeys, sharedsecrets, clusters and clusteraccounttemplates")
+	c.Flags().StringSliceVar(&cmd.Skip, "skip", []string{}, "What resources the backup should skip. Valid options are: platformsecrets, clusterroletemplates, clusteraccesses, users, teams, sharedsecrets, accesskeys, apps, spacetemplates, virtualclustertemplates, clusters, projects, virtualclusterinstances, spaceinstances, projectsecrets")
 	c.Flags().StringVar(&cmd.Namespace, "namespace", "", product.Replace("The namespace vCluster platform was installed into"))
 	c.Flags().StringVar(&cmd.Filename, "filename", "backup.yaml", "The filename to write the backup to")
 	return c
@@ -115,7 +117,7 @@ func (cmd *ManagementCmd) run(cobraCmd *cobra.Command) error {
 		return err
 	}
 
-	objects, errors := backup.All(ctx, client, cmd.Skip, func(msg string) {
+	objects, errors := backup.All(ctx, client, ns, cmd.Skip, func(msg string) {
 		cmd.Log.Info(msg)
 	})
 	for _, err := range errors {
@@ -134,6 +136,9 @@ func (cmd *ManagementCmd) run(cobraCmd *cobra.Command) error {
 	}
 
 	cmd.Log.Donef("Wrote backup to %s", cmd.Filename)
+	if !slices.Contains(cmd.Skip, "platformsecrets") {
+		cmd.Log.Infof("The backup includes the platform's identity secrets (%s). When restoring into a different cluster, apply it before the platform's first start or restart the platform afterwards; use --skip platformsecrets to leave them out", strings.Join(backup.PlatformSecretNames, ", "))
+	}
 	return nil
 }
 
