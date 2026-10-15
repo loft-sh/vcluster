@@ -20,9 +20,27 @@ import (
 
 type LogFn func(msg string)
 
-func All(ctx context.Context, client clientpkg.Client, skip []string, infoFn LogFn) ([]runtime.Object, []error) {
+// PlatformSecretNames are the platform's identity Secrets. They are created once at first start and cannot be
+// regenerated without consequences: loft-cert (license instance identity, OIDC signing key, token CA),
+// loft-network-control-key (coordinator key every connected vCluster's tunnel is bound to) and
+// loft-license-cache (last license; gives the 7-day grace period if the license server is unreachable).
+var PlatformSecretNames = []string{"loft-cert", "loft-network-control-key", "loft-license-cache"}
+
+// All backs up the platform management plane. platformNamespace is the namespace the platform is installed
+// into; it is only used to find the platform Secrets (skip "platformsecrets" to leave them out).
+func All(ctx context.Context, client clientpkg.Client, platformNamespace string, skip []string, infoFn LogFn) ([]runtime.Object, []error) {
 	objects := []runtime.Object{}
 	backupErrors := []error{}
+	// platform secrets go first: they need no CRDs, so a restore can apply them before the platform's first start
+	if !contains(skip, "platformsecrets") {
+		infoFn("Backing up platform secrets...")
+		objs, err := platformSecrets(ctx, client, platformNamespace)
+		if err != nil {
+			backupErrors = append(backupErrors, errors.Wrap(err, "backup platform secrets"))
+		} else {
+			objects = append(objects, objs...)
+		}
+	}
 	if !contains(skip, "clusterroletemplates") {
 		infoFn("Backing up clusterroletemplates...")
 		objs, err := clusterRoles(ctx, client)
@@ -194,7 +212,9 @@ func virtualClusterInstances(ctx context.Context, client clientpkg.Client, proje
 
 		for _, o := range virtualClusterInstanceList.Items {
 			u := o
-			u.Status = storagev1.VirtualClusterInstanceStatus{}
+			// keep the tenant's serviceUID: the VCI has no status subresource, so a restore stores it and the
+			// vCluster is matched on re-registration instead of being registered again under a suffixed name
+			u.Status = storagev1.VirtualClusterInstanceStatus{ServiceUID: o.Status.ServiceUID}
 			err := resetMetadata(client.Scheme(), &u)
 			if err != nil {
 				return nil, err
@@ -526,6 +546,32 @@ func isProjectSecret(secret corev1.Secret) bool {
 }
 
 var ErrMissingName = errors.New("backup: missing namespace or name")
+
+func platformSecrets(ctx context.Context, client clientpkg.Client, namespace string) ([]runtime.Object, error) {
+	if namespace == "" {
+		return nil, ErrMissingName
+	}
+
+	retList := []runtime.Object{}
+	for _, name := range PlatformSecretNames {
+		secret := &corev1.Secret{}
+		err := client.Get(ctx, clientpkg.ObjectKey{Namespace: namespace, Name: name}, secret)
+		if kerrors.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return nil, err
+		}
+
+		err = resetMetadata(client.Scheme(), secret)
+		if err != nil {
+			return nil, fmt.Errorf("reset metadata secret %s: %w", name, err)
+		}
+
+		retList = append(retList, secret)
+	}
+
+	return retList, nil
+}
 
 func getSecret(ctx context.Context, client clientpkg.Client, namespace, name string) (*corev1.Secret, error) {
 	if namespace == "" || name == "" {
