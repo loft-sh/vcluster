@@ -83,6 +83,12 @@ func (r *fakeNodeSyncer) FakeSync(ctx *synccontext.SyncContext, vObj client.Obje
 		return ctrl.Result{}, fmt.Errorf("%#v is not a node", vObj)
 	}
 
+	if node.GetLabels() == nil || (node.GetLabels() != nil && node.GetLabels()[translate.MarkerLabel] != translate.VClusterName) {
+		// This node is not managed by vcluster, doing nothing to it.
+		ctx.Log.Infof("Unmanaged fake node %s, doing nothing.", vObj.GetName())
+		return ctrl.Result{}, nil
+	}
+
 	needed, err := r.nodeNeeded(ctx, node.Name)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -164,6 +170,7 @@ func createFakeNode(
 				"kubernetes.io/arch":         runtime.GOARCH,
 				"kubernetes.io/hostname":     translate.SafeConcatName("fake", name),
 				"kubernetes.io/os":           "linux",
+				translate.MarkerLabel:        translate.VClusterName,
 			},
 			Annotations: map[string]string{
 				"node.alpha.kubernetes.io/ttl":                           "0",
