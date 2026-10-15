@@ -35,6 +35,8 @@ var (
 	// interruptHandlers holds all registered InterruptHandlers in order
 	// they will be executed.
 	interruptHandlers []InterruptHandler
+	// preInterruptHandlers run one at a time, in order, before interruptHandlers.
+	preInterruptHandlers []InterruptHandler
 )
 
 // RegisterInterruptHandler registers a new InterruptHandler. Handlers registered
@@ -43,6 +45,14 @@ func RegisterInterruptHandler(h InterruptHandler) {
 	interruptRegisterMu.Lock()
 	defer interruptRegisterMu.Unlock()
 	interruptHandlers = append(interruptHandlers, h)
+}
+
+// RegisterPreInterruptHandler registers a handler that must finish before any
+// InterruptHandler starts, for work that needs the process still fully running.
+func RegisterPreInterruptHandler(h InterruptHandler) {
+	interruptRegisterMu.Lock()
+	defer interruptRegisterMu.Unlock()
+	preInterruptHandlers = append(preInterruptHandlers, h)
 }
 
 // HandleInterrupts calls the handler functions on receiving a SIGINT or SIGTERM.
@@ -72,9 +82,15 @@ func runInterruptHandlers() {
 	interruptRegisterMu.Lock()
 	ihs := make([]InterruptHandler, len(interruptHandlers))
 	copy(ihs, interruptHandlers)
+	pihs := make([]InterruptHandler, len(preInterruptHandlers))
+	copy(pihs, preInterruptHandlers)
 	interruptRegisterMu.Unlock()
 
 	interruptExitMu.Lock()
+	for _, h := range pihs {
+		h()
+	}
+
 	waitGroup := sync.WaitGroup{}
 	for _, h := range ihs {
 		waitGroup.Add(1)

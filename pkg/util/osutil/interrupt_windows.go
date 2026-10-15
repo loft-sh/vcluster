@@ -25,6 +25,9 @@ type InterruptHandler func()
 // RegisterInterruptHandler is a no-op on windows
 func RegisterInterruptHandler(h InterruptHandler) {}
 
+// RegisterPreInterruptHandler is a no-op on windows
+func RegisterPreInterruptHandler(h InterruptHandler) {}
+
 // HandleInterrupts is a no-op on windows
 func HandleInterrupts() {}
 
