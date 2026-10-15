@@ -22,7 +22,15 @@ func DeletePlatform(ctx context.Context, platformClient platform.Client, options
 	vCluster, err := find.GetPlatformVCluster(ctx, platformClient, vClusterName, options.Project, log)
 	if err != nil {
 		return err
-	} else if vCluster.VirtualCluster != nil && vCluster.VirtualCluster.Spec.External {
+	}
+
+	return deletePlatformVCluster(ctx, platformClient, options, vCluster, log)
+}
+
+// deletePlatformVCluster deletes an already resolved platform virtual cluster.
+// It does not modify options.
+func deletePlatformVCluster(ctx context.Context, platformClient platform.Client, options *DeleteOptions, vCluster *platform.VirtualClusterInstanceProject, log log.Logger) error {
+	if vCluster.VirtualCluster != nil && vCluster.VirtualCluster.Spec.External {
 		return fmt.Errorf("cannot delete a virtual cluster that was created via helm, please run 'vcluster use driver helm' or use the '--driver helm' flag")
 	}
 
