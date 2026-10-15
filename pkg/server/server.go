@@ -212,6 +212,7 @@ func (s *Server) ServeOnListenerTLS(ctx *synccontext.ControllerContext) error {
 			SubResource:          "",
 		},
 	}
+	redirectAuthResources = append(redirectAuthResources, nodeChangesAuthResources()...)
 	redirectAuthNonResources := []delegatingauthorizer.PathVerb{}
 	redirectAuthResources = append(redirectAuthResources, s.redirectResources...)
 	if ctx.Config.Integrations.MetricsServer.Enabled {
@@ -313,6 +314,16 @@ func (s *Server) ServeOnListenerTLS(ctx *synccontext.ControllerContext) error {
 
 	<-stopped
 	return nil
+}
+
+func nodeChangesAuthResources() []delegatingauthorizer.GroupVersionResourceVerb {
+	nodes := corev1.SchemeGroupVersion.WithResource("nodes")
+	return []delegatingauthorizer.GroupVersionResourceVerb{
+		{GroupVersionResource: nodes, Verb: "update", SubResource: ""},
+		{GroupVersionResource: nodes, Verb: "update", SubResource: "status"},
+		{GroupVersionResource: nodes, Verb: "patch", SubResource: ""},
+		{GroupVersionResource: nodes, Verb: "patch", SubResource: "status"},
+	}
 }
 
 func metricsAuthNonResources() []delegatingauthorizer.PathVerb {
