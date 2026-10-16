@@ -1303,6 +1303,34 @@ type ExportKubeConfigServiceAccount struct {
 
 	// ClusterRole to assign to the service account.
 	ClusterRole string `json:"clusterRole,omitempty"`
+
+	// TokenRotation enables automatic token renewal when expiration is configured. The chart provisions the destination
+	// Secret and a scoped Role/RoleBinding. Removing rotation on a Helm upgrade or uninstalling the release
+	// deletes the Secret, Role, and RoleBinding.
+	// The Role permits get/list/watch/patch on a particular Secret only.
+	// Leave empty or omit to retain the legacy ten-year token request and startup-only export behavior.
+	// For Helm upgrades, adopt any existing destination Secret into the release before configuring rotation.
+	// #
+	// tokenRotation:
+	//   expiration: 10m             # Expiration requests a token lifetime as a duration between 600s and 2^32 seconds (kube-apiserver limits).
+	//   renewBeforePercentage: 33   # Percentage of granted lifetime remaining, must be between 1 and 99.
+	TokenRotation *ExportKubeConfigTokenRotation `json:"tokenRotation,omitempty"`
+}
+
+type ExportKubeConfigTokenRotation struct {
+	// Expiration requests a token lifetime as a duration between 600s and 2^32 seconds (kube-apiserver limits).
+	// The kube-apiserver may grant a shorter lifetime; renewal uses the granted expiration.
+	Expiration Duration `json:"expiration,omitempty" jsonschema:"minLength=1"`
+
+	// RenewBeforePercentage is the percentage of the granted token lifetime remaining when renewal is due.
+	// Set between 1 and 99. If omitted, renew with one-third remaining.
+	RenewBeforePercentage *int32 `json:"renewBeforePercentage,omitempty" jsonschema:"minimum=1,maximum=99"`
+}
+
+// IsSet reports whether any rotation setting was supplied. Nil and empty objects retain legacy no-rotation behavior
+// with 10y expiration on token and secret export by a controller.
+func (r *ExportKubeConfigTokenRotation) IsSet() bool {
+	return r != nil && r.Expiration != ""
 }
 
 // Declare in which host cluster secret vCluster should store the generated virtual cluster kubeconfig.
@@ -1333,6 +1361,9 @@ type ExportKubeConfigAdditionalSecretReference struct {
 	// Namespace where vCluster stores the kubeconfig secret. If this is not equal to the namespace
 	// where you deployed vCluster, you need to make sure vCluster has access to this other namespace.
 	Namespace string `json:"namespace,omitempty"`
+
+	// Labels are added to destination Secrets provisioned by the chart when TokenRotation is configured.
+	Labels map[string]string `json:"labels,omitempty"`
 }
 
 type Sync struct {

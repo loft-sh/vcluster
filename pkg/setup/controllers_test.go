@@ -209,7 +209,7 @@ func TestExportKubeConfig(t *testing.T) {
 			ctx := context.Background()
 			virtualConfig := &rest.Config{}
 
-			kubeConfigResult, err := CreateVClusterKubeConfigForExport(ctx, virtualConfig, &tc.syncerConfig, tc.options)
+			kubeConfigResult, _, err := CreateVClusterKubeConfigForExport(ctx, virtualConfig, &tc.syncerConfig, tc.options)
 			if err != nil {
 				t.Errorf("Unexpected error when creating kubeconfig for export: %v", err)
 			}
