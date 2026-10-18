@@ -107,7 +107,7 @@ func (s *endpointSliceSyncer) Sync(ctx *synccontext.SyncContext, event *synccont
 		if event.Host.Labels == nil {
 			event.Host.Labels = map[string]string{}
 		}
-		event.Host.Labels[translate.K8sServiceNameLabel] = translateSvcName(virtualSvcName, event.Host.Labels[translate.NamespaceLabel], event.Host.Labels[translate.MarkerLabel])
+		event.Host.Labels[translate.K8sServiceNameLabel] = translateSvcName(virtualSvcName, event.Virtual.Namespace)
 	}
 
 	return ctrl.Result{}, nil
