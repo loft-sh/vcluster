@@ -929,7 +929,7 @@ func loadUserValues(options *CreateOptions, globalFlags *flags.GlobalFlags, log 
 }
 
 // pinKubernetesVersion sets controlPlane.distro.k8s.version to version unless the user
-// already chose one via controlPlane.distro.k8s.version or the tag of controlPlane.distro.k8s.image.
+// already chose one via controlPlane.distro.k8s.version or controlPlane.distro.k8s.image.tag.
 func pinKubernetesVersion(values map[string]interface{}, version string) {
 	if version == "" {
 		return
@@ -948,16 +948,8 @@ func pinKubernetesVersion(values map[string]interface{}, version string) {
 	if v, _ := k8s["version"].(string); v != "" {
 		return
 	}
-	switch image := k8s["image"].(type) {
-	case map[string]interface{}:
+	if image, ok := k8s["image"].(map[string]interface{}); ok {
 		if tag, _ := image["tag"].(string); tag != "" {
-			return
-		}
-	case string:
-		// the string form (registry/repo:tag) is still accepted by config.Image
-		parsed := config.Image{}
-		config.ParseImageRef(image, &parsed)
-		if parsed.Tag != "" {
 			return
 		}
 	}
