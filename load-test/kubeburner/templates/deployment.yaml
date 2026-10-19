@@ -1,0 +1,52 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-intensive-{{.Replica}}
+  labels:
+    group: load
+    svc: api-intensive-{{.Replica}}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: api-intensive-{{.Replica}}
+  template:
+    metadata:
+      labels:
+        group: load
+        name: api-intensive-{{.Replica}}
+    spec:
+      containers:
+      - image: registry.k8s.io/pause:3.1
+        name: api-intensive-{{.Replica}}
+        resources:
+          requests:
+            cpu: 10m
+            memory: 10M
+        volumeMounts:
+          - name: configmap
+            mountPath: /var/configmap
+          - name: secret
+            mountPath: /var/secret
+      dnsPolicy: Default
+      terminationGracePeriodSeconds: 1
+      # Add not-ready/unreachable tolerations for 15 minutes so that node
+      # failure doesn't trigger pod deletion.
+      tolerations:
+      - key: "node.kubernetes.io/not-ready"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 900
+      - key: "node.kubernetes.io/unreachable"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 900
+      volumes:
+        - name: configmap
+          configMap:
+            name: configmap-{{.Replica}}
+        - name: secret
+          secret:
+            secretName: secret-{{.Replica}}
+
