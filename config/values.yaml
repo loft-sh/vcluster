@@ -142,7 +142,7 @@ controlPlane:
       image:
         registry: ghcr.io
         repository: "loft-sh/kubernetes"
-        tag: "v1.36.0"
+        tag: "v1.36.5"
       apiServer:
         enabled: true
         command: []
