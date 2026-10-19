@@ -137,6 +137,27 @@
       "type": "object",
       "description": "ArgoCDApplicationTemplateRefConfig references a cluster-scoped ArgoCDApplicationTemplate."
     },
+    "ArgoCDClusterMetadata": {
+      "properties": {
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Labels are set on the argo cd cluster\n+optional"
+        },
+        "annotations": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Annotations are set on the argo cd cluster\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "ArgoCDClusterMetadata holds the labels and annotations to set on the argo cd cluster."
+    },
     "ArgoCDDeploy": {
       "properties": {
         "applications": {
@@ -160,11 +181,26 @@
         "connector": {
           "type": "string",
           "description": "Connector specifies the argo cd connector name\n+optional"
+        },
+        "cluster": {
+          "$ref": "#/$defs/ArgoCDIntegrationCluster",
+          "description": "Cluster holds settings for the cluster entry that is registered in argo cd\n+optional"
         }
       },
       "additionalProperties": false,
       "type": "object",
       "description": "ArgoCDIntegration holds argo cd integration configuration."
+    },
+    "ArgoCDIntegrationCluster": {
+      "properties": {
+        "metadata": {
+          "$ref": "#/$defs/ArgoCDClusterMetadata",
+          "description": "Metadata is set on the argo cd cluster, so an ApplicationSet cluster generator can select it.\nOn Akuity, a key removed here stays on the cluster until it is removed in Akuity.\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "ArgoCDIntegrationCluster holds settings for the cluster entry that is registered in argo cd."
     },
     "AutoUpgrade": {
       "properties": {

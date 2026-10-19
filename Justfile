@@ -81,6 +81,10 @@ generate-matrix-specific-images version="0.0.0":
 generate-config-schema:
   go run -mod vendor ./hack/schema/main.go
 
+# Check that the committed config schema matches the config types (what CI runs)
+verify-config-schema:
+  ./hack/verify-config-schema.sh
+
 # Embed the chart into the vcluster binary
 [private]
 embed-chart version="0.0.0":
