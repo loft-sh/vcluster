@@ -852,6 +852,9 @@ type Integrations struct {
 
 	// ArgoCD integration helps configuring ArgoCD for vCluster.
 	ArgoCD vclusterconfig.ArgoCDIntegration `json:"argoCD,omitempty"`
+
+	// Observability integration configures delivery of the platform metrics-writer credential.
+	Observability vclusterconfig.ObservabilityIntegration `json:"observability,omitempty"`
 }
 
 // CertManager reuses a host cert-manager and makes its CRDs from it available inside the vCluster

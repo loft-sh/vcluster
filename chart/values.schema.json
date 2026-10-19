@@ -137,6 +137,27 @@
       "type": "object",
       "description": "ArgoCDApplicationTemplateRefConfig references a cluster-scoped ArgoCDApplicationTemplate."
     },
+    "ArgoCDClusterMetadata": {
+      "properties": {
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Labels are set on the argo cd cluster\n+optional"
+        },
+        "annotations": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Annotations are set on the argo cd cluster\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "ArgoCDClusterMetadata holds the labels and annotations to set on the argo cd cluster."
+    },
     "ArgoCDDeploy": {
       "properties": {
         "applications": {
@@ -160,11 +181,26 @@
         "connector": {
           "type": "string",
           "description": "Connector specifies the argo cd connector name\n+optional"
+        },
+        "cluster": {
+          "$ref": "#/$defs/ArgoCDIntegrationCluster",
+          "description": "Cluster holds settings for the cluster entry that is registered in argo cd\n+optional"
         }
       },
       "additionalProperties": false,
       "type": "object",
       "description": "ArgoCDIntegration holds argo cd integration configuration."
+    },
+    "ArgoCDIntegrationCluster": {
+      "properties": {
+        "metadata": {
+          "$ref": "#/$defs/ArgoCDClusterMetadata",
+          "description": "Metadata is set on the argo cd cluster, so an ApplicationSet cluster generator can select it.\nOn Akuity, a key removed here stays on the cluster until it is removed in Akuity.\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "ArgoCDIntegrationCluster holds settings for the cluster entry that is registered in argo cd."
     },
     "AutoUpgrade": {
       "properties": {
@@ -2835,6 +2871,21 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "GatewaySecret": {
+      "properties": {
+        "namespace": {
+          "type": "string",
+          "description": "Namespace is the namespace the Secret is delivered to.\nRequired when gatewaySecret is set.\n+optional"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name is the name of the delivered Secret.\nRequired when gatewaySecret is set.\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "GatewaySecret identifies a Secret delivery target by namespace and name."
+    },
     "GatewayVirtualNamespacePolicy": {
       "properties": {
         "from": {
@@ -2982,6 +3033,10 @@
         "argoCD": {
           "$ref": "#/$defs/ArgoCDIntegration",
           "description": "ArgoCD integration helps configuring ArgoCD for vCluster."
+        },
+        "observability": {
+          "$ref": "#/$defs/ObservabilityIntegration",
+          "description": "Observability integration configures delivery of the platform metrics-writer credential."
         }
       },
       "additionalProperties": false,
@@ -4018,6 +4073,25 @@
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "ObservabilityIntegration": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enabled defines if the observability integration is enabled.\nConnector must also be set for the integration to be considered configured.\n+optional"
+        },
+        "connector": {
+          "type": "string",
+          "description": "Connector specifies the Platform observability connector to connect to.\nRequired when Enabled is true for the integration to be considered configured.\n+optional"
+        },
+        "gatewaySecret": {
+          "$ref": "#/$defs/GatewaySecret",
+          "description": "GatewaySecret overrides where the metrics-writer Secret is delivered.\nWhen unset, the shared default target is used: namespace \"observability\", name \"metrics-writer\".\n+optional"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "ObservabilityIntegration holds observability integration configuration."
     },
     "Platform": {
       "properties": {
