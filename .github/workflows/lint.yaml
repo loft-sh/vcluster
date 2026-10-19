@@ -11,6 +11,10 @@ on:
       - "**.go"
       - .custom-gcl.yml
       - ".github/workflows/lint.yaml"
+      - hack/verify-config-schema.sh
+      - config/values.yaml
+      - chart/values.yaml
+      - chart/values.schema.json
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -44,21 +48,8 @@ jobs:
         run: |
           go generate ./...
 
-      - name: Verify schema changes
-        run: |
-          VALUES_SHA=$(cat chart/values.yaml | sha256sum)
-          VALUES_SCHEMA_SHA=$(cat chart/values.schema.json | sha256sum)
-
-          go run hack/schema/main.go
-
-          VALUES_SHA_AFTER=$(cat chart/values.yaml | sha256sum)
-          VALUES_SCHEMA_SHA_AFTER=$(cat chart/values.schema.json | sha256sum)
-
-          # if there are changes, tell developer to run script
-          if [ "$VALUES_SHA" != "$VALUES_SHA_AFTER" ] || [ "$VALUES_SCHEMA_SHA" != "$VALUES_SCHEMA_SHA_AFTER" ]; then
-            echo "Seems like you forgot to run 'go run hack/schema/main.go' before committing your changes!"
-            exit 1
-          fi
+      - name: Verify config schema is up to date
+        run: bash hack/verify-config-schema.sh
 
       - name: Verify go mod tidy and vendor
         if: github.event.pull_request.head.repo.full_name == github.repository
