@@ -38,9 +38,13 @@ jobs:
           go-version-file: ./go.mod
           cache: false
 
+      # A credential helper rather than a token in the URL: curl 8.5.0-2ubuntu10.16
+      # strips credentials from the effective URL, so git reads an insteadOf URL that
+      # carries the token as a redirect, drops the token, and private modules fail
+      # with "could not read Username" (DEVOPS-1702).
       - name: Configure git
         if: github.event.pull_request.head.repo.full_name == github.repository
-        run: git config --global url.https://"$GH_ACCESS_TOKEN"@github.com/.insteadOf https://github.com/
+        run: git config --global credential.https://github.com.helper "!f() { echo username=x-access-token; echo password=${GH_ACCESS_TOKEN}; }; f"
         env:
           GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
 
