@@ -59,6 +59,12 @@ var (
 	podGVK = corev1.SchemeGroupVersion.WithKind("Pod")
 	// bump revision to make sure we invalidate caches. See https://github.com/kubernetes/kubernetes/issues/118501 for more details
 	BumpRevision = int64(1000)
+
+	// errBackingStoreServing means a kine still serves the database the restore would rewrite.
+	errBackingStoreServing = errors.New("embedded database backing store is still serving requests")
+
+	// backingStoreReachable is swapped out in tests, which have no kine to probe.
+	backingStoreReachable = isEtcdReachable
 )
 
 func NewRestoreClient(snapshotOptions snapshotapi.Options, newVCluster bool) *RestoreClient {
@@ -548,6 +554,13 @@ func newRestoreEtcdClient(ctx context.Context, vConfig *config.VirtualClusterCon
 	// * embedded database: delete the files locally and make sure revision is not decreasing, this is important as otherwise watches will not work correctly
 	// * external database: we can't so we skip and then check later if there are any already
 	if vConfig.BackingStoreType() == vclusterconfig.StoreTypeEmbeddedDatabase {
+		// probe before anything touches kine.sock or the SQLite files: a kine that is
+		// still serving would keep writing into the files this restore moves aside
+		etcdEndpoint, etcdCertificates := etcd.GetEtcdEndpoint(vConfig)
+		if backingStoreReachable(ctx, etcdEndpoint, etcdCertificates) {
+			return nil, revertBackup, fmt.Errorf("%w at %s, refusing to restore into a running control plane: stop the vCluster control plane and any of its leftover processes, then retry", errBackingStoreServing, etcdEndpoint)
+		}
+
 		// get latest revision from database
 		latestRevision, err := getLatestRevisionSQLite(ctx, constants.K8sSqliteDatabase)
 		if err != nil {
@@ -650,17 +663,19 @@ func setLatestRevisionSQLite(ctx context.Context, file string, revision int64) e
 		[]string{"--metrics-bind-address=0"},
 	)
 
-	// wait until file is created or kine fails or timeout
+	// wait until the schema is created or kine fails or timeout. waiting for the
+	// file alone is not enough: SQLite creates it as soon as it opens the
+	// database, while SQLITE_SEQUENCE only appears once kine created its schema
 	kineStartTimeout := 30 * time.Second
 	timeoutTimer := time.NewTimer(kineStartTimeout)
 	defer timeoutTimer.Stop()
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
-	var fileCreated bool
-	for !fileCreated {
+	var schemaCreated bool
+	for !schemaCreated {
 		select {
 		case err := <-doneChan:
-			// kine exited before creating the file
+			// kine exited before creating the schema
 			if err != nil {
 				return fmt.Errorf("kine exited before creating database: %w", err)
 			}
@@ -671,9 +686,17 @@ func setLatestRevisionSQLite(ctx context.Context, file string, revision int64) e
 			<-doneChan
 			return fmt.Errorf("timed out waiting for kine to create database after %s", kineStartTimeout)
 		case <-ticker.C:
-			if _, err := os.Stat(file); err == nil {
-				fileCreated = true
+			if _, err := os.Stat(file); err != nil {
+				continue
 			}
+
+			created, err := kineSchemaCreated(ctx, file)
+			if err != nil {
+				// kine may hold a lock while it creates the schema, so retry until the timeout
+				klog.FromContext(ctx).Info("Kine database schema not readable yet, retrying", "error", err)
+				continue
+			}
+			schemaCreated = created
 		}
 	}
 
@@ -684,23 +707,41 @@ func setLatestRevisionSQLite(ctx context.Context, file string, revision int64) e
 	<-doneChan
 
 	// set latest revision
-	db, err := sql.Open("sqlite", file+k8s.SQLiteParams)
-	if err != nil {
-		return fmt.Errorf("failed to open database: %w", err)
-	}
-	defer db.Close()
-
-	// set latest revision
-	_, err = db.ExecContext(ctx, "UPDATE SQLITE_SEQUENCE SET seq = ? WHERE name = 'kine'", revision)
-	if err != nil {
-		// try insert if it doesn't exist
-		_, err = db.ExecContext(ctx, "INSERT INTO SQLITE_SEQUENCE (name, seq) VALUES ('kine', ?)", revision)
-		if err != nil {
-			return fmt.Errorf("failed to set latest revision: %w", err)
-		}
+	if err := writeLatestRevisionSQLite(ctx, file, revision); err != nil {
+		return err
 	}
 
 	klog.FromContext(ctx).Info("Successfully set latest revision for SQLite database", "revision", revision)
+	return nil
+}
+
+// writeLatestRevisionSQLite writes revision as kine's latest used revision into
+// SQLITE_SEQUENCE, which requires kine to have created its schema already.
+func writeLatestRevisionSQLite(ctx context.Context, file string, revision int64) error {
+	db, err := openKineSQLite(file)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	// SQLITE_SEQUENCE only holds a kine row once kine inserted its first key, so
+	// an update can legitimately match no rows and has to fall back to an insert
+	res, err := db.ExecContext(ctx, "UPDATE SQLITE_SEQUENCE SET seq = ? WHERE name = 'kine'", revision)
+	if err == nil {
+		rowsAffected, rowsErr := res.RowsAffected()
+		if rowsErr != nil {
+			return fmt.Errorf("failed to get updated rows: %w", rowsErr)
+		}
+		if rowsAffected > 0 {
+			return nil
+		}
+	}
+
+	// try insert if it doesn't exist
+	if _, err := db.ExecContext(ctx, "INSERT INTO SQLITE_SEQUENCE (name, seq) VALUES ('kine', ?)", revision); err != nil {
+		return fmt.Errorf("failed to set latest revision: %w", err)
+	}
+
 	return nil
 }
 
@@ -714,23 +755,53 @@ func getLatestRevisionSQLite(ctx context.Context, file string) (int64, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// open sqlite database
-	db, err := sql.Open("sqlite", file+k8s.SQLiteParams)
+	db, err := openKineSQLite(file)
 	if err != nil {
 		return 0, err
 	}
 	defer db.Close()
 
+	// kine may not have created its schema in the database file yet
+	exists, err := kineTableExists(ctx, db)
+	if err != nil {
+		return 0, err
+	}
+	if !exists {
+		klog.FromContext(ctx).Info("SQLite database has no kine schema yet, assuming latest revision 0", "file", file)
+		return 0, nil
+	}
+
 	// get latest revision
 	row := db.QueryRowContext(ctx, "SELECT seq FROM SQLITE_SEQUENCE WHERE name = 'kine'")
 	var revision int64
 	err = row.Scan(&revision)
-	if err != nil {
+	if errors.Is(err, sql.ErrNoRows) {
+		// the kine table exists, but kine never wrote a key, so there is no
+		// revision to preserve. this happens for example when kine was
+		// stopped right after it opened the database
+		klog.FromContext(ctx).Info("SQLite database has a kine schema but no revision yet, assuming latest revision 0", "file", file)
+		return 0, nil
+	} else if err != nil {
 		return 0, err
 	}
 
 	klog.FromContext(ctx).Info("Successfully got latest revision for SQLite database", "revision", revision)
 	return revision, nil
+}
+
+// kineTableExists reports whether kine created its schema in the SQLite database
+// yet. SQLite creates the database file as soon as it opens it, so the file
+// existing does not mean the kine table and SQLITE_SEQUENCE are there.
+func kineTableExists(ctx context.Context, db *sql.DB) (bool, error) {
+	var name string
+	err := db.QueryRowContext(ctx, "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'kine'").Scan(&name)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 func setLatestRevisionEtcd(ctx context.Context, vConfig *config.VirtualClusterConfig, file string, revision int64) error {
@@ -988,4 +1059,29 @@ func snapshotRestoreBumpRevision(latestRevision int64, snapshotRevision int64, b
 		return uint64(latestRevision-snapshotRevision) + uint64(bumpRevision)
 	}
 	return uint64(bumpRevision)
+}
+
+// kineSchemaCreated checks kineTableExists on file with its own short deadline, so a
+// database locked by a starting kine cannot hold up the caller's wait loop.
+func kineSchemaCreated(ctx context.Context, file string) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	db, err := openKineSQLite(file)
+	if err != nil {
+		return false, err
+	}
+	defer db.Close()
+
+	return kineTableExists(ctx, db)
+}
+
+// openKineSQLite opens kine's SQLite database with the parameters kine itself uses.
+func openKineSQLite(file string) (*sql.DB, error) {
+	db, err := sql.Open("sqlite", file+k8s.SQLiteParams)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open database: %w", err)
+	}
+
+	return db, nil
 }
