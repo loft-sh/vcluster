@@ -80,7 +80,7 @@ func (r *Restorer) reconcileInProgress(ctx context.Context, requestObj runtime.O
 				if err != nil {
 					volumeRestoreStatus.Phase = volumeRestoreStatus.Phase.Failed()
 					checkErr := fmt.Errorf("failed to check PVC %s/%s: %w", volumeRestoreRequest.PersistentVolumeClaim.Namespace, volumeRestoreRequest.PersistentVolumeClaim.Name, err)
-					r.logger.Errorf(checkErr.Error())
+					r.logger.Errorf("%v", checkErr)
 					volumeRestoreStatus.Error.Message = checkErr.Error()
 					status.PersistentVolumeClaims[pvcName] = volumeRestoreStatus
 					if volumeRestoreStatus.CleaningUp() {
