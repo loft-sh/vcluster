@@ -1,6 +1,6 @@
 module github.com/loft-sh/vcluster
 
-go 1.25.0
+go 1.26.10
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.20.0
