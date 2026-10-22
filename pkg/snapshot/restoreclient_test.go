@@ -3,28 +3,21 @@ package snapshot
 import (
 	"archive/tar"
 	"compress/gzip"
-<<<<<<< ours
-=======
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
->>>>>>> theirs
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	snapshotapi "github.com/loft-sh/api/v4/pkg/snapshot"
-<<<<<<< ours
-=======
-	vclusterconfig "github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/etcd"
 	"github.com/loft-sh/vcluster/pkg/k8s"
 	_ "modernc.org/sqlite"
->>>>>>> theirs
 )
 
 func TestSnapshotRestoreBumpRevision(t *testing.T) {
