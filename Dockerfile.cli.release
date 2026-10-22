@@ -21,7 +21,7 @@ RUN wget -O helm3.tar.gz "https://get.helm.sh/helm-${HELM_VERSION}-linux-${TARGE
 	&& rm -R "linux-${TARGETARCH}"
 
 # Add kubectl
-RUN wget -O kubectl https://storage.googleapis.com/kubernetes-release/release/`wget -q -O- https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/${TARGETARCH}/kubectl \
+RUN wget -O kubectl https://dl.k8s.io/release/`wget -q -O- https://dl.k8s.io/release/stable.txt`/bin/linux/${TARGETARCH}/kubectl \
 	&& chmod +x kubectl \
 	&& mv kubectl /usr/local/bin/kubectl
 
