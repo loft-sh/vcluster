@@ -325,6 +325,13 @@ type EntityInfo struct {
 	// The user subject
 	// +optional
 	Subject string `json:"subject,omitempty"`
+
+	// Tenant is the name of the Tenant that owns this user or team, derived from its
+	// tenant.vcluster.com/owner label. Empty for a user or team no tenant owns, including a
+	// user that only inherits a label from a Team, since Team labels do not grant tenancy.
+	// Empty for any other kind of entity.
+	// +optional
+	Tenant string `json:"tenant,omitempty"`
 }
 
 // RecommendedApp describes where an app can be displayed as recommended app

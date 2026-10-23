@@ -12,6 +12,11 @@ import (
 
 // DatabaseConnector represents a connector that can be used to provision and manage a backingstore
 // for a vCluster
+//
+// Deprecated: the Connector API (connectors.management.loft.sh) supersedes this list-only kind.
+// It serves the same shared-database connector Secrets as Connector objects with
+// spec.sharedDatabase, carrying the display name and the connection settings this kind never had.
+// Read connectors instead.
 // +k8s:openapi-gen=true
 // +resource:path=databaseconnectors,rest=DatabaseConnectorREST
 type DatabaseConnector struct {

@@ -86,6 +86,61 @@ func (in LastActivityInfo) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in Metal3BMC) OpenAPIModelName() string {
+	return "com.github.loft-sh.agentapi.v5.pkg.apis.loft.cluster.v1.Metal3BMC"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in Metal3BMCConsole) OpenAPIModelName() string {
+	return "com.github.loft-sh.agentapi.v5.pkg.apis.loft.cluster.v1.Metal3BMCConsole"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in Metal3BMCConsoleList) OpenAPIModelName() string {
+	return "com.github.loft-sh.agentapi.v5.pkg.apis.loft.cluster.v1.Metal3BMCConsoleList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in Metal3BMCConsoleOptions) OpenAPIModelName() string {
+	return "com.github.loft-sh.agentapi.v5.pkg.apis.loft.cluster.v1.Metal3BMCConsoleOptions"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in Metal3BMCList) OpenAPIModelName() string {
+	return "com.github.loft-sh.agentapi.v5.pkg.apis.loft.cluster.v1.Metal3BMCList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in Metal3BMCRedfish) OpenAPIModelName() string {
+	return "com.github.loft-sh.agentapi.v5.pkg.apis.loft.cluster.v1.Metal3BMCRedfish"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in Metal3BMCRedfishList) OpenAPIModelName() string {
+	return "com.github.loft-sh.agentapi.v5.pkg.apis.loft.cluster.v1.Metal3BMCRedfishList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in Metal3BMCRedfishSpec) OpenAPIModelName() string {
+	return "com.github.loft-sh.agentapi.v5.pkg.apis.loft.cluster.v1.Metal3BMCRedfishSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in Metal3BMCRedfishStatus) OpenAPIModelName() string {
+	return "com.github.loft-sh.agentapi.v5.pkg.apis.loft.cluster.v1.Metal3BMCRedfishStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in Metal3BMCSpec) OpenAPIModelName() string {
+	return "com.github.loft-sh.agentapi.v5.pkg.apis.loft.cluster.v1.Metal3BMCSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in Metal3BMCStatus) OpenAPIModelName() string {
+	return "com.github.loft-sh.agentapi.v5.pkg.apis.loft.cluster.v1.Metal3BMCStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in SleepModeConfig) OpenAPIModelName() string {
 	return "com.github.loft-sh.agentapi.v5.pkg.apis.loft.cluster.v1.SleepModeConfig"
 }

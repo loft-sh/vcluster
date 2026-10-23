@@ -431,6 +431,21 @@ func (in ConnectorList) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ConnectorNetBoxSpec) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v5.pkg.apis.management.v1.ConnectorNetBoxSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ConnectorObservabilitySpec) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v5.pkg.apis.management.v1.ConnectorObservabilitySpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ConnectorObservabilityStatus) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v5.pkg.apis.management.v1.ConnectorObservabilityStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ConnectorSharedDatabaseSpec) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v5.pkg.apis.management.v1.ConnectorSharedDatabaseSpec"
 }

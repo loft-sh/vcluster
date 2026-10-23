@@ -41,6 +41,9 @@ const (
 	NodeClaimPhaseFailed NodeClaimPhase = "Failed"
 )
 
+// NodeClaimReasonMachineNotFound marks a provisioned claim whose Machine is gone.
+const NodeClaimReasonMachineNotFound = "MachineNotFound"
+
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.phase"
@@ -202,6 +205,17 @@ const (
 // NodeClaimRebootAnnotation triggers a one-shot reboot of the machine. The
 // controller removes the annotation once the reboot has been initiated.
 const NodeClaimRebootAnnotation = "machines.vcluster.com/reboot"
+
+// ClaimMachineIDAnnotation, on a NodeClaim, records the provider-side id of the
+// machine backing the claim. Machine mirrors are named "<provider>.<machine id>",
+// which is how the claim matcher finds the Machine a claim holds.
+//
+// One key serves every provider. A claim already names its provider in
+// spec.providerRef, so a per-provider key answered nothing the claim did not,
+// while costing a second place to look and a second list to keep in step. The
+// per-provider keys written before this one are read as a fallback through
+// provider.Descriptor.LegacyClaimMachineIDAnnotation.
+const ClaimMachineIDAnnotation = "machines.vcluster.com/machine-id"
 
 type NodeClaimPower struct {
 	// State is the power state.

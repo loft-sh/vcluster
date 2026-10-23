@@ -134,7 +134,7 @@ type NodeProviderSpec struct {
 	DisplayName string `json:"displayName,omitempty"`
 
 	// MachineAllocationPolicy is the NodeTypeSpec.MachineAllocationPolicy of this provider's node types
-	// that leave theirs empty, and the only one discovered (nico) node types can have.
+	// that leave theirs empty.
 	// +optional
 	MachineAllocationPolicy MachineAllocationPolicy `json:"machineAllocationPolicy,omitempty"`
 }
@@ -184,10 +184,10 @@ type NodeProviderNICo struct {
 	// +optional
 	SiteIPBlockID string `json:"siteIPBlockID,omitempty"`
 
-	// InstanceTypeIDs is an allow-list of NICo InstanceType IDs to surface as
-	// NodeTypes. Empty surfaces all.
+	// NodeTypes define the NodeTypes this provider offers. A Machine with a NICo instance type carries it
+	// as the nico.vcluster.com/instance-type-id label, so a NodeType selects an instance type by label.
 	// +optional
-	InstanceTypeIDs []string `json:"instanceTypeIds,omitempty"`
+	NodeTypes []MachineNodeTypeSpec `json:"nodeTypes,omitempty"`
 
 	// Identity selects how the platform authenticates to the NICo REST API.
 	// Platform-issued JWTs are currently the only supported source, so
@@ -690,16 +690,34 @@ type NodeProviderMetal3NetBoxCustomFields struct {
 	BMCPassword string `json:"bmcPassword,omitempty"`
 }
 
-type Metal3NodeTypeSpec struct {
+// MachineNodeTypeSpec is a node type that draws from its provider's inventory Machines.
+type MachineNodeTypeSpec struct {
 	NamedNodeTypeSpec `json:",inline"`
 
-	// BareMetalHosts is a list of BareMetalHosts to use for this NodeType.
+	// Machines selects the provider's Machines this NodeType draws from.
+	// +optional
+	Machines NodeTypeMachines `json:"machines,omitempty"`
+}
+
+type Metal3NodeTypeSpec struct {
+	MachineNodeTypeSpec `json:",inline"`
+
+	// Deprecated: use machines.selector. Read only while machines.selector is unset.
 	// +optional
 	BareMetalHosts Metal3BareMetalHosts `json:"bareMetalHosts,omitempty"`
 }
 
+// NodeTypeMachines selects the machines a node type draws from.
+type NodeTypeMachines struct {
+	// Selector is matched against the labels of this provider's Machines. A Machine carries its provider record's
+	// labels (BareMetalHost, NICo machine) except platform keys, plus labels set on the Machine itself. Unset or
+	// empty selects every Machine of the provider.
+	// +optional
+	Selector *metav1.LabelSelector `json:"selector,omitempty"`
+}
+
 type Metal3BareMetalHosts struct {
-	// Selector is a label selector to select the BareMetalHosts to use for this NodeType.
+	// Deprecated: use machines.selector.
 	// +optional
 	Selector *metav1.LabelSelector `json:"selector,omitempty"`
 }

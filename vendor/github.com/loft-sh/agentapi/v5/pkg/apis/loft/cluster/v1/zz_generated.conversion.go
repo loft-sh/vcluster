@@ -6,6 +6,7 @@
 package v1
 
 import (
+	url "net/url"
 	unsafe "unsafe"
 
 	cluster "github.com/loft-sh/agentapi/v5/pkg/apis/loft/cluster"
@@ -158,6 +159,121 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}
 	if err := s.AddGeneratedConversionFunc((*cluster.IronicNodeStep)(nil), (*IronicNodeStep)(nil), func(a, b interface{}, scope conversion.Scope) error {
 		return Convert_cluster_IronicNodeStep_To_v1_IronicNodeStep(a.(*cluster.IronicNodeStep), b.(*IronicNodeStep), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*Metal3BMC)(nil), (*cluster.Metal3BMC)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_Metal3BMC_To_cluster_Metal3BMC(a.(*Metal3BMC), b.(*cluster.Metal3BMC), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*cluster.Metal3BMC)(nil), (*Metal3BMC)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_cluster_Metal3BMC_To_v1_Metal3BMC(a.(*cluster.Metal3BMC), b.(*Metal3BMC), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*Metal3BMCConsole)(nil), (*cluster.Metal3BMCConsole)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_Metal3BMCConsole_To_cluster_Metal3BMCConsole(a.(*Metal3BMCConsole), b.(*cluster.Metal3BMCConsole), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*cluster.Metal3BMCConsole)(nil), (*Metal3BMCConsole)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_cluster_Metal3BMCConsole_To_v1_Metal3BMCConsole(a.(*cluster.Metal3BMCConsole), b.(*Metal3BMCConsole), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*Metal3BMCConsoleList)(nil), (*cluster.Metal3BMCConsoleList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_Metal3BMCConsoleList_To_cluster_Metal3BMCConsoleList(a.(*Metal3BMCConsoleList), b.(*cluster.Metal3BMCConsoleList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*cluster.Metal3BMCConsoleList)(nil), (*Metal3BMCConsoleList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_cluster_Metal3BMCConsoleList_To_v1_Metal3BMCConsoleList(a.(*cluster.Metal3BMCConsoleList), b.(*Metal3BMCConsoleList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*Metal3BMCConsoleOptions)(nil), (*cluster.Metal3BMCConsoleOptions)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_Metal3BMCConsoleOptions_To_cluster_Metal3BMCConsoleOptions(a.(*Metal3BMCConsoleOptions), b.(*cluster.Metal3BMCConsoleOptions), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*cluster.Metal3BMCConsoleOptions)(nil), (*Metal3BMCConsoleOptions)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_cluster_Metal3BMCConsoleOptions_To_v1_Metal3BMCConsoleOptions(a.(*cluster.Metal3BMCConsoleOptions), b.(*Metal3BMCConsoleOptions), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*Metal3BMCList)(nil), (*cluster.Metal3BMCList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_Metal3BMCList_To_cluster_Metal3BMCList(a.(*Metal3BMCList), b.(*cluster.Metal3BMCList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*cluster.Metal3BMCList)(nil), (*Metal3BMCList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_cluster_Metal3BMCList_To_v1_Metal3BMCList(a.(*cluster.Metal3BMCList), b.(*Metal3BMCList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*Metal3BMCRedfish)(nil), (*cluster.Metal3BMCRedfish)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_Metal3BMCRedfish_To_cluster_Metal3BMCRedfish(a.(*Metal3BMCRedfish), b.(*cluster.Metal3BMCRedfish), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*cluster.Metal3BMCRedfish)(nil), (*Metal3BMCRedfish)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_cluster_Metal3BMCRedfish_To_v1_Metal3BMCRedfish(a.(*cluster.Metal3BMCRedfish), b.(*Metal3BMCRedfish), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*Metal3BMCRedfishList)(nil), (*cluster.Metal3BMCRedfishList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_Metal3BMCRedfishList_To_cluster_Metal3BMCRedfishList(a.(*Metal3BMCRedfishList), b.(*cluster.Metal3BMCRedfishList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*cluster.Metal3BMCRedfishList)(nil), (*Metal3BMCRedfishList)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_cluster_Metal3BMCRedfishList_To_v1_Metal3BMCRedfishList(a.(*cluster.Metal3BMCRedfishList), b.(*Metal3BMCRedfishList), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*Metal3BMCRedfishSpec)(nil), (*cluster.Metal3BMCRedfishSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_Metal3BMCRedfishSpec_To_cluster_Metal3BMCRedfishSpec(a.(*Metal3BMCRedfishSpec), b.(*cluster.Metal3BMCRedfishSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*cluster.Metal3BMCRedfishSpec)(nil), (*Metal3BMCRedfishSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_cluster_Metal3BMCRedfishSpec_To_v1_Metal3BMCRedfishSpec(a.(*cluster.Metal3BMCRedfishSpec), b.(*Metal3BMCRedfishSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*Metal3BMCRedfishStatus)(nil), (*cluster.Metal3BMCRedfishStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_Metal3BMCRedfishStatus_To_cluster_Metal3BMCRedfishStatus(a.(*Metal3BMCRedfishStatus), b.(*cluster.Metal3BMCRedfishStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*cluster.Metal3BMCRedfishStatus)(nil), (*Metal3BMCRedfishStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_cluster_Metal3BMCRedfishStatus_To_v1_Metal3BMCRedfishStatus(a.(*cluster.Metal3BMCRedfishStatus), b.(*Metal3BMCRedfishStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*Metal3BMCSpec)(nil), (*cluster.Metal3BMCSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_Metal3BMCSpec_To_cluster_Metal3BMCSpec(a.(*Metal3BMCSpec), b.(*cluster.Metal3BMCSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*cluster.Metal3BMCSpec)(nil), (*Metal3BMCSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_cluster_Metal3BMCSpec_To_v1_Metal3BMCSpec(a.(*cluster.Metal3BMCSpec), b.(*Metal3BMCSpec), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*Metal3BMCStatus)(nil), (*cluster.Metal3BMCStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1_Metal3BMCStatus_To_cluster_Metal3BMCStatus(a.(*Metal3BMCStatus), b.(*cluster.Metal3BMCStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*cluster.Metal3BMCStatus)(nil), (*Metal3BMCStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_cluster_Metal3BMCStatus_To_v1_Metal3BMCStatus(a.(*cluster.Metal3BMCStatus), b.(*Metal3BMCStatus), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*url.Values)(nil), (*Metal3BMCConsoleOptions)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_url_Values_To_v1_Metal3BMCConsoleOptions(a.(*url.Values), b.(*Metal3BMCConsoleOptions), scope)
 	}); err != nil {
 		return err
 	}
@@ -570,4 +686,294 @@ func autoConvert_cluster_IronicNodeStep_To_v1_IronicNodeStep(in *cluster.IronicN
 // Convert_cluster_IronicNodeStep_To_v1_IronicNodeStep is an autogenerated conversion function.
 func Convert_cluster_IronicNodeStep_To_v1_IronicNodeStep(in *cluster.IronicNodeStep, out *IronicNodeStep, s conversion.Scope) error {
 	return autoConvert_cluster_IronicNodeStep_To_v1_IronicNodeStep(in, out, s)
+}
+
+func autoConvert_v1_Metal3BMC_To_cluster_Metal3BMC(in *Metal3BMC, out *cluster.Metal3BMC, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_v1_Metal3BMCSpec_To_cluster_Metal3BMCSpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	if err := Convert_v1_Metal3BMCStatus_To_cluster_Metal3BMCStatus(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1_Metal3BMC_To_cluster_Metal3BMC is an autogenerated conversion function.
+func Convert_v1_Metal3BMC_To_cluster_Metal3BMC(in *Metal3BMC, out *cluster.Metal3BMC, s conversion.Scope) error {
+	return autoConvert_v1_Metal3BMC_To_cluster_Metal3BMC(in, out, s)
+}
+
+func autoConvert_cluster_Metal3BMC_To_v1_Metal3BMC(in *cluster.Metal3BMC, out *Metal3BMC, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_cluster_Metal3BMCSpec_To_v1_Metal3BMCSpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	if err := Convert_cluster_Metal3BMCStatus_To_v1_Metal3BMCStatus(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_cluster_Metal3BMC_To_v1_Metal3BMC is an autogenerated conversion function.
+func Convert_cluster_Metal3BMC_To_v1_Metal3BMC(in *cluster.Metal3BMC, out *Metal3BMC, s conversion.Scope) error {
+	return autoConvert_cluster_Metal3BMC_To_v1_Metal3BMC(in, out, s)
+}
+
+func autoConvert_v1_Metal3BMCConsole_To_cluster_Metal3BMCConsole(in *Metal3BMCConsole, out *cluster.Metal3BMCConsole, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	return nil
+}
+
+// Convert_v1_Metal3BMCConsole_To_cluster_Metal3BMCConsole is an autogenerated conversion function.
+func Convert_v1_Metal3BMCConsole_To_cluster_Metal3BMCConsole(in *Metal3BMCConsole, out *cluster.Metal3BMCConsole, s conversion.Scope) error {
+	return autoConvert_v1_Metal3BMCConsole_To_cluster_Metal3BMCConsole(in, out, s)
+}
+
+func autoConvert_cluster_Metal3BMCConsole_To_v1_Metal3BMCConsole(in *cluster.Metal3BMCConsole, out *Metal3BMCConsole, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	return nil
+}
+
+// Convert_cluster_Metal3BMCConsole_To_v1_Metal3BMCConsole is an autogenerated conversion function.
+func Convert_cluster_Metal3BMCConsole_To_v1_Metal3BMCConsole(in *cluster.Metal3BMCConsole, out *Metal3BMCConsole, s conversion.Scope) error {
+	return autoConvert_cluster_Metal3BMCConsole_To_v1_Metal3BMCConsole(in, out, s)
+}
+
+func autoConvert_v1_Metal3BMCConsoleList_To_cluster_Metal3BMCConsoleList(in *Metal3BMCConsoleList, out *cluster.Metal3BMCConsoleList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]cluster.Metal3BMCConsole)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_v1_Metal3BMCConsoleList_To_cluster_Metal3BMCConsoleList is an autogenerated conversion function.
+func Convert_v1_Metal3BMCConsoleList_To_cluster_Metal3BMCConsoleList(in *Metal3BMCConsoleList, out *cluster.Metal3BMCConsoleList, s conversion.Scope) error {
+	return autoConvert_v1_Metal3BMCConsoleList_To_cluster_Metal3BMCConsoleList(in, out, s)
+}
+
+func autoConvert_cluster_Metal3BMCConsoleList_To_v1_Metal3BMCConsoleList(in *cluster.Metal3BMCConsoleList, out *Metal3BMCConsoleList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]Metal3BMCConsole)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_cluster_Metal3BMCConsoleList_To_v1_Metal3BMCConsoleList is an autogenerated conversion function.
+func Convert_cluster_Metal3BMCConsoleList_To_v1_Metal3BMCConsoleList(in *cluster.Metal3BMCConsoleList, out *Metal3BMCConsoleList, s conversion.Scope) error {
+	return autoConvert_cluster_Metal3BMCConsoleList_To_v1_Metal3BMCConsoleList(in, out, s)
+}
+
+func autoConvert_v1_Metal3BMCConsoleOptions_To_cluster_Metal3BMCConsoleOptions(in *Metal3BMCConsoleOptions, out *cluster.Metal3BMCConsoleOptions, s conversion.Scope) error {
+	out.Method = in.Method
+	out.Port = in.Port
+	out.Encryption = in.Encryption
+	return nil
+}
+
+// Convert_v1_Metal3BMCConsoleOptions_To_cluster_Metal3BMCConsoleOptions is an autogenerated conversion function.
+func Convert_v1_Metal3BMCConsoleOptions_To_cluster_Metal3BMCConsoleOptions(in *Metal3BMCConsoleOptions, out *cluster.Metal3BMCConsoleOptions, s conversion.Scope) error {
+	return autoConvert_v1_Metal3BMCConsoleOptions_To_cluster_Metal3BMCConsoleOptions(in, out, s)
+}
+
+func autoConvert_cluster_Metal3BMCConsoleOptions_To_v1_Metal3BMCConsoleOptions(in *cluster.Metal3BMCConsoleOptions, out *Metal3BMCConsoleOptions, s conversion.Scope) error {
+	out.Method = in.Method
+	out.Port = in.Port
+	out.Encryption = in.Encryption
+	return nil
+}
+
+// Convert_cluster_Metal3BMCConsoleOptions_To_v1_Metal3BMCConsoleOptions is an autogenerated conversion function.
+func Convert_cluster_Metal3BMCConsoleOptions_To_v1_Metal3BMCConsoleOptions(in *cluster.Metal3BMCConsoleOptions, out *Metal3BMCConsoleOptions, s conversion.Scope) error {
+	return autoConvert_cluster_Metal3BMCConsoleOptions_To_v1_Metal3BMCConsoleOptions(in, out, s)
+}
+
+func autoConvert_url_Values_To_v1_Metal3BMCConsoleOptions(in *url.Values, out *Metal3BMCConsoleOptions, s conversion.Scope) error {
+	// WARNING: Field TypeMeta does not have json tag, skipping.
+
+	if values, ok := map[string][]string(*in)["method"]; ok && len(values) > 0 {
+		if err := runtime.Convert_Slice_string_To_string(&values, &out.Method, s); err != nil {
+			return err
+		}
+	} else {
+		out.Method = ""
+	}
+	if values, ok := map[string][]string(*in)["port"]; ok && len(values) > 0 {
+		if err := runtime.Convert_Slice_string_To_int(&values, &out.Port, s); err != nil {
+			return err
+		}
+	} else {
+		out.Port = 0
+	}
+	if values, ok := map[string][]string(*in)["encryption"]; ok && len(values) > 0 {
+		if err := runtime.Convert_Slice_string_To_bool(&values, &out.Encryption, s); err != nil {
+			return err
+		}
+	} else {
+		out.Encryption = false
+	}
+	return nil
+}
+
+// Convert_url_Values_To_v1_Metal3BMCConsoleOptions is an autogenerated conversion function.
+func Convert_url_Values_To_v1_Metal3BMCConsoleOptions(in *url.Values, out *Metal3BMCConsoleOptions, s conversion.Scope) error {
+	return autoConvert_url_Values_To_v1_Metal3BMCConsoleOptions(in, out, s)
+}
+
+func autoConvert_v1_Metal3BMCList_To_cluster_Metal3BMCList(in *Metal3BMCList, out *cluster.Metal3BMCList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]cluster.Metal3BMC)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_v1_Metal3BMCList_To_cluster_Metal3BMCList is an autogenerated conversion function.
+func Convert_v1_Metal3BMCList_To_cluster_Metal3BMCList(in *Metal3BMCList, out *cluster.Metal3BMCList, s conversion.Scope) error {
+	return autoConvert_v1_Metal3BMCList_To_cluster_Metal3BMCList(in, out, s)
+}
+
+func autoConvert_cluster_Metal3BMCList_To_v1_Metal3BMCList(in *cluster.Metal3BMCList, out *Metal3BMCList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]Metal3BMC)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_cluster_Metal3BMCList_To_v1_Metal3BMCList is an autogenerated conversion function.
+func Convert_cluster_Metal3BMCList_To_v1_Metal3BMCList(in *cluster.Metal3BMCList, out *Metal3BMCList, s conversion.Scope) error {
+	return autoConvert_cluster_Metal3BMCList_To_v1_Metal3BMCList(in, out, s)
+}
+
+func autoConvert_v1_Metal3BMCRedfish_To_cluster_Metal3BMCRedfish(in *Metal3BMCRedfish, out *cluster.Metal3BMCRedfish, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_v1_Metal3BMCRedfishSpec_To_cluster_Metal3BMCRedfishSpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	if err := Convert_v1_Metal3BMCRedfishStatus_To_cluster_Metal3BMCRedfishStatus(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1_Metal3BMCRedfish_To_cluster_Metal3BMCRedfish is an autogenerated conversion function.
+func Convert_v1_Metal3BMCRedfish_To_cluster_Metal3BMCRedfish(in *Metal3BMCRedfish, out *cluster.Metal3BMCRedfish, s conversion.Scope) error {
+	return autoConvert_v1_Metal3BMCRedfish_To_cluster_Metal3BMCRedfish(in, out, s)
+}
+
+func autoConvert_cluster_Metal3BMCRedfish_To_v1_Metal3BMCRedfish(in *cluster.Metal3BMCRedfish, out *Metal3BMCRedfish, s conversion.Scope) error {
+	out.ObjectMeta = in.ObjectMeta
+	if err := Convert_cluster_Metal3BMCRedfishSpec_To_v1_Metal3BMCRedfishSpec(&in.Spec, &out.Spec, s); err != nil {
+		return err
+	}
+	if err := Convert_cluster_Metal3BMCRedfishStatus_To_v1_Metal3BMCRedfishStatus(&in.Status, &out.Status, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_cluster_Metal3BMCRedfish_To_v1_Metal3BMCRedfish is an autogenerated conversion function.
+func Convert_cluster_Metal3BMCRedfish_To_v1_Metal3BMCRedfish(in *cluster.Metal3BMCRedfish, out *Metal3BMCRedfish, s conversion.Scope) error {
+	return autoConvert_cluster_Metal3BMCRedfish_To_v1_Metal3BMCRedfish(in, out, s)
+}
+
+func autoConvert_v1_Metal3BMCRedfishList_To_cluster_Metal3BMCRedfishList(in *Metal3BMCRedfishList, out *cluster.Metal3BMCRedfishList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]cluster.Metal3BMCRedfish)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_v1_Metal3BMCRedfishList_To_cluster_Metal3BMCRedfishList is an autogenerated conversion function.
+func Convert_v1_Metal3BMCRedfishList_To_cluster_Metal3BMCRedfishList(in *Metal3BMCRedfishList, out *cluster.Metal3BMCRedfishList, s conversion.Scope) error {
+	return autoConvert_v1_Metal3BMCRedfishList_To_cluster_Metal3BMCRedfishList(in, out, s)
+}
+
+func autoConvert_cluster_Metal3BMCRedfishList_To_v1_Metal3BMCRedfishList(in *cluster.Metal3BMCRedfishList, out *Metal3BMCRedfishList, s conversion.Scope) error {
+	out.ListMeta = in.ListMeta
+	out.Items = *(*[]Metal3BMCRedfish)(unsafe.Pointer(&in.Items))
+	return nil
+}
+
+// Convert_cluster_Metal3BMCRedfishList_To_v1_Metal3BMCRedfishList is an autogenerated conversion function.
+func Convert_cluster_Metal3BMCRedfishList_To_v1_Metal3BMCRedfishList(in *cluster.Metal3BMCRedfishList, out *Metal3BMCRedfishList, s conversion.Scope) error {
+	return autoConvert_cluster_Metal3BMCRedfishList_To_v1_Metal3BMCRedfishList(in, out, s)
+}
+
+func autoConvert_v1_Metal3BMCRedfishSpec_To_cluster_Metal3BMCRedfishSpec(in *Metal3BMCRedfishSpec, out *cluster.Metal3BMCRedfishSpec, s conversion.Scope) error {
+	out.Method = in.Method
+	out.Path = in.Path
+	out.Body = *(*[]byte)(unsafe.Pointer(&in.Body))
+	return nil
+}
+
+// Convert_v1_Metal3BMCRedfishSpec_To_cluster_Metal3BMCRedfishSpec is an autogenerated conversion function.
+func Convert_v1_Metal3BMCRedfishSpec_To_cluster_Metal3BMCRedfishSpec(in *Metal3BMCRedfishSpec, out *cluster.Metal3BMCRedfishSpec, s conversion.Scope) error {
+	return autoConvert_v1_Metal3BMCRedfishSpec_To_cluster_Metal3BMCRedfishSpec(in, out, s)
+}
+
+func autoConvert_cluster_Metal3BMCRedfishSpec_To_v1_Metal3BMCRedfishSpec(in *cluster.Metal3BMCRedfishSpec, out *Metal3BMCRedfishSpec, s conversion.Scope) error {
+	out.Method = in.Method
+	out.Path = in.Path
+	out.Body = *(*[]byte)(unsafe.Pointer(&in.Body))
+	return nil
+}
+
+// Convert_cluster_Metal3BMCRedfishSpec_To_v1_Metal3BMCRedfishSpec is an autogenerated conversion function.
+func Convert_cluster_Metal3BMCRedfishSpec_To_v1_Metal3BMCRedfishSpec(in *cluster.Metal3BMCRedfishSpec, out *Metal3BMCRedfishSpec, s conversion.Scope) error {
+	return autoConvert_cluster_Metal3BMCRedfishSpec_To_v1_Metal3BMCRedfishSpec(in, out, s)
+}
+
+func autoConvert_v1_Metal3BMCRedfishStatus_To_cluster_Metal3BMCRedfishStatus(in *Metal3BMCRedfishStatus, out *cluster.Metal3BMCRedfishStatus, s conversion.Scope) error {
+	out.StatusCode = in.StatusCode
+	out.Header = *(*map[string][]string)(unsafe.Pointer(&in.Header))
+	out.Body = *(*[]byte)(unsafe.Pointer(&in.Body))
+	return nil
+}
+
+// Convert_v1_Metal3BMCRedfishStatus_To_cluster_Metal3BMCRedfishStatus is an autogenerated conversion function.
+func Convert_v1_Metal3BMCRedfishStatus_To_cluster_Metal3BMCRedfishStatus(in *Metal3BMCRedfishStatus, out *cluster.Metal3BMCRedfishStatus, s conversion.Scope) error {
+	return autoConvert_v1_Metal3BMCRedfishStatus_To_cluster_Metal3BMCRedfishStatus(in, out, s)
+}
+
+func autoConvert_cluster_Metal3BMCRedfishStatus_To_v1_Metal3BMCRedfishStatus(in *cluster.Metal3BMCRedfishStatus, out *Metal3BMCRedfishStatus, s conversion.Scope) error {
+	out.StatusCode = in.StatusCode
+	out.Header = *(*map[string][]string)(unsafe.Pointer(&in.Header))
+	out.Body = *(*[]byte)(unsafe.Pointer(&in.Body))
+	return nil
+}
+
+// Convert_cluster_Metal3BMCRedfishStatus_To_v1_Metal3BMCRedfishStatus is an autogenerated conversion function.
+func Convert_cluster_Metal3BMCRedfishStatus_To_v1_Metal3BMCRedfishStatus(in *cluster.Metal3BMCRedfishStatus, out *Metal3BMCRedfishStatus, s conversion.Scope) error {
+	return autoConvert_cluster_Metal3BMCRedfishStatus_To_v1_Metal3BMCRedfishStatus(in, out, s)
+}
+
+func autoConvert_v1_Metal3BMCSpec_To_cluster_Metal3BMCSpec(in *Metal3BMCSpec, out *cluster.Metal3BMCSpec, s conversion.Scope) error {
+	return nil
+}
+
+// Convert_v1_Metal3BMCSpec_To_cluster_Metal3BMCSpec is an autogenerated conversion function.
+func Convert_v1_Metal3BMCSpec_To_cluster_Metal3BMCSpec(in *Metal3BMCSpec, out *cluster.Metal3BMCSpec, s conversion.Scope) error {
+	return autoConvert_v1_Metal3BMCSpec_To_cluster_Metal3BMCSpec(in, out, s)
+}
+
+func autoConvert_cluster_Metal3BMCSpec_To_v1_Metal3BMCSpec(in *cluster.Metal3BMCSpec, out *Metal3BMCSpec, s conversion.Scope) error {
+	return nil
+}
+
+// Convert_cluster_Metal3BMCSpec_To_v1_Metal3BMCSpec is an autogenerated conversion function.
+func Convert_cluster_Metal3BMCSpec_To_v1_Metal3BMCSpec(in *cluster.Metal3BMCSpec, out *Metal3BMCSpec, s conversion.Scope) error {
+	return autoConvert_cluster_Metal3BMCSpec_To_v1_Metal3BMCSpec(in, out, s)
+}
+
+func autoConvert_v1_Metal3BMCStatus_To_cluster_Metal3BMCStatus(in *Metal3BMCStatus, out *cluster.Metal3BMCStatus, s conversion.Scope) error {
+	return nil
+}
+
+// Convert_v1_Metal3BMCStatus_To_cluster_Metal3BMCStatus is an autogenerated conversion function.
+func Convert_v1_Metal3BMCStatus_To_cluster_Metal3BMCStatus(in *Metal3BMCStatus, out *cluster.Metal3BMCStatus, s conversion.Scope) error {
+	return autoConvert_v1_Metal3BMCStatus_To_cluster_Metal3BMCStatus(in, out, s)
+}
+
+func autoConvert_cluster_Metal3BMCStatus_To_v1_Metal3BMCStatus(in *cluster.Metal3BMCStatus, out *Metal3BMCStatus, s conversion.Scope) error {
+	return nil
+}
+
+// Convert_cluster_Metal3BMCStatus_To_v1_Metal3BMCStatus is an autogenerated conversion function.
+func Convert_cluster_Metal3BMCStatus_To_v1_Metal3BMCStatus(in *cluster.Metal3BMCStatus, out *Metal3BMCStatus, s conversion.Scope) error {
+	return autoConvert_cluster_Metal3BMCStatus_To_v1_Metal3BMCStatus(in, out, s)
 }

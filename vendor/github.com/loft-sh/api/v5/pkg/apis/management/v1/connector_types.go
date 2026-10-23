@@ -2,6 +2,7 @@ package v1
 
 import (
 	agentstoragev1 "github.com/loft-sh/agentapi/v5/pkg/apis/loft/storage/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -99,6 +100,11 @@ type ConnectorSpec struct {
 	// +optional
 	DisplayName string `json:"displayName,omitempty"`
 
+	// Description is the free-text description shown in the UI. It is projected from
+	// and stamped to the loft.sh/description annotation on the backing Secret.
+	// +optional
+	Description string `json:"description,omitempty"`
+
 	// SharedDatabase is the shared-database connector payload. Exactly one payload
 	// section must be set. Its fields
 	// mirror the Data keys of the backing Secret one to one, so a connector written
@@ -113,12 +119,26 @@ type ConnectorSpec struct {
 	// +optional
 	ArgoCD *ConnectorArgoCDSpec `json:"argoCd,omitempty"`
 
+	// NetBox is the netbox connector payload. Exactly one payload section
+	// must be set. Its fields mirror the Data keys of the
+	// backing Secret one to one, so a connector written through this API is
+	// byte-compatible with one written by the UI directly.
+	// +optional
+	NetBox *ConnectorNetBoxSpec `json:"netBox,omitempty"`
+
 	// ImageStore is the os-image-store connector payload. Exactly one payload section
 	// must be set. The fields of its protocol
 	// block mirror the Data keys of the backing Secret one to one, so a connector
 	// written through this API is exactly what the OSImage store loader reads.
 	// +optional
 	ImageStore *ConnectorImageStoreSpec `json:"imageStore,omitempty"`
+	// Observability is the observability connector payload. It is required when type
+	// is observability and must be unset for every other type. Its fields mirror the
+	// Data keys of the backing Secret one to one (fleetDefault excepted, which is
+	// backed by a server-owned label), so a connector written through this API is
+	// byte-compatible with one written by the UI directly.
+	// +optional
+	Observability *ConnectorObservabilitySpec `json:"observability,omitempty"`
 }
 
 // SharedDatabaseDialect is the database server dialect of a shared-database
@@ -437,6 +457,240 @@ type ConnectorImageStoreS3Spec struct {
 	SessionToken string `json:"sessionToken,omitempty"`
 }
 
+// ConnectorObservabilitySpec configures the connection to an observability stack: the
+// Grafana instance the platform proxies under /grafana/ and the metrics backend the
+// observability gateway writes to and queries from. Every field except fleetDefault
+// maps to one Data key of the backing Secret (given in each field comment), so direct
+// Secret writers and this API stay byte-compatible in both directions.
+//
+// The four Grafana and metrics backend fields default on CREATE ONLY to the same
+// in-cluster endpoints the UI pre-fills on create (the Prometheus and Grafana the
+// platform ships), so a minimal create through this API produces the same Secret as
+// an untouched UI create. Updates never default them. Only grafanaUrl is required
+// afterwards: the metrics backend endpoints and the dashboard UID may be emptied, which
+// leaves the gateway idle until they are set again, a state the platform tolerates and
+// the UI form does not offer.
+//
+// observabilityGatewayCertSecretName appears both here and in
+// status.observability.gatewayCertSecretName. That is one stored value reported twice,
+// not two: a single Data key backs both, so they can never disagree. It stays settable
+// here because leaving it empty and bringing your own certificate are different
+// requests, and it is reported in status so a consumer finds the stored name next to
+// the other gateway observations instead of having to read spec for one of them.
+//
+// This type has no credential fields: every Secret the connector refers to is named,
+// not embedded, so the whole payload is served to every caller who may read it.
+type ConnectorObservabilitySpec struct {
+	// FleetDefault marks this connector as the one backing the platform-wide fleet
+	// metrics Grafana. It is projected from and stamped to the
+	// platform.vcluster.com/fleet-observability-connector label on the backing Secret,
+	// which is the API for it: a metadata write carrying the label with a value that
+	// disagrees with this field is refused. At most one connector may be the fleet
+	// default: a write claiming it while another connector (including a terminating
+	// one) holds it is rejected with a 409 Conflict naming the holder.
+	//
+	// The field is tri-state. Unset carries no opinion: on create the connector
+	// claims the label automatically only when no holder exists anywhere (exactly
+	// like the UI's first create), on update it keeps the connector's current holder
+	// state and can never demote it. True claims the label explicitly (or is
+	// rejected naming the holder), false never claims it and releases it when this
+	// connector is the holder. Reads carry the value true when the label is present
+	// and leave the field unset when it is absent, never an explicit false, so a
+	// read-modify-write round trip of a non-holder stays a no-op instead of
+	// becoming a demotion request. An explicit false is accepted and demotes, but is
+	// never echoed back, so declarative tooling that keeps fleetDefault: false in its
+	// manifest sees a permanent diff on that field.
+	//
+	// Moving the fleet default to another connector takes two writes: demote the
+	// holder with an explicit false first, then claim with true on the new
+	// connector. A claim while a holder exists is never an implicit steal.
+	//
+	// A pre-existing sparse Secret missing the grafanaUrl key cannot be demoted
+	// through this API: write-time validation rejects the whole update until the
+	// field is filled in. The escape hatch is removing the fleet label on the backing
+	// Secret directly.
+	// +optional
+	FleetDefault *bool `json:"fleetDefault,omitempty"`
+
+	// GrafanaURL is the URL of the Grafana instance the platform proxies under
+	// /grafana/. Data key "grafanaUrl". Must be an http or https URL; an empty value
+	// defaults on CREATE ONLY to the in-cluster Grafana the platform ships
+	// (https://grafana.<platform namespace>.svc.cluster.local). An emptied value on
+	// update is rejected, matching the UI edit form.
+	// +optional
+	GrafanaURL string `json:"grafanaUrl,omitempty"`
+
+	// GrafanaInsecureSkipVerify skips TLS verification when the platform talks to
+	// Grafana. Data key "grafanaInsecureSkipVerify": true stores "true", false stores
+	// no key. A write replaces the Secret from the request, so a "false" the UI wrote
+	// earlier does not survive an update; every consumer reads an absent key and
+	// "false" the same way.
+	// +optional
+	GrafanaInsecureSkipVerify bool `json:"grafanaInsecureSkipVerify,omitempty"`
+
+	// FleetObservabilityDashboardUID is the UID of the Grafana dashboard the fleet
+	// observability view embeds. Data key "fleetObservabilityDashboardUid". An empty
+	// value defaults on CREATE ONLY to "vcluster-fleet-observability", the dashboard
+	// the platform provisions. It may be emptied on update: the fleet view then shows
+	// an empty state until a dashboard is named again.
+	// +optional
+	FleetObservabilityDashboardUID string `json:"fleetObservabilityDashboardUid,omitempty"`
+
+	// MetricsBackendOtlpEndpoint is the metrics backend's OTLP write endpoint the
+	// observability gateway forwards tenant metrics to. Data key
+	// "metricsBackendOtlpEndpoint". Must be an http or https URL; an empty value
+	// defaults on CREATE ONLY to the in-cluster Prometheus the platform ships
+	// (https://prom-prometheus-server.<platform namespace>.svc.cluster.local/api/v1/otlp).
+	// It may be emptied on update: the gateway controller skips the connector until
+	// both metrics backend endpoints are set.
+	// +optional
+	MetricsBackendOtlpEndpoint string `json:"metricsBackendOtlpEndpoint,omitempty"`
+
+	// MetricsBackendPromQLEndpoint is the metrics backend's PromQL query endpoint.
+	// Data key "metricsBackendPromQLEndpoint". Must be an http or https URL; an
+	// empty value defaults on CREATE ONLY to the in-cluster Prometheus the platform
+	// ships (https://prom-prometheus-server.<platform namespace>.svc.cluster.local).
+	// It may be emptied on update: the gateway controller skips the connector until
+	// both metrics backend endpoints are set.
+	// +optional
+	MetricsBackendPromQLEndpoint string `json:"metricsBackendPromQLEndpoint,omitempty"`
+
+	// MetricsBackendCertSecretName references the kubernetes.io/tls Secret with the
+	// client certificate the gateway presents to the metrics backend for mTLS. Data
+	// key "metricsBackendCertSecretName". Optional.
+	// +optional
+	MetricsBackendCertSecretName string `json:"metricsBackendCertSecretName,omitempty"`
+
+	// MetricsBackendInsecureSkipVerify disables TLS verification against the metrics
+	// backend on both the OTLP write and PromQL query paths. Data key
+	// "metricsBackendInsecureSkipVerify": true stores "true", false stores no key. A
+	// write replaces the Secret from the request, so a "false" the UI wrote earlier
+	// does not survive an update; every consumer reads an absent key and "false" the
+	// same way.
+	// +optional
+	MetricsBackendInsecureSkipVerify bool `json:"metricsBackendInsecureSkipVerify,omitempty"`
+
+	// MetricsBackendServerName overrides the TLS server name the query proxy expects
+	// on the metrics backend's certificate, for backends fronted by a proxy or an SNI
+	// router. It applies to the PromQL reads only; the OTLP endpoint's certificate must
+	// still match the endpoint hostname. Data key "metricsBackendServerName". Optional;
+	// the UI has no field for it and the gateway documentation describes it.
+	// +optional
+	MetricsBackendServerName string `json:"metricsBackendServerName,omitempty"`
+
+	// GrafanaCertSecretName references the kubernetes.io/tls Secret Grafana serves;
+	// the /grafana/ proxy trusts its ca.crt. Data key "grafanaCertSecretName".
+	// Optional.
+	// +optional
+	GrafanaCertSecretName string `json:"grafanaCertSecretName,omitempty"`
+
+	// ObservabilityGatewayCertSecretName references the kubernetes.io/tls Secret the
+	// observability gateway serves on the OTLP write receiver and metrics
+	// query-proxy. Data key "observabilityGatewayCertSecretName". Optional, and the
+	// two cases are different requests rather than set-versus-unset:
+	//
+	// Set it to bring your own certificate. The Secret must exist before you name it
+	// here: the platform never modifies and never deletes a certificate Secret it did
+	// not create, but it does not check that a named Secret exists. Whenever a
+	// reconcile finds no Secret under the name (with the default ClusterIP service
+	// type that is the first reconcile after the create), the gateway self-issues a
+	// certificate under that name and owns it from then on, rotating it when its
+	// SANs change and deleting it with the connector. The name is reported in status
+	// either way; nothing there says who created the Secret.
+	//
+	// Leave it empty and the platform owns the certificate: the gateway controller
+	// derives a name, self-issues a certificate under it and writes the derived name
+	// back into this same Data key. A later read therefore projects the derived name
+	// here. Clearing the field again removes the key, and the controller then derives
+	// the same name from the connector's own name and writes it back, reusing the
+	// certificate already stored under it, so clearing a platform-derived name is not
+	// a way to force a rotation. Clearing a name you brought yourself is the real
+	// handover: there the controller derives its own name and self-issues under it.
+	//
+	// status.observability.gatewayCertSecretName reports the same single stored value,
+	// alongside the other gateway observations.
+	// +optional
+	ObservabilityGatewayCertSecretName string `json:"observabilityGatewayCertSecretName,omitempty"`
+
+	// ServiceType selects the observability gateway Service type, ClusterIP or
+	// LoadBalancer. Data key "serviceType". Empty keeps the key absent and means
+	// ClusterIP, exactly how consumers treat a Secret without the key; the implied
+	// default is deliberately not materialized so an untouched UI create and an API
+	// create stay byte-identical.
+	// +optional
+	ServiceType string `json:"serviceType,omitempty"`
+
+	// ServiceAnnotations is raw YAML text with flat "key: value" pairs merged into
+	// the gateway Service's annotations. Data key "serviceAnnotations". The gateway
+	// controller stamps them onto the Service whatever its type, and the value is
+	// stored as sent for any serviceType; it only has a visible effect on a
+	// LoadBalancer Service, where the cloud provider reads it. The UI drops the value
+	// on save for other service types; the API keeps it.
+	// +optional
+	ServiceAnnotations string `json:"serviceAnnotations,omitempty"`
+
+	// Destinations is raw YAML text listing additional OTLP destinations the
+	// gateway forwards to. Data key "destinations". Each entry has:
+	//
+	//   - name: unique, lowercase, up to 40 characters
+	//   - signal: metrics or logs
+	//   - endpoint: an http or https URL
+	//   - insecureSkipVerify: optional, skips TLS verification
+	//   - certSecretName: optional, a kubernetes.io/tls Secret for mTLS
+	//
+	// The list is checked with the gateway controller's parser and stored as sent.
+	// +optional
+	Destinations string `json:"destinations,omitempty"`
+
+	// GatewayResources overrides the resource requests and limits of the gateway's
+	// write container. Data key "gatewayResources", stored as the JSON serialization
+	// of this value, which the gateway controller parses the same way it parses a YAML
+	// block a hand-written Secret carries. Unset leaves the key absent and the
+	// controller's defaults in effect. A stored value the controller could not parse
+	// projects as unset; the controller reports that failure itself.
+	// +optional
+	GatewayResources *corev1.ResourceRequirements `json:"gatewayResources,omitempty"`
+
+	// QueryProxyResources overrides the resource requests and limits of the gateway's
+	// query proxy container. Data key "queryProxyResources"; the same storage and
+	// parsing rules as gatewayResources apply.
+	// +optional
+	QueryProxyResources *corev1.ResourceRequirements `json:"queryProxyResources,omitempty"`
+}
+
+// ConnectorNetBoxSpec configures the connection to a NetBox instance the metal3 node
+// provider reads its bare metal inventory from. Every field maps to one Data key of the
+// backing Secret (given in each field comment), so a Secret written through this API is
+// exactly what pkg/netbox reads: a NodeProvider names it through
+// spec.metal3.netBox.secretRef with the connector's name and the platform namespace.
+//
+// One field is a credential under the Connector type's view rule: apiToken is served to
+// a caller who could update this connector and empty for every other caller, and on
+// update an empty value keeps the stored one, so a redacted read written back never
+// clears the token.
+type ConnectorNetBoxSpec struct {
+	// URL is the base URL of the NetBox instance, for example https://netbox.example.com.
+	// Data key "url". Required, must be an http or https URL.
+	// +required
+	URL string `json:"url"`
+
+	// APIToken is the NetBox API token requests are authenticated with. Data key
+	// "apiToken". Required on create. A credential (see the type comment): an empty
+	// value on update keeps the stored token, and a pre-existing Secret without a
+	// stored token cannot be updated through this API until the request supplies one.
+	// The token must be one created in the NetBox UI: NetBox rejects tokens obtained
+	// from its provisioning endpoint.
+	// +optional
+	APIToken string `json:"apiToken,omitempty"`
+
+	// Insecure skips TLS certificate verification of the NetBox URL. Data key
+	// "insecure", always stamped as "true" or "false" exactly like the UI writes it; a
+	// missing or unparsable stored value projects as false, which is how the NetBox
+	// client reads it too.
+	// +optional
+	Insecure bool `json:"insecure,omitempty"`
+}
+
 // ConnectorStatus reports what the platform knows about a connector. Nothing here is
 // settable through this API: a create drops whatever status the request carried and an
 // update replaces it with the stored object's, so a client can never write status and
@@ -466,4 +720,66 @@ type ConnectorStatus struct {
 	// transition the server observed.
 	// +optional
 	Conditions agentstoragev1.Conditions `json:"conditions,omitempty"`
+
+	// Observability holds the observations that only the observability connector type
+	// has and is set only when spec.type is observability. Its fields are what the
+	// gateway controller reports, not a copy of the spec: the endpoint, CA and
+	// certificate facts exist nowhere in the configuration. The other two types have no
+	// type-specific facts in v1 and therefore have no status section of their own.
+	// +optional
+	Observability *ConnectorObservabilityStatus `json:"observability,omitempty"`
+}
+
+// ConnectorObservabilityStatus holds the observability gateway facts the platform
+// observes rather than accepts. They are observations and references for display, not
+// conditions: readiness rides the conditions list instead.
+//
+// All but one field stay absent until a controller publishes them, so an unpublished
+// connector reports an absent section rather than zero values that would read as
+// facts. The exception is GatewayCertSecretName, which the API fills from the
+// connector's own stored configuration on every read, with no controller involved; its
+// own comment says so in full.
+type ConnectorObservabilityStatus struct {
+	// GatewayEndpoint is the address collectors send OTLP traffic to and the metrics
+	// query proxy is reached at, taken from the gateway Service's load balancer
+	// hostname or IP.
+	// +optional
+	GatewayEndpoint string `json:"gatewayEndpoint,omitempty"`
+
+	// GatewayCA is the PEM-encoded CA certificate a collector must trust to talk to
+	// the gateway, so it can be copied straight out of a connector into a collector
+	// configuration.
+	// +optional
+	GatewayCA string `json:"gatewayCA,omitempty"`
+
+	// GatewayCertSecretName is the name of the kubernetes.io/tls Secret the
+	// observability gateway is configured to serve, as stored on the connector: either
+	// the one an admin brought through
+	// spec.observability.observabilityGatewayCertSecretName, or the one the gateway
+	// controller derived, self-issued and wrote back when that field was left empty.
+	//
+	// It is the same single Data key the spec field is backed by, so the two can never
+	// report different names; it is repeated here so a consumer reading status finds
+	// the certificate reference next to the other gateway observations. Unlike the rest
+	// of this section, which stays absent until a controller publishes it, the API
+	// fills this field from the connector's stored configuration on every read, so no
+	// controller has to publish it and a published copy never wins. It stays absent
+	// until the gateway controller has written its derived name back: until then the
+	// name in effect is the one the controller and the datasource consumers derive
+	// from the connector name, and this field does not report it.
+	// +optional
+	GatewayCertSecretName string `json:"gatewayCertSecretName,omitempty"`
+
+	// CertExpiresAt is the NotAfter of the certificate the gateway serves. It is a
+	// pointer so an unpublished expiry is absent rather than the zero time, which
+	// would read as a certificate that expired in year one.
+	// +optional
+	CertExpiresAt *metav1.Time `json:"certExpiresAt,omitempty"`
+
+	// CertSelfIssued reports whether the platform issued the gateway certificate
+	// itself rather than the admin bringing one. It is a pointer because false is a
+	// meaningful answer here and must stay distinguishable from "no controller has
+	// published cert facts yet".
+	// +optional
+	CertSelfIssued *bool `json:"certSelfIssued,omitempty"`
 }

@@ -20,6 +20,11 @@ const (
 	InstanceExternalResourcesCleanedUp        agentstoragev1.ConditionType = "ExternalResourcesCleanedUp"
 	InstanceVirtualClusterAutoDeletionBlocked agentstoragev1.ConditionType = "VirtualClusterAutoDeletionBlocked"
 
+	// InstanceReasonClusterRefRejected is set on VirtualClusterSynced when the platform refuses
+	// the clusterRef an agent found for an external instance by its service UID. The platform
+	// keeps it instead of marking an unassigned external instance synced.
+	InstanceReasonClusterRefRejected = "ClusterRefRejected"
+
 	// InstanceObservabilityUnsupported is set when an instance requests observability that this
 	// platform deployment cannot serve, and is removed when there is nothing to report. Problems
 	// are reported as status False with a severity, so this condition is never True.

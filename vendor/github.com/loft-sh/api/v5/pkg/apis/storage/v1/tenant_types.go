@@ -50,9 +50,8 @@ const TenantLabel = "tenant.vcluster.com/owner"
 // It is mutually exclusive with TenantLabel; see the note there for what happens when a
 // resource carries both.
 //
-// An empty value reserves the resource for the platform, whose tenant is nameless. That is a
-// claim and not the absence of one, so the label's presence is the question to ask; see
-// tenancy.IsPlatformAssigned.
+// The value must name a tenant. The platform uses whatever no tenant owns or holds, so there
+// is nothing to reserve for it and an empty value is refused.
 //
 // The holder reads and references it; the operator keeps every write, including the delete.
 const TenantExclusiveHolderLabel = "tenant.vcluster.com/exclusive-to"
@@ -403,10 +402,11 @@ type TenantNodeTypeAllow struct {
 // that category. Further categories (a capacity-property matcher, for instance) are
 // added as consumers for them appear; ByType is the only one with a consumer today.
 type TenantNodeTypeQuota struct {
-	// ByType caps how many nodes the tenant may run of each NodeType, keyed by
-	// NodeType name (e.g. "eu-west.medium": "5"). Values are non-negative integer
-	// counts, the same encoding a Project's Quotas use and the same one pkg/quota's
-	// admission path parses for management resources such as nodeclaims.
+	// ByType caps on-demand capacity per NodeType name (e.g. "eu-west.medium": "5"). Values are
+	// non-negative integer counts, the same encoding a Project's quotas use. Claims bound to machines
+	// the tenant owns or was assigned exclusively, and pinned claims, do not count. Metal3 and NICo types
+	// not OnDemand, and KubeVirt Assigned types, are not limited. Under OnDemand, an over-quota claim waits
+	// even with an assigned machine free; pin it with machineRef.
 	// +optional
 	ByType map[string]string `json:"byType,omitempty"`
 }

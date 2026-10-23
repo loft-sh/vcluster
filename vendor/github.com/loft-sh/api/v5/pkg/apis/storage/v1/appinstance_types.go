@@ -28,6 +28,9 @@ const (
 	// AppInstanceReasonDestinationNotReady is set when that destination exists but
 	// cannot take a deploy yet.
 	AppInstanceReasonDestinationNotReady = "DestinationNotReady"
+
+	// AppInstanceReasonDeployFailed is set when the helm deploy of the instance failed.
+	AppInstanceReasonDeployFailed = "DeployFailed"
 )
 
 // +genclient

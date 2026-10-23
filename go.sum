@@ -348,12 +348,12 @@ github.com/lithammer/dedent v1.1.0 h1:VNzHMVCBNG1j0fh3OrsFRkVUwStdDArbgBWoPAffkt
 github.com/lithammer/dedent v1.1.0/go.mod h1:jrXYCQtgg0nJiN+StA2KgR7w6CiQNv9Fd/Z9BP0jIOc=
 github.com/loft-sh/admin-apis v0.0.0-20260928151145-c0a92a2b2cf8 h1:cWuxRoc6g0QDRxmibH6DVukNibs88Mmdao56Didm5Vg=
 github.com/loft-sh/admin-apis v0.0.0-20260928151145-c0a92a2b2cf8/go.mod h1:pp+2PgOsRCTb1DXnEev/HCc0gvj5t0nHuTIMU8C8b90=
-github.com/loft-sh/agentapi/v5 v5.0.0-alpha.1 h1:slgrIXISUjIMyEL+Z6AnIwwoQb5BLNThHPwPE9QuHSQ=
-github.com/loft-sh/agentapi/v5 v5.0.0-alpha.1/go.mod h1:sXdRxueSDpaEBDHeyjkEtHyvHdQ3HRyALZ5dIH/dpjk=
+github.com/loft-sh/agentapi/v5 v5.0.0-alpha.6 h1:72w4OZmI0sMbB6j13XOoH8rpS46wwrTpq/JiscVDYY0=
+github.com/loft-sh/agentapi/v5 v5.0.0-alpha.6/go.mod h1:sXdRxueSDpaEBDHeyjkEtHyvHdQ3HRyALZ5dIH/dpjk=
 github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e h1:JcPnMaoczikvpasi8OJ47dCkWZjfgFubWa4V2SZo7h0=
 github.com/loft-sh/analytics-client v0.0.0-20240219162240-2f4c64b2494e/go.mod h1:FFWcGASyM2QlWTDTCG/WBVM/XYr8btqYt335TFNRCFg=
-github.com/loft-sh/api/v5 v5.0.0-alpha.1 h1:pSyW08z2r4qKhABTqHC7cfVhDDinlrj+pYLIht1EtNc=
-github.com/loft-sh/api/v5 v5.0.0-alpha.1/go.mod h1:Yr+BOuhcYpw+YHm05MM1baxd8VOhXNnbxo7YCG5Kdlo=
+github.com/loft-sh/api/v5 v5.0.0-alpha.6 h1:hKjdjoQbONk3fooSPFGkw0NxwL8a+dQhFnfEUuR3Jks=
+github.com/loft-sh/api/v5 v5.0.0-alpha.6/go.mod h1:bTEKAZz9EHt4FM8H9RVjhuUfBjsRnwF53GpWwLl0jlc=
 github.com/loft-sh/apiserver v0.0.0-20260707184419-aef558a5ae8d h1:i+nBgAm6Wuc/9ALNniOdRWJfgz/og5AOgbs4pJVolqE=
 github.com/loft-sh/apiserver v0.0.0-20260707184419-aef558a5ae8d/go.mod h1:YfIUirXHfVcUb3bVtj7yzIAVT6etrHj9wkOkMgnEuz0=
 github.com/loft-sh/e2e-framework v0.0.0-20260721073036-aa8d4d6d0958 h1:ruX0UEryszOsjlDf38QtEK1zn9xMhy4C9iJazauVjIg=

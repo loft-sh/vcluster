@@ -2297,6 +2297,39 @@ type ConnectorImageStoreSpec struct {
 	S3       *ConnectorImageStoreS3Spec `json:"s3,omitempty"`
 }
 
+type ConnectorNetBoxSpec struct {
+	URL      string `json:"url"`
+	APIToken string `json:"apiToken,omitempty"`
+	Insecure bool   `json:"insecure,omitempty"`
+}
+
+type ConnectorObservabilitySpec struct {
+	FleetDefault                       *bool                        `json:"fleetDefault,omitempty"`
+	GrafanaURL                         string                       `json:"grafanaUrl,omitempty"`
+	GrafanaInsecureSkipVerify          bool                         `json:"grafanaInsecureSkipVerify,omitempty"`
+	FleetObservabilityDashboardUID     string                       `json:"fleetObservabilityDashboardUid,omitempty"`
+	MetricsBackendOtlpEndpoint         string                       `json:"metricsBackendOtlpEndpoint,omitempty"`
+	MetricsBackendPromQLEndpoint       string                       `json:"metricsBackendPromQLEndpoint,omitempty"`
+	MetricsBackendCertSecretName       string                       `json:"metricsBackendCertSecretName,omitempty"`
+	MetricsBackendInsecureSkipVerify   bool                         `json:"metricsBackendInsecureSkipVerify,omitempty"`
+	MetricsBackendServerName           string                       `json:"metricsBackendServerName,omitempty"`
+	GrafanaCertSecretName              string                       `json:"grafanaCertSecretName,omitempty"`
+	ObservabilityGatewayCertSecretName string                       `json:"observabilityGatewayCertSecretName,omitempty"`
+	ServiceType                        string                       `json:"serviceType,omitempty"`
+	ServiceAnnotations                 string                       `json:"serviceAnnotations,omitempty"`
+	Destinations                       string                       `json:"destinations,omitempty"`
+	GatewayResources                   *corev1.ResourceRequirements `json:"gatewayResources,omitempty"`
+	QueryProxyResources                *corev1.ResourceRequirements `json:"queryProxyResources,omitempty"`
+}
+
+type ConnectorObservabilityStatus struct {
+	GatewayEndpoint       string       `json:"gatewayEndpoint,omitempty"`
+	GatewayCA             string       `json:"gatewayCA,omitempty"`
+	GatewayCertSecretName string       `json:"gatewayCertSecretName,omitempty"`
+	CertExpiresAt         *metav1.Time `json:"certExpiresAt,omitempty"`
+	CertSelfIssued        *bool        `json:"certSelfIssued,omitempty"`
+}
+
 type ConnectorSharedDatabaseSpec struct {
 	Dialect                        SharedDatabaseDialect `json:"dialect"`
 	Endpoint                       string                `json:"endpoint"`
@@ -2311,13 +2344,17 @@ type ConnectorSharedDatabaseSpec struct {
 
 type ConnectorSpec struct {
 	DisplayName    string                       `json:"displayName,omitempty"`
+	Description    string                       `json:"description,omitempty"`
 	SharedDatabase *ConnectorSharedDatabaseSpec `json:"sharedDatabase,omitempty"`
 	ArgoCD         *ConnectorArgoCDSpec         `json:"argoCd,omitempty"`
+	NetBox         *ConnectorNetBoxSpec         `json:"netBox,omitempty"`
 	ImageStore     *ConnectorImageStoreSpec     `json:"imageStore,omitempty"`
+	Observability  *ConnectorObservabilitySpec  `json:"observability,omitempty"`
 }
 
 type ConnectorStatus struct {
-	Conditions agentstoragev1.Conditions `json:"conditions,omitempty"`
+	Conditions    agentstoragev1.Conditions     `json:"conditions,omitempty"`
+	Observability *ConnectorObservabilityStatus `json:"observability,omitempty"`
 }
 
 // +genclient
@@ -3611,7 +3648,6 @@ type UserClusters struct {
 type UserInfo struct {
 	storagev1.EntityInfo `json:",inline"`
 	Teams                []*storagev1.EntityInfo `json:"teams,omitempty"`
-	Tenant               string                  `json:"tenant,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

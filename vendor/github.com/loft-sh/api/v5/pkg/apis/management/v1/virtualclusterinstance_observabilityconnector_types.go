@@ -11,7 +11,7 @@ import (
 //
 // Creating it refuses in one of five ways, which differ only in what the caller should do next:
 //
-//   - 400: the connector, or the instance's own config, is missing or has to be repaired
+//   - 400: the connector or the instance's own config is missing, unusable or has to be repaired
 //   - 403: the platform refuses the caller's entitlement or identity
 //   - 404: the instance is not there, or is on its way out
 //   - 405: the deployment builds no connector at all

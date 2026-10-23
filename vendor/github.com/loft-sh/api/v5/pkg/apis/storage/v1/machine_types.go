@@ -17,6 +17,11 @@ const (
 	// machine is free or consumed outside the platform.
 	MachineNodeClaimAnnotation = "machines.vcluster.com/node-claim"
 
+	// MachineProviderLabelsAnnotation records keys the inventory sync last wrote. It is present, possibly
+	// empty, once the sync has run, which is how selectors tell an unsynced Machine from one without
+	// provider labels.
+	MachineProviderLabelsAnnotation = "machines.vcluster.com/provider-labels"
+
 	// MachineSourceLabel names the inventory a machine was recorded from before
 	// the provider knew about it. A machine without it is a plain mirror of the
 	// provider inventory and disappears with it; a machine carrying it is owned
@@ -75,7 +80,8 @@ const (
 	// MachinePhaseDeprovisioning means the provider is tearing the machine
 	// down: wiping it after release or powering it off for deletion. Reason
 	// carries the provider's step, for metal3 "deprovisioning", "powering off
-	// before delete" or "deleting".
+	// before delete" or "deleting"; NICo reports InUse after the instance is
+	// gone.
 	MachinePhaseDeprovisioning MachinePhase = "Deprovisioning"
 	// MachinePhaseMaintenance means the machine was deliberately taken out of
 	// service (metal3 detached, NICo Maintenance or Decommissioned).

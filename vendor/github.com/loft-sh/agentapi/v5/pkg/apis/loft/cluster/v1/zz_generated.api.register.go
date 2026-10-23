@@ -18,6 +18,10 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&IronicNode{},
 		&IronicNodeList{},
 		&IronicNodeAbort{},
+		&Metal3BMC{},
+		&Metal3BMCList{},
+		&Metal3BMCConsole{},
+		&Metal3BMCRedfish{},
 	)
 	return nil
 }
@@ -31,6 +35,19 @@ var (
 			func() runtime.Object { return &IronicNodeAbort{} }, // Register versioned resource
 			nil,
 			cluster.NewIronicNodeAbortREST,
+		),
+		cluster.ClusterMetal3BMCStorage,
+		builders.NewApiResourceWithStorage(
+			cluster.InternalMetal3BMCConsoleREST,
+			func() runtime.Object { return &Metal3BMCConsole{} }, // Register versioned resource
+			nil,
+			cluster.NewMetal3BMCConsoleREST,
+		),
+		builders.NewApiResourceWithStorage(
+			cluster.InternalMetal3BMCRedfishREST,
+			func() runtime.Object { return &Metal3BMCRedfish{} }, // Register versioned resource
+			nil,
+			cluster.NewMetal3BMCRedfishREST,
 		),
 	)
 
@@ -85,4 +102,28 @@ type IronicNodeAbortList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []IronicNodeAbort `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type Metal3BMCList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []Metal3BMC `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type Metal3BMCConsoleList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []Metal3BMCConsole `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type Metal3BMCRedfishList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []Metal3BMCRedfish `json:"items"`
 }
