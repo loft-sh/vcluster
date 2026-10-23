@@ -48,11 +48,13 @@ func TestFromHostRegister(t *testing.T) {
 
 func TestFromHostReconcile(t *testing.T) {
 	testCases := []struct {
-		Name                    string
-		Mappings                map[string]types.NamespacedName
-		Request                 ctrl.Request
-		InitialHostServices     []runtime.Object
-		ExpectedVirtualServices []runtime.Object
+		Name                     string
+		Mappings                 map[string]types.NamespacedName
+		Request                  ctrl.Request
+		InitialHostServices      []runtime.Object
+		ExpectedVirtualServices  []runtime.Object
+		ExpectedVirtualEndpoints []runtime.Object
+		ReconcileTimes           int
 	}{
 		{
 			Name: "Reconcile without errors when service is not synced",
@@ -138,6 +140,82 @@ func TestFromHostReconcile(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "Sync host LoadBalancer service endpoints without copying loadbalancer status",
+			InitialHostServices: []runtime.Object{
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "host-namespace",
+						Name:      "host-service",
+					},
+					Spec: corev1.ServiceSpec{
+						Type:      corev1.ServiceTypeLoadBalancer,
+						ClusterIP: "10.0.0.1",
+						Ports: []corev1.ServicePort{
+							{
+								Name: "http",
+								Port: 8080,
+							},
+						},
+					},
+					Status: corev1.ServiceStatus{
+						LoadBalancer: corev1.LoadBalancerStatus{
+							Ingress: []corev1.LoadBalancerIngress{{IP: "192.0.2.1"}},
+						},
+					},
+				},
+			},
+			ExpectedVirtualServices: []runtime.Object{
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "virtual-namespace",
+						Name:      "virtual-service",
+						Labels: map[string]string{
+							translate.ControllerLabel: "vcluster",
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						ClusterIP: corev1.ClusterIPNone,
+						Ports: []corev1.ServicePort{
+							{
+								Name: "http",
+								Port: 8080,
+							},
+						},
+					},
+				},
+			},
+			ExpectedVirtualEndpoints: []runtime.Object{
+				&corev1.Endpoints{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "virtual-namespace",
+						Name:      "virtual-service",
+						Labels: map[string]string{
+							translate.ControllerLabel: "vcluster",
+						},
+					},
+					Subsets: []corev1.EndpointSubset{
+						{
+							Addresses: []corev1.EndpointAddress{{IP: "10.0.0.1"}},
+							Ports:     []corev1.EndpointPort{{Name: "http", Port: 8080}},
+						},
+					},
+				},
+			},
+			Mappings: map[string]types.NamespacedName{
+				"host-namespace/host-service": {
+					Namespace: "virtual-namespace",
+					Name:      "virtual-service",
+				},
+			},
+			Request: ctrl.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: "host-namespace",
+					Name:      "host-service",
+				},
+			},
+			ReconcileTimes: 2,
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -148,6 +226,7 @@ func TestFromHostReconcile(t *testing.T) {
 			fakeConfig := testingutil.NewFakeConfig()
 			fakeContext := syncertesting.NewFakeRegisterContext(fakeConfig, pClient, vClient)
 			serviceGVK := corev1.SchemeGroupVersion.WithKind("Service")
+			endpointsGVK := corev1.SchemeGroupVersion.WithKind("Endpoints")
 
 			// create new FromHost syncer
 			serviceSyncer := &ServiceSyncer{
@@ -163,10 +242,16 @@ func TestFromHostReconcile(t *testing.T) {
 			}
 
 			// Reconcile host resource
-			_, err := serviceSyncer.Reconcile(fakeContext, testCase.Request)
+			reconcileTimes := testCase.ReconcileTimes
+			if reconcileTimes == 0 {
+				reconcileTimes = 1
+			}
+			for range reconcileTimes {
+				_, err := serviceSyncer.Reconcile(fakeContext, testCase.Request)
 
-			// Check that reconcile executes without errors
-			assert.NilError(t, err)
+				// Check that reconcile executes without errors
+				assert.NilError(t, err)
+			}
 
 			// Check expected resources
 			if testCase.ExpectedVirtualServices != nil {
@@ -181,6 +266,20 @@ func TestFromHostReconcile(t *testing.T) {
 					nil)
 				if compareErr != nil {
 					t.Fatalf("%s - Virtual State mismatch %v", testCase.Name, compareErr)
+				}
+			}
+			if testCase.ExpectedVirtualEndpoints != nil {
+				compareErr := syncertesting.CompareObjs(
+					fakeContext,
+					t,
+					testCase.Name+" virtual endpoints state",
+					fakeContext.VirtualManager.GetClient(),
+					endpointsGVK,
+					scheme.Scheme,
+					testCase.ExpectedVirtualEndpoints,
+					nil)
+				if compareErr != nil {
+					t.Fatalf("%s - Virtual endpoints state mismatch %v", testCase.Name, compareErr)
 				}
 			}
 		})
