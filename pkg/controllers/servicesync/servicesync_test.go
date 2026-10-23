@@ -138,6 +138,67 @@ func TestFromHostReconcile(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "Do not attempt LoadBalancer status update when target service is ClusterIP",
+			InitialHostServices: []runtime.Object{
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "host-namespace",
+						Name:      "lb-service",
+					},
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeLoadBalancer,
+						Ports: []corev1.ServicePort{
+							{
+								Name: "http",
+								Port: 80,
+							},
+						},
+					},
+					Status: corev1.ServiceStatus{
+						LoadBalancer: corev1.LoadBalancerStatus{
+							Ingress: []corev1.LoadBalancerIngress{
+								{
+									IP: "1.2.3.4",
+								},
+							},
+						},
+					},
+				},
+			},
+			ExpectedVirtualServices: []runtime.Object{
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "virtual-namespace",
+						Name:      "virtual-service",
+						Labels: map[string]string{
+							translate.ControllerLabel: "vcluster",
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						ClusterIP: "None",
+						Ports: []corev1.ServicePort{
+							{
+								Name: "http",
+								Port: 80,
+							},
+						},
+					},
+				},
+			},
+			Mappings: map[string]types.NamespacedName{
+				"host-namespace/lb-service": {
+					Namespace: "virtual-namespace",
+					Name:      "virtual-service",
+				},
+			},
+			Request: ctrl.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: "host-namespace",
+					Name:      "lb-service",
+				},
+			},
+		},
 	}
 
 	for _, testCase := range testCases {
