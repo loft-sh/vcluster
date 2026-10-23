@@ -61,7 +61,7 @@
 {{- end }}
 {{- $counter = add1 $counter }}
 - {{- if $.Values.controlPlane.advanced.defaultImageRegistry }}
-  image: {{ $.Values.controlPlane.advanced.defaultImageRegistry }}/{{ $container.image }}
+  image: {{ trimSuffix "/" $.Values.controlPlane.advanced.defaultImageRegistry }}/{{ $container.image }}
   {{- else }}
   image: {{ $container.image }}
   {{- end }}
