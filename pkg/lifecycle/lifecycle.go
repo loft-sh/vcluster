@@ -48,13 +48,13 @@ func PauseVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, name, 
 		if err != nil {
 			return err
 		}
+	}
 
-		// scale down etcd
-		if !isRestore {
-			_, err = scaleDownStatefulSet(ctx, kubeClient, "app=vcluster-etcd,release="+name, namespace, isRestore, log)
-			if err != nil {
-				return err
-			}
+	// scale down etcd
+	if !isRestore {
+		_, err = scaleDownStatefulSet(ctx, kubeClient, "app=vcluster-etcd,release="+name, namespace, isRestore, log)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -300,12 +300,12 @@ func ResumeVCluster(ctx context.Context, kubeClient *kubernetes.Clientset, name,
 		if err != nil {
 			return err
 		}
+	}
 
-		// scale up etcd
-		_, err = scaleUpStatefulSet(ctx, kubeClient, "app=vcluster-etcd,release="+name, namespace, isRestore, log)
-		if err != nil {
-			return err
-		}
+	// scale up etcd
+	_, err = scaleUpStatefulSet(ctx, kubeClient, "app=vcluster-etcd,release="+name, namespace, isRestore, log)
+	if err != nil {
+		return err
 	}
 
 	return nil
