@@ -450,6 +450,59 @@ func TestSync(t *testing.T) {
 		},
 	}
 
+	vServiceArgoRollouts := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      vObjectMeta.Name,
+			Namespace: vObjectMeta.Namespace,
+			Annotations: map[string]string{
+				"argo-rollouts.argoproj.io/managed-by-rollouts": "test-rollout",
+				"some-annotation": "some-value",
+			},
+		},
+	}
+	pServiceArgoRolloutsSynced := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pObjectMeta.Name,
+			Namespace: pObjectMeta.Namespace,
+			Labels:    pObjectMeta.Labels,
+			Annotations: map[string]string{
+				translate.NameAnnotation:          vObjectMeta.Name,
+				translate.NamespaceAnnotation:     vObjectMeta.Namespace,
+				translate.UIDAnnotation:           "",
+				translate.KindAnnotation:          corev1.SchemeGroupVersion.WithKind("Service").String(),
+				translate.HostNamespaceAnnotation: pObjectMeta.Namespace,
+				translate.HostNameAnnotation:      pObjectMeta.Name,
+				"some-annotation":                 "some-value",
+			},
+		},
+	}
+	pServiceArgoRollouts := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pObjectMeta.Name,
+			Namespace: pObjectMeta.Namespace,
+			Labels:    pObjectMeta.Labels,
+			Annotations: map[string]string{
+				translate.NameAnnotation:                        vObjectMeta.Name,
+				translate.NamespaceAnnotation:                   vObjectMeta.Namespace,
+				translate.UIDAnnotation:                         "",
+				translate.KindAnnotation:                        corev1.SchemeGroupVersion.WithKind("Service").String(),
+				translate.HostNamespaceAnnotation:               pObjectMeta.Namespace,
+				translate.HostNameAnnotation:                    pObjectMeta.Name,
+				"argo-rollouts.argoproj.io/managed-by-rollouts": "test-rollout",
+				"some-annotation":                               "some-value",
+			},
+		},
+	}
+	vServiceArgoRolloutsSynced := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      vObjectMeta.Name,
+			Namespace: vObjectMeta.Namespace,
+			Annotations: map[string]string{
+				"some-annotation": "some-value",
+			},
+		},
+	}
+
 	tests := []*syncertesting.SyncTest{
 		{
 			Name:                "Create Forward",
@@ -788,6 +841,44 @@ func TestSync(t *testing.T) {
 				vObjOld := vServiceClusterIPFromLoadBalancerBefore.DeepCopy()
 				vObjNew := vServiceClusterIPFromLoadBalancer.DeepCopy()
 				_, err := syncer.(*serviceSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(pObjOld, pObjNew, vObjOld, vObjNew))
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "Exclude Argo Rollouts managed annotations from syncing virtual -> physical",
+			InitialVirtualState:  []runtime.Object{vServiceArgoRollouts.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{createdService.DeepCopy()},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Service"): {vServiceArgoRollouts.DeepCopy()},
+			},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Service"): {pServiceArgoRolloutsSynced.DeepCopy()},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				pObj := createdService.DeepCopy()
+				vObjOld := baseService.DeepCopy()
+				vObjNew := vServiceArgoRollouts.DeepCopy()
+				_, err := syncer.(*serviceSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(pObj, pObj, vObjOld, vObjNew))
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "Exclude Argo Rollouts managed annotations from syncing physical -> virtual",
+			InitialVirtualState:  []runtime.Object{baseService.DeepCopy()},
+			InitialPhysicalState: []runtime.Object{pServiceArgoRollouts.DeepCopy()},
+			ExpectedVirtualState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Service"): {vServiceArgoRolloutsSynced.DeepCopy()},
+			},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("Service"): {pServiceArgoRollouts.DeepCopy()},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				pObjOld := createdService.DeepCopy()
+				pObjNew := pServiceArgoRollouts.DeepCopy()
+				vObj := baseService.DeepCopy()
+				_, err := syncer.(*serviceSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(pObjOld, pObjNew, vObj, vObj))
 				assert.NilError(t, err)
 			},
 		},
