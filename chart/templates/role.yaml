@@ -139,6 +139,12 @@ rules:
   - apiGroups: ["resource.k8s.io"]
     resources: ["resourceclaims/status"]
     verbs: ["patch", "update"]
+  - apiGroups: ["resource.k8s.io"]
+    resources: ["resourceclaims/binding"]
+    verbs: ["patch", "update"]
+  - apiGroups: ["resource.k8s.io"]
+    resources: ["resourceclaims/driver"]
+    verbs: ["arbitrary-node:patch", "arbitrary-node:update"]
   {{- end }}
   {{ if .Values.sync.toHost.resourceClaimTemplates.enabled}}
   - apiGroups: ["resource.k8s.io"]
