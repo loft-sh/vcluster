@@ -225,6 +225,60 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
+			Name: "Keep translated service-name label when virtual label changes",
+			InitialVirtualState: []runtime.Object{
+				updatedEndpointSlice,
+			},
+			InitialPhysicalState: []runtime.Object{
+				syncedEndpointSlice,
+			},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				discoveryv1.SchemeGroupVersion.WithKind("EndpointSlice"): {
+					syncedUpdatedEndpointSlice,
+				},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				oldVirtual := baseEndpointSlice.DeepCopy()
+				oldVirtual.Labels[translate.K8sServiceNameLabel] = "old-svc"
+				host := syncedEndpointSlice.DeepCopy()
+				_, err := syncer.(*endpointSliceSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(
+					host,
+					host,
+					oldVirtual,
+					updatedEndpointSlice,
+				))
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name: "Keep translated service-name label when old virtual has no labels",
+			InitialVirtualState: []runtime.Object{
+				updatedEndpointSlice,
+			},
+			InitialPhysicalState: []runtime.Object{
+				syncedEndpointSlice,
+			},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				discoveryv1.SchemeGroupVersion.WithKind("EndpointSlice"): {
+					syncedUpdatedEndpointSlice,
+				},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				oldVirtual := baseEndpointSlice.DeepCopy()
+				oldVirtual.Labels = nil
+				host := syncedEndpointSlice.DeepCopy()
+				_, err := syncer.(*endpointSliceSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(
+					host,
+					host,
+					oldVirtual,
+					updatedEndpointSlice,
+				))
+				assert.NilError(t, err)
+			},
+		},
+		{
 			Name: "Don't sync default/kubernetes endpointSlice",
 			Sync: func(ctx *synccontext.RegisterContext) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
