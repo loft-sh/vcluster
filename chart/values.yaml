@@ -49,7 +49,7 @@ sync:
         # InitContainer holds extra options for the init container used by vCluster to rewrite the FQDN for stateful set pods.
         initContainer:
           # Image is the image virtual cluster should use to rewrite this FQDN.
-          image: "library/alpine:3.20"
+          image: "library/alpine:3.24"
           # Resources are the resources that should be assigned to the init container for each stateful set init container.
           resources:
             # Limits are resource limits for the container
