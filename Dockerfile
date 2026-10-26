@@ -2,7 +2,7 @@ ARG KINE_VERSION="v0.13.14"
 FROM rancher/kine:${KINE_VERSION} AS kine
 
 # Build program
-FROM golang:1.24 AS builder
+FROM golang:1.26 AS builder
 
 WORKDIR /vcluster-dev
 ARG TARGETOS
@@ -57,7 +57,7 @@ RUN --mount=type=cache,id=gomod,target=/go/pkg/mod \
 ENTRYPOINT ["go", "run", "-mod", "vendor", "cmd/vcluster/main.go", "start"]
 
 # we use alpine for easier debugging
-FROM alpine:3.21
+FROM alpine:3.24
 
 # install runtime dependencies
 RUN apk add --no-cache ca-certificates zstd tzdata
