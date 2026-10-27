@@ -317,5 +317,8 @@ func (cmd *SecretCmd) listSharedSecretsWithFallback(ctx context.Context, namespa
 		}
 		errs = append(errs, fmt.Errorf("listing shared secrets in namespace %s failed: %w", ns, err))
 	}
+	if len(errs) == 0 {
+		return &managementv1.SharedSecretList{}, nil
+	}
 	return nil, stderrors.Join(errs...)
 }
