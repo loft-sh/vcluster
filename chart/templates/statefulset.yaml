@@ -90,9 +90,6 @@ spec:
       tolerations:
 {{ toYaml .Values.controlPlane.statefulSet.scheduling.tolerations | indent 8 }}
       {{- end }}
-      {{- if .Values.controlPlane.statefulSet.scheduling.priorityClassName }}
-      priorityClassName: {{ .Values.controlPlane.statefulSet.scheduling.priorityClassName }}
-      {{- end }}
       {{- if .Values.controlPlane.statefulSet.dnsPolicy }}
       dnsPolicy: {{ .Values.controlPlane.statefulSet.dnsPolicy }}
       {{- end }}
