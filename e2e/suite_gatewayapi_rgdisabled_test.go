@@ -1,0 +1,38 @@
+package e2e
+
+import (
+	"context"
+	_ "embed"
+
+	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
+	"github.com/loft-sh/vcluster/e2e/clusters"
+	"github.com/loft-sh/vcluster/e2e/labels"
+	"github.com/loft-sh/vcluster/e2e/setup"
+	"github.com/loft-sh/vcluster/e2e/setup/lazyvcluster"
+	"github.com/loft-sh/vcluster/e2e/test_gatewayapi"
+	. "github.com/onsi/ginkgo/v2"
+)
+
+//go:embed vcluster-gatewayapi-rg-disabled.yaml
+var gatewayAPIRGDisabledVClusterYAML string
+
+const gatewayAPIRGDisabledVClusterName = "gatewayapi-rgdisabled-vcluster"
+
+func init() { suiteGatewayAPIRGDisabledVCluster() }
+
+func suiteGatewayAPIRGDisabledVCluster() {
+	Describe("gatewayapi-rgdisabled-vcluster", labels.GatewayAPI, Ordered,
+		cluster.Use(clusters.HostCluster),
+		func() {
+			BeforeAll(func(ctx context.Context) context.Context {
+				return lazyvcluster.LazyVCluster(ctx,
+					gatewayAPIRGDisabledVClusterName,
+					gatewayAPIRGDisabledVClusterYAML,
+					lazyvcluster.WithPreSetup(setup.GatewayAPIPreSetup()),
+				)
+			})
+
+			test_gatewayapi.GatewayAPIReferenceGrantDisabledSpec()
+		},
+	)
+}
