@@ -727,7 +727,7 @@ func TestBuildResizePatch(t *testing.T) {
 		vPod := makePod("30Mi")
 		pPod := makePod("20Mi")
 
-		patchBytes, err := buildHostPodContainersResourcesResizePatch(vPod, pPod)
+		patchBytes, err := buildHostPodContainersResourcesResizePatch(makePod("20Mi"), vPod, pPod)
 		assert.NilError(t, err)
 		assert.Assert(t, patchBytes != nil)
 
@@ -744,7 +744,25 @@ func TestBuildResizePatch(t *testing.T) {
 		vPod := makePod("20Mi")
 		pPod := makePod("20Mi")
 
-		patchBytes, err := buildHostPodContainersResourcesResizePatch(vPod, pPod)
+		patchBytes, err := buildHostPodContainersResourcesResizePatch(makePod("30Mi"), vPod, pPod)
+		assert.NilError(t, err)
+		assert.Assert(t, patchBytes == nil)
+	})
+
+	t.Run("returns nil when only the host resources changed", func(t *testing.T) {
+		vPod := makePod("30Mi")
+		pPod := makePod("20Mi")
+
+		patchBytes, err := buildHostPodContainersResourcesResizePatch(makePod("30Mi"), vPod, pPod)
+		assert.NilError(t, err)
+		assert.Assert(t, patchBytes == nil)
+	})
+
+	t.Run("returns nil without an old virtual pod", func(t *testing.T) {
+		vPod := makePod("30Mi")
+		pPod := makePod("20Mi")
+
+		patchBytes, err := buildHostPodContainersResourcesResizePatch(nil, vPod, pPod)
 		assert.NilError(t, err)
 		assert.Assert(t, patchBytes == nil)
 	})
@@ -773,7 +791,7 @@ func TestBuildResizePatch(t *testing.T) {
 			},
 		})
 
-		patchBytes, err := buildHostPodContainersResourcesResizePatch(vPod, pPod)
+		patchBytes, err := buildHostPodContainersResourcesResizePatch(pPod, vPod, pPod)
 		assert.NilError(t, err)
 		assert.Assert(t, patchBytes != nil)
 
@@ -798,7 +816,7 @@ func TestBuildResizePatch(t *testing.T) {
 		})
 		pPod := makePod("20Mi")
 
-		patchBytes, err := buildHostPodContainersResourcesResizePatch(vPod, pPod)
+		patchBytes, err := buildHostPodContainersResourcesResizePatch(makePod("20Mi"), vPod, pPod)
 		assert.NilError(t, err)
 		assert.Assert(t, patchBytes != nil)
 
@@ -843,19 +861,20 @@ func TestResizeSkipsOldOrUnknownHostVersion(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			vOldPod := makePod("20Mi")
 			vPod := makePod("30Mi")
 			pPod := makePod("20Mi")
 
-			// the resources differ, so a resize patch would be built if the
+			// the virtual resources changed, so a resize patch would be built if the
 			// version guard did not return first
-			patchBytes, err := buildHostPodContainersResourcesResizePatch(vPod, pPod)
+			patchBytes, err := buildHostPodContainersResourcesResizePatch(vOldPod, vPod, pPod)
 			assert.NilError(t, err)
 			assert.Assert(t, patchBytes != nil)
 
 			s := &podSyncer{hostClusterVersion: tc.hostVersion}
 			// the nil SyncContext proves the guard returns before anything is
 			// patched: reaching the resize call would panic
-			err = s.resizeHostPodContainerResourcesInPlace(nil, synccontext.NewSyncEventWithOld(pPod, pPod, vPod, vPod))
+			err = s.resizeHostPodContainerResourcesInPlace(nil, synccontext.NewSyncEventWithOld(pPod, pPod, vOldPod, vPod))
 			assert.NilError(t, err)
 		})
 	}
