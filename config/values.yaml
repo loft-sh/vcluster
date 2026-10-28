@@ -142,7 +142,7 @@ controlPlane:
       image:
         registry: ghcr.io
         repository: "loft-sh/kubernetes"
-        tag: "v1.36.5"
+        tag: "v1.36.6"
       apiServer:
         enabled: true
         command: []
@@ -202,7 +202,7 @@ controlPlane:
           image:
             registry: "registry.k8s.io"
             repository: "etcd"
-            tag: "3.6.8-0"
+            tag: "3.6.16-0"
           imagePullPolicy: ""
           extraArgs: []
           env: []
