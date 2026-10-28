@@ -426,6 +426,26 @@ func TestRewriteHostsTranslation(t *testing.T) {
 			},
 		},
 		{
+			name: "Default registry with a trailing slash",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod-name",
+					Namespace: "test-ns",
+				},
+				Spec: corev1.PodSpec{
+					Subdomain: "subdomain",
+				},
+			},
+			configMod: func(c *config.VirtualClusterConfig) {
+				c.ControlPlane.Advanced.DefaultImageRegistry = "my-registry/"
+			},
+			test: func(t *testing.T, p *corev1.Pod) {
+				assert.Equal(t, len(p.Spec.InitContainers), 1)
+				initC := p.Spec.InitContainers[0]
+				assert.Equal(t, initC.Image, "my-registry/library/alpine:3.20")
+			},
+		},
+		{
 			name: "Use image overrides if specified",
 			pod: corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{

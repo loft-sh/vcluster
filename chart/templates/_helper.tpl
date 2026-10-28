@@ -8,7 +8,7 @@
 
 {{- define "vcluster.image" -}}
 {{- if .defaultImageRegistry -}}
-{{ .defaultImageRegistry }}/{{ .repository }}:{{ .tag }}
+{{ trimSuffix "/" .defaultImageRegistry }}/{{ .repository }}:{{ .tag }}
 {{- else if .registry -}}
 {{ .registry }}/{{ .repository }}:{{ .tag }}
 {{- else -}}

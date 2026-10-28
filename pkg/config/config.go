@@ -129,7 +129,7 @@ func (v VirtualClusterConfig) LegacyOptions() (*legacyconfig.LegacyVirtualCluste
 		RenewDeadline:               v.ControlPlane.StatefulSet.HighAvailability.RenewDeadline,
 		RetryPeriod:                 v.ControlPlane.StatefulSet.HighAvailability.RetryPeriod,
 		Plugins:                     legacyPlugins,
-		DefaultImageRegistry:        v.ControlPlane.Advanced.DefaultImageRegistry,
+		DefaultImageRegistry:        strings.TrimSuffix(v.ControlPlane.Advanced.DefaultImageRegistry, "/"),
 		EnforcePodSecurityStandard:  v.Policies.PodSecurityStandard,
 		MountPhysicalHostPaths:      false,
 		HostMetricsBindAddress:      "0",
