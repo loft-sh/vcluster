@@ -443,13 +443,57 @@ func TestImage_String(t *testing.T) {
 			expected: "alpine",
 		},
 		{
-			name: "omit repo but not registry is library",
+			name: "omit repo on non-docker-hub registry does not add library prefix",
 			image: Image{
 				Registry:   "ghcr.io",
 				Repository: "alpine",
 				Tag:        "3.20",
 			},
-			expected: "ghcr.io/library/alpine:3.20",
+			expected: "ghcr.io/alpine:3.20",
+		},
+		{
+			name: "docker hub canonical registry preserves library prefix",
+			image: Image{
+				Registry:   "index.docker.io",
+				Repository: "alpine",
+				Tag:        "3.20",
+			},
+			expected: "index.docker.io/library/alpine:3.20",
+		},
+		{
+			name: "docker hub alias registry preserves library prefix",
+			image: Image{
+				Registry:   "docker.io",
+				Repository: "alpine",
+				Tag:        "3.20",
+			},
+			expected: "docker.io/library/alpine:3.20",
+		},
+		{
+			name: "registry.k8s.io single-segment repo does not add library prefix",
+			image: Image{
+				Registry:   "registry.k8s.io",
+				Repository: "pause",
+				Tag:        "3.9",
+			},
+			expected: "registry.k8s.io/pause:3.9",
+		},
+		{
+			name: "private registry with port and single-segment repo",
+			image: Image{
+				Registry:   "my-registry.example.com:443",
+				Repository: "app",
+			},
+			expected: "my-registry.example.com:443/app",
+		},
+		{
+			name: "non docker hub multi-segment repo unchanged",
+			image: Image{
+				Registry:   "ghcr.io",
+				Repository: "loft-sh/vcluster",
+				Tag:        "0.20.0",
+			},
+			expected: "ghcr.io/loft-sh/vcluster:0.20.0",
 		},
 		{
 			name: "registry may have port",
