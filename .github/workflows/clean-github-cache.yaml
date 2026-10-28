@@ -1,0 +1,15 @@
+name: Cleanup github runner caches on closed pull requests
+
+on:
+  pull_request:
+    types:
+      - closed
+
+permissions:
+  actions: write
+
+jobs:
+  clean-github-cache:
+    permissions:
+      actions: write
+    uses: loft-sh/github-actions/.github/workflows/clean-github-cache.yaml@36bd60efa4d72d6195f9222b67b1c633044bf90a # clean-github-cache/v1

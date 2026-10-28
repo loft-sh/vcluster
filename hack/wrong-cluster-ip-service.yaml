@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-simple-service
+spec:
+  clusterIP: 1.1.1.1
+  selector:
+    app: service-simple-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
