@@ -226,7 +226,7 @@ func writeKubeConfig(kubeConfig *clientcmdapi.Config, vClusterName string, optio
 			log.WriteString(logrus.InfoLevel, "- Use `kubectl get namespaces` to access the vcluster\n")
 		}
 	} else {
-		err = os.WriteFile(options.KubeConfig, out, 0666)
+		err = writeOwnerOnlyFile(options.KubeConfig, out)
 		if err != nil {
 			return fmt.Errorf("write kube config: %w", err)
 		}
