@@ -32,7 +32,11 @@ deployments:
           distro:
             k8s:
               image:
+<<<<<<< ours
                 tag: v1.35.9
+=======
+                tag: v1.36.6
+>>>>>>> theirs
           statefulSet:
             image:
               registry: ""

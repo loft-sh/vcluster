@@ -113,7 +113,11 @@ controlPlane:
       image:
         registry: ghcr.io
         repository: "loft-sh/kubernetes"
+<<<<<<< ours
         tag: "v1.35.9"
+=======
+        tag: "v1.36.6"
+>>>>>>> theirs
       apiServer:
         enabled: true
         command: []
@@ -172,7 +176,11 @@ controlPlane:
           image:
             registry: "registry.k8s.io"
             repository: "etcd"
+<<<<<<< ours
             tag: "3.6.4-0"
+=======
+            tag: "3.6.16-0"
+>>>>>>> theirs
           imagePullPolicy: ""
           extraArgs: []
           env: []

@@ -252,7 +252,11 @@ controlPlane:
         # Repository is the repository of the container image, e.g. my-repo/my-image
         repository: "loft-sh/kubernetes"
         # Tag is the tag of the container image, and is the default version.
+<<<<<<< ours
         tag: "v1.35.9"
+=======
+        tag: "v1.36.6"
+>>>>>>> theirs
       # APIServer holds configuration specific to starting the api server.
       apiServer:
         enabled: true
@@ -367,7 +371,11 @@ controlPlane:
             # Repository is the repository of the container image, e.g. my-repo/my-image
             repository: "etcd"
             # Tag is the tag of the container image, and is the default version.
+<<<<<<< ours
             tag: "3.6.4-0"
+=======
+            tag: "3.6.16-0"
+>>>>>>> theirs
           # ImagePullPolicy is the pull policy for the external etcd image
           imagePullPolicy: ""
           # ExtraArgs are appended to the etcd command.
