@@ -696,6 +696,7 @@ exportKubeConfig:
     name: ""
     namespace: ""
     clusterRole: ""
+    tokenRotation: {}
   secret:
     name: ""
     namespace: ""

@@ -120,14 +120,6 @@ func getLocalCacheOptions(options *config.VirtualClusterConfig) cache.Options {
 		defaultNamespaces[options.HostNamespace] = cache.Config{}
 		gatewayNamespaces = gatewaySourceNamespaces(options)
 	}
-	// do we need access to another namespace to export the kubeconfig ?
-	// we will need access to all the objects that the vcluster usually has access to
-	// otherwise the controller will not start
-	for _, secret := range options.ExportKubeConfig.GetAdditionalSecrets() {
-		if secret.Namespace != "" {
-			defaultNamespaces[secret.Namespace] = cache.Config{}
-		}
-	}
 
 	if len(defaultNamespaces) == 0 && len(gatewayNamespaces) == 0 {
 		return cache.Options{DefaultNamespaces: nil}

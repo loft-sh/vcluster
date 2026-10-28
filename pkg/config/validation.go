@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/samber/lo"
@@ -20,6 +21,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilvalidation "k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/kubernetes/pkg/apis/authentication"
+	authenticationvalidation "k8s.io/kubernetes/pkg/apis/authentication/validation"
 
 	"github.com/loft-sh/vcluster/config"
 	cliconfig "github.com/loft-sh/vcluster/pkg/cli/config"
@@ -784,11 +787,17 @@ func validateFromHostSyncMappingObjectName(objRef []string, resourceNamePlural s
 }
 
 func validateExportKubeConfig(exportKubeConfig config.ExportKubeConfig) error {
+	if err := ValidateExportServiceAccount(exportKubeConfig.ServiceAccount); err != nil {
+		return err
+	}
 	// You cannot set both Secret and AdditionalSecrets at the same time.
 	if exportKubeConfig.Secret.IsSet() && len(exportKubeConfig.AdditionalSecrets) > 0 {
 		return errExportKubeConfigBothSecretAndAdditionalSecretsSet
 	}
 	for _, additionalSecret := range exportKubeConfig.AdditionalSecrets {
+		if err := ValidateExportServiceAccount(additionalSecret.ServiceAccount); err != nil {
+			return err
+		}
 		// You must set at least Name or Namespace for every additional kubeconfig secret.
 		if additionalSecret.Name == "" && additionalSecret.Namespace == "" {
 			return errExportKubeConfigAdditionalSecretWithoutNameAndNamespace
@@ -799,6 +808,42 @@ func validateExportKubeConfig(exportKubeConfig config.ExportKubeConfig) error {
 		return errExportKubeConfigServerNotValid
 	}
 	return nil
+}
+
+// ValidateExportServiceAccount checks token settings before startup or issuance.
+func ValidateExportServiceAccount(serviceAccount config.ExportKubeConfigServiceAccount) error {
+	rotation := serviceAccount.TokenRotation
+	if !rotation.IsSet() {
+		if rotation != nil && rotation.RenewBeforePercentage != nil {
+			return fmt.Errorf("export serviceAccount.tokenRotation.expiration is required when rotation settings are configured")
+		}
+		return nil
+	}
+	if err := validateExportTokenExpiration(rotation.Expiration); err != nil {
+		return fmt.Errorf("export serviceAccount.tokenRotation.expiration: %w", err)
+	}
+	if serviceAccount.Name == "" {
+		return fmt.Errorf("export serviceAccount.tokenRotation requires a named ServiceAccount")
+	}
+	if percentage := rotation.RenewBeforePercentage; percentage != nil && (*percentage < 1 || *percentage > 99) {
+		return fmt.Errorf("export serviceAccount.tokenRotation.renewBeforePercentage must be between 1 and 99")
+	}
+	return nil
+}
+
+func validateExportTokenExpiration(value config.Duration) error {
+	expiration, err := time.ParseDuration(string(value))
+	if err != nil {
+		return fmt.Errorf("parse duration: %w", err)
+	}
+	if expiration%time.Second != 0 {
+		return fmt.Errorf("must be a duration in whole seconds")
+	}
+	// Delegate lifetime bounds to the same validator used by kube-apiserver.
+	request := &authentication.TokenRequest{
+		Spec: authentication.TokenRequestSpec{ExpirationSeconds: int64(expiration / time.Second)},
+	}
+	return authenticationvalidation.ValidateTokenRequest(request).ToAggregate()
 }
 
 func validateExportKubeConfigServer(server string) error {

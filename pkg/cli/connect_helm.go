@@ -440,7 +440,7 @@ func (cmd *connectHelm) getVClusterKubeConfig(ctx context.Context, vclusterName 
 			return nil, err
 		}
 
-		token, err := serviceaccount.CreateServiceAccountToken(ctx, vKubeClient, serviceAccount, serviceAccountNamespace, cmd.ServiceAccountClusterRole, int64(cmd.ServiceAccountExpiration), cmd.Log)
+		tokenStatus, err := serviceaccount.CreateServiceAccountToken(ctx, vKubeClient, serviceAccount, serviceAccountNamespace, cmd.ServiceAccountClusterRole, int64(cmd.ServiceAccountExpiration), cmd.Log)
 		if err != nil {
 			return nil, err
 		}
@@ -448,7 +448,7 @@ func (cmd *connectHelm) getVClusterKubeConfig(ctx context.Context, vclusterName 
 		// set service account token
 		for k := range kubeConfig.AuthInfos {
 			kubeConfig.AuthInfos[k] = &clientcmdapi.AuthInfo{
-				Token:                token,
+				Token:                tokenStatus.Token,
 				Extensions:           make(map[string]runtime.Object),
 				ImpersonateUserExtra: make(map[string][]string),
 			}

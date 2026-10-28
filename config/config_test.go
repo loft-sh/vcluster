@@ -45,6 +45,18 @@ func TestConfig_Diff(t *testing.T) {
 	}
 }
 
+func TestDefaultExportTokenRotationRoundTrip(t *testing.T) {
+	cfg, err := NewDefaultConfig()
+	assert.NilError(t, err)
+	assert.Assert(t, !cfg.ExportKubeConfig.ServiceAccount.TokenRotation.IsSet())
+	raw, err := yaml.Marshal(cfg)
+	assert.NilError(t, err)
+	assert.Assert(t, strings.Contains(string(raw), "tokenRotation: {}"))
+	decoded := &Config{}
+	assert.NilError(t, yaml.UnmarshalStrict(raw, decoded))
+	assert.Assert(t, !decoded.ExportKubeConfig.ServiceAccount.TokenRotation.IsSet())
+}
+
 func TestConfig_UnmarshalYAMLStrict(t *testing.T) {
 	type args struct {
 		data []byte
