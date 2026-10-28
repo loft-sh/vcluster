@@ -45,6 +45,7 @@ const (
 	ClusterAutoScalerDaemonSetAnnotation = "cluster-autoscaler.kubernetes.io/daemonset-pod"
 	ServiceAccountNameAnnotation         = "vcluster.loft.sh/service-account-name"
 	ServiceAccountTokenAnnotation        = "vcluster.loft.sh/token-"
+	ManagedSchedulingGatesAnnotation     = "vcluster.loft.sh/managed-scheduling-gates"
 )
 
 var (
@@ -214,6 +215,9 @@ func (t *translator) Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, s
 
 	// convert to core object
 	pPod := translate.HostMetadata(vPod, mappings.VirtualToHost(ctx, vPod.Name, vPod.Namespace, mappings.Pods()))
+	// This host-only ownership record must come from the source spec, never from
+	// a virtual annotation. Persist it at creation, before the first Diff/cache fill.
+	setManagedSchedulingGates(pPod, vPod.Spec.SchedulingGates)
 
 	// override pod fields
 	pPod.Status = corev1.PodStatus{}
