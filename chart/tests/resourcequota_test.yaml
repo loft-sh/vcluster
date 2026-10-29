@@ -1,0 +1,70 @@
+suite: ResourceQuota
+templates:
+  - resourcequota.yaml
+
+tests:
+  - it: should not create resource quota by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: check defaults
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      policies:
+        resourceQuota:
+          enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: metadata.name
+          value: vc-my-release
+      - equal:
+          path: metadata.namespace
+          value: my-namespace
+      - equal:
+          path: spec.hard["requests.cpu"]
+          value: "10"
+
+  - it: check enabled
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      policies:
+        limitRange:
+          enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+
+  - it: check disabled
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      policies:
+        resourceQuota:
+          enabled: false
+        limitRange:
+          enabled: true
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: check disabled both false
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      policies:
+        resourceQuota:
+          enabled: false
+        limitRange:
+          enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
