@@ -1,0 +1,19 @@
+# Scale up syncer replicas
+syncer:
+  replicas: 3
+
+# Scale up etcd
+etcd:
+  replicas: 3
+
+# Scale up controller manager
+controller:
+  replicas: 3
+
+# Scale up api server
+api:
+  replicas: 3
+
+# Scale up DNS server
+coredns:
+  replicas: 3
