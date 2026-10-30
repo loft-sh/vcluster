@@ -272,6 +272,7 @@ func TestFromHostReconcileLoadBalancerCreatesEndpoints(t *testing.T) {
 		Name:      virtualService.Name,
 	}, virtualEndpoints)
 	assert.NilError(t, err)
+	//nolint:staticcheck // SA1019: corev1.EndpointSubset is deprecated, but still required for compatibility
 	assert.DeepEqual(t, virtualEndpoints.Subsets, []corev1.EndpointSubset{
 		{
 			Addresses: []corev1.EndpointAddress{
