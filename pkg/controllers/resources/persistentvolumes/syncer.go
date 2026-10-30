@@ -161,12 +161,31 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, event *syncc
 		return ctrl.Result{RequeueAfter: time.Second}, nil
 	}
 
+	// if host PV is being deleted, delete the virtual PV too
+	if event.Host.GetDeletionTimestamp() != nil {
+		if event.Virtual.GetDeletionTimestamp() == nil {
+			return patcher.DeleteVirtualObject(ctx, event.Virtual, event.Host, "host persistent volume is being deleted")
+		}
+		return ctrl.Result{}, nil
+	}
+
 	// check if the persistent volume should get synced
 	sync, vPvc, err := s.shouldSync(ctx, event.Host)
 	if err != nil {
 		return ctrl.Result{}, err
 	} else if !sync {
 		return patcher.DeleteVirtualObject(ctx, event.Virtual, event.Host, "there is no virtual persistent volume claim with that volume")
+	}
+
+	// If admin cleared ClaimRef on virtual PV, propagate to host PV so both become Available
+	if event.Virtual.Spec.ClaimRef == nil && event.VirtualOld.Spec.ClaimRef != nil &&
+		event.Host.Spec.ClaimRef != nil && event.Host.Status.Phase == corev1.VolumeReleased {
+		updated := event.Host.DeepCopy()
+		updated.Spec.ClaimRef = nil
+		if err := ctx.HostClient.Update(ctx.Context, updated); err != nil {
+			return ctrl.Result{}, err
+		}
+		event.Host.Spec.ClaimRef = nil
 	}
 
 	// update the physical persistent volume if the virtual has changed
@@ -259,6 +278,14 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, event *syncc
 }
 
 func (s *persistentVolumeSyncer) SyncToVirtual(ctx *synccontext.SyncContext, event *synccontext.SyncToVirtualEvent[*corev1.PersistentVolume]) (ctrl.Result, error) {
+	// if host PV is being deleted, delete the virtual PV too
+	if event.Host.GetDeletionTimestamp() != nil {
+		if event.VirtualOld != nil {
+			return patcher.DeleteVirtualObject(ctx, event.VirtualOld, event.Host, "host persistent volume is being deleted")
+		}
+		return ctrl.Result{}, nil
+	}
+
 	sync, vPvc, err := s.shouldSync(ctx, event.Host)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -287,6 +314,15 @@ func (s *persistentVolumeSyncer) shouldSync(ctx *synccontext.SyncContext, pObj *
 	if pObj.Spec.ClaimRef == nil {
 		if translate.Default.IsManaged(ctx, pObj) {
 			return true, nil, nil
+		}
+
+		// If a virtual PV still exists, keep syncing (e.g. to update status to Available)
+		vPV := &corev1.PersistentVolume{}
+		err := s.virtualClient.Get(ctx, types.NamespacedName{Name: pObj.Name}, vPV)
+		if err == nil {
+			return true, nil, nil
+		} else if !kerrors.IsNotFound(err) {
+			return false, nil, err
 		}
 
 		return false, nil, nil
