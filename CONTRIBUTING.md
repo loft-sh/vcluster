@@ -42,7 +42,7 @@ We recommend developing vCluster directly on a local Kubernetes cluster as it pr
 - Docker needs to be installed (e.g. docker-desktop, orbstack, rancher desktop etc.)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/)
 - [Helm v3.10.0+](https://helm.sh/docs/intro/install/)
-- Local Kubernetes v1.26+ cluster (i.e. Docker Desktop, [minikube](https://minikube.sigs.k8s.io/docs/start/), KinD, [vind](https://www.vcluster.com/docs/vcluster/deploy/topologies/extracting-the-docker-driver) or similar)
+- Local Kubernetes v1.26+ cluster (i.e. Docker Desktop, [minikube](https://minikube.sigs.k8s.io/docs/start/), KinD, [vind](https://www.vcluster.com/docs/vcluster/deploy/control-plane/docker-container/basics) or similar)
 
 ### Fork and Clone the vcluster repo
 
@@ -213,7 +213,7 @@ Test the built CLI tool
 - [Golang v1.25](https://go.dev/doc/install)
 - [Goreleaser](https://goreleaser.com/install/)
 - [Just](https://github.com/casey/just)
-- [Kind](https://kind.sigs.k8s.io/) or [vind](https://www.vcluster.com/docs/vcluster/deploy/topologies/extracting-the-docker-driver) (recommended — vCluster Docker driver)
+- [Kind](https://kind.sigs.k8s.io/) or [vind](https://www.vcluster.com/docs/vcluster/deploy/control-plane/docker-container/basics) (recommended — vCluster Docker driver)
 
 ### Uninstall vCluster CLI
 
@@ -269,7 +269,7 @@ kubectl cluster-info --context kind-kind
 
 ### Alternative: Bring up a local K8s cluster using vind
 
-[vind](https://www.vcluster.com/docs/vcluster/deploy/topologies/extracting-the-docker-driver) (the vCluster Docker driver) provides a simpler local development experience. No explicit image loading is needed — container images are available natively.
+[vind](https://www.vcluster.com/docs/vcluster/deploy/control-plane/docker-container/basics) (the vCluster Docker driver) provides a simpler local development experience. No explicit image loading is needed — container images are available natively.
 
 ```
 vcluster use driver docker
@@ -362,7 +362,7 @@ If [Ginkgo](https://github.com/onsi/ginkgo#global-installation) is already insta
 
 ## Run the Conformance Tests
 
-For running conformance tests, please take a look at [conformance tests](https://github.com/loft-sh/tree/vcluster/main/conformance/v1.21)
+Conformance results and the steps to reproduce them are published in the [CNCF k8s-conformance repository](https://github.com/cncf/k8s-conformance), for example [v1.35/vcluster-with-shared-nodes](https://github.com/cncf/k8s-conformance/tree/master/v1.35/vcluster-with-shared-nodes).
 
 # License
 
