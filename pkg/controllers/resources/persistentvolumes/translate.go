@@ -49,7 +49,7 @@ func (s *persistentVolumeSyncer) translateUpdateBackwards(ctx *synccontext.SyncC
 	// build virtual persistent volume
 	translatedSpec := *pPv.Spec.DeepCopy()
 	isStorageClassCreatedOnVirtual, isClaimRefCreatedOnVirtual := false, false
-	if vPvc != nil && vPv.Spec.ClaimRef != nil {
+	if vPvc != nil {
 		if translatedSpec.ClaimRef == nil {
 			translatedSpec.ClaimRef = &corev1.ObjectReference{}
 		}

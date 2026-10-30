@@ -178,7 +178,7 @@ func (s *persistentVolumeSyncer) Sync(ctx *synccontext.SyncContext, event *syncc
 	}
 
 	// If admin cleared ClaimRef on virtual PV, propagate to host PV so both become Available
-	if event.Virtual.Spec.ClaimRef == nil && event.VirtualOld.Spec.ClaimRef != nil &&
+	if event.Virtual.Spec.ClaimRef == nil && event.VirtualOld != nil && event.VirtualOld.Spec.ClaimRef != nil &&
 		event.Host.Spec.ClaimRef != nil && event.Host.Status.Phase == corev1.VolumeReleased {
 		updated := event.Host.DeepCopy()
 		updated.Spec.ClaimRef = nil
@@ -316,11 +316,14 @@ func (s *persistentVolumeSyncer) shouldSync(ctx *synccontext.SyncContext, pObj *
 			return true, nil, nil
 		}
 
-		// If a virtual PV still exists, keep syncing (e.g. to update status to Available)
+		// If a virtual mirror of this host PV still exists, keep syncing (e.g. to update status to Available).
+		// Only a PV carrying the host-pv annotation for this exact host PV counts, a same-named virtual PV does not.
 		vPV := &corev1.PersistentVolume{}
 		err := s.virtualClient.Get(ctx, types.NamespacedName{Name: pObj.Name}, vPV)
 		if err == nil {
-			return true, nil, nil
+			if vPV.Annotations[constants.HostClusterPersistentVolumeAnnotation] == pObj.Name {
+				return true, nil, nil
+			}
 		} else if !kerrors.IsNotFound(err) {
 			return false, nil, err
 		}

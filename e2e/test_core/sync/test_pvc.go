@@ -14,6 +14,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -241,7 +242,7 @@ func PVCSyncSpec() {
 				By("Waiting for the PVC to become Bound", func() {
 					Eventually(func(g Gomega) {
 						vpvc, err := vClusterClient.CoreV1().PersistentVolumeClaims(nsName).Get(ctx, pvcName, metav1.GetOptions{})
-						g.Expect(err).To(Succeed())
+						g.Expect(err).To(Succeed(), "getting PVC %s/%s", nsName, pvcName)
 						g.Expect(vpvc.Status.Phase).To(Equal(corev1.ClaimBound),
 							"PVC phase is %s, not yet Bound", vpvc.Status.Phase)
 					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
@@ -260,10 +261,25 @@ func PVCSyncSpec() {
 					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 
+				By("Waiting for the PV to become Released", func() {
+					Eventually(func(g Gomega) {
+						vpv, err := vClusterClient.CoreV1().PersistentVolumes().Get(ctx, pvName, metav1.GetOptions{})
+						g.Expect(err).To(Succeed(), "getting PV %s", pvName)
+						g.Expect(vpv.Status.Phase).To(Equal(corev1.VolumeReleased),
+							"PV phase is %s, not yet Released", vpv.Status.Phase)
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+				})
+
+				By("Clearing the ClaimRef as an admin would to reuse the Retain PV", func() {
+					_, err := vClusterClient.CoreV1().PersistentVolumes().Patch(ctx, pvName, types.MergePatchType,
+						[]byte(`{"spec":{"claimRef":null}}`), metav1.PatchOptions{})
+					Expect(err).To(Succeed())
+				})
+
 				By("Verifying the PV becomes Available in the vCluster", func() {
 					Eventually(func(g Gomega) {
 						vpv, err := vClusterClient.CoreV1().PersistentVolumes().Get(ctx, pvName, metav1.GetOptions{})
-						g.Expect(err).To(Succeed())
+						g.Expect(err).To(Succeed(), "getting PV %s", pvName)
 						g.Expect(vpv.Status.Phase).To(Equal(corev1.VolumeAvailable),
 							"PV phase is %s, not yet Available", vpv.Status.Phase)
 					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
@@ -273,7 +289,7 @@ func PVCSyncSpec() {
 					hostPVName := translate.Default.HostNameCluster(pvName)
 					Eventually(func(g Gomega) {
 						pv, err := hostClient.CoreV1().PersistentVolumes().Get(ctx, hostPVName, metav1.GetOptions{})
-						g.Expect(err).To(Succeed())
+						g.Expect(err).To(Succeed(), "getting host PV %s", hostPVName)
 						g.Expect(pv.Status.Phase).To(Equal(corev1.VolumeAvailable),
 							"Host PV phase is %s, not yet Available", pv.Status.Phase)
 					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
