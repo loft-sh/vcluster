@@ -14,6 +14,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -168,6 +169,129 @@ func PVCSyncSpec() {
 						_, err := hostClient.CoreV1().PersistentVolumeClaims(hostNS).Get(ctx, hostPvcName, metav1.GetOptions{})
 						g.Expect(kerrors.IsNotFound(err)).To(BeTrue(),
 							"host PVC %s/%s not yet deleted", hostNS, hostPvcName)
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+				})
+			})
+
+			It("should release a Retain PV and make it Available after PVC deletion", func(ctx context.Context) {
+				suffix := random.String(6)
+				nsName := "pv-retain-test-" + suffix
+				pvcName := "pvc-retain-" + suffix
+				pvName := "pv-retain-" + suffix
+
+				By("Creating a test namespace", func() {
+					_, err := vClusterClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: nsName,
+						},
+					}, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+				})
+				DeferCleanup(func(ctx context.Context) {
+					err := vClusterClient.CoreV1().Namespaces().Delete(ctx, nsName, metav1.DeleteOptions{})
+					if !kerrors.IsNotFound(err) {
+						Expect(err).To(Succeed())
+					}
+				})
+
+				By("Creating a PV with Retain reclaim policy in the vCluster", func() {
+					_, err := vClusterClient.CoreV1().PersistentVolumes().Create(ctx, &corev1.PersistentVolume{
+						ObjectMeta: metav1.ObjectMeta{Name: pvName},
+						Spec: corev1.PersistentVolumeSpec{
+							Capacity: corev1.ResourceList{
+								corev1.ResourceStorage: resource.MustParse("1Gi"),
+							},
+							AccessModes:                   []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+							PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain,
+							PersistentVolumeSource: corev1.PersistentVolumeSource{
+								HostPath: &corev1.HostPathVolumeSource{
+									Path: "/tmp/" + translate.Default.HostNameCluster(pvName),
+								},
+							},
+						},
+					}, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+				})
+				DeferCleanup(func(ctx context.Context) {
+					err := vClusterClient.CoreV1().PersistentVolumes().Delete(ctx, pvName, metav1.DeleteOptions{})
+					if !kerrors.IsNotFound(err) {
+						Expect(err).To(Succeed())
+					}
+				})
+
+				By("Creating a PVC that binds to the Retain PV", func() {
+					_, err := vClusterClient.CoreV1().PersistentVolumeClaims(nsName).Create(ctx, &corev1.PersistentVolumeClaim{
+						ObjectMeta: metav1.ObjectMeta{Name: pvcName},
+						Spec: corev1.PersistentVolumeClaimSpec{
+							AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+							Resources: corev1.VolumeResourceRequirements{
+								Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("1Gi")},
+							},
+							VolumeName: pvName,
+						},
+					}, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+				})
+				DeferCleanup(func(ctx context.Context) {
+					err := vClusterClient.CoreV1().PersistentVolumeClaims(nsName).Delete(ctx, pvcName, metav1.DeleteOptions{})
+					if !kerrors.IsNotFound(err) {
+						Expect(err).To(Succeed())
+					}
+				})
+
+				By("Waiting for the PVC to become Bound", func() {
+					Eventually(func(g Gomega) {
+						vpvc, err := vClusterClient.CoreV1().PersistentVolumeClaims(nsName).Get(ctx, pvcName, metav1.GetOptions{})
+						g.Expect(err).To(Succeed(), "getting PVC %s/%s", nsName, pvcName)
+						g.Expect(vpvc.Status.Phase).To(Equal(corev1.ClaimBound),
+							"PVC phase is %s, not yet Bound", vpvc.Status.Phase)
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+				})
+
+				By("Deleting the PVC", func() {
+					err := vClusterClient.CoreV1().PersistentVolumeClaims(nsName).Delete(ctx, pvcName, metav1.DeleteOptions{})
+					Expect(err).To(Succeed())
+				})
+
+				By("Waiting for the PVC to be fully deleted from vCluster", func() {
+					Eventually(func(g Gomega) {
+						_, err := vClusterClient.CoreV1().PersistentVolumeClaims(nsName).Get(ctx, pvcName, metav1.GetOptions{})
+						g.Expect(kerrors.IsNotFound(err)).To(BeTrue(),
+							"PVC %s/%s not yet deleted", nsName, pvcName)
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+				})
+
+				By("Waiting for the PV to become Released", func() {
+					Eventually(func(g Gomega) {
+						vpv, err := vClusterClient.CoreV1().PersistentVolumes().Get(ctx, pvName, metav1.GetOptions{})
+						g.Expect(err).To(Succeed(), "getting PV %s", pvName)
+						g.Expect(vpv.Status.Phase).To(Equal(corev1.VolumeReleased),
+							"PV phase is %s, not yet Released", vpv.Status.Phase)
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+				})
+
+				By("Clearing the ClaimRef as an admin would to reuse the Retain PV", func() {
+					_, err := vClusterClient.CoreV1().PersistentVolumes().Patch(ctx, pvName, types.MergePatchType,
+						[]byte(`{"spec":{"claimRef":null}}`), metav1.PatchOptions{})
+					Expect(err).To(Succeed())
+				})
+
+				By("Verifying the PV becomes Available in the vCluster", func() {
+					Eventually(func(g Gomega) {
+						vpv, err := vClusterClient.CoreV1().PersistentVolumes().Get(ctx, pvName, metav1.GetOptions{})
+						g.Expect(err).To(Succeed(), "getting PV %s", pvName)
+						g.Expect(vpv.Status.Phase).To(Equal(corev1.VolumeAvailable),
+							"PV phase is %s, not yet Available", vpv.Status.Phase)
+					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
+				})
+
+				By("Verifying the host PV also becomes Available", func() {
+					hostPVName := translate.Default.HostNameCluster(pvName)
+					Eventually(func(g Gomega) {
+						pv, err := hostClient.CoreV1().PersistentVolumes().Get(ctx, hostPVName, metav1.GetOptions{})
+						g.Expect(err).To(Succeed(), "getting host PV %s", hostPVName)
+						g.Expect(pv.Status.Phase).To(Equal(corev1.VolumeAvailable),
+							"Host PV phase is %s, not yet Available", pv.Status.Phase)
 					}).WithContext(ctx).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
 				})
 			})
