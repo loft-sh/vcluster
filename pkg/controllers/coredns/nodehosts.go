@@ -76,16 +76,23 @@ func (r *NodeHostsReconciler) compileNodeHosts(ctx context.Context) (string, err
 		return "", err
 	}
 	for _, node := range nodes.Items {
-		var nodeAddress string
+		// a dual-stack node reports one InternalIP per IP family; write a hosts
+		// line for each so both A and AAAA lookups of the node hostname resolve
+		var nodeAddresses []string
 		nodeHostname := node.Name
 		for _, address := range node.Status.Addresses {
-			if address.Type == corev1.NodeInternalIP {
-				nodeAddress = address.Address
-			} else if address.Type == corev1.NodeHostName {
+			switch address.Type {
+			case corev1.NodeInternalIP:
+				if address.Address != "" {
+					nodeAddresses = append(nodeAddresses, address.Address)
+				}
+			case corev1.NodeHostName:
 				nodeHostname = address.Address
 			}
 		}
-		nodehosts = append(nodehosts, fmt.Sprintf("%s %s", nodeAddress, nodeHostname))
+		for _, nodeAddress := range nodeAddresses {
+			nodehosts = append(nodehosts, fmt.Sprintf("%s %s", nodeAddress, nodeHostname))
+		}
 	}
 	sort.Strings(nodehosts)
 	return strings.Join(nodehosts, "\n"), nil
