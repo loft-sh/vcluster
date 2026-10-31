@@ -1,0 +1,17 @@
+sync:
+  fromHost:
+    gatewayClasses:
+      enabled: true
+    gateways:
+      enabled: true
+      mappings:
+        byName:
+          "": "shared-gateways/*"
+  toHost:
+    gatewayApi:
+      gateways:
+        enabled: false
+      httpRoutes:
+        enabled: true
+      referenceGrants:
+        enabled: auto
