@@ -24,6 +24,7 @@ type rotateCmd struct {
 	log        log.Logger
 	pkiPath    string
 	standalone bool
+	force      bool
 }
 
 func rotate() *cobra.Command {
@@ -60,6 +61,7 @@ func rotateCA() *cobra.Command {
 
 	rotateCACmd.Flags().StringVar(&cmd.pkiPath, "path", constants.PKIDir, "The path to the PKI directory")
 	rotateCACmd.Flags().BoolVar(&cmd.standalone, "standalone", false, "Signalizes if vCluster is running standalone")
+	rotateCACmd.Flags().BoolVar(&cmd.force, "force", false, "Rotate the CA even if the current CA certificate is not self-signed, e.g. supplied by an external PKI")
 
 	return rotateCACmd
 }
@@ -87,5 +89,5 @@ func (cmd *rotateCmd) Run(ctx context.Context, withCA bool) error {
 		vConfig = cfg
 	}
 
-	return certs.Rotate(ctx, vConfig, cmd.pkiPath, withCA, cmd.log)
+	return certs.Rotate(ctx, vConfig, cmd.pkiPath, withCA, cmd.force, cmd.log)
 }
