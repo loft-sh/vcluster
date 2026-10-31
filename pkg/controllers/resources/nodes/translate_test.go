@@ -3,6 +3,7 @@ package nodes
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
@@ -284,6 +285,50 @@ func TestTranslateBackwards(t *testing.T) {
 					Key:    "custom-taint",
 					Value:  "true",
 					Effect: corev1.TaintEffectNoExecute,
+				},
+			},
+		},
+		{
+			name: "same-taint-key-and-effect-different-time-added",
+
+			vNode: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec: corev1.NodeSpec{
+					Taints: []corev1.Taint{
+						{
+							Key:       "node.kubernetes.io/unreachable",
+							Effect:    corev1.TaintEffectNoExecute,
+							TimeAdded: &metav1.Time{Time: time.Date(2026, 7, 31, 20, 39, 18, 0, time.UTC)},
+						},
+					},
+				},
+			},
+			pNode: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec: corev1.NodeSpec{
+					Taints: []corev1.Taint{
+						{
+							Key:       "node.kubernetes.io/unreachable",
+							Effect:    corev1.TaintEffectNoExecute,
+							TimeAdded: &metav1.Time{Time: time.Date(2026, 7, 31, 20, 39, 8, 0, time.UTC)},
+						},
+					},
+				},
+			},
+
+			expectedAnnotations: map[string]string{
+				TaintsAnnotation: mustMarshal([]string{mustMarshal(corev1.Taint{
+					Key:       "node.kubernetes.io/unreachable",
+					Effect:    corev1.TaintEffectNoExecute,
+					TimeAdded: &metav1.Time{Time: time.Date(2026, 7, 31, 20, 39, 8, 0, time.UTC)},
+				})}),
+			},
+			expectedLabels: map[string]string{},
+			expectedTaints: []corev1.Taint{
+				{
+					Key:       "node.kubernetes.io/unreachable",
+					Effect:    corev1.TaintEffectNoExecute,
+					TimeAdded: &metav1.Time{Time: time.Date(2026, 7, 31, 20, 39, 8, 0, time.UTC)},
 				},
 			},
 		},
