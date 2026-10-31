@@ -88,6 +88,8 @@ func (r *NodeHostsReconciler) compileNodeHosts(ctx context.Context) (string, err
 				}
 			case corev1.NodeHostName:
 				nodeHostname = address.Address
+			default:
+				// external IPs and DNS names are not written to NodeHosts
 			}
 		}
 		for _, nodeAddress := range nodeAddresses {
