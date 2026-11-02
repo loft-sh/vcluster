@@ -1,6 +1,7 @@
 package servicesync
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/loft-sh/vcluster/pkg/scheme"
@@ -199,8 +200,9 @@ func TestFromHostReconcileLoadBalancerCreatesEndpoints(t *testing.T) {
 			ClusterIP: "10.0.0.1",
 			Ports: []corev1.ServicePort{
 				{
-					Name: "http",
-					Port: 8080,
+					Name:     "http",
+					Port:     8080,
+					Protocol: corev1.ProtocolTCP,
 				},
 			},
 		},
@@ -255,15 +257,21 @@ func TestFromHostReconcileLoadBalancerCreatesEndpoints(t *testing.T) {
 			Name:      hostService.Name,
 		},
 	})
-	assert.NilError(t, err)
+	if err != nil {
+		t.Fatalf("Reconcile() error = %v", err)
+	}
 
 	actualVirtualService := &corev1.Service{}
 	err = vClient.Get(fakeContext, types.NamespacedName{
 		Namespace: virtualService.Namespace,
 		Name:      virtualService.Name,
 	}, actualVirtualService)
-	assert.NilError(t, err)
-	assert.Equal(t, len(actualVirtualService.Status.LoadBalancer.Ingress), 0)
+	if err != nil {
+		t.Fatalf("Get virtual Service: %v", err)
+	}
+	if got := actualVirtualService.Status.LoadBalancer.Ingress; len(got) != 0 {
+		t.Errorf("virtual Service load balancer ingress = %+v, want empty", got)
+	}
 
 	//nolint:staticcheck // SA1019: corev1.Endpoints is deprecated, but still required for compatibility
 	virtualEndpoints := &corev1.Endpoints{}
@@ -271,22 +279,26 @@ func TestFromHostReconcileLoadBalancerCreatesEndpoints(t *testing.T) {
 		Namespace: virtualService.Namespace,
 		Name:      virtualService.Name,
 	}, virtualEndpoints)
-	assert.NilError(t, err)
-	assert.Equal(t, len(virtualEndpoints.Subsets), 1)
-	subset := virtualEndpoints.Subsets[0]
-	assert.Equal(t, len(subset.Addresses), 1)
-	assert.Assert(t, subset.NotReadyAddresses == nil)
-	assert.Equal(t, len(subset.Ports), 1)
-
-	address := subset.Addresses[0]
-	assert.Equal(t, address.IP, hostService.Spec.ClusterIP)
-	assert.Equal(t, address.Hostname, "")
-	assert.Assert(t, address.NodeName == nil)
-	assert.Assert(t, address.TargetRef == nil)
-
-	port := subset.Ports[0]
-	assert.Equal(t, port.Name, hostService.Spec.Ports[0].Name)
-	assert.Equal(t, port.Port, hostService.Spec.Ports[0].Port)
-	assert.Equal(t, port.Protocol, hostService.Spec.Ports[0].Protocol)
-	assert.Assert(t, port.AppProtocol == nil)
+	if err != nil {
+		t.Fatalf("Get virtual Endpoints: %v", err)
+	}
+	//nolint:staticcheck // SA1019: corev1.EndpointSubset is deprecated, but still required for compatibility
+	if want := []corev1.EndpointSubset{
+		{
+			Addresses: []corev1.EndpointAddress{
+				{
+					IP: hostService.Spec.ClusterIP,
+				},
+			},
+			Ports: []corev1.EndpointPort{
+				{
+					Name:     "http",
+					Port:     8080,
+					Protocol: corev1.ProtocolTCP,
+				},
+			},
+		},
+	}; !reflect.DeepEqual(virtualEndpoints.Subsets, want) {
+		t.Errorf("virtual Endpoints subsets = %#v, want %#v", virtualEndpoints.Subsets, want)
+	}
 }
