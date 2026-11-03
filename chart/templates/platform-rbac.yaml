@@ -1,0 +1,31 @@
+{{- if include "vcluster.rbac.createPlatformSecretRole" . }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "vcluster.rbac.platformRoleName" . }}
+  namespace: {{ include "vcluster.rbac.platformSecretNamespace" .}}
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get"]
+  resourceNames:
+    - {{ include "vcluster.rbac.platformSecretName" . }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "vcluster.rbac.platformRoleBindingName" . }}
+  namespace: {{ include "vcluster.rbac.platformSecretNamespace" .}}
+subjects:
+  - kind: ServiceAccount
+    {{- if .Values.controlPlane.advanced.serviceAccount.name }}
+    name: {{ .Values.controlPlane.advanced.serviceAccount.name }}
+    {{- else }}
+    name: vc-{{ .Release.Name }}
+    {{- end }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: {{ include "vcluster.rbac.platformRoleName" . }}
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}
