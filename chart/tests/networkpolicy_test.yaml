@@ -195,6 +195,48 @@ tests:
         isNull:
           path: spec.ingress[0].from
 
+  - it: should allow DNS egress to CoreDNS labeled kube-dns or vcluster-kube-dns
+    release:
+      name: my-release
+      namespace: my-namespace
+    set:
+      policies:
+        networkPolicy:
+          enabled: true
+    asserts:
+      # CoreDNS is labeled k8s-app=kube-dns on most control plane clusters and
+      # k8s-app=vcluster-kube-dns on vCluster Standalone, so every policy that
+      # allows DNS egress must match both labels.
+      - documentSelector:
+          path: metadata.name
+          value: vc-cp-my-release
+        contains:
+          path: spec.egress
+          content: &kubeDNSEgress
+            to:
+              - namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: kube-system
+                podSelector:
+                  matchExpressions:
+                    - key: k8s-app
+                      operator: In
+                      values:
+                        - kube-dns
+                        - vcluster-kube-dns
+      - documentSelector:
+          path: metadata.name
+          value: vc-kube-dns-my-release
+        contains:
+          path: spec.egress
+          content: *kubeDNSEgress
+      - documentSelector:
+          path: metadata.name
+          value: vc-snapshot-my-release
+        contains:
+          path: spec.egress
+          content: *kubeDNSEgress
+
   - it: should not create workload or dns policy when privateNodes enabled
     release:
       name: my-release
