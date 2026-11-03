@@ -401,6 +401,9 @@ controlPlane:
         enabled: false
         # MigrateFromDeployedEtcd signals that vCluster should migrate from the deployed external etcd to embedded etcd.
         migrateFromDeployedEtcd: false
+        # DefragTimeout defines how long the etcd defragmentation on startup may take, e.g. "5m".
+        # vCluster fails to start if exceeded. Set to "0s" to skip defragmentation entirely.
+        defragTimeout: 5m
         # ExtraArgs are additional arguments to pass to the embedded etcd.
         extraArgs: []
       # External defines to use a self-hosted external etcd that is not deployed by the helm chart
