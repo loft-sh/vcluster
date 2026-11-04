@@ -1,15 +1,38 @@
 name: Automatic backport action
 
 on:
-  pull_request_target:
-    types: ["labeled", "closed"]
+  workflow_run: # zizmor: ignore[dangerous-triggers] -- only metadata from the verified read-only relay is consumed
+    workflows: ["Pull request events"]
+    types: [completed]
 
 permissions:
   contents: read
 
 jobs:
+  event:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request_target'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+    outputs:
+      eligible: ${{ steps.event.outputs.eligible }}
+      pr-event: ${{ steps.event.outputs.event-json }}
+    steps:
+      - name: Resolve pull request from the metadata relay
+        id: event
+        uses: loft-sh/github-actions/.github/actions/resolve-pr-event@resolve-pr-event/v1 # zizmor: ignore[unpinned-uses] -- internal versioned action
+        with:
+          source-workflow: .github/workflows/pull-request-events.yaml
+
   backport:
-    uses: loft-sh/github-actions/.github/workflows/backport.yaml@backport/v1
+    needs: event
+    if: needs.event.outputs.eligible == 'true'
+    uses: loft-sh/github-actions/.github/workflows/backport.yaml@backport/v1 # zizmor: ignore[unpinned-uses] -- internal rolling workflow tag
+    with:
+      pr-event: ${{ needs.event.outputs.pr-event }}
     secrets:
       gh-access-token: ${{ secrets.GH_ACCESS_TOKEN }}
       linear-token: ${{ secrets.LINEAR_TOKEN }}
