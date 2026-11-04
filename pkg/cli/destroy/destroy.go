@@ -59,6 +59,9 @@ var resourceOrder = []string{
 	"runners",
 	"clusters",
 	"clusteraccesses",
+	// before nodeclaims: a static pool recreates the claims deleted under it, and a deleted pool
+	// removes its own claims before it goes
+	"nodepools",
 	"nodeclaims",
 	"machines",
 	// after nodeclaims: a claim holds its environment until the claim is gone
