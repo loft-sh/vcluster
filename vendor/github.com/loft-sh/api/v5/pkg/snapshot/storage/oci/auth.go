@@ -2,13 +2,14 @@ package oci
 
 import (
 	"os"
+	"os/user"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/docker/cli/cli/config"
 	"github.com/docker/cli/cli/config/configfile"
 	"github.com/docker/cli/cli/config/types"
-	"github.com/docker/docker/pkg/homedir"
 	perrors "github.com/pkg/errors"
 )
 
@@ -49,12 +50,23 @@ func prepareCredentials(host string, authConfig types.AuthConfig) *Credentials {
 }
 
 func loadDockerConfig() (*configfile.ConfigFile, error) {
+	return config.Load(dockerConfigDir())
+}
+
+func dockerConfigDir() string {
 	configDir := os.Getenv("DOCKER_CONFIG")
-	if configDir == "" {
-		configDir = filepath.Join(homedir.Get(), dockerFileFolder)
+	if configDir != "" {
+		return configDir
 	}
 
-	return config.Load(configDir)
+	home, _ := os.UserHomeDir()
+	// Preserve Docker's account lookup when HOME is unset on Unix.
+	if home == "" && runtime.GOOS != "windows" {
+		if current, err := user.Current(); err == nil {
+			home = current.HomeDir
+		}
+	}
+	return filepath.Join(home, dockerFileFolder)
 }
 
 func isAzureContainerRegistry(serverAddress string) bool {

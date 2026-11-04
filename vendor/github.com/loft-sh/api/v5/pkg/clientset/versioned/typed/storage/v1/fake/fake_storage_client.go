@@ -64,6 +64,10 @@ func (c *FakeStorageV1) NodeClaims(namespace string) v1.NodeClaimInterface {
 	return newFakeNodeClaims(c, namespace)
 }
 
+func (c *FakeStorageV1) NodePools(namespace string) v1.NodePoolInterface {
+	return newFakeNodePools(c, namespace)
+}
+
 func (c *FakeStorageV1) NodeProfiles() v1.NodeProfileInterface {
 	return newFakeNodeProfiles(c)
 }

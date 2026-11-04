@@ -76,6 +76,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&NetworkPeerDebug{},
 		&NodeClaim{},
 		&NodeClaimList{},
+		&NodePool{},
+		&NodePoolList{},
 		&NodeProfile{},
 		&NodeProfileList{},
 		&NodeProvider{},
@@ -288,6 +290,12 @@ var (
 			func() runtime.Object { return &NodeClaim{} },     // Register versioned resource
 			func() runtime.Object { return &NodeClaimList{} }, // Register versioned resource list
 			management.NewNodeClaimStatusREST),
+		management.ManagementNodePoolStorage,
+		builders.NewApiResourceWithStorage(
+			management.InternalNodePoolStatus,
+			func() runtime.Object { return &NodePool{} },     // Register versioned resource
+			func() runtime.Object { return &NodePoolList{} }, // Register versioned resource list
+			management.NewNodePoolStatusREST),
 		management.ManagementNodeProfileStorage,
 		management.ManagementNodeProviderStorage,
 		builders.NewApiResourceWithStorage(
@@ -873,6 +881,14 @@ type NodeClaimList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []NodeClaim `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type NodePoolList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []NodePool `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

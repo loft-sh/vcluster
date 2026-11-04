@@ -19,6 +19,7 @@ const (
 	NodeClaimConditionTypeDestroyed = "Destroyed"
 	// NodeClaimConditionTypePreferredDeletion indicates the NodeClaim is a preferred candidate for deletion.
 	NodeClaimConditionTypePreferredDeletion = "PreferredDeletion"
+	NodeClaimReasonMachineLeftNodeType      = "MachineLeftNodeType"
 )
 
 var (

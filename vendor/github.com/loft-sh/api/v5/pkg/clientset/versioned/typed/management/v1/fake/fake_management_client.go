@@ -112,6 +112,10 @@ func (c *FakeManagementV1) NodeClaims(namespace string) v1.NodeClaimInterface {
 	return newFakeNodeClaims(c, namespace)
 }
 
+func (c *FakeManagementV1) NodePools(namespace string) v1.NodePoolInterface {
+	return newFakeNodePools(c, namespace)
+}
+
 func (c *FakeManagementV1) NodeProfiles() v1.NodeProfileInterface {
 	return newFakeNodeProfiles(c)
 }

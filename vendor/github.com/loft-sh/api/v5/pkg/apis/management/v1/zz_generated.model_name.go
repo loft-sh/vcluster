@@ -851,6 +851,26 @@ func (in NodeClaimStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NodePool) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v5.pkg.apis.management.v1.NodePool"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NodePoolList) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v5.pkg.apis.management.v1.NodePoolList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NodePoolSpec) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v5.pkg.apis.management.v1.NodePoolSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NodePoolStatus) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v5.pkg.apis.management.v1.NodePoolStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in NodeProfile) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v5.pkg.apis.management.v1.NodeProfile"
 }

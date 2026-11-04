@@ -37,6 +37,7 @@ type ManagementV1Interface interface {
 	NetworkEnvironmentsGetter
 	NetworkPeersGetter
 	NodeClaimsGetter
+	NodePoolsGetter
 	NodeProfilesGetter
 	NodeProvidersGetter
 	NodeTypesGetter
@@ -171,6 +172,10 @@ func (c *ManagementV1Client) NetworkPeers() NetworkPeerInterface {
 
 func (c *ManagementV1Client) NodeClaims(namespace string) NodeClaimInterface {
 	return newNodeClaims(c, namespace)
+}
+
+func (c *ManagementV1Client) NodePools(namespace string) NodePoolInterface {
+	return newNodePools(c, namespace)
 }
 
 func (c *ManagementV1Client) NodeProfiles() NodeProfileInterface {
