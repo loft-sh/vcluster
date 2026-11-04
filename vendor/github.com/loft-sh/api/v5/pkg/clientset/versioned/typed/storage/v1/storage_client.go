@@ -25,6 +25,7 @@ type StorageV1Interface interface {
 	NetworkEnvironmentsGetter
 	NetworkPeersGetter
 	NodeClaimsGetter
+	NodePoolsGetter
 	NodeProfilesGetter
 	NodeProvidersGetter
 	NodeTypesGetter
@@ -98,6 +99,10 @@ func (c *StorageV1Client) NetworkPeers() NetworkPeerInterface {
 
 func (c *StorageV1Client) NodeClaims(namespace string) NodeClaimInterface {
 	return newNodeClaims(c, namespace)
+}
+
+func (c *StorageV1Client) NodePools(namespace string) NodePoolInterface {
+	return newNodePools(c, namespace)
 }
 
 func (c *StorageV1Client) NodeProfiles() NodeProfileInterface {

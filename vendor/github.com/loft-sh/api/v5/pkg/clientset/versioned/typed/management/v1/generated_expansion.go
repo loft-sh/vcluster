@@ -52,6 +52,8 @@ type NetworkPeerExpansion interface{}
 
 type NodeClaimExpansion interface{}
 
+type NodePoolExpansion interface{}
+
 type NodeProfileExpansion interface{}
 
 type NodeProviderExpansion interface{}

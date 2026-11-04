@@ -796,6 +796,56 @@ func (in NodeClaimStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NodePool) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v5.pkg.apis.storage.v1.NodePool"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NodePoolDisruption) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v5.pkg.apis.storage.v1.NodePoolDisruption"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NodePoolDisruptionBudget) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v5.pkg.apis.storage.v1.NodePoolDisruptionBudget"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NodePoolDynamic) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v5.pkg.apis.storage.v1.NodePoolDynamic"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NodePoolDynamicStatus) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v5.pkg.apis.storage.v1.NodePoolDynamicStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NodePoolList) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v5.pkg.apis.storage.v1.NodePoolList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NodePoolSpec) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v5.pkg.apis.storage.v1.NodePoolSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NodePoolStatic) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v5.pkg.apis.storage.v1.NodePoolStatic"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NodePoolStatus) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v5.pkg.apis.storage.v1.NodePoolStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in NodePoolTemplate) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v5.pkg.apis.storage.v1.NodePoolTemplate"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in NodeProfile) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v5.pkg.apis.storage.v1.NodeProfile"
 }
@@ -1373,6 +1423,11 @@ func (in TenantControlPlaneClusters) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in TenantCustomAllow) OpenAPIModelName() string {
 	return "com.github.loft-sh.api.v5.pkg.apis.storage.v1.TenantCustomAllow"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in TenantExternalClusters) OpenAPIModelName() string {
+	return "com.github.loft-sh.api.v5.pkg.apis.storage.v1.TenantExternalClusters"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.

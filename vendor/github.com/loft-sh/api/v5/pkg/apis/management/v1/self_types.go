@@ -74,6 +74,13 @@ type SelfStatus struct {
 	// ProjectNamespacePrefix is the prefix used to name project namespaces after defaulting has been applied
 	// +optional
 	ProjectNamespacePrefix *string `json:"projectNamespacePrefix,omitempty"`
+
+	// ExternalClustersAllowed reports whether the described subject's tenant allows
+	// importing externally deployed clusters: its tenant's setting, or true outside any
+	// tenant. It does not account for RBAC: registering a cluster still needs create on
+	// registervirtualclusters. Unset if it could not be determined.
+	// +optional
+	ExternalClustersAllowed *bool `json:"externalClustersAllowed,omitempty"`
 }
 
 type UserInfo struct {

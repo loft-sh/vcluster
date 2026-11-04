@@ -27,4 +27,7 @@ type EventSpec struct {
 // EventStatus holds the status, which is the parsed raw config
 type EventStatus struct {
 	auditv1.Event `json:",inline"`
+
+	// Tenant is the tenant recorded for the request when it was stored. Empty for operator requests and events stored before tenant recording.
+	Tenant string `json:"tenant,omitempty"`
 }
