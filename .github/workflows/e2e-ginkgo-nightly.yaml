@@ -53,7 +53,7 @@ jobs:
           cache: false
 
       - name: Setup GoReleaser
-        uses: goreleaser/goreleaser-action@v6
+        uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
         with:
           install-only: true
           version: latest
