@@ -65,10 +65,12 @@ func TestResourceOrderIsWellFormed(t *testing.T) {
 
 // TestResourceOrderDeletesHoldersFirst pins the relative positions a finalizer makes load-bearing:
 // a resource that holds another through a finalizer must be deleted first, or destroy waits on
-// the held one until its timeout. A node claim holds its network environment, a provider's
-// finalizer waits on its environments, and a tenant storage names its profile.
+// the held one until its timeout. A static node pool recreates the claims deleted under it, a
+// node claim holds its network environment, a provider's finalizer waits on its environments,
+// and a tenant storage names its profile.
 func TestResourceOrderDeletesHoldersFirst(t *testing.T) {
 	pairs := [][2]string{
+		{"nodepools", "nodeclaims"},
 		{"nodeclaims", "networkenvironments"},
 		{"networkenvironments", "nodeproviders"},
 		{"tenantstorages", "storageprofiles"},
