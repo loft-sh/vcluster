@@ -215,6 +215,8 @@ func (o *PushOptions) pushHelmChart(ctx context.Context, helmChart string, local
 		"helm",
 		"push",
 		"--plain-http",
+		// a chart file name starting with "-" must not be parsed as a helm flag
+		"--",
 		helmChart,
 		remoteRef,
 	)
