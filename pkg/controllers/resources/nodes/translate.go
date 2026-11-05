@@ -78,6 +78,12 @@ func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.
 		if err != nil {
 			klog.Errorf("error decoding taint: %v", err)
 		} else {
+			// taints must be unique by key and effect, so if the virtual node already carries
+			// the same taint with a different value or time added (e.g. set by the virtual
+			// node lifecycle controller), keep the first one which is the physical one.
+			if containsTaintKeyEffect(newTaintsObjects, taint) {
+				continue
+			}
 			newTaintsObjects = append(newTaintsObjects, taint)
 		}
 	}
@@ -279,6 +285,15 @@ func mergeStrings(physical []string, virtual []string, oldPhysical []string) []s
 	}
 
 	return newMerged
+}
+
+func containsTaintKeyEffect(taints []corev1.Taint, taint corev1.Taint) bool {
+	for _, t := range taints {
+		if t.Key == taint.Key && t.Effect == taint.Effect {
+			return true
+		}
+	}
+	return false
 }
 
 func mergeResources(a corev1.ResourceList, b corev1.ResourceList) corev1.ResourceList {
