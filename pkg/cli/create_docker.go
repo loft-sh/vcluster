@@ -588,7 +588,7 @@ func ensureVClusterJoinToken(globalFlags *flags.GlobalFlags, vClusterName string
 		}
 
 		token := random.String(64)
-		err = os.WriteFile(tokenPath, []byte(token), 0644)
+		err = writeOwnerOnlyFile(tokenPath, []byte(token))
 		if err != nil {
 			return "", fmt.Errorf("write token file: %w", err)
 		}
