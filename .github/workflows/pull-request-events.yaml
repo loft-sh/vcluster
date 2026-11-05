@@ -1,8 +1,10 @@
 name: Pull request events
 
 on:
-  pull_request_target: # zizmor: ignore[dangerous-triggers] -- metadata only; no checkout, business secrets, or write token
-    types: [labeled, closed]
+  pull_request:
+    # Merges use the trusted push consumer; signaling close as well would repeat
+    # the same backport. Labels added after merge still need their own signal.
+    types: [labeled]
 
 permissions: {}
 
@@ -10,15 +12,9 @@ jobs:
   relay:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    permissions:
-      contents: read
+    permissions: {}
     steps:
-      - name: Record event
-        run: >-
-          jq '{number,action,label: (if .action == "labeled" then .label.name else "" end)}' "$GITHUB_EVENT_PATH" > "$RUNNER_TEMP/event.json"
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: pull-request-event-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/event.json
-          retention-days: 1
-          if-no-files-found: error
+      # The trusted consumer resolves PR identity through GitHub's API. Nothing
+      # supplied by this PR revision (code, artifacts, or event JSON) is consumed.
+      - name: Signal pull request activity
+        run: ':'

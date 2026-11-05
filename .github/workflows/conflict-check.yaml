@@ -5,12 +5,11 @@ on:
     branches:
       - 'v**'
 
-permissions:
-  contents: read
-  pull-requests: write
+permissions: {}
 
 jobs:
   conflict-check:
+    if: github.event.pull_request.head.repo.full_name == github.repository
     permissions:
       contents: read
       pull-requests: write

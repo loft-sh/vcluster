@@ -1,5 +1,8 @@
 name: Unit tests
 
+permissions:
+  contents: read
+
 on:
   workflow_dispatch:
   pull_request:
@@ -28,6 +31,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
       - name: Install Helm Unit Test Plugin
         run: |
           helm plugin install https://github.com/helm-unittest/helm-unittest --version v0.4.4
@@ -43,6 +48,8 @@ jobs:
     steps:
       - name: Check out code into the Go module directory
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
       - name: Set up Go
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
