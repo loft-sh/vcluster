@@ -77,6 +77,25 @@ tests:
           path: spec.template.spec.initContainers[0].image
           value: bbb.com/k8s-controller:123
 
+  - it: defaultImageRegistry with trailing slash
+    set:
+      controlPlane:
+        distro:
+          k8s:
+            enabled: true
+            image:
+              repository: "k8s-controller"
+              tag: "123"
+        advanced:
+          defaultImageRegistry: "bbb.com/"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: bbb.com/loft-sh/vcluster-pro:0.0.1
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: bbb.com/k8s-controller:123
+
   - it: name & defaults
     release:
       name: my-release
