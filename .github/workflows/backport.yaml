@@ -32,7 +32,7 @@ jobs:
     steps:
       - name: Resolve merged pull requests from GitHub
         id: event
-        uses: loft-sh/github-actions/.github/actions/resolve-pr-event@2a987c344d7c30cf3003666e6e1963bb32c8c5e1 # DEVOPS-1803: shared PR #349, pending release
+        uses: loft-sh/github-actions/.github/actions/resolve-pr-event@a770a9dcb3a1c6c72dd2f48098f9d7c20ec15253 # DEVOPS-1803: shared PR #349, pending release
         with:
           source-workflow: .github/workflows/pull-request-events.yaml
 
@@ -47,7 +47,7 @@ jobs:
       fail-fast: false
       matrix:
         event: ${{ fromJSON(needs.event.outputs.events-json) }}
-    uses: loft-sh/github-actions/.github/workflows/backport.yaml@2a987c344d7c30cf3003666e6e1963bb32c8c5e1 # DEVOPS-1803: shared PR #349, pending release
+    uses: loft-sh/github-actions/.github/workflows/backport.yaml@a770a9dcb3a1c6c72dd2f48098f9d7c20ec15253 # DEVOPS-1803: shared PR #349, pending release
     with:
       pr-event: ${{ toJSON(matrix.event) }}
       source-workflow: .github/workflows/pull-request-events.yaml
