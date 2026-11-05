@@ -26,6 +26,12 @@ func AddHelmFlags(cmd *cobra.Command, options *cli.DeleteOptions) {
 	cmd.Flags().BoolVar(&options.IgnoreNotFound, "ignore-not-found", false, "If enabled, vcluster will not error out in case the target vcluster does not exist")
 }
 
+// AddDeleteAllFlags adds the flags that only apply to 'vcluster delete --all'.
+func AddDeleteAllFlags(cmd *cobra.Command, options *cli.DeleteOptions) {
+	cmd.Flags().BoolVarP(&options.All, "all", "A", false, "If enabled, vcluster will delete all virtual clusters in the current context instead of a single one. Combine with --namespace to only delete the virtual clusters in that namespace. Asks for confirmation unless --non-interactive is set")
+	cmd.Flags().BoolVar(&options.NonInteractive, "non-interactive", false, "Will not prompt for confirmation when deleting all virtual clusters")
+}
+
 func AddPlatformFlags(cmd *cobra.Command, options *cli.DeleteOptions, prefixes ...string) {
 	prefix := strings.Join(prefixes, "")
 
