@@ -21,21 +21,12 @@ import (
 	"strings"
 
 	"golang.org/x/tools/go/types/objectpath"
-	"golang.org/x/tools/internal/aliases"
-	"golang.org/x/tools/internal/typesinternal"
+	// This package is dependency-restricted; see x/tools/go/gcexportdata.TestDeps.
 )
 
 type intReader struct {
 	*bytes.Reader
 	path string
-}
-
-func (r *intReader) int64() int64 {
-	i, err := binary.ReadVarint(r.Reader)
-	if err != nil {
-		errorf("import %q: read varint error: %v", r.path, err)
-	}
-	return i
 }
 
 func (r *intReader) uint64() uint64 {
@@ -48,13 +39,14 @@ func (r *intReader) uint64() uint64 {
 
 // Keep this in sync with constants in iexport.go.
 const (
-	iexportVersionGo1_11   = 0
-	iexportVersionPosCol   = 1
-	iexportVersionGo1_18   = 2
-	iexportVersionGenerics = 2
-	iexportVersion         = iexportVersionGenerics
+	iexportVersionGo1_11         = 0
+	iexportVersionPosCol         = 1
+	iexportVersionGo1_18         = 2
+	iexportVersionGenerics       = 2
+	iexportVersionGenericMethods = 3
+	iexportVersion               = iexportVersionGenericMethods
 
-	iexportVersionCurrent = 2
+	iexportVersionCurrent = 3
 )
 
 type ident struct {
@@ -100,12 +92,12 @@ const (
 // and returns 0 and a reference to the package.
 // If the export data version is not recognized or the format is otherwise
 // compromised, an error is returned.
-func IImportData(fset *token.FileSet, imports map[string]*types.Package, data []byte, path string) (int, *types.Package, error) {
+func IImportData(fset *token.FileSet, imports map[string]*types.Package, data []byte, path string) (*types.Package, error) {
 	pkgs, err := iimportCommon(fset, GetPackagesFromMap(imports), data, false, path, false, nil)
 	if err != nil {
-		return 0, nil, err
+		return nil, err
 	}
-	return 0, pkgs[0], nil
+	return pkgs[0], nil
 }
 
 // IImportBundle imports a set of packages from the serialized package bundle.
@@ -179,9 +171,9 @@ func iimportCommon(fset *token.FileSet, getPackages GetPackagesFunc, data []byte
 
 	version = int64(r.uint64())
 	switch version {
-	case iexportVersionGo1_18, iexportVersionPosCol, iexportVersionGo1_11:
+	case iexportVersionGenericMethods, iexportVersionGo1_18, iexportVersionPosCol, iexportVersionGo1_11:
 	default:
-		if version > iexportVersionGo1_18 {
+		if version > iexportVersionGenericMethods {
 			errorf("unstable iexport format version %d, just rebuild compiler and std library", version)
 		} else {
 			errorf("unknown iexport format version %d", version)
@@ -573,8 +565,8 @@ func (r *importReader) obj(pkg *types.Package, name string) {
 		if tag == genericAliasTag {
 			tparams = r.tparamList()
 		}
-		typ := r.typ()
-		obj := aliases.New(pos, pkg, name, typ, tparams)
+		obj := types.NewTypeName(pos, pkg, name, nil)
+		types.NewAlias(obj, r.typ()).SetTypeParams(tparams)
 		markBlack(obj) // workaround for golang/go#69912
 		r.declare(obj)
 
@@ -614,13 +606,22 @@ func (r *importReader) obj(pkg *types.Package, name string) {
 			for n := r.uint64(); n > 0; n-- {
 				mpos := r.pos()
 				mname := r.ident()
+				var tpars []*types.TypeParam
+				if r.p.version >= iexportVersionGenericMethods && r.bool() {
+					tpars = r.tparamList()
+				}
 				recv := r.param(pkg)
 
 				// If the receiver has any targs, set those as the
 				// rparams of the method (since those are the
 				// typeparams being used in the method sig/body).
-				_, recvNamed := typesinternal.ReceiverNamed(recv)
-				targs := recvNamed.TypeArgs()
+				//
+				// Avoid dependency on typesinternal.RecvBase here.
+				t := recv.Type()
+				if ptr, ok := types.Unalias(t).(*types.Pointer); ok {
+					t = ptr.Elem()
+				}
+				targs := types.Unalias(t).(*types.Named).TypeArgs()
 				var rparams []*types.TypeParam
 				if targs.Len() > 0 {
 					rparams = make([]*types.TypeParam, targs.Len())
@@ -628,8 +629,7 @@ func (r *importReader) obj(pkg *types.Package, name string) {
 						rparams[i] = types.Unalias(targs.At(i)).(*types.TypeParam)
 					}
 				}
-				msig := r.signature(pkg, recv, rparams, nil)
-
+				msig := r.signature(pkg, recv, rparams, tpars)
 				named.AddMethod(types.NewFunc(mpos, pkg, mname, msig))
 			}
 		}
@@ -671,7 +671,7 @@ func (r *importReader) obj(pkg *types.Package, name string) {
 		typ := r.typ()
 
 		v := types.NewVar(pos, pkg, name, typ)
-		typesinternal.SetVarKind(v, typesinternal.PackageVar)
+		v.SetKind(types.PackageVar)
 		r.declare(v)
 
 	default:
