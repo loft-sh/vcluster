@@ -1,6 +1,7 @@
 package nodes
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
@@ -9,9 +10,11 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -370,4 +373,69 @@ func newFakeSyncer(t *testing.T, ctx *synccontext.RegisterContext) (*synccontext
 		return NewSyncer(ctx, &fakeNodeServiceProvider{})
 	})
 	return syncContext, object.(*nodeSyncer)
+}
+
+func TestTranslateUpdateStatusSchedulerPods(t *testing.T) {
+	testCases := []struct {
+		name                string
+		hostAllocatablePods int64
+		hostPods            int
+		expectedPods        int64
+	}{
+		{
+			name:                "Host pods are subtracted from allocatable pods",
+			hostAllocatablePods: 10,
+			hostPods:            3,
+			expectedPods:        7,
+		},
+		{
+			name:                "Node full of host pods leaves no allocatable pods",
+			hostAllocatablePods: 2,
+			hostPods:            2,
+			expectedPods:        0,
+		},
+	}
+
+	for _, tC := range testCases {
+		t.Run(tC.name, func(t *testing.T) {
+			pClient, vClient, vConfig := (&syncertesting.SyncTest{}).Setup()
+			registerContext := syncertesting.NewFakeRegisterContext(vConfig, pClient, vClient)
+			syncCtx, syncer := newFakeSyncer(t, registerContext)
+
+			// pods on the host node that this vcluster does not manage
+			hostPods := []client.Object{}
+			for i := range tC.hostPods {
+				hostPods = append(hostPods, &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      fmt.Sprintf("host-pod-%d", i),
+						Namespace: "default",
+					},
+					Spec: corev1.PodSpec{
+						NodeName: baseName.Name,
+					},
+					Status: corev1.PodStatus{
+						Phase: corev1.PodRunning,
+					},
+				})
+			}
+
+			syncer.enableScheduler = true
+			syncer.unmanagedPodCache = fake.NewClientBuilder().
+				WithObjects(hostPods...).
+				WithIndex(&corev1.Pod{}, constants.IndexRunningNonVClusterPodsByNode, func(object client.Object) []string {
+					return []string{object.(*corev1.Pod).Spec.NodeName}
+				}).
+				Build()
+
+			pNode := baseNode.DeepCopy()
+			pNode.Status.Capacity = corev1.ResourceList{
+				corev1.ResourcePods: *resource.NewQuantity(tC.hostAllocatablePods, resource.DecimalSI),
+			}
+			pNode.Status.Allocatable = pNode.Status.Capacity.DeepCopy()
+			vNode := baseVNode.DeepCopy()
+
+			assert.NilError(t, syncer.translateUpdateStatus(syncCtx, pNode, vNode))
+			assert.Equal(t, vNode.Status.Allocatable.Pods().Value(), tC.expectedPods)
+		})
+	}
 }
