@@ -1320,6 +1320,17 @@ exportKubeConfig:
     namespace: ""
     # ClusterRole to assign to the service account.
     clusterRole: ""
+    # TokenRotation enables automatic token renewal when expiration is configured. The chart provisions the destination
+    # Secret and a scoped Role/RoleBinding. Removing rotation on a Helm upgrade or uninstalling the release
+    # deletes the Secret, Role, and RoleBinding.
+    # The Role permits get/list/watch/patch on a particular Secret only.
+    # Leave empty or omit to retain the legacy ten-year token request and startup-only export behavior.
+    # For Helm upgrades, adopt any existing destination Secret into the release before configuring rotation.
+    #
+    # tokenRotation:
+    #   expiration: 10m             # Expiration requests a token lifetime as a duration between 600s and 2^32 seconds (kube-apiserver limits).
+    #   renewBeforePercentage: 33   # Percentage of granted lifetime remaining, must be between 1 and 99.
+    tokenRotation: {}
   
   # Declare in which host cluster secret vCluster should store the generated virtual cluster kubeconfig.
   # If this is not defined, vCluster will create it with `vc-NAME`. If you specify another name,

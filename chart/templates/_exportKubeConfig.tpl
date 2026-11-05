@@ -1,4 +1,5 @@
 {{- define "vcluster.exportKubeConfig.validate" }}
+{{- include "vcluster.exportKubeConfig.serviceAccount.validate" (dict "path" "exportKubeConfig.serviceAccount" "serviceAccount" .Values.exportKubeConfig.serviceAccount) }}
 {{- /*
   Verify that exportKubeConfig.secret and exportKubeConfig.additionalSecrets are
   not set at the same time.
@@ -17,7 +18,8 @@
 {{- /*
   Verify that additional secrets have name or namespace set.
 */}}
-{{- range $_, $additionalSecret := .Values.exportKubeConfig.additionalSecrets }}
+{{- range $index, $additionalSecret := .Values.exportKubeConfig.additionalSecrets }}
+{{- include "vcluster.exportKubeConfig.serviceAccount.validate" (dict "path" (printf "exportKubeConfig.additionalSecrets[%d].serviceAccount" $index) "serviceAccount" $additionalSecret.serviceAccount) }}
 {{- $nameSet := false }}
 {{- $namespaceSet := false }}
 {{- if $additionalSecret.name }}
@@ -32,6 +34,25 @@
 {{- end }}
 {{- if not (or $nameSet $namespaceSet) }}
 {{- fail (cat "additional secret must have name and/or namespace set, found:" (toJson $additionalSecret)) }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{- define "vcluster.exportKubeConfig.serviceAccount.validate" }}
+{{- $serviceAccount := .serviceAccount | default dict }}
+{{- if $serviceAccount.tokenRotation }}
+{{- $rotation := $serviceAccount.tokenRotation }}
+{{- if empty $rotation.expiration }}
+{{- fail (printf "%s.tokenRotation.expiration is required when rotation settings are configured" .path) }}
+{{- end }}
+{{- if empty $serviceAccount.name }}
+{{- fail (printf "%s.tokenRotation requires a named ServiceAccount" .path) }}
+{{- end }}
+{{- if ne $rotation.renewBeforePercentage nil }}
+{{- $percentage := int64 $rotation.renewBeforePercentage }}
+{{- if or (lt $percentage (int64 1)) (gt $percentage (int64 99)) }}
+{{- fail (printf "%s.tokenRotation.renewBeforePercentage must be between 1 and 99" .path) }}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}
