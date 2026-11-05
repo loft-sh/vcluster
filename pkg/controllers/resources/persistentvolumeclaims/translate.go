@@ -55,7 +55,7 @@ func (s *persistentVolumeClaimSyncer) translateSelector(ctx *synccontext.SyncCon
 
 	// translate storage class if we manage those in vcluster
 	if s.storageClassesEnabled && storageClassName != "" {
-		translated := translate.Default.HostNameCluster(storageClassName)
+		translated := mappings.VirtualToHostName(ctx, storageClassName, "", mappings.StorageClasses())
 		delete(vPvc.Annotations, deprecatedStorageClassAnnotation)
 		vPvc.Spec.StorageClassName = &translated
 	}
@@ -67,7 +67,7 @@ func (s *persistentVolumeClaimSyncer) translateSelector(ctx *synccontext.SyncCon
 				vPvc.Spec.Selector = translate.HostLabelSelector(vPvc.Spec.Selector)
 			}
 			if vPvc.Spec.VolumeName != "" {
-				vPvc.Spec.VolumeName = translate.Default.HostNameCluster(vPvc.Spec.VolumeName)
+				vPvc.Spec.VolumeName = mappings.VirtualToHostName(ctx, vPvc.Spec.VolumeName, "", mappings.PersistentVolumes())
 			}
 			// check if the storage class exists in the physical cluster
 			if !s.storageClassesEnabled && storageClassName != "" {
@@ -75,12 +75,12 @@ func (s *persistentVolumeClaimSyncer) translateSelector(ctx *synccontext.SyncCon
 				if vPvc.Spec.Selector == nil && vPvc.Spec.VolumeName == "" {
 					err := ctx.HostClient.Get(ctx, types.NamespacedName{Name: storageClassName}, &storagev1.StorageClass{})
 					if err != nil && kerrors.IsNotFound(err) {
-						translated := translate.Default.HostNameCluster(storageClassName)
+						translated := mappings.VirtualToHostName(ctx, storageClassName, "", mappings.StorageClasses())
 						delete(vPvc.Annotations, deprecatedStorageClassAnnotation)
 						vPvc.Spec.StorageClassName = &translated
 					}
 				} else {
-					translated := translate.Default.HostNameCluster(storageClassName)
+					translated := mappings.VirtualToHostName(ctx, storageClassName, "", mappings.StorageClasses())
 					delete(vPvc.Annotations, deprecatedStorageClassAnnotation)
 					vPvc.Spec.StorageClassName = &translated
 				}

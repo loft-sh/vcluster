@@ -17,7 +17,7 @@ func (s *persistentVolumeSyncer) translate(ctx *synccontext.SyncContext, vPv *co
 
 	// TODO: translate the storage secrets
 	if pPV.Spec.StorageClassName != "" {
-		pPV.Spec.StorageClassName = translate.Default.HostNameCluster(vPv.Spec.StorageClassName)
+		pPV.Spec.StorageClassName = mappings.VirtualToHostName(ctx, vPv.Spec.StorageClassName, "", mappings.StorageClasses())
 	}
 	return pPV, nil
 }
