@@ -1,6 +1,30 @@
 package server
 
-import "testing"
+import (
+	"testing"
+
+	corev1 "k8s.io/api/core/v1"
+)
+
+func TestServiceRedirectAuthResourcesIncludesUpdate(t *testing.T) {
+	got := serviceRedirectAuthResources()
+	wantVerbs := map[string]bool{"create": false, "update": false}
+	svc := corev1.SchemeGroupVersion.WithResource("services")
+	for _, resource := range got {
+		if resource.GroupVersionResource != svc {
+			t.Fatalf("unexpected resource %#v", resource.GroupVersionResource)
+		}
+		if _, ok := wantVerbs[resource.Verb]; !ok {
+			t.Fatalf("unexpected verb %q", resource.Verb)
+		}
+		wantVerbs[resource.Verb] = true
+	}
+	for verb, seen := range wantVerbs {
+		if !seen {
+			t.Fatalf("missing services/%s in redirect authorizer", verb)
+		}
+	}
+}
 
 func TestMetricsAuthNonResources(t *testing.T) {
 	wantPaths := map[string]struct{}{

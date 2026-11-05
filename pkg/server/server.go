@@ -205,13 +205,7 @@ func (s *Server) ServeOnListenerTLS(ctx *synccontext.ControllerContext) error {
 		)(r, requestInfo)
 	}
 
-	redirectAuthResources := []delegatingauthorizer.GroupVersionResourceVerb{
-		{
-			GroupVersionResource: corev1.SchemeGroupVersion.WithResource("services"),
-			Verb:                 "create",
-			SubResource:          "",
-		},
-	}
+	redirectAuthResources := serviceRedirectAuthResources()
 	redirectAuthNonResources := []delegatingauthorizer.PathVerb{}
 	redirectAuthResources = append(redirectAuthResources, s.redirectResources...)
 	if ctx.Config.Integrations.MetricsServer.Enabled {
@@ -313,6 +307,14 @@ func (s *Server) ServeOnListenerTLS(ctx *synccontext.ControllerContext) error {
 
 	<-stopped
 	return nil
+}
+
+func serviceRedirectAuthResources() []delegatingauthorizer.GroupVersionResourceVerb {
+	svc := corev1.SchemeGroupVersion.WithResource("services")
+	return []delegatingauthorizer.GroupVersionResourceVerb{
+		{GroupVersionResource: svc, Verb: "create", SubResource: ""},
+		{GroupVersionResource: svc, Verb: "update", SubResource: ""},
+	}
 }
 
 func metricsAuthNonResources() []delegatingauthorizer.PathVerb {
