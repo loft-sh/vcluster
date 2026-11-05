@@ -33,6 +33,10 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
+      - name: Set up Helm
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4
+        with:
+          version: v3.22.1
       - name: Install Helm Unit Test Plugin
         run: |
           helm plugin install https://github.com/helm-unittest/helm-unittest --version v0.4.4
