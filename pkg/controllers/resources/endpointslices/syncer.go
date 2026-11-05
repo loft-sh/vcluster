@@ -101,7 +101,14 @@ func (s *endpointSliceSyncer) Sync(ctx *synccontext.SyncContext, event *synccont
 
 	// bi-directional sync of annotations and labels
 	event.Virtual.Annotations, event.Host.Annotations = translate.AnnotationsBidirectionalUpdate(event, s.excludedAnnotations...)
-	event.Virtual.Labels, event.Host.Labels = translate.LabelsBidirectionalUpdate(event)
+	// the service-name label is translated on the host, so it must not be synced as is
+	event.Virtual.Labels, event.Host.Labels = translate.LabelsBidirectionalUpdate(event, translate.K8sServiceNameLabel)
+	if virtualSvcName, ok := event.Virtual.Labels[translate.K8sServiceNameLabel]; ok {
+		if event.Host.Labels == nil {
+			event.Host.Labels = map[string]string{}
+		}
+		event.Host.Labels[translate.K8sServiceNameLabel] = translateSvcName(virtualSvcName, event.Virtual.Namespace)
+	}
 
 	return ctrl.Result{}, nil
 }
