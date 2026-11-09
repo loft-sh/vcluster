@@ -489,3 +489,19 @@ func TestImage_String(t *testing.T) {
 		})
 	}
 }
+
+// GUARD: exhaustive fails lint here when a StoreType is added without a sharing decision.
+func TestStoreType_Shared(t *testing.T) {
+	expected := map[StoreType]bool{
+		StoreTypeEmbeddedEtcd:     true,
+		StoreTypeExternalEtcd:     true,
+		StoreTypeDeployedEtcd:     true,
+		StoreTypeExternalDatabase: true,
+		StoreTypeEmbeddedDatabase: false,
+	}
+
+	for storeType, shared := range expected {
+		assert.Equal(t, storeType.Shared(), shared,
+			"%s: a non-shared store must keep extra control plane pods out of the Service", storeType)
+	}
+}

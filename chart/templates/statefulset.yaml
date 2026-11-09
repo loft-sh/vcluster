@@ -35,6 +35,10 @@ spec:
 {{ include "vcluster.persistence" . | indent 2 }}
   {{- else }}
   strategy:
+    {{- if include "vcluster.database.embedded.enabled" . }}
+    {{- /* Each pod has its own SQLite: pods must never overlap, and only the leader is Ready. */}}
+    type: Recreate
+    {{- else }}
     rollingUpdate:
       maxSurge: 1
       {{- if (eq (int .Values.controlPlane.statefulSet.highAvailability.replicas) 1) }}
@@ -43,6 +47,7 @@ spec:
       maxUnavailable: 1
       {{- end }}
     type: RollingUpdate
+    {{- end }}
   {{- end }}
   replicas: {{ .Values.controlPlane.statefulSet.highAvailability.replicas }}
   template:

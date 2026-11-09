@@ -16,6 +16,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/authorization/delegatingauthorizer"
 	"github.com/loft-sh/vcluster/pkg/authorization/impersonationauthorizer"
 	"github.com/loft-sh/vcluster/pkg/authorization/kubeletauthorizer"
+	"github.com/loft-sh/vcluster/pkg/leaderelection"
 	"github.com/loft-sh/vcluster/pkg/plugin"
 	"github.com/loft-sh/vcluster/pkg/pro"
 	"github.com/loft-sh/vcluster/pkg/server/cert"
@@ -356,6 +357,10 @@ func (s *Server) buildHandlerChain(ctx *synccontext.ControllerContext, serverCon
 		defaultHandler = filters.WithNodeName(defaultHandler, ctx.Config.HostNamespace, ctx.Config.Networking.Advanced.ProxyKubelets.ByIP, s.cachedVirtualClient, ctx.HostNamespaceClient)
 	} else if ctx.Config.ControlPlane.Advanced.Konnectivity.Server.Enabled {
 		defaultHandler = pro.WithKonnectivity(ctx, defaultHandler)
+	}
+	// Outermost, so kubelet probes hit it before authentication.
+	if ctx.Config.OnlyLeaderServes() {
+		defaultHandler = filters.WithLeaderReadiness(defaultHandler, leaderelection.IsLeading)
 	}
 	return defaultHandler
 }

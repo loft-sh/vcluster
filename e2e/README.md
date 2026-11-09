@@ -24,6 +24,8 @@ e2e/
 ├── suite_plugin_test.go                  # Suite: plugin-vcluster
 ├── suite_lifecycle_test.go               # Suite: cli-vcluster (Ordered)
 ├── suite_export_kubeconfig_test.go       # Suite: export-kubeconfig-vcluster
+├── suite_misconfig_sts_test.go           # Suite: misconfig-sts-vcluster (Ordered)
+├── suite_misconfig_deploy_test.go        # Suite: misconfig-deploy-vcluster (Ordered)
 ├── suite_vind_test.go                    # Suite: vind (docker driver)
 │
 ├── vcluster-*.yaml                       # Per-suite embedded vcluster.yaml templates
@@ -45,6 +47,7 @@ e2e/
 │   ├── coredns/                   # CoreDNS resolution tests
 │   ├── export_kubeconfig/         # Export-kubeconfig additional-secret tests
 │   ├── lifecycle/                 # CLI connect / pause-resume tests
+│   ├── misconfig/                 # Control plane state that doesn't match vcluster.yaml
 │   └── ...
 │
 ├── test_deploy/                   # Deploy tests (helm charts, init manifests)
@@ -142,6 +145,8 @@ Each suite file maps to one vCluster. One file, one vCluster, one function.
 | `suite_lifecycle_test.go` | `cli-vcluster` | no |
 | `suite_export_kubeconfig_test.go` | `export-kubeconfig-vcluster` | no |
 | `suite_migration_test.go` | `migration-vcluster` | no |
+| `suite_misconfig_sts_test.go` | `misconfig-sts-vcluster` | no |
+| `suite_misconfig_deploy_test.go` | `misconfig-deploy-vcluster` | no |
 | `suite_vind_test.go` | (self-managed) | no |
 
 ## Labels
@@ -165,6 +170,7 @@ Labels are defined in `labels/labels.go`. `labels.PR` goes on suites that should
 | `isolation` | `isolation-mode-vcluster` |
 | `metricsproxy` | `metricsproxy-vcluster` |
 | `migration` | `migration-vcluster` |
+| `misconfig` | `misconfig-sts-vcluster`, `misconfig-deploy-vcluster` |
 | `nodesync` | `node-sync-vcluster` |
 | `plugin` | `plugin-vcluster` |
 | `rootless` | `rootless-vcluster` |

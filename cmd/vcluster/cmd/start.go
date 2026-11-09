@@ -205,15 +205,10 @@ func StartInCluster(ctx context.Context, options *StartOptions) error {
 	return nil
 }
 
+// StartLeaderElection always elects: the control plane can be scaled outside
+// vcluster.yaml, and two syncers without a lease delete each other's objects.
 func StartLeaderElection(ctx *synccontext.ControllerContext, startLeading func() error) error {
-	var err error
-	if ctx.Config.ControlPlane.StatefulSet.HighAvailability.Replicas > 1 {
-		err = leaderelection.StartLeaderElection(ctx, scheme.Scheme, func() error {
-			return startLeading()
-		})
-	} else {
-		err = startLeading()
-	}
+	err := leaderelection.StartLeaderElection(ctx, scheme.Scheme, startLeading)
 	if err != nil {
 		return errors.Wrap(err, "start controllers")
 	}

@@ -67,11 +67,10 @@ rules:
     resources: [ "endpointslices" ]
     verbs: [ "create", "list", "get", "delete", "patch", "update", "watch" ]
   {{- end }}
-  {{- if or .Values.privateNodes.enabled (gt (int .Values.controlPlane.statefulSet.highAvailability.replicas) 1) .Values.controlPlane.backingStore.etcd.embedded.enabled }}
+  {{- /* The syncer always elects a leader: the control plane can be scaled outside vcluster.yaml. */}}
   - apiGroups: ["coordination.k8s.io"]
     resources: ["leases"]
     verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
-  {{- end }}
   {{- if (and .Values.integrations.metricsServer.enabled .Values.integrations.metricsServer.pods) }}
   - apiGroups: ["metrics.k8s.io"]
     resources: ["pods"]
