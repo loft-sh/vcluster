@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/loft-sh/log"
@@ -122,4 +123,48 @@ func StartPortForwarding(ctx context.Context, config *rest.Config, client kubern
 	}()
 
 	return stopChan, nil
+}
+
+// ForwardPod forwards a random local port on 127.0.0.1 to remotePort of a pod.
+// It returns the local port and a stop func that is safe to call more than once.
+func ForwardPod(ctx context.Context, config *rest.Config, client kubernetes.Interface, namespace, pod string, remotePort int) (uint16, func(), error) {
+	t, upgrader, err := spdy.RoundTripperFor(config)
+	if err != nil {
+		return 0, nil, fmt.Errorf("create round tripper: %w", err)
+	}
+	req := client.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Namespace(namespace).
+		Name(pod).
+		SubResource("portforward")
+	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: t}, http.MethodPost, req.URL())
+
+	stopChan := make(chan struct{})
+	readyChan := make(chan struct{})
+	errChan := make(chan error, 1)
+	forwarder, err := NewOnAddresses(dialer, []string{"127.0.0.1"}, []string{fmt.Sprintf("0:%d", remotePort)}, stopChan, readyChan, errChan, io.Discard, io.Discard)
+	if err != nil {
+		return 0, nil, fmt.Errorf("create port forwarder: %w", err)
+	}
+	go func() {
+		if err := forwarder.ForwardPorts(ctx); err != nil {
+			errChan <- err
+		}
+	}()
+
+	var once sync.Once
+	stop := func() { once.Do(func() { close(stopChan) }) }
+	select {
+	case err := <-errChan:
+		stop()
+		return 0, nil, fmt.Errorf("port forward to %s/%s: %w", namespace, pod, err)
+	case <-readyChan:
+	}
+
+	ports, err := forwarder.GetPorts()
+	if err != nil {
+		stop()
+		return 0, nil, fmt.Errorf("get forwarded ports: %w", err)
+	}
+	return ports[0].Local, stop, nil
 }

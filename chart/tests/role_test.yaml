@@ -57,7 +57,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 11
+          count: 12
       - contains:
           path: rules
           count: 1
@@ -86,7 +86,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 10
+          count: 11
       - contains:
           path: rules
           count: 1
@@ -304,7 +304,7 @@ tests:
           value: Role
       - lengthEqual:
           path: rules
-          count: 13
+          count: 14
       - contains:
           path: rules
           content:
@@ -504,14 +504,14 @@ tests:
             verbs:
               ["create", "delete", "patch", "update", "get", "list", "watch"]
 
-  - it: default config does not grant lease verbs
+  - it: default config grants lease verbs
     asserts:
       - hasDocuments:
           count: 1
       - equal:
           path: kind
           value: Role
-      - notContains:
+      - contains:
           path: rules
           content:
             apiGroups: ["coordination.k8s.io"]

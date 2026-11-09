@@ -15,6 +15,18 @@ const (
 	StoreTypeExternalDatabase StoreType = "external-database"
 )
 
+// Shared reports whether all control plane replicas see the same data.
+// Embedded SQLite lives on each pod's own volume, so only one pod may serve.
+func (s StoreType) Shared() bool {
+	switch s {
+	case StoreTypeEmbeddedEtcd, StoreTypeExternalEtcd, StoreTypeDeployedEtcd, StoreTypeExternalDatabase:
+		return true
+	case StoreTypeEmbeddedDatabase:
+		return false
+	}
+	return false
+}
+
 // K8SVersionMap holds the supported k8s api servers
 var K8SVersionMap = map[string]string{
 	"1.36": "ghcr.io/loft-sh/kubernetes:v1.36.6",
