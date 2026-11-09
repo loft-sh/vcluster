@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"path"
 	"sort"
 	"strconv"
 	"strings"
@@ -122,6 +123,16 @@ func enforceKubeletSubpathAllowlist(
 	sharedNodes bool,
 ) bool {
 	reqPath := req.URL.Path
+
+	// checks and reject dot segments before classifying the path
+	if hasDotSegment(reqPath) {
+		responsewriters.ErrorNegotiated(
+			kerrors.NewBadRequest("proxy path must not contain '.' or '..' segments"),
+			s, corev1.SchemeGroupVersion, w, req,
+		)
+		return false
+	}
+
 	switch {
 	case IsKubeletHealthz(reqPath):
 		// allowed — health check, no tenant data, forward as-is in all modes
@@ -134,65 +145,66 @@ func enforceKubeletSubpathAllowlist(
 	case IsKubeletContainerLogs(reqPath):
 		// allowed — but validate pod and container ownership before forwarding
 		// path format: /api/v1/nodes/{node}/proxy/containerLogs/{namespace}/{pod}/{container}
-		parts := strings.Split(reqPath, "/")
+		// anything before or after that exact form is rejected, so no unvalidated segments
+		// are ever forwarded with the host credential
+		prefix, vNamespace, vPodName, vContainer, ok := parseKubeletContainerLogsPath(reqPath)
 		allowed := false
-		for i, seg := range parts {
-			if seg == "containerLogs" && i+3 < len(parts) {
-				vNamespace, vPodName, vContainer := parts[i+1], parts[i+2], parts[i+3]
-				if vNamespace == "" || vPodName == "" || vContainer == "" {
-					break // malformed path
-				}
-				syncCtx := registerCtx.ToSyncContext("container-logs-auth")
-				nsm, find := generic.VirtualToHostFromStore(
+		if ok {
+			syncCtx := registerCtx.ToSyncContext("container-logs-auth")
+			nsm, find := generic.VirtualToHostFromStore(
+				syncCtx,
+				types.NamespacedName{
+					Name:      vPodName,
+					Namespace: vNamespace,
+				},
+				mappings.Pods(),
+			)
+			if find {
+				// verify the requested container exists in the virtual pod so injected
+				// host-only sidecars (not present in the virtual spec) cannot be read
+				vPodObj := &corev1.Pod{}
+				getErr := syncCtx.VirtualClient.Get(
 					syncCtx,
-					types.NamespacedName{
-						Name:      vPodName,
-						Namespace: vNamespace,
-					},
-					mappings.Pods(),
+					types.NamespacedName{Name: vPodName, Namespace: vNamespace},
+					vPodObj,
 				)
-				if find {
-					// verify the requested container exists in the virtual pod so injected
-					// host-only sidecars (not present in the virtual spec) cannot be read
-					vPodObj := &corev1.Pod{}
-					getErr := syncCtx.VirtualClient.Get(
-						syncCtx,
-						types.NamespacedName{Name: vPodName, Namespace: vNamespace},
-						vPodObj,
-					)
-					if getErr != nil && !kerrors.IsNotFound(getErr) {
-						// transient API server error — do not conflate with an auth denial
-						responsewriters.ErrorNegotiated(getErr, s, corev1.SchemeGroupVersion, w, req)
-						return false
-					}
-					if getErr == nil {
-						for _, c := range vPodObj.Spec.Containers {
-							if c.Name == vContainer {
-								allowed = true
-								break
-							}
-						}
-						for _, c := range vPodObj.Spec.InitContainers {
-							if c.Name == vContainer {
-								allowed = true
-								break
-							}
-						}
-						for _, c := range vPodObj.Spec.EphemeralContainers {
-							if c.Name == vContainer {
-								allowed = true
-								break
-							}
+				if getErr != nil && !kerrors.IsNotFound(getErr) {
+					// transient API server error — do not conflate with an auth denial
+					responsewriters.ErrorNegotiated(getErr, s, corev1.SchemeGroupVersion, w, req)
+					return false
+				}
+				if getErr == nil {
+					for _, c := range vPodObj.Spec.Containers {
+						if c.Name == vContainer {
+							allowed = true
+							break
 						}
 					}
-					if allowed {
-						// rewrite virtual -> host coordinates so the kubelet receives the physical pod name/namespace
-						parts[i+1] = nsm.Namespace
-						parts[i+2] = nsm.Name
-						req.URL.Path = strings.Join(parts, "/")
+					for _, c := range vPodObj.Spec.InitContainers {
+						if c.Name == vContainer {
+							allowed = true
+							break
+						}
+					}
+					for _, c := range vPodObj.Spec.EphemeralContainers {
+						if c.Name == vContainer {
+							allowed = true
+							break
+						}
 					}
 				}
-				break
+				if allowed {
+					// rewrite virtual -> host coordinates so the kubelet receives the physical pod name/namespace
+					hostPath := prefix + kubeletContainerLogsSegment + nsm.Namespace + "/" + nsm.Name + "/" + vContainer
+					// re-check the rewritten path so only the exact containerLogs form is forwarded
+					if _, _, _, _, stillOK := parseKubeletContainerLogsPath(hostPath); stillOK && path.Clean(hostPath) == hostPath {
+						req.URL.Path = hostPath
+						// drop the client-supplied encoding so the proxied URL is built from the validated path
+						req.URL.RawPath = ""
+					} else {
+						allowed = false
+					}
+				}
 			}
 		}
 		if !allowed {
@@ -372,8 +384,51 @@ func IsKubeletPods(path string) bool {
 	return strings.HasSuffix(p, "/pods") || strings.HasSuffix(p, "/runningpods")
 }
 
+const kubeletContainerLogsSegment = "/proxy/containerLogs/"
+
+// IsKubeletContainerLogs classifies any path that mentions containerLogs, so malformed variants
+// are denied by the containerLogs check instead of falling through to the default branch.
+// Use parseKubeletContainerLogsPath to validate the exact form.
 func IsKubeletContainerLogs(path string) bool {
-	return strings.Contains(path, "/proxy/containerLogs/")
+	return strings.Contains(path, kubeletContainerLogsSegment)
+}
+
+// parseKubeletContainerLogsPath splits /api/v1/nodes/{node}/proxy/containerLogs/{namespace}/{pod}/{container}
+// into the prefix before /proxy/containerLogs/ and the three coordinates. It returns ok=false unless the
+// path has exactly that form: three non-empty segments after containerLogs, nothing after the container.
+func parseKubeletContainerLogsPath(reqPath string) (prefix, namespace, pod, container string, ok bool) {
+	idx := strings.Index(reqPath, kubeletContainerLogsSegment)
+	if idx < 0 {
+		return "", "", "", "", false
+	}
+
+	prefix = reqPath[:idx]
+	prefixParts := strings.Split(prefix, "/")
+	if len(prefixParts) != 5 || prefixParts[0] != "" || prefixParts[1] != "api" || prefixParts[2] != "v1" || prefixParts[3] != "nodes" || prefixParts[4] == "" {
+		return "", "", "", "", false
+	}
+
+	parts := strings.Split(reqPath[idx+len(kubeletContainerLogsSegment):], "/")
+	if len(parts) != 3 {
+		return "", "", "", "", false
+	}
+	for _, part := range parts {
+		if part == "" || part == "." || part == ".." {
+			return "", "", "", "", false
+		}
+	}
+
+	return prefix, parts[0], parts[1], parts[2], true
+}
+
+// hasDotSegment reports whether any "/"-separated segment of reqPath is "." or "..".
+func hasDotSegment(reqPath string) bool {
+	for _, seg := range strings.Split(reqPath, "/") {
+		if seg == "." || seg == ".." {
+			return true
+		}
+	}
+	return false
 }
 
 func rewritePods(ctx *synccontext.SyncContext, data []byte) ([]byte, error) {

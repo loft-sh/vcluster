@@ -5,6 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"strings"
 
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	"github.com/loft-sh/vcluster/e2e/constants"
@@ -16,6 +19,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 // KubeletProxySpec registers the spec.
@@ -237,7 +241,90 @@ func KubeletProxySpec() {
 							"expected 403 Forbidden, got: %v", err)
 					})
 				})
+
+				// client-go cleans "." and ".." out of AbsPath, and the vcluster's ServeMux redirects
+				// literal dot segments to the cleaned path, so these specs send the traversal with
+				// encoded slashes over raw HTTP.
+				It("GET /containerLogs for an owned pod with an encoded traversal to /pods returns 400 Bad Request", func(ctx context.Context) {
+					By("requesting container logs that walk to the unfiltered kubelet /pods", func() {
+						expectEncodedTraversalRejected(ctx, nodeName, nsName, podName, "%2F..%2F..%2F..%2F..%2Fpods")
+					})
+				})
+
+				It("GET /containerLogs for an owned pod with an encoded traversal to /configz returns 400 Bad Request", func(ctx context.Context) {
+					By("requesting container logs that walk to the kubelet /configz", func() {
+						expectEncodedTraversalRejected(ctx, nodeName, nsName, podName, "%2F..%2F..%2F..%2F..%2Fconfigz")
+					})
+				})
+
+				It("GET /containerLogs for an owned pod with an encoded traversal to another pod's logs returns 400 Bad Request", func(ctx context.Context) {
+					By("requesting container logs that walk to another pod's containerLogs", func() {
+						expectEncodedTraversalRejected(ctx, nodeName, nsName, podName,
+							"%2F..%2F..%2F..%2Fkube-system%2Fother-pod%2Fother-container")
+					})
+				})
+
+				It("GET /containerLogs for an owned pod with literal traversal segments is redirected to the cleaned path", func(ctx context.Context) {
+					By("requesting container logs with literal dot segments after the owned container", func() {
+						rawPath := fmt.Sprintf("/api/v1/nodes/%s/proxy/containerLogs/%s/%s/logger/../../../../configz",
+							nodeName, nsName, podName)
+						code, body := getRawPath(ctx, rawPath)
+						Expect(code).To(Equal(http.StatusTemporaryRedirect),
+							"expected the ServeMux to redirect %q, got %d: %s", rawPath, code, body)
+					})
+				})
+
+				It("GET /containerLogs for an owned pod with an extra trailing segment returns 403 Forbidden", func(ctx context.Context) {
+					By("requesting container logs with a segment after the owned container", func() {
+						_, err := vClusterClientset.RESTClient().Get().
+							AbsPath(fmt.Sprintf("/api/v1/nodes/%s/proxy/containerLogs/%s/%s/logger/extra",
+								nodeName, nsName, podName)).
+							DoRaw(ctx)
+						Expect(err).To(HaveOccurred(), "expected 403 for a containerLogs path with an extra segment")
+						Expect(kerrors.IsForbidden(err)).To(BeTrue(),
+							"expected 403 Forbidden, got: %v", err)
+					})
+				})
 			})
 		},
 	)
+}
+
+// expectEncodedTraversalRejected requests the logs of the owned logger container with suffix
+// appended after the container name, and expects the vcluster to reject the dot segments.
+func expectEncodedTraversalRejected(ctx context.Context, nodeName, nsName, podName, suffix string) {
+	GinkgoHelper()
+
+	rawPath := fmt.Sprintf("/api/v1/nodes/%s/proxy/containerLogs/%s/%s/logger%s",
+		nodeName, nsName, podName, suffix)
+	code, body := getRawPath(ctx, rawPath)
+	Expect(code).To(Equal(http.StatusBadRequest),
+		"expected 400 for %q, got %d: %s", rawPath, code, body)
+	Expect(body).To(ContainSubstring("must not contain '.' or '..' segments"),
+		"unexpected response body for %q", rawPath)
+}
+
+// getRawPath sends a GET for rawPath to the current vcluster without cleaning or re-encoding the
+// path, and returns the status code and response body.
+func getRawPath(ctx context.Context, rawPath string) (int, string) {
+	GinkgoHelper()
+
+	cfg := cluster.CurrentClusterFrom(ctx).KubernetesRestConfig()
+	httpClient, err := rest.HTTPClientFor(cfg)
+	Expect(err).To(Succeed())
+	httpClient.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimSuffix(cfg.Host, "/")+rawPath, nil)
+	Expect(err).To(Succeed())
+	Expect(req.URL.EscapedPath()).To(HaveSuffix(rawPath), "request path was cleaned or re-encoded before sending")
+
+	resp, err := httpClient.Do(req)
+	Expect(err).To(Succeed())
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	Expect(err).To(Succeed())
+	return resp.StatusCode, string(body)
 }
