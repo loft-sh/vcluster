@@ -48,4 +48,5 @@ var (
 	CLI              = Label("cli")
 	ExportKubeConfig = Label("exportkubeconfig")
 	Migration        = Label("migration")
+	Misconfig        = Label("misconfig")
 )

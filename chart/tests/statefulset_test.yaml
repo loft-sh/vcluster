@@ -211,6 +211,41 @@ tests:
           path: spec.volumeClaimTemplates
           count: 1
 
+  - it: recreates the deployment when embedded database has no volume claim
+    set:
+      controlPlane:
+        statefulSet:
+          persistence:
+            volumeClaim:
+              enabled: false
+    asserts:
+      - equal:
+          path: kind
+          value: Deployment
+      - equal:
+          path: spec.strategy
+          value:
+            type: Recreate
+
+  - it: rolls the deployment when the backing store is shared
+    set:
+      controlPlane:
+        backingStore:
+          database:
+            external:
+              enabled: true
+    asserts:
+      - equal:
+          path: kind
+          value: Deployment
+      - equal:
+          path: spec.strategy
+          value:
+            type: RollingUpdate
+            rollingUpdate:
+              maxSurge: 1
+              maxUnavailable: 0
+
   - it: persistent when k8s and embedded etcd
     set:
       controlPlane:

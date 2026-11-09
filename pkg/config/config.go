@@ -190,6 +190,12 @@ func (v VirtualClusterConfig) SchedulingInVirtualClusterEnabled() bool {
 	return v.IsVirtualSchedulerEnabled() || v.Sync.ToHost.Pods.HybridScheduling.Enabled
 }
 
+// OnlyLeaderServes reports whether control plane pods without the syncer lease must stay unready.
+// Standalone runs its own election, which never reports leadership to this gate.
+func (v VirtualClusterConfig) OnlyLeaderServes() bool {
+	return !v.BackingStoreType().Shared() && !v.ControlPlane.Standalone.Enabled
+}
+
 func findResource(resources *metav1.APIResourceList, resourcePlural string) bool {
 	if resources != nil {
 		for _, r := range resources.APIResources {
