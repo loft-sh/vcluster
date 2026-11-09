@@ -1,0 +1,10 @@
+# Without a volume claim the chart renders a Deployment; SQLite then sits on a per-pod emptyDir.
+controlPlane:
+  statefulSet:
+    image:
+      registry: ""
+      repository: {{.Repository}}
+      tag: {{.Tag}}
+    persistence:
+      volumeClaim:
+        enabled: false
