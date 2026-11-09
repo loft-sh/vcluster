@@ -4,13 +4,11 @@ FROM alpine:3.24
 ARG HELM_VERSION="v3.22.0"
 ARG TARGETARCH
 
+# Pull in the latest Alpine security patches for the base image
+RUN apk update && apk upgrade --no-cache
+
 # Set root path as working directory
 WORKDIR /
-
-# Add devspace
-RUN wget -O devspace "https://github.com/loft-sh/devspace/releases/latest/download/devspace-linux-${TARGETARCH}" \
-	&& chmod +x devspace \
-	&& mv devspace /usr/local/bin/devspace
 
 # Add helm
 RUN wget -O helm3.tar.gz "https://get.helm.sh/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz" \
@@ -21,7 +19,7 @@ RUN wget -O helm3.tar.gz "https://get.helm.sh/helm-${HELM_VERSION}-linux-${TARGE
 	&& rm -R "linux-${TARGETARCH}"
 
 # Add kubectl
-RUN wget -O kubectl https://dl.k8s.io/release/`wget -q -O- https://dl.k8s.io/release/stable.txt`/bin/linux/${TARGETARCH}/kubectl \
+RUN wget -O kubectl "https://dl.k8s.io/release/$(wget -q -O- https://dl.k8s.io/release/stable.txt)/bin/linux/${TARGETARCH}/kubectl" \
 	&& chmod +x kubectl \
 	&& mv kubectl /usr/local/bin/kubectl
 
