@@ -1,0 +1,29 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: vcluster
+  namespace: vcluster-test
+spec:
+  selector:
+    matchLabels:
+      app: vcluster
+  namespaceSelector:
+    any: true
+  endpoints:
+  - interval: 30s
+    port: https
+    path: /metrics
+    scheme: https
+    tlsConfig:
+      ca:
+        secret:
+          name: vc-test
+          key: certificate-authority
+      cert:
+        secret:
+          name: vc-test
+          key: client-certificate
+      keySecret:
+        name: vc-test
+        key: client-key
+      serverName: 127.0.0.1
