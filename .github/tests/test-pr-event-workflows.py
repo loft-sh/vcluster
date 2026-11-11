@@ -65,8 +65,8 @@ class WorkflowTrustTests(unittest.TestCase):
         self.assertEqual(call['with']['pr-event'], '${{ toJSON(matrix.event) }}')
         resolver = step['uses'].rsplit('@', 1)[1]
         reusable = call['uses'].rsplit('@', 1)[1]
-        self.assertRegex(resolver, r'^[0-9a-f]{40}$')
-        self.assertEqual(resolver, reusable)
+        self.assertEqual(resolver, 'resolve-pr-event/v1')
+        self.assertEqual(reusable, 'backport/v2')
 
     def test_pr_code_jobs_are_read_only_and_drop_checkout_credentials(self):
         for name in ('e2e.yaml', 'e2e-ginkgo.yaml', 'unit-tests.yaml', 'lint.yaml'):
