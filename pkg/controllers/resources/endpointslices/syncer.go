@@ -210,6 +210,12 @@ func (s *endpointSliceSyncer) ReconcileStart(ctx *synccontext.SyncContext, req c
 
 func (s *endpointSliceSyncer) ReconcileEnd() {}
 
+// isManagedByK8s checks whether an EndpointSlice is managed by a Kubernetes controller.
+// Treating an absent or empty endpointslice.kubernetes.io/managed-by label as Kubernetes-managed
+// is intentional: it preserves pre-PR behavior for selector-backed Services and avoids syncing
+// unlabeled slices that could duplicate endpoints managed by the host Kubernetes EndpointSlice
+// controller, so custom controllers managing slices for selector Services are expected to set
+// their own managed-by value.
 func isManagedByK8s(endpointSlice *discoveryv1.EndpointSlice) bool {
 	managedBy := endpointSlice.GetLabels()[discoveryv1.LabelManagedBy]
 	return managedBy == "" ||

@@ -176,6 +176,20 @@ func TestSync(t *testing.T) {
 		Endpoints:  updatedEndpointSlice.Endpoints,
 	}
 
+	nilLabelsHostEndpointSlice := syncedEndpointSlice.DeepCopy()
+	nilLabelsHostEndpointSlice.Labels = nil
+
+	repointedVEndpointSliceForSync := updatedEndpointSlice.DeepCopy()
+	repointedVEndpointSliceForSync.Labels = map[string]string{
+		translate.K8sServiceNameLabel: "repointed-svc",
+	}
+
+	expectedNilLabelsSyncedEndpointSlice := syncedEndpointSlice.DeepCopy()
+	expectedNilLabelsSyncedEndpointSlice.Labels = map[string]string{
+		translate.K8sServiceNameLabel: translate.Default.HostName(nil, "repointed-svc", "test").Name,
+	}
+	expectedNilLabelsSyncedEndpointSlice.Endpoints = repointedVEndpointSliceForSync.Endpoints
+
 	request := ctrl.Request{
 		NamespacedName: types.NamespacedName{
 			Namespace: "default",
@@ -222,6 +236,31 @@ func TestSync(t *testing.T) {
 					updatedEndpointSlice,
 				))
 				assert.NilError(t, err)
+			},
+		},
+		{
+			Name: "Forward update with nil physical labels",
+			InitialVirtualState: []runtime.Object{
+				repointedVEndpointSliceForSync,
+			},
+			InitialPhysicalState: []runtime.Object{
+				nilLabelsHostEndpointSlice,
+			},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				discoveryv1.SchemeGroupVersion.WithKind("EndpointSlice"): {
+					expectedNilLabelsSyncedEndpointSlice,
+				},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*endpointSliceSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(
+					nilLabelsHostEndpointSlice,
+					nilLabelsHostEndpointSlice,
+					baseEndpointSlice,
+					repointedVEndpointSliceForSync,
+				))
+				assert.NilError(t, err)
+				assert.Equal(t, nilLabelsHostEndpointSlice.Labels[translate.K8sServiceNameLabel], translate.Default.HostName(nil, "repointed-svc", "test").Name)
 			},
 		},
 		{
@@ -328,6 +367,25 @@ func TestCustomManagedEndpointSlice(t *testing.T) {
 		},
 	})
 
+	vServicePrimary := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "example-db-primary",
+			Namespace: "example-prod",
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{
+				"app": "mariadb",
+			},
+		},
+	}
+
+	repointedVEndpointSlice := vEndpointSlice.DeepCopy()
+	repointedVEndpointSlice.ResourceVersion = "2"
+	repointedVEndpointSlice.Labels[translate.K8sServiceNameLabel] = vServicePrimary.Name
+
+	expectedRepointedEndpointSlice := expectedEndpointSlice.DeepCopy()
+	expectedRepointedEndpointSlice.Labels[translate.K8sServiceNameLabel] = translate.Default.HostName(nil, vServicePrimary.Name, vServicePrimary.Namespace).Name
+
 	k8sEndpointSlice := &discoveryv1.EndpointSlice{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "k8s-slice",
@@ -396,6 +454,33 @@ func TestCustomManagedEndpointSlice(t *testing.T) {
 				_, err = syncController.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{
 					Namespace: updatedVEndpointSlice.Namespace,
 					Name:      updatedVEndpointSlice.Name,
+				}})
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name: "Custom-managed endpointSlice repointed to another service updates host kubernetes.io/service-name",
+			InitialVirtualState: []runtime.Object{
+				vService,
+				vServicePrimary,
+				repointedVEndpointSlice,
+			},
+			InitialPhysicalState: []runtime.Object{
+				expectedEndpointSlice,
+			},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				discoveryv1.SchemeGroupVersion.WithKind("EndpointSlice"): {
+					expectedRepointedEndpointSlice,
+				},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				_, fakeSyncer := newFakeSyncer(t, ctx)
+				syncController, err := syncer.NewSyncController(ctx, fakeSyncer)
+				assert.NilError(t, err)
+
+				_, err = syncController.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{
+					Namespace: repointedVEndpointSlice.Namespace,
+					Name:      repointedVEndpointSlice.Name,
 				}})
 				assert.NilError(t, err)
 			},
