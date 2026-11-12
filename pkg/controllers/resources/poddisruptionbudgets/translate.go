@@ -81,6 +81,20 @@ func (s *pdbSyncer) translateBudget(ctx *synccontext.SyncContext, pObj, vObj *po
 	return nil
 }
 
+// resolveExpectedPodCount walks selected pods and matching workloads. That
+// count is what the host PDB enforces. Virtual status is not the source.
+//
+// status.observedGeneration tracks the PDB spec generation. The disruption
+// controller does not watch Deployments or StatefulSets, so status.desiredHealthy
+// lags replica changes until a pod event. Copying a lagging desiredHealthy on
+// scale-up publishes a host minAvailable below the new budget. SyncFailed leaves
+// the previous desiredHealthy in place and only zeros disruptionsAllowed. The
+// controller manager can be disabled, so status may never be written.
+//
+// The walk counts bare pods, zero-pod siblings, and non-scale controllers.
+// Successful status omits the first two and never succeeds for the third.
+// status.expectedPods is used only when the walk finds no pods, no scales, and
+// no uncontrolled pods.
 func (s *pdbSyncer) resolveExpectedPodCount(ctx *synccontext.SyncContext, vObj *policyv1.PodDisruptionBudget) (int, error) {
 	if vObj.Spec.Selector == nil {
 		return 0, nil
@@ -123,6 +137,10 @@ func (s *pdbSyncer) resolveExpectedPodCount(ctx *synccontext.SyncContext, vObj *
 		}
 		visitedControllers[ctrlRef.UID] = struct{}{}
 
+		// resolved is true only when a scale was stored, or when this pod was
+		// already counted because the controller has no spec.replicas. A failed
+		// lookup leaves it false. The pod is still selected, so count it.
+		resolved := false
 		switch ctrlRef.Kind {
 		case "ReplicaSet":
 			rs := &appsv1.ReplicaSet{}
@@ -132,27 +150,33 @@ func (s *pdbSyncer) resolveExpectedPodCount(ctx *synccontext.SyncContext, vObj *
 					deploy := &appsv1.Deployment{}
 					if err := ctx.VirtualClient.Get(ctx, types.NamespacedName{Namespace: vObj.Namespace, Name: deployRef.Name}, deploy); err == nil {
 						controllerScales[deploy.UID] = ptr.Deref(deploy.Spec.Replicas, 1)
-						continue
-					} else if !kerrors.IsNotFound(err) {
-						continue
+						resolved = true
+					} else if kerrors.IsNotFound(err) {
+						controllerScales[rs.UID] = ptr.Deref(rs.Spec.Replicas, 1)
+						resolved = true
 					}
+				} else {
+					controllerScales[rs.UID] = ptr.Deref(rs.Spec.Replicas, 1)
+					resolved = true
 				}
-				controllerScales[rs.UID] = ptr.Deref(rs.Spec.Replicas, 1)
 			}
 		case "Deployment":
 			deploy := &appsv1.Deployment{}
 			if err := ctx.VirtualClient.Get(ctx, types.NamespacedName{Namespace: vObj.Namespace, Name: ctrlRef.Name}, deploy); err == nil {
 				controllerScales[deploy.UID] = ptr.Deref(deploy.Spec.Replicas, 1)
+				resolved = true
 			}
 		case "StatefulSet":
 			sts := &appsv1.StatefulSet{}
 			if err := ctx.VirtualClient.Get(ctx, types.NamespacedName{Namespace: vObj.Namespace, Name: ctrlRef.Name}, sts); err == nil {
 				controllerScales[sts.UID] = ptr.Deref(sts.Spec.Replicas, 1)
+				resolved = true
 			}
 		case "ReplicationController":
 			rc := &corev1.ReplicationController{}
 			if err := ctx.VirtualClient.Get(ctx, types.NamespacedName{Namespace: vObj.Namespace, Name: ctrlRef.Name}, rc); err == nil {
 				controllerScales[rc.UID] = ptr.Deref(rc.Spec.Replicas, 1)
+				resolved = true
 			}
 		default:
 			u := &unstructured.Unstructured{}
@@ -162,11 +186,17 @@ func (s *pdbSyncer) resolveExpectedPodCount(ctx *synccontext.SyncContext, vObj *
 				replicas, found, _ := unstructured.NestedInt64(u.Object, "spec", "replicas")
 				if found {
 					controllerScales[u.GetUID()] = int32(replicas)
+					resolved = true
 				} else {
 					nonScaleControllers[ctrlRef.UID] = true
 					uncontrolledPodCount++
+					resolved = true
 				}
 			}
+		}
+		if !resolved {
+			nonScaleControllers[ctrlRef.UID] = true
+			uncontrolledPodCount++
 		}
 	}
 

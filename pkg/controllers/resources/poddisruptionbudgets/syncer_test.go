@@ -161,6 +161,54 @@ func TestSync(t *testing.T) {
 	nginxLabels := map[string]string{"app": "nginx"}
 	dbLabels := map[string]string{"app": "db"}
 
+	// Running pod whose controller owner is a Deployment that is not created.
+	missingControllerPod := func(name string) *corev1.Pod {
+		return &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: "default",
+				Labels:    nginxLabels,
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: "apps/v1",
+					Kind:       "Deployment",
+					Name:       "deploy-b",
+					UID:        types.UID("deploy-b-uid"),
+					Controller: ptr.To(true),
+				}},
+				ResourceVersion: syncertesting.FakeClientResourceVersion,
+			},
+			Status: corev1.PodStatus{Phase: corev1.PodRunning},
+		}
+	}
+
+	// PDB whose status looks fresh but disagrees with spec.replicas.
+	freshDesiredHealthyPDB := func() *policyv1.PodDisruptionBudget {
+		pdb := testVirtualPDB("testPDB", nil, intVal(1), nginxLabels)
+		pdb.Generation = 1
+		pdb.Status = policyv1.PodDisruptionBudgetStatus{
+			ObservedGeneration: 1,
+			DesiredHealthy:     2,
+			ExpectedPods:       3,
+			Conditions: []metav1.Condition{{
+				Type:   policyv1.DisruptionAllowedCondition,
+				Status: metav1.ConditionTrue,
+				Reason: policyv1.SufficientPodsReason,
+			}},
+		}
+		return pdb
+	}
+
+	// PDB with only a previous expectedPods, and nothing for the walk to count.
+	expectedPodsOnlyPDB := func() *policyv1.PodDisruptionBudget {
+		pdb := testVirtualPDB("testPDB", nil, intVal(1), nginxLabels)
+		pdb.Generation = 1
+		pdb.Status = policyv1.PodDisruptionBudgetStatus{
+			ObservedGeneration: 1,
+			ExpectedPods:       4,
+		}
+		return pdb
+	}
+
 	vclusterPDB := testVirtualPDB("testPDB", intVal(10), nil, nil)
 	hostClusterSyncedPDB := testHostPDB(vclusterPDB, intVal(10), nil)
 
@@ -570,6 +618,57 @@ func TestSync(t *testing.T) {
 				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
 				vPDB := testVirtualPDBWithSelector("testPDB", nil, intVal(1), &metav1.LabelSelector{})
 				_, err := syncer.(*pdbSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vPDB))
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name: "Missing Controller Pods Still Count When Another Workload Resolved",
+			InitialVirtualState: []runtime.Object{
+				testDeployment("deploy-a", 3, nginxLabels),
+				missingControllerPod("orphan-1"),
+				missingControllerPod("orphan-2"),
+				testVirtualPDB("testPDB", nil, intVal(1), nginxLabels),
+			},
+			ExpectedVirtualState: pdbState(testVirtualPDB("testPDB", nil, intVal(1), nginxLabels)),
+			ExpectedPhysicalState: pdbState(
+				// deploy-a scale 3 plus 2 pods whose Deployment cannot be read; (3 + 2) - 1 = 4
+				testHostPDB(testVirtualPDB("testPDB", nil, intVal(1), nginxLabels), intVal(4), nil),
+			),
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				vPDB := testVirtualPDB("testPDB", nil, intVal(1), nginxLabels)
+				_, err := syncer.(*pdbSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vPDB))
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name: "Replica Count Wins Over Fresh DesiredHealthy",
+			InitialVirtualState: []runtime.Object{
+				testDeployment("nginx-deploy", 5, nginxLabels),
+				freshDesiredHealthyPDB(),
+			},
+			ExpectedVirtualState: pdbState(freshDesiredHealthyPDB()),
+			ExpectedPhysicalState: pdbState(
+				// spec.replicas 5 with maxUnavailable 1 is host minAvailable 4. status.desiredHealthy is 2.
+				testHostPDB(testVirtualPDB("testPDB", nil, intVal(1), nginxLabels), intVal(4), nil),
+			),
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*pdbSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(freshDesiredHealthyPDB()))
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name:                 "ExpectedPods Used Only When The Walk Finds Nothing",
+			InitialVirtualState:  []runtime.Object{expectedPodsOnlyPDB()},
+			ExpectedVirtualState: pdbState(expectedPodsOnlyPDB()),
+			ExpectedPhysicalState: pdbState(
+				// no pods and no workloads; expectedPods 4 - maxUnavailable 1 = 3
+				testHostPDB(testVirtualPDB("testPDB", nil, intVal(1), nginxLabels), intVal(3), nil),
+			),
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*pdbSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(expectedPodsOnlyPDB()))
 				assert.NilError(t, err)
 			},
 		},
