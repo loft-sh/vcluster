@@ -24,7 +24,7 @@ sync:
       hybridScheduling:
         enabled: false
         hostSchedulers: []
-      useSecretsForSATokens: false
+      useSecretsForSATokens: true
       runtimeClassName: ""
       priorityClassName: ""
       rewriteHosts:

@@ -44,8 +44,8 @@ sync:
         # HostSchedulers is a list of schedulers that are deployed on the host cluster.
         hostSchedulers: []
       # UseSecretsForSATokens will use secrets to save the generated service account tokens by virtual cluster instead of using a
-      # pod annotation.
-      useSecretsForSATokens: false
+      # pod annotation. The annotation is readable by everyone who can read pods in the host namespace.
+      useSecretsForSATokens: true
       # RuntimeClassName is the runtime class to set for synced pods.
       runtimeClassName: ""
       # PriorityClassName is the priority class to set for synced pods.
