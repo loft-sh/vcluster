@@ -34,6 +34,9 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} GO111MODULE=on go build 
 
 # we use alpine for easier debugging
 FROM alpine:3.24
+
+RUN apk update && apk upgrade --no-cache
+
 # Set home to "/" in order to for kubectl to automatically pick up vcluster kube config
 ENV KUBECONFIG=/root/.kube/config
 COPY --from=builder /vcluster /usr/local/bin/vcluster
