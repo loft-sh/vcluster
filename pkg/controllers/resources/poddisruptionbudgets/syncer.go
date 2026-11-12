@@ -193,7 +193,7 @@ func mapWorkloadToPDBs(reconcileCtx context.Context, virtualClient client.Client
 		if !needsBudgetConversion(&pdb) {
 			continue
 		}
-		if pdb.Spec.Selector == nil || (len(pdb.Spec.Selector.MatchLabels) == 0 && len(pdb.Spec.Selector.MatchExpressions) == 0) {
+		if pdb.Spec.Selector == nil {
 			continue
 		}
 		selector, err := metav1.LabelSelectorAsSelector(pdb.Spec.Selector)

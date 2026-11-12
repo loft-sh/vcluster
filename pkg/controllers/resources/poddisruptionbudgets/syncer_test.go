@@ -96,8 +96,8 @@ func testHostSelector(sel *metav1.LabelSelector) *metav1.LabelSelector {
 	return translate.HostLabelSelector(sel)
 }
 
-func testVirtualPDB(name string, minAvailable, maxUnavailable *intstr.IntOrString, selector map[string]string) *policyv1.PodDisruptionBudget {
-	pdb := &policyv1.PodDisruptionBudget{
+func testVirtualPDBWithSelector(name string, minAvailable, maxUnavailable *intstr.IntOrString, selector *metav1.LabelSelector) *policyv1.PodDisruptionBudget {
+	return &policyv1.PodDisruptionBudget{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            name,
 			Namespace:       "default",
@@ -106,12 +106,17 @@ func testVirtualPDB(name string, minAvailable, maxUnavailable *intstr.IntOrStrin
 		Spec: policyv1.PodDisruptionBudgetSpec{
 			MinAvailable:   minAvailable,
 			MaxUnavailable: maxUnavailable,
+			Selector:       selector,
 		},
 	}
-	if len(selector) > 0 {
-		pdb.Spec.Selector = &metav1.LabelSelector{MatchLabels: selector}
+}
+
+func testVirtualPDB(name string, minAvailable, maxUnavailable *intstr.IntOrString, selector map[string]string) *policyv1.PodDisruptionBudget {
+	var labelSelector *metav1.LabelSelector
+	if selector != nil {
+		labelSelector = &metav1.LabelSelector{MatchLabels: selector}
 	}
-	return pdb
+	return testVirtualPDBWithSelector(name, minAvailable, maxUnavailable, labelSelector)
 }
 
 func testHostPDB(vPDB *policyv1.PodDisruptionBudget, minAvailable, maxUnavailable *intstr.IntOrString) *policyv1.PodDisruptionBudget {
@@ -375,6 +380,199 @@ func TestSync(t *testing.T) {
 				assert.NilError(t, err)
 			},
 		},
+		{
+			Name: "Nil Selector with maxUnavailable Ignores Workloads in Namespace",
+			InitialVirtualState: []runtime.Object{
+				testDeployment("nginx-deploy", 3, nginxLabels),
+				testVirtualPDBWithSelector("testPDB", nil, intVal(1), nil),
+			},
+			ExpectedVirtualState: pdbState(testVirtualPDBWithSelector("testPDB", nil, intVal(1), nil)),
+			ExpectedPhysicalState: pdbState(
+				testHostPDB(testVirtualPDBWithSelector("testPDB", nil, intVal(1), nil), intVal(0), nil),
+			),
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				vPDB := testVirtualPDBWithSelector("testPDB", nil, intVal(1), nil)
+				_, err := syncer.(*pdbSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vPDB))
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name: "Empty Selector with maxUnavailable Across Multiple Workloads and Namespace Isolation",
+			InitialVirtualState: []runtime.Object{
+				testDeployment("nginx-deploy", 3, nginxLabels),
+				testStatefulSet("db-sts", 2, dbLabels),
+				func() *appsv1.Deployment {
+					d := testDeployment("other-deploy", 4, map[string]string{"app": "other"})
+					d.Namespace = "other"
+					return d
+				}(),
+				testVirtualPDBWithSelector("testPDB", nil, intVal(1), &metav1.LabelSelector{}),
+			},
+			ExpectedVirtualState: pdbState(testVirtualPDBWithSelector("testPDB", nil, intVal(1), &metav1.LabelSelector{})),
+			ExpectedPhysicalState: pdbState(
+				// (3 nginx + 2 db) - 1 maxUnavailable = 4 minAvailable; 'other' deployment ignored
+				testHostPDB(testVirtualPDBWithSelector("testPDB", nil, intVal(1), &metav1.LabelSelector{}), intVal(4), nil),
+			),
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				vPDB := testVirtualPDBWithSelector("testPDB", nil, intVal(1), &metav1.LabelSelector{})
+				_, err := syncer.(*pdbSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vPDB))
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name: "Empty Selector with Percentage minAvailable Across Workloads",
+			InitialVirtualState: []runtime.Object{
+				testDeployment("nginx-deploy", 3, nginxLabels),
+				testStatefulSet("db-sts", 2, dbLabels),
+				testVirtualPDBWithSelector("testPDB", strVal("50%"), nil, &metav1.LabelSelector{}),
+			},
+			ExpectedVirtualState: pdbState(testVirtualPDBWithSelector("testPDB", strVal("50%"), nil, &metav1.LabelSelector{})),
+			ExpectedPhysicalState: pdbState(
+				// 50% of 5 expected pods = ceil(2.5) = 3 minAvailable
+				testHostPDB(testVirtualPDBWithSelector("testPDB", strVal("50%"), nil, &metav1.LabelSelector{}), intVal(3), nil),
+			),
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				vPDB := testVirtualPDBWithSelector("testPDB", strVal("50%"), nil, &metav1.LabelSelector{})
+				_, err := syncer.(*pdbSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vPDB))
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name: "Empty Selector in Mixed Namespace with Deployment and Bare Pod",
+			InitialVirtualState: []runtime.Object{
+				testDeployment("nginx-deploy", 3, nginxLabels),
+				testReplicaSet("nginx-rs-1", "nginx-deploy", 3, nginxLabels),
+				testPod("pod-1", "nginx-rs-1", nginxLabels),
+				testPod("pod-2", "nginx-rs-1", nginxLabels),
+				testPod("pod-3", "nginx-rs-1", nginxLabels),
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:            "bare-pod",
+						Namespace:       "default",
+						ResourceVersion: syncertesting.FakeClientResourceVersion,
+					},
+				},
+				testVirtualPDBWithSelector("testPDB", nil, intVal(1), &metav1.LabelSelector{}),
+			},
+			ExpectedVirtualState: pdbState(testVirtualPDBWithSelector("testPDB", nil, intVal(1), &metav1.LabelSelector{})),
+			ExpectedPhysicalState: pdbState(
+				// 3 deployment replicas + 1 bare pod = 4 pods; 4 - 1 = 3 minAvailable
+				testHostPDB(testVirtualPDBWithSelector("testPDB", nil, intVal(1), &metav1.LabelSelector{}), intVal(3), nil),
+			),
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				vPDB := testVirtualPDBWithSelector("testPDB", nil, intVal(1), &metav1.LabelSelector{})
+				_, err := syncer.(*pdbSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vPDB))
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name: "Empty Selector in Empty Namespace Results in minAvailable 0",
+			InitialVirtualState: []runtime.Object{
+				testVirtualPDBWithSelector("testPDB", nil, intVal(1), &metav1.LabelSelector{}),
+			},
+			ExpectedVirtualState: pdbState(testVirtualPDBWithSelector("testPDB", nil, intVal(1), &metav1.LabelSelector{})),
+			ExpectedPhysicalState: pdbState(
+				// 0 pods, 0 workloads -> expectedCount 0 -> minAvailable 0
+				testHostPDB(testVirtualPDBWithSelector("testPDB", nil, intVal(1), &metav1.LabelSelector{}), intVal(0), nil),
+			),
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				vPDB := testVirtualPDBWithSelector("testPDB", nil, intVal(1), &metav1.LabelSelector{})
+				_, err := syncer.(*pdbSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vPDB))
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name: "Empty Selector Refreshes on Deployment Scale-Up",
+			InitialVirtualState: []runtime.Object{
+				testDeployment("nginx-deploy", 5, nginxLabels),
+				testVirtualPDBWithSelector("testPDB", nil, intVal(1), &metav1.LabelSelector{}),
+			},
+			InitialPhysicalState: []runtime.Object{
+				testHostPDB(testVirtualPDBWithSelector("testPDB", nil, intVal(1), &metav1.LabelSelector{}), intVal(2), nil),
+			},
+			ExpectedVirtualState: pdbState(testVirtualPDBWithSelector("testPDB", nil, intVal(1), &metav1.LabelSelector{})),
+			ExpectedPhysicalState: pdbState(
+				// 5 replicas - 1 maxUnavailable = 4 minAvailable
+				testHostPDB(testVirtualPDBWithSelector("testPDB", nil, intVal(1), &metav1.LabelSelector{}), intVal(4), nil),
+			),
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				vPDB := testVirtualPDBWithSelector("testPDB", nil, intVal(1), &metav1.LabelSelector{})
+				pPDB := testHostPDB(vPDB, intVal(2), nil)
+				_, err := syncer.(*pdbSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(
+					pPDB.DeepCopy(),
+					pPDB.DeepCopy(),
+					vPDB.DeepCopy(),
+					vPDB.DeepCopy(),
+				))
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name: "Integer minAvailable with Empty Selector Passthrough Unchanged",
+			InitialVirtualState: []runtime.Object{
+				testDeployment("nginx-deploy", 5, nginxLabels),
+				testVirtualPDBWithSelector("testPDB", intVal(2), nil, &metav1.LabelSelector{}),
+			},
+			ExpectedVirtualState: pdbState(testVirtualPDBWithSelector("testPDB", intVal(2), nil, &metav1.LabelSelector{})),
+			ExpectedPhysicalState: pdbState(
+				// Integer minAvailable passes through unchanged regardless of replica count
+				testHostPDB(testVirtualPDBWithSelector("testPDB", intVal(2), nil, &metav1.LabelSelector{}), intVal(2), nil),
+			),
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				vPDB := testVirtualPDBWithSelector("testPDB", intVal(2), nil, &metav1.LabelSelector{})
+				_, err := syncer.(*pdbSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vPDB))
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name: "Labeled Selector in Multi-Workload Namespace Counts Only Matching Workload",
+			InitialVirtualState: []runtime.Object{
+				testDeployment("nginx-deploy", 3, nginxLabels),
+				testStatefulSet("db-sts", 2, dbLabels),
+				testVirtualPDB("testPDB", nil, intVal(1), nginxLabels),
+			},
+			ExpectedVirtualState: pdbState(testVirtualPDB("testPDB", nil, intVal(1), nginxLabels)),
+			ExpectedPhysicalState: pdbState(
+				// Only nginx-deploy matches (3 - 1 = 2); db-sts is not counted
+				testHostPDB(testVirtualPDB("testPDB", nil, intVal(1), nginxLabels), intVal(2), nil),
+			),
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				vPDB := testVirtualPDB("testPDB", nil, intVal(1), nginxLabels)
+				_, err := syncer.(*pdbSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vPDB))
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name: "Empty Selector with Sibling Workload Having Zero Pods",
+			InitialVirtualState: []runtime.Object{
+				testDeployment("deploy-a", 3, nginxLabels),
+				testReplicaSet("rs-a", "deploy-a", 3, nginxLabels),
+				testPod("pod-a1", "rs-a", nginxLabels),
+				testPod("pod-a2", "rs-a", nginxLabels),
+				testPod("pod-a3", "rs-a", nginxLabels),
+				testDeployment("deploy-b", 2, dbLabels),
+				testVirtualPDBWithSelector("testPDB", nil, intVal(1), &metav1.LabelSelector{}),
+			},
+			ExpectedVirtualState: pdbState(testVirtualPDBWithSelector("testPDB", nil, intVal(1), &metav1.LabelSelector{})),
+			ExpectedPhysicalState: pdbState(
+				// 3 (deploy-a) + 2 (deploy-b with no pods yet) - 1 = 4 minAvailable
+				testHostPDB(testVirtualPDBWithSelector("testPDB", nil, intVal(1), &metav1.LabelSelector{}), intVal(4), nil),
+			),
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				vPDB := testVirtualPDBWithSelector("testPDB", nil, intVal(1), &metav1.LabelSelector{})
+				_, err := syncer.(*pdbSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vPDB))
+				assert.NilError(t, err)
+			},
+		},
 	})
 }
 
@@ -386,30 +584,76 @@ func TestModifyControllerMapping(t *testing.T) {
 	pdbRedis := testVirtualPDB("pdb-redis", strVal("50%"), nil, map[string]string{"app": "redis"})
 	pdbPassthrough := testVirtualPDB("pdb-pass", intVal(2), nil, map[string]string{"app": "nginx"})
 
-	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pdbNginx, pdbRedis, pdbPassthrough).Build()
+	pdbEmptyMaxUnavail := testVirtualPDBWithSelector("pdb-empty-max", nil, intVal(1), &metav1.LabelSelector{})
+	pdbEmptyPctMinAvail := testVirtualPDBWithSelector("pdb-empty-pct", strVal("50%"), nil, &metav1.LabelSelector{})
+	pdbEmptyIntMinAvail := testVirtualPDBWithSelector("pdb-empty-int", intVal(2), nil, &metav1.LabelSelector{})
+	pdbNilSelector := testVirtualPDBWithSelector("pdb-nil-sel", nil, intVal(1), nil)
+	pdbOtherNsEmpty := testVirtualPDBWithSelector("pdb-other-ns", nil, intVal(1), &metav1.LabelSelector{})
+	pdbOtherNsEmpty.Namespace = "other"
 
-	// 1. Test mapWorkloadToPDBs with Pod matching pdb-nginx
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
+		pdbNginx, pdbRedis, pdbPassthrough,
+		pdbEmptyMaxUnavail, pdbEmptyPctMinAvail, pdbEmptyIntMinAvail,
+		pdbNilSelector, pdbOtherNsEmpty,
+	).Build()
+
+	// 1. Test mapWorkloadToPDBs with Pod matching pdb-nginx (also matches empty selector convertible PDBs)
 	podNginx := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "pod-1", Labels: map[string]string{"app": "nginx"}},
 	}
 	reqs := mapWorkloadToPDBs(ctx, fakeClient, podNginx)
-	assert.Equal(t, len(reqs), 1)
-	assert.Equal(t, reqs[0].Name, "pdb-nginx")
+	assert.Equal(t, len(reqs), 3)
+	reqMap := map[string]bool{}
+	for _, r := range reqs {
+		reqMap[r.Name] = true
+	}
+	assert.Assert(t, reqMap["pdb-nginx"])
+	assert.Assert(t, reqMap["pdb-empty-max"])
+	assert.Assert(t, reqMap["pdb-empty-pct"])
+	assert.Assert(t, !reqMap["pdb-pass"])
+	assert.Assert(t, !reqMap["pdb-empty-int"])
+	assert.Assert(t, !reqMap["pdb-nil-sel"])
+	assert.Assert(t, !reqMap["pdb-other-ns"])
 
-	// 2. Test mapWorkloadToPDBs with Deployment matching pdb-redis
+	// 2. Test mapWorkloadToPDBs with Deployment matching pdb-redis (also matches empty selector convertible PDBs)
 	deployRedis := testDeployment("redis-deploy", 2, map[string]string{"app": "redis"})
 	reqs = mapWorkloadToPDBs(ctx, fakeClient, deployRedis)
-	assert.Equal(t, len(reqs), 1)
-	assert.Equal(t, reqs[0].Name, "pdb-redis")
+	assert.Equal(t, len(reqs), 3)
+	reqMap = map[string]bool{}
+	for _, r := range reqs {
+		reqMap[r.Name] = true
+	}
+	assert.Assert(t, reqMap["pdb-redis"])
+	assert.Assert(t, reqMap["pdb-empty-max"])
+	assert.Assert(t, reqMap["pdb-empty-pct"])
 
-	// 3. Test mapWorkloadToPDBs with no match
+	// 3. Test mapWorkloadToPDBs with Pod with unrelated labels (matches only empty selector convertible PDBs)
 	podOther := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "pod-other", Labels: map[string]string{"app": "other"}},
 	}
 	reqs = mapWorkloadToPDBs(ctx, fakeClient, podOther)
-	assert.Equal(t, len(reqs), 0)
+	assert.Equal(t, len(reqs), 2)
+	reqMap = map[string]bool{}
+	for _, r := range reqs {
+		reqMap[r.Name] = true
+	}
+	assert.Assert(t, reqMap["pdb-empty-max"])
+	assert.Assert(t, reqMap["pdb-empty-pct"])
 
-	// 4. Test mapWorkloadUpdateToPDBs unioning old and new labels
+	// 4. Test mapWorkloadToPDBs with unlabeled Pod (nil labels, matches only empty selector convertible PDBs)
+	podUnlabeled := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "pod-unlabeled"},
+	}
+	reqs = mapWorkloadToPDBs(ctx, fakeClient, podUnlabeled)
+	assert.Equal(t, len(reqs), 2)
+	reqMap = map[string]bool{}
+	for _, r := range reqs {
+		reqMap[r.Name] = true
+	}
+	assert.Assert(t, reqMap["pdb-empty-max"])
+	assert.Assert(t, reqMap["pdb-empty-pct"])
+
+	// 5. Test mapWorkloadUpdateToPDBs unioning old and new labels (deduplicated)
 	podOld := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "pod-1", Labels: map[string]string{"app": "nginx"}},
 	}
@@ -417,20 +661,51 @@ func TestModifyControllerMapping(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "pod-1", Labels: map[string]string{"app": "redis"}},
 	}
 	reqs = mapWorkloadUpdateToPDBs(ctx, fakeClient, podOld, podNew)
-	assert.Equal(t, len(reqs), 2)
-	names := map[string]bool{reqs[0].Name: true, reqs[1].Name: true}
-	assert.Assert(t, names["pdb-nginx"])
-	assert.Assert(t, names["pdb-redis"])
+	assert.Equal(t, len(reqs), 4)
+	reqMap = map[string]bool{}
+	for _, r := range reqs {
+		reqMap[r.Name] = true
+	}
+	assert.Assert(t, reqMap["pdb-nginx"])
+	assert.Assert(t, reqMap["pdb-redis"])
+	assert.Assert(t, reqMap["pdb-empty-max"])
+	assert.Assert(t, reqMap["pdb-empty-pct"])
+	assert.Assert(t, !reqMap["pdb-nil-sel"])
 
-	// 5. Test mapWorkloadUpdateToPDBs when new labels match nothing (relabel away from PDB)
+	// 6. Test mapWorkloadUpdateToPDBs when new labels match nothing specific (relabel away from PDB)
 	reqs = mapWorkloadUpdateToPDBs(ctx, fakeClient, podOld, podOther)
-	assert.Equal(t, len(reqs), 1)
-	assert.Equal(t, reqs[0].Name, "pdb-nginx")
+	assert.Equal(t, len(reqs), 3)
+	reqMap = map[string]bool{}
+	for _, r := range reqs {
+		reqMap[r.Name] = true
+	}
+	assert.Assert(t, reqMap["pdb-nginx"])
+	assert.Assert(t, reqMap["pdb-empty-max"])
+	assert.Assert(t, reqMap["pdb-empty-pct"])
 
-	// 6. Test mapWorkloadUpdateToPDBs when both old and new match same PDB (deduplication)
+	// 7. Test mapWorkloadUpdateToPDBs when both old and new match same PDB (deduplication)
 	reqs = mapWorkloadUpdateToPDBs(ctx, fakeClient, podOld, podOld)
-	assert.Equal(t, len(reqs), 1)
-	assert.Equal(t, reqs[0].Name, "pdb-nginx")
+	assert.Equal(t, len(reqs), 3)
+	reqMap = map[string]bool{}
+	for _, r := range reqs {
+		reqMap[r.Name] = true
+	}
+	assert.Assert(t, reqMap["pdb-nginx"])
+	assert.Assert(t, reqMap["pdb-empty-max"])
+	assert.Assert(t, reqMap["pdb-empty-pct"])
+
+	// 8. Test mapWorkloadUpdateToPDBs for Deployment replica change
+	deployRedisScaled := testDeployment("redis-deploy", 5, map[string]string{"app": "redis"})
+	reqs = mapWorkloadUpdateToPDBs(ctx, fakeClient, deployRedis, deployRedisScaled)
+	assert.Equal(t, len(reqs), 3)
+	reqMap = map[string]bool{}
+	for _, r := range reqs {
+		reqMap[r.Name] = true
+	}
+	assert.Assert(t, reqMap["pdb-redis"])
+	assert.Assert(t, reqMap["pdb-empty-max"])
+	assert.Assert(t, reqMap["pdb-empty-pct"])
+	assert.Assert(t, !reqMap["pdb-nil-sel"])
 }
 
 func TestPredicates(t *testing.T) {

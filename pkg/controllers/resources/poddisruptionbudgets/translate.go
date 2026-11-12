@@ -8,6 +8,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -81,7 +82,7 @@ func (s *pdbSyncer) translateBudget(ctx *synccontext.SyncContext, pObj, vObj *po
 }
 
 func (s *pdbSyncer) resolveExpectedPodCount(ctx *synccontext.SyncContext, vObj *policyv1.PodDisruptionBudget) (int, error) {
-	if vObj.Spec.Selector == nil || (len(vObj.Spec.Selector.MatchLabels) == 0 && len(vObj.Spec.Selector.MatchExpressions) == 0) {
+	if vObj.Spec.Selector == nil {
 		return 0, nil
 	}
 
@@ -98,6 +99,8 @@ func (s *pdbSyncer) resolveExpectedPodCount(ctx *synccontext.SyncContext, vObj *
 	var activePods []*corev1.Pod
 	controllerScales := map[types.UID]int32{}
 	visitedControllers := map[types.UID]struct{}{}
+	nonScaleControllers := map[types.UID]bool{}
+	uncontrolledPodCount := 0
 
 	for i := range podList.Items {
 		pod := &podList.Items[i]
@@ -108,10 +111,14 @@ func (s *pdbSyncer) resolveExpectedPodCount(ctx *synccontext.SyncContext, vObj *
 
 		ctrlRef := metav1.GetControllerOf(pod)
 		if ctrlRef == nil {
+			uncontrolledPodCount++
 			continue
 		}
 
 		if _, ok := visitedControllers[ctrlRef.UID]; ok {
+			if nonScaleControllers[ctrlRef.UID] {
+				uncontrolledPodCount++
+			}
 			continue
 		}
 		visitedControllers[ctrlRef.UID] = struct{}{}
@@ -125,6 +132,8 @@ func (s *pdbSyncer) resolveExpectedPodCount(ctx *synccontext.SyncContext, vObj *
 					deploy := &appsv1.Deployment{}
 					if err := ctx.VirtualClient.Get(ctx, types.NamespacedName{Namespace: vObj.Namespace, Name: deployRef.Name}, deploy); err == nil {
 						controllerScales[deploy.UID] = ptr.Deref(deploy.Spec.Replicas, 1)
+						continue
+					} else if !kerrors.IsNotFound(err) {
 						continue
 					}
 				}
@@ -153,51 +162,52 @@ func (s *pdbSyncer) resolveExpectedPodCount(ctx *synccontext.SyncContext, vObj *
 				replicas, found, _ := unstructured.NestedInt64(u.Object, "spec", "replicas")
 				if found {
 					controllerScales[u.GetUID()] = int32(replicas)
+				} else {
+					nonScaleControllers[ctrlRef.UID] = true
+					uncontrolledPodCount++
 				}
 			}
 		}
 	}
 
-	if len(controllerScales) == 0 {
-		deployments := &appsv1.DeploymentList{}
-		if err := ctx.VirtualClient.List(ctx, deployments, client.InNamespace(vObj.Namespace)); err == nil {
-			for _, deploy := range deployments.Items {
-				if selector.Matches(labels.Set(deploy.Spec.Template.Labels)) {
-					controllerScales[deploy.UID] = ptr.Deref(deploy.Spec.Replicas, 1)
-				}
-			}
-		}
-
-		statefulSets := &appsv1.StatefulSetList{}
-		if err := ctx.VirtualClient.List(ctx, statefulSets, client.InNamespace(vObj.Namespace)); err == nil {
-			for _, sts := range statefulSets.Items {
-				if selector.Matches(labels.Set(sts.Spec.Template.Labels)) {
-					controllerScales[sts.UID] = ptr.Deref(sts.Spec.Replicas, 1)
-				}
-			}
-		}
-
-		replicaSets := &appsv1.ReplicaSetList{}
-		if err := ctx.VirtualClient.List(ctx, replicaSets, client.InNamespace(vObj.Namespace)); err == nil {
-			for _, rs := range replicaSets.Items {
-				if metav1.GetControllerOf(&rs) != nil {
-					continue
-				}
-				if selector.Matches(labels.Set(rs.Spec.Template.Labels)) {
-					controllerScales[rs.UID] = ptr.Deref(rs.Spec.Replicas, 1)
-				}
+	deployments := &appsv1.DeploymentList{}
+	if err := ctx.VirtualClient.List(ctx, deployments, client.InNamespace(vObj.Namespace)); err == nil {
+		for _, deploy := range deployments.Items {
+			if _, ok := controllerScales[deploy.UID]; !ok && selector.Matches(labels.Set(deploy.Spec.Template.Labels)) {
+				controllerScales[deploy.UID] = ptr.Deref(deploy.Spec.Replicas, 1)
 			}
 		}
 	}
 
-	expectedCount := 0
+	statefulSets := &appsv1.StatefulSetList{}
+	if err := ctx.VirtualClient.List(ctx, statefulSets, client.InNamespace(vObj.Namespace)); err == nil {
+		for _, sts := range statefulSets.Items {
+			if _, ok := controllerScales[sts.UID]; !ok && selector.Matches(labels.Set(sts.Spec.Template.Labels)) {
+				controllerScales[sts.UID] = ptr.Deref(sts.Spec.Replicas, 1)
+			}
+		}
+	}
+
+	replicaSets := &appsv1.ReplicaSetList{}
+	if err := ctx.VirtualClient.List(ctx, replicaSets, client.InNamespace(vObj.Namespace)); err == nil {
+		for _, rs := range replicaSets.Items {
+			if metav1.GetControllerOf(&rs) != nil {
+				continue
+			}
+			if _, ok := controllerScales[rs.UID]; !ok && selector.Matches(labels.Set(rs.Spec.Template.Labels)) {
+				controllerScales[rs.UID] = ptr.Deref(rs.Spec.Replicas, 1)
+			}
+		}
+	}
+
+	expectedCount := uncontrolledPodCount
 	for _, scale := range controllerScales {
 		if scale > 0 {
 			expectedCount += int(scale)
 		}
 	}
 
-	if expectedCount == 0 && len(controllerScales) == 0 {
+	if expectedCount == 0 && len(controllerScales) == 0 && uncontrolledPodCount == 0 {
 		if vObj.Status.ObservedGeneration >= vObj.Generation && vObj.Status.ExpectedPods > 0 {
 			expectedCount = int(vObj.Status.ExpectedPods)
 		} else {
