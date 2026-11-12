@@ -642,6 +642,54 @@ func TestSync(t *testing.T) {
 			},
 		},
 		{
+			Name: "Missing ReplicaSet Does Not Double Count Deployment Replicas",
+			InitialVirtualState: []runtime.Object{
+				testDeployment("nginx-deploy", 3, nginxLabels),
+				// nginx-rs is not created. The pods still name it as their controller.
+				testPod("pod-1", "nginx-rs", nginxLabels),
+				testPod("pod-2", "nginx-rs", nginxLabels),
+				testVirtualPDB("testPDB", nil, intVal(1), nginxLabels),
+			},
+			ExpectedVirtualState: pdbState(testVirtualPDB("testPDB", nil, intVal(1), nginxLabels)),
+			ExpectedPhysicalState: pdbState(
+				// 2 pods whose ReplicaSet cannot be read. The Deployment was not
+				// resolved from that owner chain, so its 3 replicas are not added.
+				// 2 - 1 maxUnavailable = 1. Counting both would be 2+3-1 = 4.
+				testHostPDB(testVirtualPDB("testPDB", nil, intVal(1), nginxLabels), intVal(1), nil),
+			),
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				vPDB := testVirtualPDB("testPDB", nil, intVal(1), nginxLabels)
+				_, err := syncer.(*pdbSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vPDB))
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name: "Resolved Deployment Covers Pods Whose ReplicaSet Is Gone",
+			InitialVirtualState: []runtime.Object{
+				testDeployment("nginx-deploy", 3, nginxLabels),
+				testReplicaSet("nginx-rs-new", "nginx-deploy", 3, nginxLabels),
+				testPod("pod-new-1", "nginx-rs-new", nginxLabels),
+				testPod("pod-new-2", "nginx-rs-new", nginxLabels),
+				// Old ReplicaSet was deleted. Its pod is still selected.
+				testPod("pod-old", "nginx-rs-old", nginxLabels),
+				testVirtualPDB("testPDB", nil, intVal(1), nginxLabels),
+			},
+			ExpectedVirtualState: pdbState(testVirtualPDB("testPDB", nil, intVal(1), nginxLabels)),
+			ExpectedPhysicalState: pdbState(
+				// Owner chain resolves the Deployment (3). The pod from the missing
+				// ReplicaSet is already covered by that scale, so it is not added.
+				// 3 - 1 = 2. Counting both would be 3+1-1 = 3.
+				testHostPDB(testVirtualPDB("testPDB", nil, intVal(1), nginxLabels), intVal(2), nil),
+			),
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				vPDB := testVirtualPDB("testPDB", nil, intVal(1), nginxLabels)
+				_, err := syncer.(*pdbSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vPDB))
+				assert.NilError(t, err)
+			},
+		},
+		{
 			Name: "Replica Count Wins Over Fresh DesiredHealthy",
 			InitialVirtualState: []runtime.Object{
 				testDeployment("nginx-deploy", 5, nginxLabels),

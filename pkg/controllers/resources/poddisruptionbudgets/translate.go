@@ -95,6 +95,12 @@ func (s *pdbSyncer) translateBudget(ctx *synccontext.SyncContext, pObj, vObj *po
 // Successful status omits the first two and never succeeds for the third.
 // status.expectedPods is used only when the walk finds no pods, no scales, and
 // no uncontrolled pods.
+//
+// Desired replicas count only for a controller the owner chain resolved.
+// Pods whose ReplicaSet could not be read stay uncontrolled. A Deployment or
+// other scale that only matches those pods is not added on top. If the owner
+// chain did resolve that controller, its replicas already cover the pods, so
+// the pods are not counted again.
 func (s *pdbSyncer) resolveExpectedPodCount(ctx *synccontext.SyncContext, vObj *policyv1.PodDisruptionBudget) (int, error) {
 	if vObj.Spec.Selector == nil {
 		return 0, nil
@@ -115,6 +121,17 @@ func (s *pdbSyncer) resolveExpectedPodCount(ctx *synccontext.SyncContext, vObj *
 	visitedControllers := map[types.UID]struct{}{}
 	nonScaleControllers := map[types.UID]bool{}
 	uncontrolledPodCount := 0
+	// Owners that could not be read. Their pods are already uncontrolled, so a
+	// later list must not add the same controller's replicas.
+	unresolvedControllers := map[types.UID]struct{}{}
+	// Labels of pods whose ReplicaSet could not be read.
+	failedReplicaSetPods := []map[string]string{}
+	// Selectors of controllers resolved from a pod owner chain.
+	resolvedSelectors := []*metav1.LabelSelector{}
+	recordScale := func(uid types.UID, replicas int32, sel *metav1.LabelSelector) {
+		controllerScales[uid] = replicas
+		resolvedSelectors = append(resolvedSelectors, sel)
+	}
 
 	for i := range podList.Items {
 		pod := &podList.Items[i]
@@ -132,6 +149,9 @@ func (s *pdbSyncer) resolveExpectedPodCount(ctx *synccontext.SyncContext, vObj *
 		if _, ok := visitedControllers[ctrlRef.UID]; ok {
 			if nonScaleControllers[ctrlRef.UID] {
 				uncontrolledPodCount++
+				if ctrlRef.Kind == "ReplicaSet" {
+					failedReplicaSetPods = append(failedReplicaSetPods, pod.Labels)
+				}
 			}
 			continue
 		}
@@ -149,33 +169,37 @@ func (s *pdbSyncer) resolveExpectedPodCount(ctx *synccontext.SyncContext, vObj *
 				if deployRef != nil && deployRef.Kind == "Deployment" {
 					deploy := &appsv1.Deployment{}
 					if err := ctx.VirtualClient.Get(ctx, types.NamespacedName{Namespace: vObj.Namespace, Name: deployRef.Name}, deploy); err == nil {
-						controllerScales[deploy.UID] = ptr.Deref(deploy.Spec.Replicas, 1)
+						recordScale(deploy.UID, ptr.Deref(deploy.Spec.Replicas, 1), deploy.Spec.Selector)
 						resolved = true
 					} else if kerrors.IsNotFound(err) {
-						controllerScales[rs.UID] = ptr.Deref(rs.Spec.Replicas, 1)
+						recordScale(rs.UID, ptr.Deref(rs.Spec.Replicas, 1), rs.Spec.Selector)
 						resolved = true
 					}
 				} else {
-					controllerScales[rs.UID] = ptr.Deref(rs.Spec.Replicas, 1)
+					recordScale(rs.UID, ptr.Deref(rs.Spec.Replicas, 1), rs.Spec.Selector)
 					resolved = true
 				}
 			}
 		case "Deployment":
 			deploy := &appsv1.Deployment{}
 			if err := ctx.VirtualClient.Get(ctx, types.NamespacedName{Namespace: vObj.Namespace, Name: ctrlRef.Name}, deploy); err == nil {
-				controllerScales[deploy.UID] = ptr.Deref(deploy.Spec.Replicas, 1)
+				recordScale(deploy.UID, ptr.Deref(deploy.Spec.Replicas, 1), deploy.Spec.Selector)
 				resolved = true
 			}
 		case "StatefulSet":
 			sts := &appsv1.StatefulSet{}
 			if err := ctx.VirtualClient.Get(ctx, types.NamespacedName{Namespace: vObj.Namespace, Name: ctrlRef.Name}, sts); err == nil {
-				controllerScales[sts.UID] = ptr.Deref(sts.Spec.Replicas, 1)
+				recordScale(sts.UID, ptr.Deref(sts.Spec.Replicas, 1), sts.Spec.Selector)
 				resolved = true
 			}
 		case "ReplicationController":
 			rc := &corev1.ReplicationController{}
 			if err := ctx.VirtualClient.Get(ctx, types.NamespacedName{Namespace: vObj.Namespace, Name: ctrlRef.Name}, rc); err == nil {
-				controllerScales[rc.UID] = ptr.Deref(rc.Spec.Replicas, 1)
+				var sel *metav1.LabelSelector
+				if len(rc.Spec.Selector) > 0 {
+					sel = &metav1.LabelSelector{MatchLabels: rc.Spec.Selector}
+				}
+				recordScale(rc.UID, ptr.Deref(rc.Spec.Replicas, 1), sel)
 				resolved = true
 			}
 		default:
@@ -185,7 +209,7 @@ func (s *pdbSyncer) resolveExpectedPodCount(ctx *synccontext.SyncContext, vObj *
 			if err := ctx.VirtualClient.Get(ctx, types.NamespacedName{Namespace: vObj.Namespace, Name: ctrlRef.Name}, u); err == nil {
 				replicas, found, _ := unstructured.NestedInt64(u.Object, "spec", "replicas")
 				if found {
-					controllerScales[u.GetUID()] = int32(replicas)
+					recordScale(u.GetUID(), int32(replicas), nil)
 					resolved = true
 				} else {
 					nonScaleControllers[ctrlRef.UID] = true
@@ -197,12 +221,42 @@ func (s *pdbSyncer) resolveExpectedPodCount(ctx *synccontext.SyncContext, vObj *
 		if !resolved {
 			nonScaleControllers[ctrlRef.UID] = true
 			uncontrolledPodCount++
+			unresolvedControllers[ctrlRef.UID] = struct{}{}
+			if ctrlRef.Kind == "ReplicaSet" {
+				failedReplicaSetPods = append(failedReplicaSetPods, pod.Labels)
+			}
 		}
+	}
+
+	// Drop uncontrolled ReplicaSet pods that a resolved controller already covers.
+	if len(resolvedSelectors) > 0 && len(failedReplicaSetPods) > 0 {
+		kept := make([]map[string]string, 0, len(failedReplicaSetPods))
+		for _, lbl := range failedReplicaSetPods {
+			if labelsMatchAnySelector(resolvedSelectors, lbl) {
+				uncontrolledPodCount--
+				continue
+			}
+			kept = append(kept, lbl)
+		}
+		failedReplicaSetPods = kept
+	}
+
+	// A listed controller was not resolved from an owner chain. Skip it when its
+	// pods were already counted, or when it selects ReplicaSet pods we could not
+	// attach to a resolved scale.
+	skipListed := func(uid types.UID, sel *metav1.LabelSelector) bool {
+		if _, unresolved := unresolvedControllers[uid]; unresolved {
+			return true
+		}
+		return selectorCoversPodLabels(sel, failedReplicaSetPods)
 	}
 
 	deployments := &appsv1.DeploymentList{}
 	if err := ctx.VirtualClient.List(ctx, deployments, client.InNamespace(vObj.Namespace)); err == nil {
 		for _, deploy := range deployments.Items {
+			if skipListed(deploy.UID, deploy.Spec.Selector) {
+				continue
+			}
 			if _, ok := controllerScales[deploy.UID]; !ok && selector.Matches(labels.Set(deploy.Spec.Template.Labels)) {
 				controllerScales[deploy.UID] = ptr.Deref(deploy.Spec.Replicas, 1)
 			}
@@ -212,6 +266,9 @@ func (s *pdbSyncer) resolveExpectedPodCount(ctx *synccontext.SyncContext, vObj *
 	statefulSets := &appsv1.StatefulSetList{}
 	if err := ctx.VirtualClient.List(ctx, statefulSets, client.InNamespace(vObj.Namespace)); err == nil {
 		for _, sts := range statefulSets.Items {
+			if skipListed(sts.UID, sts.Spec.Selector) {
+				continue
+			}
 			if _, ok := controllerScales[sts.UID]; !ok && selector.Matches(labels.Set(sts.Spec.Template.Labels)) {
 				controllerScales[sts.UID] = ptr.Deref(sts.Spec.Replicas, 1)
 			}
@@ -222,6 +279,9 @@ func (s *pdbSyncer) resolveExpectedPodCount(ctx *synccontext.SyncContext, vObj *
 	if err := ctx.VirtualClient.List(ctx, replicaSets, client.InNamespace(vObj.Namespace)); err == nil {
 		for _, rs := range replicaSets.Items {
 			if metav1.GetControllerOf(&rs) != nil {
+				continue
+			}
+			if skipListed(rs.UID, rs.Spec.Selector) {
 				continue
 			}
 			if _, ok := controllerScales[rs.UID]; !ok && selector.Matches(labels.Set(rs.Spec.Template.Labels)) {
@@ -246,4 +306,33 @@ func (s *pdbSyncer) resolveExpectedPodCount(ctx *synccontext.SyncContext, vObj *
 	}
 
 	return expectedCount, nil
+}
+
+func selectorMatchesLabels(sel *metav1.LabelSelector, lbl map[string]string) bool {
+	if sel == nil {
+		return false
+	}
+	parsed, err := metav1.LabelSelectorAsSelector(sel)
+	if err != nil {
+		return false
+	}
+	return parsed.Matches(labels.Set(lbl))
+}
+
+func labelsMatchAnySelector(selectors []*metav1.LabelSelector, lbl map[string]string) bool {
+	for _, sel := range selectors {
+		if selectorMatchesLabels(sel, lbl) {
+			return true
+		}
+	}
+	return false
+}
+
+func selectorCoversPodLabels(sel *metav1.LabelSelector, podLabels []map[string]string) bool {
+	for _, lbl := range podLabels {
+		if selectorMatchesLabels(sel, lbl) {
+			return true
+		}
+	}
+	return false
 }
