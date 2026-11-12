@@ -3,6 +3,7 @@ package nodes
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	"gotest.tools/assert"
@@ -287,6 +288,274 @@ func TestTranslateBackwards(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "unreachable-different-timeAdded",
+
+			vNode: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec: corev1.NodeSpec{
+					Taints: []corev1.Taint{
+						{
+							Key:       "node.kubernetes.io/unreachable",
+							Effect:    corev1.TaintEffectNoSchedule,
+							TimeAdded: mustTime("2026-07-31T20:39:08Z"),
+						},
+						{
+							Key:       "node.kubernetes.io/unreachable",
+							Effect:    corev1.TaintEffectNoExecute,
+							TimeAdded: mustTime("2026-07-31T20:39:18Z"),
+						},
+					},
+				},
+			},
+			pNode: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec: corev1.NodeSpec{
+					Taints: []corev1.Taint{
+						{
+							Key:       "node.kubernetes.io/unreachable",
+							Effect:    corev1.TaintEffectNoSchedule,
+							TimeAdded: mustTime("2026-07-31T20:30:00Z"),
+						},
+						{
+							Key:       "node.kubernetes.io/unreachable",
+							Effect:    corev1.TaintEffectNoExecute,
+							TimeAdded: mustTime("2026-07-31T20:30:10Z"),
+						},
+					},
+				},
+			},
+
+			expectedAnnotations: map[string]string{
+				TaintsAnnotation: mustMarshal([]string{
+					mustMarshal(&corev1.Taint{
+						Key:       "node.kubernetes.io/unreachable",
+						Effect:    corev1.TaintEffectNoSchedule,
+						TimeAdded: mustTime("2026-07-31T20:30:00Z"),
+					}),
+					mustMarshal(&corev1.Taint{
+						Key:       "node.kubernetes.io/unreachable",
+						Effect:    corev1.TaintEffectNoExecute,
+						TimeAdded: mustTime("2026-07-31T20:30:10Z"),
+					}),
+				}),
+			},
+			expectedLabels: map[string]string{},
+			expectedTaints: []corev1.Taint{
+				{
+					Key:       "node.kubernetes.io/unreachable",
+					Effect:    corev1.TaintEffectNoSchedule,
+					TimeAdded: mustTime("2026-07-31T20:30:00Z"),
+				},
+				{
+					Key:       "node.kubernetes.io/unreachable",
+					Effect:    corev1.TaintEffectNoExecute,
+					TimeAdded: mustTime("2026-07-31T20:30:10Z"),
+				},
+			},
+		},
+		{
+			name: "not-ready-different-timeAdded",
+
+			vNode: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec: corev1.NodeSpec{
+					Taints: []corev1.Taint{
+						{
+							Key:       "node.kubernetes.io/not-ready",
+							Effect:    corev1.TaintEffectNoSchedule,
+							TimeAdded: mustTime("2026-07-31T20:39:08Z"),
+						},
+						{
+							Key:       "node.kubernetes.io/not-ready",
+							Effect:    corev1.TaintEffectNoExecute,
+							TimeAdded: mustTime("2026-07-31T20:39:18Z"),
+						},
+					},
+				},
+			},
+			pNode: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec: corev1.NodeSpec{
+					Taints: []corev1.Taint{
+						{
+							Key:       "node.kubernetes.io/not-ready",
+							Effect:    corev1.TaintEffectNoSchedule,
+							TimeAdded: mustTime("2026-07-31T20:30:00Z"),
+						},
+						{
+							Key:       "node.kubernetes.io/not-ready",
+							Effect:    corev1.TaintEffectNoExecute,
+							TimeAdded: mustTime("2026-07-31T20:30:10Z"),
+						},
+					},
+				},
+			},
+
+			expectedAnnotations: map[string]string{
+				TaintsAnnotation: mustMarshal([]string{
+					mustMarshal(&corev1.Taint{
+						Key:       "node.kubernetes.io/not-ready",
+						Effect:    corev1.TaintEffectNoSchedule,
+						TimeAdded: mustTime("2026-07-31T20:30:00Z"),
+					}),
+					mustMarshal(&corev1.Taint{
+						Key:       "node.kubernetes.io/not-ready",
+						Effect:    corev1.TaintEffectNoExecute,
+						TimeAdded: mustTime("2026-07-31T20:30:10Z"),
+					}),
+				}),
+			},
+			expectedLabels: map[string]string{},
+			expectedTaints: []corev1.Taint{
+				{
+					Key:       "node.kubernetes.io/not-ready",
+					Effect:    corev1.TaintEffectNoSchedule,
+					TimeAdded: mustTime("2026-07-31T20:30:00Z"),
+				},
+				{
+					Key:       "node.kubernetes.io/not-ready",
+					Effect:    corev1.TaintEffectNoExecute,
+					TimeAdded: mustTime("2026-07-31T20:30:10Z"),
+				},
+			},
+		},
+		{
+			name: "unreachable-virtual-only",
+
+			vNode: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec: corev1.NodeSpec{
+					Taints: []corev1.Taint{
+						{
+							Key:       "node.kubernetes.io/unreachable",
+							Effect:    corev1.TaintEffectNoExecute,
+							TimeAdded: mustTime("2026-07-31T20:39:18Z"),
+						},
+					},
+				},
+			},
+			pNode: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec:       corev1.NodeSpec{},
+			},
+
+			expectedAnnotations: map[string]string{},
+			expectedLabels:      map[string]string{},
+			expectedTaints:      []corev1.Taint{},
+		},
+		{
+			name: "unreachable-removed-different-timeAdded",
+
+			vNode: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						TaintsAnnotation: mustMarshal([]string{
+							mustMarshal(&corev1.Taint{
+								Key:       "node.kubernetes.io/unreachable",
+								Effect:    corev1.TaintEffectNoExecute,
+								TimeAdded: mustTime("2026-07-31T20:30:10Z"),
+							}),
+						}),
+					},
+				},
+				Spec: corev1.NodeSpec{
+					Taints: []corev1.Taint{
+						{
+							Key:       "node.kubernetes.io/unreachable",
+							Effect:    corev1.TaintEffectNoExecute,
+							TimeAdded: mustTime("2026-07-31T20:39:18Z"),
+						},
+					},
+				},
+			},
+			pNode: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec:       corev1.NodeSpec{},
+			},
+
+			expectedAnnotations: map[string]string{},
+			expectedLabels:      map[string]string{},
+			expectedTaints:      []corev1.Taint{},
+		},
+		{
+			name: "custom-taint-virtual-only",
+
+			vNode: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec: corev1.NodeSpec{
+					Taints: []corev1.Taint{
+						{
+							Key:    "custom-taint",
+							Value:  "true",
+							Effect: corev1.TaintEffectNoExecute,
+						},
+					},
+				},
+			},
+			pNode: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec: corev1.NodeSpec{
+					Taints: []corev1.Taint{},
+				},
+			},
+
+			expectedAnnotations: map[string]string{},
+			expectedLabels:      map[string]string{},
+			expectedTaints: []corev1.Taint{
+				{
+					Key:    "custom-taint",
+					Value:  "true",
+					Effect: corev1.TaintEffectNoExecute,
+				},
+			},
+		},
+		{
+			name: "host-value-wins",
+
+			vNode: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec: corev1.NodeSpec{
+					Taints: []corev1.Taint{
+						{
+							Key:    "custom-taint",
+							Value:  "old",
+							Effect: corev1.TaintEffectNoExecute,
+						},
+					},
+				},
+			},
+			pNode: &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec: corev1.NodeSpec{
+					Taints: []corev1.Taint{
+						{
+							Key:    "custom-taint",
+							Value:  "new",
+							Effect: corev1.TaintEffectNoExecute,
+						},
+					},
+				},
+			},
+
+			expectedAnnotations: map[string]string{
+				TaintsAnnotation: mustMarshal([]string{
+					mustMarshal(&corev1.Taint{
+						Key:    "custom-taint",
+						Value:  "new",
+						Effect: corev1.TaintEffectNoExecute,
+					}),
+				}),
+			},
+			expectedLabels: map[string]string{},
+			expectedTaints: []corev1.Taint{
+				{
+					Key:    "custom-taint",
+					Value:  "new",
+					Effect: corev1.TaintEffectNoExecute,
+				},
+			},
+		},
 	}
 
 	// test cases
@@ -312,4 +581,13 @@ func mustMarshal(i interface{}) string {
 	}
 
 	return string(out)
+}
+
+func mustTime(s string) *metav1.Time {
+	parsed, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		panic(err)
+	}
+	mt := metav1.NewTime(parsed)
+	return &mt
 }
