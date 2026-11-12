@@ -86,14 +86,19 @@ spec:
     - Egress
     - Ingress
   egress:
-    # Allow egress to host kube-dns.
+    # Allow egress to host kube-dns. CoreDNS deployed by vCluster, for example on
+    # vCluster Standalone, is labeled k8s-app=vcluster-kube-dns instead.
     - to:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: 'kube-system'
           podSelector:
-            matchLabels:
-              k8s-app: kube-dns
+            matchExpressions:
+              - key: k8s-app
+                operator: In
+                values:
+                  - kube-dns
+                  - vcluster-kube-dns
 
     # Allow egress to host control plane.
     - ports:
@@ -188,14 +193,19 @@ spec:
     - Egress
     - Ingress
   egress:
-    # Allow egress to host kube-dns.
+    # Allow egress to host kube-dns. CoreDNS deployed by vCluster, for example on
+    # vCluster Standalone, is labeled k8s-app=vcluster-kube-dns instead.
     - to:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: 'kube-system'
           podSelector:
-            matchLabels:
-              k8s-app: kube-dns
+            matchExpressions:
+              - key: k8s-app
+                operator: In
+                values:
+                  - kube-dns
+                  - vcluster-kube-dns
 
     # Allow egress to vcluster control plane.
     - ports:
@@ -240,14 +250,19 @@ spec:
             matchLabels:
               release: {{ .Release.Name | quote }}
 
-    # Allow egress to host kube-dns.
+    # Allow egress to host kube-dns. CoreDNS deployed by vCluster, for example on
+    # vCluster Standalone, is labeled k8s-app=vcluster-kube-dns instead.
     - to:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: 'kube-system'
           podSelector:
-            matchLabels:
-              k8s-app: kube-dns
+            matchExpressions:
+              - key: k8s-app
+                operator: In
+                values:
+                  - kube-dns
+                  - vcluster-kube-dns
 
     # Allow egress to host control plane.
     - ports:

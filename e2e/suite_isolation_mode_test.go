@@ -1,5 +1,5 @@
 // Suite: isolation-mode-vcluster
-// vCluster: podSecurityStandard, resourceQuota, limitRange.
+// vCluster: podSecurityStandard, resourceQuota, limitRange, networkPolicy.
 // Run:      just run-e2e 'isolation'
 package e2e
 
@@ -34,6 +34,7 @@ func suiteIsolationModeVCluster() {
 			})
 
 			isolation.IsolationModeSpec()
+			isolation.ControlPlaneDNSSpec()
 			coredns.CoreDNSSpec()
 			test_core.PodSyncSpec()
 			test_core.PVCSyncSpec()
