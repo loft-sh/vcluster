@@ -15,7 +15,11 @@ import (
 )
 
 var (
+<<<<<<< HEAD
 	MinimumVersionTag = "v5.0.0-rc.1"
+=======
+	MinimumVersionTag = "v5.0.0"
+>>>>>>> 297bf83aa (chore: bump minimum platform version to v5.0.0)
 	MinimumVersion    = semver.MustParse(strings.TrimPrefix(MinimumVersionTag, "v"))
 )
 
