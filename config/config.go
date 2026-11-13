@@ -1737,7 +1737,7 @@ type SyncPods struct {
 	EnforceTolerations []string `json:"enforceTolerations,omitempty"`
 
 	// UseSecretsForSATokens will use secrets to save the generated service account tokens by virtual cluster instead of using a
-	// pod annotation.
+	// pod annotation. The annotation is readable by everyone who can read pods in the host namespace.
 	UseSecretsForSATokens bool `json:"useSecretsForSATokens,omitempty"`
 
 	// RuntimeClassName is the runtime class to set for synced pods.
