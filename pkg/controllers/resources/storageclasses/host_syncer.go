@@ -107,6 +107,6 @@ func (s *hostStorageClassSyncer) Sync(ctx *synccontext.SyncContext, event *syncc
 }
 
 func (s *hostStorageClassSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.SyncToHostEvent[*storagev1.StorageClass]) (ctrl.Result, error) {
-	ctx.Log.Infof("delete virtual storage class %s, because physical object is missing", event.Virtual)
+	ctx.Log.Infof("delete virtual storage class %s, because physical object is missing", event.Virtual.Name)
 	return ctrl.Result{}, ctx.VirtualClient.Delete(ctx, event.Virtual)
 }
