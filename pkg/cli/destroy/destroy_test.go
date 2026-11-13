@@ -63,6 +63,25 @@ func TestResourceOrderIsWellFormed(t *testing.T) {
 	}
 }
 
+// TestRemovedKindsStayHandled pins kinds the platform no longer serves but an upgraded install
+// can still carry as a leftover CRD. Once the api module drops their types,
+// TestResourceOrderCoversEveryStorageKind no longer pins them, yet destroy still has to delete
+// them: it refuses a platform whose discovery reports a resource outside resourceOrder.
+func TestRemovedKindsStayHandled(t *testing.T) {
+	removedKinds := []string{
+		// shared secrets were removed in vCluster Platform 5.0
+		"sharedsecrets",
+	}
+	for _, name := range removedKinds {
+		if !slices.Contains(resourceOrder, name) {
+			t.Errorf("removed kind %q must stay in resourceOrder so destroy still deletes leftovers", name)
+		}
+		if !slices.Contains(legacyResources, name) {
+			t.Errorf("removed kind %q must be in legacyResources", name)
+		}
+	}
+}
+
 // TestResourceOrderDeletesHoldersFirst pins the relative positions a finalizer makes load-bearing:
 // a resource that holds another through a finalizer must be deleted first, or destroy waits on
 // the held one until its timeout. A static node pool recreates the claims deleted under it, a

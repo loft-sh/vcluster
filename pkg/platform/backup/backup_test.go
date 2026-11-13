@@ -8,7 +8,9 @@ import (
 	storagev1 "github.com/loft-sh/api/v5/pkg/apis/storage/v1"
 	"github.com/loft-sh/vcluster/pkg/projectutil"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -86,6 +88,81 @@ func TestAllSkipsPlatformSecrets(t *testing.T) {
 	}
 	if got := count([]string{"platformsecrets"}); got != 0 {
 		t.Errorf("expected no secrets with --skip platformsecrets, got %d", got)
+	}
+}
+
+// sharedSecret builds a shared secret as unstructured: the api module no longer needs to carry
+// the SharedSecret type for a backup of a 4.x platform to keep them.
+func sharedSecret(namespace, name string) *unstructured.Unstructured {
+	u := &unstructured.Unstructured{}
+	u.SetGroupVersionKind(sharedSecretGVK)
+	u.SetNamespace(namespace)
+	u.SetName(name)
+	u.SetUID("uid")
+	u.SetResourceVersion("1")
+	u.Object["spec"] = map[string]interface{}{"data": map[string]interface{}{"key": "dmFsdWU="}}
+	u.Object["status"] = map[string]interface{}{"phase": "Ready"}
+	return u
+}
+
+// A 4.x platform still serves shared secrets, so a newer CLI backing it up keeps them. The scheme
+// deliberately leaves out the storage types, as it will once the api module drops SharedSecret.
+func TestSharedSecretsOnAPlatformThatServesThem(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := clientgoscheme.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	mapper := meta.NewDefaultRESTMapper(nil)
+	mapper.Add(sharedSecretGVK, meta.RESTScopeNamespace)
+	c := fake.NewClientBuilder().WithScheme(scheme).WithRESTMapper(mapper).WithObjects(sharedSecret("loft", "registry")).Build()
+
+	objs, err := sharedSecrets(context.Background(), c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(objs) != 1 {
+		t.Fatalf("expected 1 shared secret, got %d", len(objs))
+	}
+	got := objs[0].(*unstructured.Unstructured)
+	if got.GroupVersionKind() != sharedSecretGVK || got.GetName() != "registry" || got.GetNamespace() != "loft" {
+		t.Errorf("wrong object: %v %s/%s", got.GroupVersionKind(), got.GetNamespace(), got.GetName())
+	}
+	if got.GetUID() != "" || got.GetResourceVersion() != "" {
+		t.Errorf("metadata not reset: uid %q resourceVersion %q", got.GetUID(), got.GetResourceVersion())
+	}
+	if _, found := got.Object["status"]; found {
+		t.Errorf("status should be cleared: %v", got.Object["status"])
+	}
+	if data, _, _ := unstructured.NestedString(got.Object, "spec", "data", "key"); data != "dmFsdWU=" {
+		t.Errorf("spec data not kept: %q", data)
+	}
+}
+
+// A 5.0 platform no longer serves shared secrets, so the backup skips them without an error.
+func TestSharedSecretsOnAPlatformThatDoesNotServeThem(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := clientgoscheme.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	c := fake.NewClientBuilder().WithScheme(scheme).WithRESTMapper(meta.NewDefaultRESTMapper(nil)).Build()
+
+	objs, err := sharedSecrets(context.Background(), c)
+	if err != nil {
+		t.Fatalf("expected no error when shared secrets are not served, got %v", err)
+	}
+	if len(objs) != 0 {
+		t.Fatalf("expected no shared secrets, got %d", len(objs))
+	}
+}
+
+// A backup of a 4.x platform holds shared secrets, which a 5.0 platform cannot restore, so the
+// CLI notes it. A backup without them must not trigger the note.
+func TestIncludesSharedSecrets(t *testing.T) {
+	if IncludesSharedSecrets([]runtime.Object{secret("loft", "loft-cert")}) {
+		t.Error("a backup without shared secrets reported them")
+	}
+	if !IncludesSharedSecrets([]runtime.Object{secret("loft", "loft-cert"), sharedSecret("loft", "registry")}) {
+		t.Error("a backup with a shared secret did not report it")
 	}
 }
 

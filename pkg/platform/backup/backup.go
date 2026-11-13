@@ -3,6 +3,7 @@ package backup
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/ghodss/yaml"
@@ -13,6 +14,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientpkg "sigs.k8s.io/controller-runtime/pkg/client"
@@ -447,26 +449,44 @@ func accessKeys(ctx context.Context, client clientpkg.Client) ([]runtime.Object,
 	return retList, nil
 }
 
+// sharedSecretGVK is listed as unstructured: shared secrets were removed in vCluster Platform 5.0
+// and from the api module, but a 4.x platform still serves them, and a newer CLI backing it up
+// must keep them.
+var sharedSecretGVK = schema.GroupVersionKind{Group: "storage.loft.sh", Version: "v1", Kind: "SharedSecret"}
+
 func sharedSecrets(ctx context.Context, client clientpkg.Client) ([]runtime.Object, error) {
-	sharedSecretList := &storagev1.SharedSecretList{}
-	err := client.List(ctx, sharedSecretList, clientpkg.InNamespace(""))
-	if err != nil {
+	list := &unstructured.UnstructuredList{}
+	list.SetGroupVersionKind(sharedSecretGVK.GroupVersion().WithKind(sharedSecretGVK.Kind + "List"))
+	err := client.List(ctx, list)
+	if meta.IsNoMatchError(err) || kerrors.IsNotFound(err) {
+		// the platform no longer serves shared secrets
+		return nil, nil
+	} else if err != nil {
 		return nil, err
 	}
 
 	retList := []runtime.Object{}
-	for _, sharedSecret := range sharedSecretList.Items {
-		u := sharedSecret
-		u.Status = storagev1.SharedSecretStatus{}
-		err := resetMetadata(client.Scheme(), &u)
+	for i := range list.Items {
+		u := &list.Items[i]
+		u.SetGroupVersionKind(sharedSecretGVK)
+		unstructured.RemoveNestedField(u.Object, "status")
+		err := resetMetadata(client.Scheme(), u)
 		if err != nil {
 			return nil, err
 		}
 
-		retList = append(retList, &u)
+		retList = append(retList, u)
 	}
 
 	return retList, nil
+}
+
+// IncludesSharedSecrets reports whether a backup holds shared secrets. vCluster Platform 5.0 no
+// longer serves them, so such a backup cannot be restored into it as is.
+func IncludesSharedSecrets(objects []runtime.Object) bool {
+	return slices.ContainsFunc(objects, func(o runtime.Object) bool {
+		return o.GetObjectKind().GroupVersionKind() == sharedSecretGVK
+	})
 }
 
 func teams(ctx context.Context, client clientpkg.Client) ([]runtime.Object, error) {
