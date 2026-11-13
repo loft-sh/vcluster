@@ -258,6 +258,8 @@ func mergeTaints(physical, virtual, oldPhysical []corev1.Taint) []corev1.Taint {
 			continue
 		}
 		// The host used to have this taint and has since removed it.
+		// A virtual taint with the same key and effect is dropped too.
+		// This is unavoidable with that identity, and following the host is the safer default.
 		if _, ok := old[id]; ok {
 			continue
 		}
@@ -269,6 +271,8 @@ func mergeTaints(physical, virtual, oldPhysical []corev1.Taint) []corev1.Taint {
 
 // dropVirtualLifecycleTaint reports whether a virtual node lifecycle taint should be
 // omitted because the host node does not currently have that key.
+// The check matches by key only, so a host not-ready:NoSchedule keeps a virtual
+// not-ready:NoExecute. This is deliberate and matches the old hasUnready behavior.
 func dropVirtualLifecycleTaint(key string, physicalKeys map[string]struct{}) bool {
 	switch key {
 	case corev1.TaintNodeNotReady, corev1.TaintNodeUnreachable:
