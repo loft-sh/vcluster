@@ -101,7 +101,7 @@ func (s *endpointSliceSyncer) Sync(ctx *synccontext.SyncContext, event *synccont
 
 	// bi-directional sync of annotations and labels
 	event.Virtual.Annotations, event.Host.Annotations = translate.AnnotationsBidirectionalUpdate(event, s.excludedAnnotations...)
-	event.Virtual.Labels, event.Host.Labels = translate.LabelsBidirectionalUpdate(event)
+	event.Virtual.Labels, event.Host.Labels = translate.LabelsBidirectionalUpdate(event, translate.K8sServiceNameLabel)
 
 	return ctrl.Result{}, nil
 }
@@ -166,7 +166,7 @@ func (s *endpointSliceSyncer) ReconcileStart(ctx *synccontext.SyncContext, req c
 		}
 
 		return true, err
-	} else if svc.Spec.Selector != nil {
+	} else if svc.Spec.Selector != nil && isManagedByK8s(eps) {
 		// check if it was a managed endpointSlice object before and delete it
 		endpointSlice := &discoveryv1.EndpointSlice{}
 		err = ctx.HostClient.Get(ctx, s.VirtualToHost(ctx, req.NamespacedName, nil), endpointSlice)
@@ -209,3 +209,16 @@ func (s *endpointSliceSyncer) ReconcileStart(ctx *synccontext.SyncContext, req c
 }
 
 func (s *endpointSliceSyncer) ReconcileEnd() {}
+
+// isManagedByK8s checks whether an EndpointSlice is managed by a Kubernetes controller.
+// Treating an absent or empty endpointslice.kubernetes.io/managed-by label as Kubernetes-managed
+// is intentional: it preserves pre-PR behavior for selector-backed Services and avoids syncing
+// unlabeled slices that could duplicate endpoints managed by the host Kubernetes EndpointSlice
+// controller, so custom controllers managing slices for selector Services are expected to set
+// their own managed-by value.
+func isManagedByK8s(endpointSlice *discoveryv1.EndpointSlice) bool {
+	managedBy := endpointSlice.GetLabels()[discoveryv1.LabelManagedBy]
+	return managedBy == "" ||
+		managedBy == "endpointslice-controller.k8s.io" ||
+		managedBy == "endpointslice-mirroring-controller.k8s.io"
+}
