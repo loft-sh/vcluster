@@ -1,0 +1,20 @@
+name: Pull request events
+
+on:
+  pull_request:
+    # Merges use the trusted push consumer; signaling close as well would repeat
+    # the same backport. Labels added after merge still need their own signal.
+    types: [labeled]
+
+permissions: {}
+
+jobs:
+  relay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      # The trusted consumer resolves PR identity through GitHub's API. Nothing
+      # supplied by this PR revision (code, artifacts, or event JSON) is consumed.
+      - name: Signal pull request activity
+        run: ':'
