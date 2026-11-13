@@ -3024,7 +3024,7 @@
         },
         "istio": {
           "$ref": "#/$defs/Istio",
-          "description": "Istio syncs DestinationRules, Gateways and VirtualServices from virtual cluster to the host."
+          "description": "Istio syncs DestinationRules, Gateways and VirtualServices from virtual cluster to the host.\nDeprecated: The Istio integration is deprecated and will be removed in a future release."
         },
         "netris": {
           "$ref": "#/$defs/NetrisIntegration",
