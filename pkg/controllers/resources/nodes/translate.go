@@ -10,7 +10,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/loft-sh/vcluster/pkg/util/stringutil"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	resourceutil "k8s.io/component-helpers/resource"
@@ -29,23 +28,13 @@ func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.
 	excludeAnnotations := []string{TaintsAnnotation, RancherAgentPodRequestsAnnotation, RancherAgentPodLimitsAnnotation}
 	labels, annotations := translate.ApplyMetadata(pNode.Annotations, vNode.Annotations, pNode.Labels, vNode.Labels, excludeAnnotations...)
 
-	// merge taints together
-	oldPhysical := []string{}
-	if vNode.Annotations != nil && vNode.Annotations[TaintsAnnotation] != "" {
-		err := json.Unmarshal([]byte(vNode.Annotations[TaintsAnnotation]), &oldPhysical)
-		if err != nil {
-			klog.Errorf("error decoding taints: %v", err)
-		}
-	}
+	// Merge by key and effect. The host copy wins, including value and timeAdded.
+	// translatedSpec is a deep copy, so the kept host taints do not alias pNode.
+	translatedSpec.Taints = mergeTaints(translatedSpec.Taints, vNode.Spec.Taints, originalTaints(vNode.Annotations))
 
-	// convert physical taints
+	// Store the current host taints as a JSON array of taint JSON strings.
 	physical := []string{}
-	hasUnready := false
 	for _, p := range pNode.Spec.Taints {
-		if p.Key == "node.kubernetes.io/not-ready" {
-			hasUnready = true
-		}
-
 		out, err := json.Marshal(p)
 		if err != nil {
 			klog.Errorf("error encoding taint: %v", err)
@@ -54,38 +43,6 @@ func (s *nodeSyncer) translateUpdateBackwards(pNode *corev1.Node, vNode *corev1.
 		}
 	}
 
-	// convert virtual taints
-	virtual := []string{}
-	for _, p := range vNode.Spec.Taints {
-		if !hasUnready && p.Key == "node.kubernetes.io/not-ready" {
-			continue
-		}
-
-		out, err := json.Marshal(p)
-		if err != nil {
-			klog.Errorf("error encoding taint: %v", err)
-		} else {
-			virtual = append(virtual, string(out))
-		}
-	}
-
-	// merge taints
-	newTaints := mergeStrings(physical, virtual, oldPhysical)
-	newTaintsObjects := []corev1.Taint{}
-	for _, t := range newTaints {
-		taint := corev1.Taint{}
-		err := json.Unmarshal([]byte(t), &taint)
-		if err != nil {
-			klog.Errorf("error decoding taint: %v", err)
-		} else {
-			newTaintsObjects = append(newTaintsObjects, taint)
-		}
-	}
-
-	// set merged taints
-	translatedSpec.Taints = newTaintsObjects
-
-	// encode taints
 	out, err := json.Marshal(physical)
 	if err != nil {
 		klog.Errorf("error encoding taints: %v", err)
@@ -264,21 +221,93 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 	return nil
 }
 
-func mergeStrings(physical []string, virtual []string, oldPhysical []string) []string {
-	merged := []string{}
-	merged = append(merged, physical...)
-	merged = append(merged, virtual...)
-	merged = stringutil.RemoveDuplicates(merged)
-	newMerged := []string{}
-	for _, o := range merged {
-		if stringutil.Contains(oldPhysical, o) && !stringutil.Contains(physical, o) {
+// taintID is the identity Kubernetes uses for a taint. timeAdded and value are not part of it.
+type taintID struct {
+	key    string
+	effect corev1.TaintEffect
+}
+
+// mergeTaints keeps every host taint, then virtual taints whose key and effect are still new.
+// Virtual not-ready and unreachable taints are dropped when the host has no taint with that key.
+// A virtual taint that was recorded from the host and is gone from the host is dropped too.
+func mergeTaints(physical, virtual, oldPhysical []corev1.Taint) []corev1.Taint {
+	merged := []corev1.Taint{}
+	seen := make(map[taintID]struct{}, len(physical)+len(virtual))
+	physicalKeys := make(map[string]struct{}, len(physical))
+	for _, taint := range physical {
+		id := taintID{key: taint.Key, effect: taint.Effect}
+		if _, ok := seen[id]; ok {
 			continue
 		}
-
-		newMerged = append(newMerged, o)
+		seen[id] = struct{}{}
+		physicalKeys[taint.Key] = struct{}{}
+		merged = append(merged, taint)
 	}
 
-	return newMerged
+	old := make(map[taintID]struct{}, len(oldPhysical))
+	for _, taint := range oldPhysical {
+		old[taintID{key: taint.Key, effect: taint.Effect}] = struct{}{}
+	}
+
+	for _, taint := range virtual {
+		id := taintID{key: taint.Key, effect: taint.Effect}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		if dropVirtualLifecycleTaint(taint.Key, physicalKeys) {
+			continue
+		}
+		// The host used to have this taint and has since removed it.
+		// A virtual taint with the same key and effect is dropped too.
+		// This is unavoidable with that identity, and following the host is the safer default.
+		if _, ok := old[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		merged = append(merged, taint)
+	}
+	return merged
+}
+
+// dropVirtualLifecycleTaint reports whether a virtual node lifecycle taint should be
+// omitted because the host node does not currently have that key.
+// The check matches by key only, so a host not-ready:NoSchedule keeps a virtual
+// not-ready:NoExecute. This is deliberate and matches the old hasUnready behavior.
+func dropVirtualLifecycleTaint(key string, physicalKeys map[string]struct{}) bool {
+	switch key {
+	case corev1.TaintNodeNotReady, corev1.TaintNodeUnreachable:
+		_, present := physicalKeys[key]
+		return !present
+	default:
+		return false
+	}
+}
+
+// originalTaints reads vcluster.loft.sh/original-taints. The value is a JSON array of
+// taint JSON strings. Identity checks use key and effect, not the raw string.
+func originalTaints(annotations map[string]string) []corev1.Taint {
+	if annotations == nil || annotations[TaintsAnnotation] == "" {
+		return nil
+	}
+
+	encoded := []string{}
+	err := json.Unmarshal([]byte(annotations[TaintsAnnotation]), &encoded)
+	if err != nil {
+		klog.Errorf("error decoding taints: %v", err)
+		return nil
+	}
+
+	taints := []corev1.Taint{}
+	for _, raw := range encoded {
+		taint := corev1.Taint{}
+		err = json.Unmarshal([]byte(raw), &taint)
+		if err != nil {
+			klog.Errorf("error decoding taint: %v", err)
+			continue
+		}
+		taints = append(taints, taint)
+	}
+	return taints
 }
 
 func mergeResources(a corev1.ResourceList, b corev1.ResourceList) corev1.ResourceList {
