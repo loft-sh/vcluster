@@ -1130,6 +1130,7 @@ integrations:
             labels: {}
   
   # Istio syncs DestinationRules, Gateways and VirtualServices from virtual cluster to the host.
+  # Deprecated: The Istio integration is deprecated and will be removed in a future release.
   istio:
     # Enabled defines if this option should be enabled.
     enabled: false
