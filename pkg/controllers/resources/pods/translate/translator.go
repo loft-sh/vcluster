@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/events"
 	"k8s.io/component-helpers/storage/ephemeral"
+	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -757,11 +758,11 @@ func (t *translator) translateDNSConfig(pPod *corev1.Pod, vPod *corev1.Pod, name
 	case corev1.DNSNone:
 		return
 	case corev1.DNSClusterFirstWithHostNet:
-		translateDNSClusterFirstConfig(pPod, vPod, t.clusterDomain, nameServer)
+		translateDNSClusterFirstConfig(pPod, vPod, t.clusterDomain, nameServer, t.hostClusterVersion)
 		return
 	case corev1.DNSClusterFirst:
 		if !pPod.Spec.HostNetwork {
-			translateDNSClusterFirstConfig(pPod, vPod, t.clusterDomain, nameServer)
+			translateDNSClusterFirstConfig(pPod, vPod, t.clusterDomain, nameServer, t.hostClusterVersion)
 			return
 		}
 		// Fallback to DNSDefault for pod on hostnetwork.
@@ -771,7 +772,7 @@ func (t *translator) translateDNSConfig(pPod *corev1.Pod, vPod *corev1.Pod, name
 	}
 }
 
-func translateDNSClusterFirstConfig(pPod *corev1.Pod, vPod *corev1.Pod, clusterDomain, nameServer string) {
+func translateDNSClusterFirstConfig(pPod *corev1.Pod, vPod *corev1.Pod, clusterDomain, nameServer string, hostVersion *utilversion.Version) {
 	if nameServer == "" {
 		return
 	}
@@ -798,8 +799,65 @@ func translateDNSClusterFirstConfig(pPod *corev1.Pod, vPod *corev1.Pod, clusterD
 		dnsConfig.Searches = deleteDuplicates(append(dnsConfig.Searches, existingDNSConfig.Searches...))
 	}
 
+	// The vCluster nameserver and search domains are prepended above, so a pod that already
+	// used many entries could push the merged lists past the host apiserver's limits and be
+	// rejected, leaving the pod stuck (never synced). Cap both lists to the host limits; the
+	// cluster-essential entries survive because they are first. Truncation drops user entries,
+	// so warn to make the silently-lost DNS config discoverable.
+	if n := len(dnsConfig.Nameservers); n > maxDNSNameservers {
+		klog.Warningf("pod %s/%s: dropping %d DNS nameserver(s) over the host limit of %d; cluster DNS is kept", vPod.Namespace, vPod.Name, n-maxDNSNameservers, maxDNSNameservers)
+		dnsConfig.Nameservers = dnsConfig.Nameservers[:maxDNSNameservers]
+	}
+	maxSearch, maxSearchChars := dnsSearchLimits(hostVersion)
+	capped, dropped := capSearchList(dnsConfig.Searches, maxSearch, maxSearchChars)
+	if dropped > 0 {
+		klog.Warningf("pod %s/%s: dropping %d DNS search domain(s) to fit the host limit (%d domains / %d chars); cluster search domains are kept", vPod.Namespace, vPod.Name, dropped, maxSearch, maxSearchChars)
+	}
+	dnsConfig.Searches = capped
+
 	pPod.Spec.DNSPolicy = corev1.DNSNone
 	pPod.Spec.DNSConfig = dnsConfig
+}
+
+// Host apiserver DNS validation limits (k8s.io/kubernetes/pkg/apis/core/validation).
+// The nameserver limit is stable across versions. The search-list limits depend on the
+// ExpandedDNSConfig feature: 32 domains / 2048 chars once it is GA-locked (Kubernetes
+// 1.28), and the legacy 6 domains / 256 chars before that. On older or unknown hosts we
+// cap to the legacy limits, since a config valid under the legacy limits is valid on
+// every version and so is never rejected.
+const (
+	maxDNSNameservers = 3
+
+	maxDNSSearchPathsExpanded     = 32
+	maxDNSSearchListCharsExpanded = 2048
+	maxDNSSearchPathsLegacy       = 6
+	maxDNSSearchListCharsLegacy   = 256
+)
+
+// expandedDNSMinVersion is the first Kubernetes version where ExpandedDNSConfig is
+// GA-locked (on and non-disableable), so the expanded search-list limits always apply.
+var expandedDNSMinVersion = utilversion.MustParseSemantic("1.28.0")
+
+// dnsSearchLimits returns the host's search-list count and total-character limits.
+func dnsSearchLimits(hostVersion *utilversion.Version) (maxCount, maxChars int) {
+	if hostVersion != nil && !hostVersion.LessThan(expandedDNSMinVersion) {
+		return maxDNSSearchPathsExpanded, maxDNSSearchListCharsExpanded
+	}
+	return maxDNSSearchPathsLegacy, maxDNSSearchListCharsLegacy
+}
+
+// capSearchList truncates searches to satisfy BOTH the count and total-character limits
+// (Kubernetes validates the length of strings.Join(searches, " ")), keeping the earliest
+// (cluster-essential) entries. It returns the capped list and how many entries it dropped.
+func capSearchList(searches []string, maxCount, maxChars int) ([]string, int) {
+	original := len(searches)
+	if len(searches) > maxCount {
+		searches = searches[:maxCount]
+	}
+	for len(searches) > 0 && len(strings.Join(searches, " ")) > maxChars {
+		searches = searches[:len(searches)-1]
+	}
+	return searches, original - len(searches)
 }
 
 func deleteDuplicates(strs []string) []string {
