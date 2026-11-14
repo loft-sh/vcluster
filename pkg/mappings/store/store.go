@@ -394,7 +394,7 @@ func (s *Store) DeleteReference(ctx context.Context, nameMapping, belongsTo sync
 	}
 
 	// check if reference already exists
-	newReferences := make([]synccontext.NameMapping, 0, len(mapping.References)-1)
+	newReferences := make([]synccontext.NameMapping, 0, len(mapping.References))
 	for _, reference := range mapping.References {
 		if reference.Equals(nameMapping) {
 			continue
