@@ -37,6 +37,12 @@ sync:
       translateImage: {}
       # EnforceTolerations will add the specified tolerations to all pods synced by the virtual cluster.
       enforceTolerations: []
+      # EnvVars are extra environment variables injected into every container of pods synced
+      # from the virtual cluster to the host cluster. Pod-authored env vars with the same
+      # name take precedence. This is useful for node-level security hooks that must be
+      # present on all workload pods (e.g., IBV_AUTH_PLUGIN for RDMA QP creation gating).
+      # +optional
+      envVars: []
       # HybridScheduling is used to enable and configure hybrid scheduling for pods in the virtual cluster.
       hybridScheduling:
         # Enabled specifies if hybrid scheduling is enabled.

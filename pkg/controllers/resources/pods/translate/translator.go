@@ -156,6 +156,7 @@ func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder events.EventR
 		resourceClaimTemplateEnabled: ctx.Config.Sync.ToHost.ResourceClaimTemplates.Enabled,
 
 		enforcedTolerations: parseEnforcedTolerations(ctx.Config.Sync.ToHost.Pods.EnforceTolerations),
+		enforcedEnvVars:     ctx.Config.Sync.ToHost.Pods.EnvVars,
 	}
 
 	// Log when ObservedGeneration suppression is active, to aid debugging pod conditions on a
@@ -202,6 +203,10 @@ type translator struct {
 	// enforcedTolerations are tolerations from vcluster config that must always be present
 	// on the physical pod, both at creation time and when the virtual pod's tolerations change.
 	enforcedTolerations []corev1.Toleration
+
+	// enforcedEnvVars are env vars from vcluster config injected into every container of
+	// pods synced to the host. Pod-authored env vars with the same name take precedence.
+	enforcedEnvVars []corev1.EnvVar
 }
 
 func (t *translator) Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, services []*corev1.Service, dnsIP string, kubeIP string) (*corev1.Pod, error) {
@@ -400,6 +405,13 @@ func (t *translator) Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, s
 		pPod.Spec.EphemeralContainers[i].Env = envVar
 		pPod.Spec.EphemeralContainers[i].EnvFrom = envFrom
 		pPod.Spec.EphemeralContainers[i].Image = t.imageTranslator.Translate(pPod.Spec.EphemeralContainers[i].Image)
+	}
+
+	// inject enforced env vars from vcluster config, without overriding pod-authored values
+	if len(t.enforcedEnvVars) > 0 {
+		injectEnforcedEnvVars(pPod.Spec.Containers, t.enforcedEnvVars)
+		injectEnforcedEnvVars(pPod.Spec.InitContainers, t.enforcedEnvVars)
+		injectEphemeralEnforcedEnvVars(pPod.Spec.EphemeralContainers, t.enforcedEnvVars)
 	}
 
 	// translate image pull secrets
@@ -1021,4 +1033,37 @@ func parseEnforcedTolerations(raw []string) []corev1.Toleration {
 		}
 	}
 	return result
+}
+
+// hasEnvVar reports whether the container already defines an env var with the given name.
+func hasEnvVar(envList []corev1.EnvVar, name string) bool {
+	for _, e := range envList {
+		if e.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+// injectEnforcedEnvVars prepends enforced env vars to each container, skipping
+// any that the pod already defines (pod-authored values take precedence).
+func injectEnforcedEnvVars(containers []corev1.Container, enforced []corev1.EnvVar) {
+	for i := range containers {
+		for _, ev := range enforced {
+			if !hasEnvVar(containers[i].Env, ev.Name) {
+				containers[i].Env = append(containers[i].Env, ev)
+			}
+		}
+	}
+}
+
+// injectEphemeralEnforcedEnvVars is the EphemeralContainer variant of injectEnforcedEnvVars.
+func injectEphemeralEnforcedEnvVars(containers []corev1.EphemeralContainer, enforced []corev1.EnvVar) {
+	for i := range containers {
+		for _, ev := range enforced {
+			if !hasEnvVar(containers[i].Env, ev.Name) {
+				containers[i].Env = append(containers[i].Env, ev)
+			}
+		}
+	}
 }
