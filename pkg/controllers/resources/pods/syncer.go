@@ -391,10 +391,19 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 		}
 	}()
 
-	// resize the host pod container resources in place if the pod spec has changed
-	err = s.resizeHostPodContainerResourcesInPlace(ctx, event)
-	if err != nil {
-		return ctrl.Result{}, err
+	// resize the host pod container resources in place if the virtual pod's resources changed
+	resizeErr := s.resizeHostPodContainerResourcesInPlace(ctx, event)
+	if kerrors.IsForbidden(resizeErr) {
+		s.EventRecorder().Eventf(
+			event.Virtual,
+			nil,
+			"Warning",
+			"SyncWarning",
+			fmt.Sprintf("Sync%s", event.Virtual.GetObjectKind().GroupVersionKind().Kind),
+			"did not resize the host pod in place: %v",
+			resizeErr,
+		)
+		resizeErr = nil
 	}
 
 	// update the virtual pod if the spec has changed
@@ -407,7 +416,7 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, resizeErr
 }
 
 func (s *podSyncer) resizeHostPodContainerResourcesInPlace(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Pod]) error {
@@ -417,7 +426,7 @@ func (s *podSyncer) resizeHostPodContainerResourcesInPlace(ctx *synccontext.Sync
 		return nil
 	}
 
-	resizePatch, err := buildHostPodContainersResourcesResizePatch(event.Virtual, event.Host)
+	resizePatch, err := buildHostPodContainersResourcesResizePatch(event.VirtualOld, event.Virtual, event.Host)
 	if err != nil {
 		return err
 	}
@@ -482,7 +491,19 @@ type resizeContainer struct {
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
-func buildHostPodContainersResourcesResizePatch(vPod, pPod *corev1.Pod) ([]byte, error) {
+// buildHostPodContainersResourcesResizePatch returns a resize patch for the containers whose
+// resources changed on the virtual pod since vOldPod and differ from the host pod. Resources that
+// only differ on the host, for example defaults applied by a LimitRange or a host admission
+// webhook, are left alone.
+func buildHostPodContainersResourcesResizePatch(vOldPod, vPod, pPod *corev1.Pod) ([]byte, error) {
+	if vOldPod == nil {
+		return nil, nil
+	}
+
+	oldContainers := map[string]corev1.Container{}
+	for _, c := range vOldPod.Spec.Containers {
+		oldContainers[c.Name] = c
+	}
 	hostContainers := map[string]corev1.Container{}
 	for _, c := range pPod.Spec.Containers {
 		hostContainers[c.Name] = c
@@ -490,6 +511,9 @@ func buildHostPodContainersResourcesResizePatch(vPod, pPod *corev1.Pod) ([]byte,
 
 	var patchContainers []resizeContainer
 	for _, v := range vPod.Spec.Containers {
+		if old, ok := oldContainers[v.Name]; ok && equality.Semantic.DeepEqual(old.Resources, v.Resources) {
+			continue
+		}
 		p, ok := hostContainers[v.Name]
 		if !ok {
 			continue
