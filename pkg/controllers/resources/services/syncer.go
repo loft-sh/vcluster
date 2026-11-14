@@ -197,6 +197,24 @@ func (s *serviceSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.Sy
 		event.HostOld.Spec.HealthCheckNodePort,
 		event.Host.Spec.HealthCheckNodePort,
 	)
+	event.Virtual.Spec.InternalTrafficPolicy, event.Host.Spec.InternalTrafficPolicy = patcher.CopyBidirectional(
+		event.VirtualOld.Spec.InternalTrafficPolicy,
+		event.Virtual.Spec.InternalTrafficPolicy,
+		event.HostOld.Spec.InternalTrafficPolicy,
+		event.Host.Spec.InternalTrafficPolicy,
+	)
+	event.Virtual.Spec.TrafficDistribution, event.Host.Spec.TrafficDistribution = patcher.CopyBidirectional(
+		event.VirtualOld.Spec.TrafficDistribution,
+		event.Virtual.Spec.TrafficDistribution,
+		event.HostOld.Spec.TrafficDistribution,
+		event.Host.Spec.TrafficDistribution,
+	)
+	event.Virtual.Spec.AllocateLoadBalancerNodePorts, event.Host.Spec.AllocateLoadBalancerNodePorts = patcher.CopyBidirectional(
+		event.VirtualOld.Spec.AllocateLoadBalancerNodePorts,
+		event.Virtual.Spec.AllocateLoadBalancerNodePorts,
+		event.HostOld.Spec.AllocateLoadBalancerNodePorts,
+		event.Host.Spec.AllocateLoadBalancerNodePorts,
+	)
 
 	// update status
 	ensureLoadBalancerStatus(event.Host)
