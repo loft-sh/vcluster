@@ -462,6 +462,21 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "ConfigMapKeySelector": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        },
+        "optional": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "ContainerdJoin": {
       "properties": {
         "enabled": {
@@ -1858,6 +1873,42 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "EnvVar": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "valueFrom": {
+          "$ref": "#/$defs/EnvVarSource"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "EnvVarSource": {
+      "properties": {
+        "fieldRef": {
+          "$ref": "#/$defs/ObjectFieldSelector"
+        },
+        "resourceFieldRef": {
+          "$ref": "#/$defs/ResourceFieldSelector"
+        },
+        "configMapKeyRef": {
+          "$ref": "#/$defs/ConfigMapKeySelector"
+        },
+        "secretKeyRef": {
+          "$ref": "#/$defs/SecretKeySelector"
+        },
+        "fileKeyRef": {
+          "$ref": "#/$defs/FileKeySelector"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "Etcd": {
       "properties": {
         "embedded": {
@@ -2709,6 +2760,24 @@
         "stores": {
           "$ref": "#/$defs/EnableSwitchSelector",
           "description": "Stores defines if secret stores should get synced from the virtual cluster to the host cluster and then bi-directionally."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "FileKeySelector": {
+      "properties": {
+        "volumeName": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        },
+        "optional": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
@@ -4050,6 +4119,18 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "ObjectFieldSelector": {
+      "properties": {
+        "apiVersion": {
+          "type": "string"
+        },
+        "fieldPath": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "ObjectMeta": {
       "properties": {
         "name": {
@@ -4508,6 +4589,15 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "Quantity": {
+      "properties": {
+        "Format": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "RBAC": {
       "properties": {
         "role": {
@@ -4759,6 +4849,21 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "ResourceFieldSelector": {
+      "properties": {
+        "containerName": {
+          "type": "string"
+        },
+        "resource": {
+          "type": "string"
+        },
+        "divisor": {
+          "$ref": "#/$defs/Quantity"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "ResourceOutputSourceConfig": {
       "properties": {
         "apiVersion": {
@@ -4879,6 +4984,21 @@
           },
           "type": "array",
           "description": "Verb is the kube verb associated with the request for API requests, not the http verb. This includes things like list and watch.\nFor non-resource requests, this is the lowercase http verb.\nIf '*' is present, the length of the slice must be one."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "SecretKeySelector": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        },
+        "optional": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
@@ -5829,6 +5949,13 @@
         "priorityClassName": {
           "type": "string",
           "description": "PriorityClassName is the priority class to set for synced pods."
+        },
+        "envVars": {
+          "items": {
+            "$ref": "#/$defs/EnvVar"
+          },
+          "type": "array",
+          "description": "EnvVars are extra environment variables injected into every container of pods synced\nfrom the virtual cluster to the host cluster. Pod-authored env vars with the same\nname take precedence. This is useful for node-level security hooks that must be\npresent on all workload pods (e.g., IBV_AUTH_PLUGIN for RDMA QP creation gating).\n+optional"
         },
         "rewriteHosts": {
           "$ref": "#/$defs/SyncRewriteHosts",

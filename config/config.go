@@ -1746,6 +1746,13 @@ type SyncPods struct {
 	// PriorityClassName is the priority class to set for synced pods.
 	PriorityClassName string `json:"priorityClassName,omitempty"`
 
+	// EnvVars are extra environment variables injected into every container of pods synced
+	// from the virtual cluster to the host cluster. Pod-authored env vars with the same
+	// name take precedence. This is useful for node-level security hooks that must be
+	// present on all workload pods (e.g., IBV_AUTH_PLUGIN for RDMA QP creation gating).
+	// +optional
+	EnvVars []corev1.EnvVar `json:"envVars,omitempty"`
+
 	// RewriteHosts is a special option needed to rewrite statefulset containers to allow the correct FQDN. virtual cluster will add
 	// a small container to each stateful set pod that will initially rewrite the /etc/hosts file to match the FQDN expected by
 	// the virtual cluster.

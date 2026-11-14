@@ -21,6 +21,7 @@ sync:
       enabled: true
       translateImage: {}
       enforceTolerations: []
+      envVars: []
       hybridScheduling:
         enabled: false
         hostSchedulers: []
