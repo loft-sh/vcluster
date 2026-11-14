@@ -50,7 +50,7 @@
 {{- continue }}
 {{- end }}
 - {{- if $.Values.controlPlane.advanced.defaultImageRegistry }}
-  image: {{ $.Values.controlPlane.advanced.defaultImageRegistry }}/{{ $container.image }}
+  image: {{ trimSuffix "/" $.Values.controlPlane.advanced.defaultImageRegistry }}/{{ $container.image }}
   {{- else }}
   image: {{ $container.image }}
   {{- end }}
@@ -107,7 +107,7 @@
 {{- continue -}}
 {{- end -}}
 - {{- if $.Values.controlPlane.advanced.defaultImageRegistry }}
-  image: {{ $.Values.controlPlane.advanced.defaultImageRegistry }}/{{ $container.image }}
+  image: {{ trimSuffix "/" $.Values.controlPlane.advanced.defaultImageRegistry }}/{{ $container.image }}
   {{- else }}
   image: {{ $container.image }}
   {{- end }}
