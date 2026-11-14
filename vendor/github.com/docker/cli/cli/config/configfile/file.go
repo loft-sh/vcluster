@@ -1,0 +1,471 @@
+// FIXME(thaJeztah): remove once we are a module; the go:build directive prevents go from downgrading language version to go1.16:
+//go:build go1.26
+
+package configfile
+
+import (
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"maps"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/docker/cli/cli/config/credentials"
+	"github.com/docker/cli/cli/config/memorystore"
+	"github.com/docker/cli/cli/config/types"
+	"github.com/sirupsen/logrus"
+)
+
+// authConfigKey is the key used to store credentials for Docker Hub. It is
+// a copy of [registry.IndexServer].
+//
+// [registry.IndexServer]: https://pkg.go.dev/github.com/docker/docker@v28.5.1+incompatible/registry#IndexServer
+const authConfigKey = "https://index.docker.io/v1/"
+
+// getAuthConfigKey returns the canonical key used to look up stored
+// registry credentials for the given registry domain.
+//
+// For the official Docker Hub registry ("docker.io"), credentials are stored
+// under the historical full index address ("https://index.docker.io/v1/").
+//
+// For all other registries, the input is domainName to already be a normalized
+// hostname (optionally including ":port") and is returned unchanged.
+//
+// This function performs key normalization only; it does not validate or parse
+// the input.
+//
+// It is similar to [registry.GetAuthConfigKey] in the daemon.
+//
+// [registry.GetAuthConfigKey]: https://pkg.go.dev/github.com/docker/docker@v28.5.1+incompatible/registry#GetAuthConfigKey
+func getAuthConfigKey(domainName string) string {
+	if domainName == "docker.io" || domainName == "index.docker.io" {
+		return authConfigKey
+	}
+	return domainName
+}
+
+// ConfigFile ~/.docker/config.json file info
+type ConfigFile struct {
+	AuthConfigs          map[string]types.AuthConfig  `json:"auths"`
+	HTTPHeaders          map[string]string            `json:"HttpHeaders,omitempty"`
+	PsFormat             string                       `json:"psFormat,omitempty"`
+	ImagesFormat         string                       `json:"imagesFormat,omitempty"`
+	NetworksFormat       string                       `json:"networksFormat,omitempty"`
+	PluginsFormat        string                       `json:"pluginsFormat,omitempty"`
+	VolumesFormat        string                       `json:"volumesFormat,omitempty"`
+	StatsFormat          string                       `json:"statsFormat,omitempty"`
+	DetachKeys           string                       `json:"detachKeys,omitempty"`
+	CredentialsStore     string                       `json:"credsStore,omitempty"`
+	CredentialHelpers    map[string]string            `json:"credHelpers,omitempty"`
+	Filename             string                       `json:"-"` // Note: for internal use only
+	ServiceInspectFormat string                       `json:"serviceInspectFormat,omitempty"`
+	ServicesFormat       string                       `json:"servicesFormat,omitempty"`
+	TasksFormat          string                       `json:"tasksFormat,omitempty"`
+	SecretFormat         string                       `json:"secretFormat,omitempty"`
+	ConfigFormat         string                       `json:"configFormat,omitempty"`
+	NodesFormat          string                       `json:"nodesFormat,omitempty"`
+	PruneFilters         []string                     `json:"pruneFilters,omitempty"`
+	Proxies              map[string]ProxyConfig       `json:"proxies,omitempty"`
+	CurrentContext       string                       `json:"currentContext,omitempty"`
+	CLIPluginsExtraDirs  []string                     `json:"cliPluginsExtraDirs,omitempty"`
+	Plugins              map[string]map[string]string `json:"plugins,omitempty"`
+	Aliases              map[string]string            `json:"aliases,omitempty"`
+	Features             map[string]string            `json:"features,omitempty"`
+}
+
+type configEnvAuth struct {
+	Auth string `json:"auth"`
+}
+
+type configEnv struct {
+	AuthConfigs map[string]configEnvAuth `json:"auths"`
+}
+
+// DockerEnvConfigKey is an environment variable that contains a JSON encoded
+// credential config. It only supports storing the credentials as a base64
+// encoded string in the format base64("username:pat").
+//
+// Adding additional fields will produce a parsing error.
+//
+// Example:
+//
+//	{
+//		"auths": {
+//			"example.test": {
+//				"auth": base64-encoded-username-pat
+//			}
+//		}
+//	}
+const DockerEnvConfigKey = "DOCKER_AUTH_CONFIG"
+
+// ProxyConfig contains proxy configuration settings
+type ProxyConfig struct {
+	HTTPProxy  string `json:"httpProxy,omitempty"`
+	HTTPSProxy string `json:"httpsProxy,omitempty"`
+	NoProxy    string `json:"noProxy,omitempty"`
+	FTPProxy   string `json:"ftpProxy,omitempty"`
+	AllProxy   string `json:"allProxy,omitempty"`
+}
+
+// New initializes an empty configuration file for the given filename 'fn'
+func New(fn string) *ConfigFile {
+	return &ConfigFile{
+		AuthConfigs: make(map[string]types.AuthConfig),
+		HTTPHeaders: make(map[string]string),
+		Filename:    fn,
+		Plugins:     make(map[string]map[string]string),
+		Aliases:     make(map[string]string),
+	}
+}
+
+// LoadFromReader reads the configuration data given and sets up the auth config
+// information with given directory and populates the receiver object
+func (c *ConfigFile) LoadFromReader(configData io.Reader) error {
+	if err := json.NewDecoder(configData).Decode(c); err != nil && !errors.Is(err, io.EOF) {
+		return err
+	}
+	var err error
+	for addr, ac := range c.AuthConfigs {
+		if ac.Auth != "" {
+			ac.Username, ac.Password, err = decodeAuth(ac.Auth)
+			if err != nil {
+				return err
+			}
+		}
+		ac.Auth = ""
+		ac.ServerAddress = addr
+		c.AuthConfigs[addr] = ac
+	}
+	return nil
+}
+
+// ContainsAuth returns whether there is authentication configured
+// in this file or not.
+func (c *ConfigFile) ContainsAuth() bool {
+	return c.CredentialsStore != "" ||
+		len(c.CredentialHelpers) > 0 ||
+		len(c.AuthConfigs) > 0
+}
+
+// GetAuthConfigs returns the mapping of repo to auth configuration
+func (c *ConfigFile) GetAuthConfigs() map[string]types.AuthConfig {
+	if c.AuthConfigs == nil {
+		c.AuthConfigs = make(map[string]types.AuthConfig)
+	}
+	return c.AuthConfigs
+}
+
+// SaveToWriter encodes and writes out all the authorization information to
+// the given writer
+func (c *ConfigFile) SaveToWriter(writer io.Writer) error {
+	// Encode sensitive data into a new/temp struct
+	tmpAuthConfigs := make(map[string]types.AuthConfig, len(c.AuthConfigs))
+	for k, authConfig := range c.AuthConfigs {
+		authCopy := authConfig
+		// encode and save the authstring, while blanking out the original fields
+		authCopy.Auth = encodeAuth(&authCopy)
+		authCopy.Username = ""
+		authCopy.Password = ""
+		authCopy.ServerAddress = ""
+		tmpAuthConfigs[k] = authCopy
+	}
+
+	saveAuthConfigs := c.AuthConfigs
+	c.AuthConfigs = tmpAuthConfigs
+	defer func() { c.AuthConfigs = saveAuthConfigs }()
+
+	// User-Agent header is automatically set, and should not be stored in the configuration
+	for v := range c.HTTPHeaders {
+		if strings.EqualFold(v, "User-Agent") {
+			delete(c.HTTPHeaders, v)
+		}
+	}
+
+	data, err := json.MarshalIndent(c, "", "\t")
+	if err != nil {
+		return err
+	}
+	_, err = writer.Write(data)
+	return err
+}
+
+// Save encodes and writes out all the authorization information
+func (c *ConfigFile) Save() (retErr error) {
+	if c.Filename == "" {
+		return errors.New("can't save config with empty filename")
+	}
+
+	dir := filepath.Dir(c.Filename)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	temp, err := os.CreateTemp(dir, filepath.Base(c.Filename))
+	if err != nil {
+		return err
+	}
+	defer func() {
+		// ignore error as the file may already be closed when we reach this.
+		_ = temp.Close()
+		if retErr != nil {
+			if err := os.Remove(temp.Name()); err != nil {
+				logrus.WithError(err).WithField("file", temp.Name()).Debug("Error cleaning up temp file")
+			}
+		}
+	}()
+
+	err = c.SaveToWriter(temp)
+	if err != nil {
+		return err
+	}
+
+	if err := temp.Close(); err != nil {
+		return fmt.Errorf("error closing temp file: %w", err)
+	}
+
+	// Handle situation where the configfile is a symlink, and allow for dangling symlinks
+	cfgFile := c.Filename
+	if f, err := filepath.EvalSymlinks(cfgFile); err == nil {
+		cfgFile = f
+	} else if os.IsNotExist(err) {
+		// extract the path from the error if the configfile does not exist or is a dangling symlink
+		if pathError, ok := errors.AsType[*os.PathError](err); ok {
+			cfgFile = pathError.Path
+		}
+	}
+
+	// Try copying the current config file (if any) ownership and permissions
+	copyFilePermissions(cfgFile, temp.Name())
+	return os.Rename(temp.Name(), cfgFile)
+}
+
+// ParseProxyConfig computes proxy configuration by retrieving the config for the provided host and
+// then checking this against any environment variables provided to the container
+func (c *ConfigFile) ParseProxyConfig(host string, runOpts map[string]*string) map[string]*string {
+	var cfgKey string
+
+	if _, ok := c.Proxies[host]; !ok {
+		cfgKey = "default"
+	} else {
+		cfgKey = host
+	}
+
+	config := c.Proxies[cfgKey]
+	permitted := map[string]*string{
+		"HTTP_PROXY":  &config.HTTPProxy,
+		"HTTPS_PROXY": &config.HTTPSProxy,
+		"NO_PROXY":    &config.NoProxy,
+		"FTP_PROXY":   &config.FTPProxy,
+		"ALL_PROXY":   &config.AllProxy,
+	}
+	m := runOpts
+	if m == nil {
+		m = make(map[string]*string)
+	}
+	for k := range permitted {
+		if *permitted[k] == "" {
+			continue
+		}
+		if _, ok := m[k]; !ok {
+			m[k] = permitted[k]
+		}
+		if _, ok := m[strings.ToLower(k)]; !ok {
+			m[strings.ToLower(k)] = permitted[k]
+		}
+	}
+	return m
+}
+
+// encodeAuth creates a base64 encoded string to containing authorization information
+func encodeAuth(authConfig *types.AuthConfig) string {
+	if authConfig.Username == "" && authConfig.Password == "" {
+		return ""
+	}
+
+	authStr := authConfig.Username + ":" + authConfig.Password
+	msg := []byte(authStr)
+	encoded := make([]byte, base64.StdEncoding.EncodedLen(len(msg)))
+	base64.StdEncoding.Encode(encoded, msg)
+	return string(encoded)
+}
+
+// decodeAuth decodes a base64 encoded string and returns username and password
+func decodeAuth(authStr string) (string, string, error) {
+	if authStr == "" {
+		return "", "", nil
+	}
+
+	decLen := base64.StdEncoding.DecodedLen(len(authStr))
+	decoded := make([]byte, decLen)
+	authByte := []byte(authStr)
+	n, err := base64.StdEncoding.Decode(decoded, authByte)
+	if err != nil {
+		return "", "", err
+	}
+	if n > decLen {
+		return "", "", errors.New("something went wrong decoding auth config")
+	}
+	userName, password, ok := strings.Cut(string(decoded), ":")
+	if !ok || userName == "" {
+		return "", "", errors.New("invalid auth configuration file")
+	}
+	return userName, strings.Trim(password, "\x00"), nil
+}
+
+// GetCredentialsStore returns a new credentials store from the settings in the
+// configuration file
+func (c *ConfigFile) GetCredentialsStore(registryHostname string) credentials.Store {
+	store := credentials.NewFileStore(c)
+
+	if helper := getConfiguredCredentialStore(c, getAuthConfigKey(registryHostname)); helper != "" {
+		store = newNativeStore(c, helper)
+	}
+
+	envConfig := os.Getenv(DockerEnvConfigKey)
+	if envConfig == "" {
+		return store
+	}
+
+	authConfig, err := parseEnvConfig(envConfig)
+	if err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, "Failed to create credential store from DOCKER_AUTH_CONFIG: ", err)
+		return store
+	}
+
+	// use DOCKER_AUTH_CONFIG if set
+	// it uses the native or file store as a fallback to fetch and store credentials
+	envStore, err := memorystore.New(
+		memorystore.WithAuthConfig(authConfig),
+		memorystore.WithFallbackStore(store),
+	)
+	if err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, "Failed to create credential store from DOCKER_AUTH_CONFIG: ", err)
+		return store
+	}
+
+	return envStore
+}
+
+func parseEnvConfig(v string) (map[string]types.AuthConfig, error) {
+	envConfig := &configEnv{}
+	decoder := json.NewDecoder(strings.NewReader(v))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(envConfig); err != nil && !errors.Is(err, io.EOF) {
+		return nil, err
+	}
+	if decoder.More() {
+		return nil, errors.New("DOCKER_AUTH_CONFIG does not support more than one JSON object")
+	}
+
+	authConfigs := make(map[string]types.AuthConfig)
+	for addr, envAuth := range envConfig.AuthConfigs {
+		if envAuth.Auth == "" {
+			return nil, fmt.Errorf("DOCKER_AUTH_CONFIG environment variable is missing key `auth` for %s", addr)
+		}
+		username, password, err := decodeAuth(envAuth.Auth)
+		if err != nil {
+			return nil, err
+		}
+		authConfigs[addr] = types.AuthConfig{
+			Username:      username,
+			Password:      password,
+			ServerAddress: addr,
+		}
+	}
+	return authConfigs, nil
+}
+
+// var for unit testing.
+var newNativeStore = func(configFile *ConfigFile, helperSuffix string) credentials.Store {
+	return credentials.NewNativeStore(configFile, helperSuffix)
+}
+
+// GetAuthConfig for a repository from the credential store
+func (c *ConfigFile) GetAuthConfig(registryHostname string) (types.AuthConfig, error) {
+	acKey := getAuthConfigKey(registryHostname)
+	return c.GetCredentialsStore(acKey).Get(acKey)
+}
+
+// getConfiguredCredentialStore returns the credential helper configured for the
+// given registry, the default credsStore, or the empty string if neither are
+// configured.
+func getConfiguredCredentialStore(c *ConfigFile, registryHostname string) string {
+	if c.CredentialHelpers != nil && registryHostname != "" {
+		if helper, exists := c.CredentialHelpers[registryHostname]; exists {
+			return helper
+		}
+	}
+	return c.CredentialsStore
+}
+
+// GetAllCredentials returns all of the credentials stored in all of the
+// configured credential stores.
+func (c *ConfigFile) GetAllCredentials() (map[string]types.AuthConfig, error) {
+	auths := make(map[string]types.AuthConfig)
+	addAll := func(from map[string]types.AuthConfig) {
+		maps.Copy(auths, from)
+	}
+
+	defaultStore := c.GetCredentialsStore("")
+	newAuths, err := defaultStore.GetAll()
+	if err != nil {
+		return nil, err
+	}
+	addAll(newAuths)
+
+	// Auth configs from a registry-specific helper should override those from the default store.
+	for registryHostname := range c.CredentialHelpers {
+		newAuth, err := c.GetAuthConfig(registryHostname)
+		if err != nil {
+			// TODO(thaJeztah): use context-logger, so that this output can be suppressed (in tests).
+			logrus.WithError(err).Warnf("Failed to get credentials for registry: %s", registryHostname)
+			continue
+		}
+		auths[registryHostname] = newAuth
+	}
+	return auths, nil
+}
+
+// GetFilename returns the file name that this config file is based on.
+func (c *ConfigFile) GetFilename() string {
+	return c.Filename
+}
+
+// PluginConfig retrieves the requested option for the given plugin.
+func (c *ConfigFile) PluginConfig(pluginname, option string) (string, bool) {
+	if c.Plugins == nil {
+		return "", false
+	}
+	pluginConfig, ok := c.Plugins[pluginname]
+	if !ok {
+		return "", false
+	}
+	value, ok := pluginConfig[option]
+	return value, ok
+}
+
+// SetPluginConfig sets the option to the given value for the given
+// plugin. Passing a value of "" will remove the option. If removing
+// the final config item for a given plugin then also cleans up the
+// overall plugin entry.
+func (c *ConfigFile) SetPluginConfig(pluginname, option, value string) {
+	if c.Plugins == nil {
+		c.Plugins = make(map[string]map[string]string)
+	}
+	pluginConfig, ok := c.Plugins[pluginname]
+	if !ok {
+		pluginConfig = make(map[string]string)
+		c.Plugins[pluginname] = pluginConfig
+	}
+	if value != "" {
+		pluginConfig[option] = value
+	} else {
+		delete(pluginConfig, option)
+	}
+	if len(pluginConfig) == 0 {
+		delete(c.Plugins, pluginname)
+	}
+}
