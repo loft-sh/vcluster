@@ -499,6 +499,9 @@ func (t *translator) translateVolumes(ctx *synccontext.SyncContext, pPod *corev1
 			}
 			pPod.Spec.Volumes[i].Ephemeral = nil
 		}
+		if pPod.Spec.Volumes[i].Image != nil {
+			pPod.Spec.Volumes[i].Image.Reference = t.imageTranslator.Translate(pPod.Spec.Volumes[i].Image.Reference)
+		}
 		if pPod.Spec.Volumes[i].Projected != nil {
 			err := t.translateProjectedVolume(ctx, pPod.Spec.Volumes[i].Projected, pPod.Spec.Volumes[i].Name, pPod, vPod, tokenSecrets)
 			if err != nil {
