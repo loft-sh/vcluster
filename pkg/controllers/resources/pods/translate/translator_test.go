@@ -1044,3 +1044,77 @@ func TestTranslateEnforcedTolerationDedup(t *testing.T) {
 	}
 	assert.Equal(t, count, 1, "enforced toleration must appear exactly once on the physical pod, got %d", count)
 }
+
+func TestProjectedVolumeTranslation(t *testing.T) {
+	testCases := []struct {
+		name            string
+		sources         []corev1.VolumeProjection
+		expectedSources []corev1.VolumeProjection
+		expectedError   string
+	}{
+		{
+			name: "secret, configMap and downwardAPI sources",
+			sources: []corev1.VolumeProjection{
+				{Secret: &corev1.SecretProjection{LocalObjectReference: corev1.LocalObjectReference{Name: "my-secret"}}},
+				{ConfigMap: &corev1.ConfigMapProjection{LocalObjectReference: corev1.LocalObjectReference{Name: "my-configmap"}}},
+				{DownwardAPI: &corev1.DownwardAPIProjection{Items: []corev1.DownwardAPIVolumeFile{{Path: "labels", FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.labels"}}}}},
+			},
+			expectedSources: []corev1.VolumeProjection{
+				{Secret: &corev1.SecretProjection{LocalObjectReference: corev1.LocalObjectReference{Name: translate.Default.HostName(nil, "my-secret", "test-ns").Name}}},
+				{ConfigMap: &corev1.ConfigMapProjection{LocalObjectReference: corev1.LocalObjectReference{Name: translate.Default.HostName(nil, "my-configmap", "test-ns").Name}}},
+				{DownwardAPI: &corev1.DownwardAPIProjection{Items: []corev1.DownwardAPIVolumeFile{{Path: "labels", FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.annotations['" + VClusterLabelsAnnotation + "']"}}}}},
+			},
+		},
+		{
+			name: "clusterTrustBundle source",
+			sources: []corev1.VolumeProjection{
+				{Secret: &corev1.SecretProjection{LocalObjectReference: corev1.LocalObjectReference{Name: "my-secret"}}},
+				{ClusterTrustBundle: &corev1.ClusterTrustBundleProjection{SignerName: ptr.To("example.com/host-signer"), LabelSelector: &metav1.LabelSelector{}, Path: "bundle.pem"}},
+			},
+			expectedError: `projected volume "projected": clusterTrustBundle sources are not supported`,
+		},
+		{
+			name: "podCertificate source",
+			sources: []corev1.VolumeProjection{
+				{PodCertificate: &corev1.PodCertificateProjection{SignerName: "example.com/host-signer", KeyType: "ECDSAP256", CredentialBundlePath: "creds.pem"}},
+			},
+			expectedError: `projected volume "projected": podCertificate sources are not supported`,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			fakeRecorder := events.NewFakeRecorder(10)
+			pClient := testingutil.NewFakeClient(scheme.Scheme)
+			vClient := testingutil.NewFakeClient(scheme.Scheme)
+			registerCtx := generictesting.NewFakeRegisterContext(testingutil.NewFakeConfig(), pClient, vClient)
+			tr := &translator{
+				eventRecorder: fakeRecorder,
+				log:           loghelper.New("pods-syncer-translator-test"),
+				pClient:       pClient,
+			}
+
+			vPod := corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: "pod-name", Namespace: "test-ns"},
+				Spec: corev1.PodSpec{
+					Volumes: []corev1.Volume{{
+						Name:         "projected",
+						VolumeSource: corev1.VolumeSource{Projected: &corev1.ProjectedVolumeSource{Sources: testCase.sources}},
+					}},
+				},
+			}
+			pPod := vPod.DeepCopy()
+			err := tr.translateVolumes(registerCtx.ToSyncContext("pods-syncer-translator-test"), pPod, &vPod)
+			if testCase.expectedError == "" {
+				assert.NilError(t, err)
+				assert.Assert(t, cmp.DeepEqual(pPod.Spec.Volumes[0].Projected.Sources, testCase.expectedSources))
+				assert.Equal(t, len(fakeRecorder.Events), 0)
+				return
+			}
+
+			assert.Error(t, err, testCase.expectedError)
+			assert.Equal(t, len(fakeRecorder.Events), 1)
+			assert.Assert(t, cmp.Contains(<-fakeRecorder.Events, `did not sync pod "pod-name" to host because projected volume "projected" uses a`))
+		})
+	}
+}
