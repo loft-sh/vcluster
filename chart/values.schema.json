@@ -2503,6 +2503,13 @@
         "namespace": {
           "type": "string",
           "description": "Namespace where vCluster stores the kubeconfig secret. If this is not equal to the namespace\nwhere you deployed vCluster, you need to make sure vCluster has access to this other namespace."
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Labels are added to destination Secrets provisioned by the chart when TokenRotation is configured."
         }
       },
       "additionalProperties": false,
@@ -2537,6 +2544,27 @@
         "clusterRole": {
           "type": "string",
           "description": "ClusterRole to assign to the service account."
+        },
+        "tokenRotation": {
+          "$ref": "#/$defs/ExportKubeConfigTokenRotation",
+          "description": "TokenRotation enables automatic token renewal when expiration is configured. The chart provisions the destination\nSecret and a scoped Role/RoleBinding. Removing rotation on a Helm upgrade or uninstalling the release\ndeletes the Secret, Role, and RoleBinding.\nThe Role permits get/list/watch/patch on a particular Secret only.\nLeave empty or omit to retain the legacy ten-year token request and startup-only export behavior.\nFor Helm upgrades, adopt any existing destination Secret into the release before configuring rotation.\n#\ntokenRotation:\n  expiration: 10m             # Expiration requests a token lifetime as a duration between 600s and 2^32 seconds (kube-apiserver limits).\n  renewBeforePercentage: 33   # Percentage of granted lifetime remaining, must be between 1 and 99."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ExportKubeConfigTokenRotation": {
+      "properties": {
+        "expiration": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Expiration requests a token lifetime as a duration between 600s and 2^32 seconds (kube-apiserver limits).\nThe kube-apiserver may grant a shorter lifetime; renewal uses the granted expiration."
+        },
+        "renewBeforePercentage": {
+          "type": "integer",
+          "maximum": 99,
+          "minimum": 1,
+          "description": "RenewBeforePercentage is the percentage of the granted token lifetime remaining when renewal is due.\nSet between 1 and 99. If omitted, renew with one-third remaining."
         }
       },
       "additionalProperties": false,

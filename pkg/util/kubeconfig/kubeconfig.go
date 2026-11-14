@@ -37,37 +37,34 @@ const (
 	KubeConfigSecretVclusterNameKey = "vcluster-name"
 )
 
-func WriteKubeConfig(ctx context.Context, currentNamespaceClient client.Client, secretName, secretNamespace string, config *clientcmdapi.Config, vClusterName string) error {
+// WriteKubeConfig publishes an export to its Secret and optionally writes the legacy CLI file.
+func WriteKubeConfig(ctx context.Context, currentNamespaceClient client.Client, secretName, secretNamespace string, config *clientcmdapi.Config, vClusterName string, writeToFile bool) error {
 	out, err := clientcmd.Write(*config)
 	if err != nil {
 		return err
 	}
 
-	// try to write the kubeconfig file for backwards compatibility with older vcluster cli versions
-	// intentionally ignore errors as this may fail for non root user, or if securityContext.readOnlyRootFilesystem = true
-	err = os.MkdirAll("/root/.kube", 0755)
-	if err == nil {
-		err = os.WriteFile("/root/.kube/config", out, 0666)
-		if err != nil {
-			klog.Infof("Failed writing /root/.kube/config file: %v ; This error might be expected if you are running as non-root user or securityContext.readOnlyRootFilesystem = true", err)
-		}
-	} else {
-		if !os.IsPermission(err) {
-			klog.Infof("Failed to create /root/.kube folder for writing kube config: %v ; This error might be expected if you are running as non-root user or securityContext.readOnlyRootFilesystem = true", err)
+	if writeToFile {
+		// try to write the kubeconfig file for backwards compatibility with older vcluster cli versions
+		// intentionally ignore errors as this may fail for non root user, or if securityContext.readOnlyRootFilesystem = true
+		err = os.MkdirAll("/root/.kube", 0755)
+		if err == nil {
+			err = os.WriteFile("/root/.kube/config", out, 0666)
+			if err != nil {
+				klog.Infof("Failed writing /root/.kube/config file: %v ; This error might be expected if you are running as non-root user or securityContext.readOnlyRootFilesystem = true", err)
+			}
+		} else {
+			if !os.IsPermission(err) {
+				klog.Infof("Failed to create /root/.kube folder for writing kube config: %v ; This error might be expected if you are running as non-root user or securityContext.readOnlyRootFilesystem = true", err)
+			}
 		}
 	}
 
 	if secretName != "" {
-		clientCmdConfig := clientcmd.NewDefaultClientConfig(*config, &clientcmd.ConfigOverrides{CurrentContext: config.CurrentContext})
-		clientConfig, err := clientCmdConfig.ClientConfig()
+		data, err := kubeConfigSecretData(config, out)
 		if err != nil {
 			return err
 		}
-
-		caData := clientConfig.CAData
-		cert := clientConfig.CertData
-		key := clientConfig.KeyData
-		token := clientConfig.BearerToken
 
 		kubeConfigSecret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -84,11 +81,9 @@ func WriteKubeConfig(ctx context.Context, currentNamespaceClient client.Client, 
 			if kubeConfigSecret.Data == nil {
 				kubeConfigSecret.Data = map[string][]byte{}
 			}
-			kubeConfigSecret.Data[KubeconfigSecretKey] = out
-			kubeConfigSecret.Data[CADataSecretKey] = caData
-			kubeConfigSecret.Data[CertificateSecretKey] = cert
-			kubeConfigSecret.Data[CertificateKeySecretKey] = key
-			kubeConfigSecret.Data[TokenSecretKey] = []byte(token)
+			for key, value := range data {
+				kubeConfigSecret.Data[key] = value
+			}
 
 			// set owner reference
 			if translate.Owner != nil && translate.Owner.GetNamespace() == kubeConfigSecret.Namespace {
@@ -104,6 +99,50 @@ func WriteKubeConfig(ctx context.Context, currentNamespaceClient client.Client, 
 	}
 
 	return nil
+}
+
+// PatchKubeConfigSecret repairs managed credential data without creating a missing
+// destination. Its provisioner remains responsible for recreating deleted Secrets.
+func PatchKubeConfigSecret(ctx context.Context, host client.Client, name, namespace string, config *clientcmdapi.Config) error {
+	secret := &corev1.Secret{}
+	if err := host.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, secret); err != nil {
+		return client.IgnoreNotFound(err)
+	}
+	out, err := clientcmd.Write(*config)
+	if err != nil {
+		return err
+	}
+	data, err := kubeConfigSecretData(config, out)
+	if err != nil {
+		return err
+	}
+	before := secret.DeepCopy()
+	if secret.Data == nil {
+		secret.Data = map[string][]byte{}
+	}
+	changed := false
+	for key, value := range data {
+		if !bytes.Equal(secret.Data[key], value) {
+			secret.Data[key] = value
+			changed = true
+		}
+	}
+	if !changed {
+		return nil
+	}
+	return host.Patch(ctx, secret, client.MergeFrom(before))
+}
+
+func kubeConfigSecretData(config *clientcmdapi.Config, out []byte) (map[string][]byte, error) {
+	clientConfig, err := clientcmd.NewDefaultClientConfig(*config, &clientcmd.ConfigOverrides{CurrentContext: config.CurrentContext}).ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	return map[string][]byte{
+		KubeconfigSecretKey: out, CADataSecretKey: clientConfig.CAData,
+		CertificateSecretKey: clientConfig.CertData, CertificateKeySecretKey: clientConfig.KeyData,
+		TokenSecretKey: []byte(clientConfig.BearerToken),
+	}, nil
 }
 
 func ReadKubeConfig(ctx context.Context, client *kubernetes.Clientset, suffix, namespace string) (*clientcmdapi.Config, error) {
