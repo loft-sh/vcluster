@@ -3,12 +3,10 @@ package cli
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/find"
 	"github.com/loft-sh/vcluster/pkg/platform"
-	"github.com/loft-sh/vcluster/pkg/platform/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -50,18 +48,17 @@ func DeletePlatform(ctx context.Context, platformClient platform.Client, options
 	// wait until deleted
 	if options.Wait {
 		log.Info("Waiting for virtual cluster to be deleted...")
-		for isVirtualClusterInstanceStillThere(ctx, managementClient, vCluster.VirtualCluster.Namespace, vCluster.VirtualCluster.Name) {
-			time.Sleep(time.Second)
+		err = waitUntilNotFound(ctx, namespaceDeletionInterval, namespaceDeletionTimeout, func(ctx context.Context) error {
+			_, getErr := managementClient.Loft().ManagementV1().VirtualClusterInstances(vCluster.VirtualCluster.Namespace).Get(ctx, vCluster.VirtualCluster.Name, metav1.GetOptions{})
+			return getErr
+		})
+		if err != nil {
+			return fmt.Errorf("wait for virtual cluster deletion: %w", err)
 		}
 		log.Done("Virtual Cluster is deleted")
 	}
 
 	return nil
-}
-
-func isVirtualClusterInstanceStillThere(ctx context.Context, managementClient kube.Interface, namespace, name string) bool {
-	_, err := managementClient.Loft().ManagementV1().VirtualClusterInstances(namespace).Get(ctx, name, metav1.GetOptions{})
-	return err == nil
 }
 
 func deletePlatformContext(vClusterName, projectName string) error {
