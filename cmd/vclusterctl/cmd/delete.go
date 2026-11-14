@@ -32,7 +32,7 @@ func NewDeleteCmd(globalFlags *flags.GlobalFlags) *cobra.Command {
 	}
 
 	cobraCmd := &cobra.Command{
-		Use:   "delete" + util.VClusterNameOnlyUseLine,
+		Use:   "delete [VCLUSTER_NAME]",
 		Short: "Deletes a virtual cluster",
 		Long: `#######################################################
 ################### vcluster delete ###################
@@ -41,9 +41,13 @@ Deletes a virtual cluster
 
 Example:
 vcluster delete test --namespace test
+vcluster delete --all
+vcluster delete --all --namespace test
 #######################################################
 	`,
-		Args:              util.VClusterNameOnlyValidator,
+		Args: func(cobraCmd *cobra.Command, args []string) error {
+			return validateDeleteArgs(cobraCmd, args, cmd.All)
+		},
 		Aliases:           []string{"rm"},
 		ValidArgsFunction: completion.NewValidVClusterNameFunc(globalFlags),
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
@@ -54,10 +58,25 @@ vcluster delete test --namespace test
 	cobraCmd.Flags().StringVar(&cmd.Driver, "driver", "", "The driver to use for managing the virtual cluster, can be either helm, platform, or docker.")
 
 	flagsdelete.AddCommonFlags(cobraCmd, &cmd.DeleteOptions)
+	flagsdelete.AddDeleteAllFlags(cobraCmd, &cmd.DeleteOptions)
 	flagsdelete.AddHelmFlags(cobraCmd, &cmd.DeleteOptions)
 	flagsdelete.AddPlatformFlags(cobraCmd, &cmd.DeleteOptions, "[PLATFORM] ")
 
 	return cobraCmd
+}
+
+// validateDeleteArgs requires exactly one VCLUSTER_NAME unless --all is set, in
+// which case no name may be given.
+func validateDeleteArgs(cobraCmd *cobra.Command, args []string, all bool) error {
+	if !all {
+		return util.VClusterNameOnlyValidator(cobraCmd, args)
+	}
+
+	if len(args) > 0 {
+		return fmt.Errorf("%s\nInvalid Args: cannot combine a virtual cluster name (%q) with --all\nRun with --help for more details on arguments", cobraCmd.UseLine(), strings.Join(args, " "))
+	}
+
+	return nil
 }
 
 // Run executes the functionality
@@ -79,6 +98,10 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 
 	if driverType == config.PlatformDriver {
+		if cmd.All {
+			return cli.DeleteAllPlatform(ctx, platformClient, &cmd.DeleteOptions, cmd.log)
+		}
+
 		return cli.DeletePlatform(ctx, platformClient, &cmd.DeleteOptions, args[0], cmd.log)
 	}
 
@@ -96,7 +119,15 @@ func (cmd *DeleteCmd) Run(cobraCmd *cobra.Command, args []string) error {
 	}
 
 	if driverType == config.DockerDriver {
+		if cmd.All {
+			return cli.DeleteAllDocker(ctx, platformClient, &cmd.DeleteOptions, cmd.GlobalFlags, cmd.log)
+		}
+
 		return cli.DeleteDocker(ctx, platformClient, &cmd.DeleteOptions, cmd.GlobalFlags, args[0], cmd.log)
+	}
+
+	if cmd.All {
+		return cli.DeleteAllHelm(ctx, platformClient, &cmd.DeleteOptions, cmd.GlobalFlags, cmd.log)
 	}
 
 	return cli.DeleteHelm(ctx, platformClient, &cmd.DeleteOptions, cmd.GlobalFlags, args[0], cmd.log)
