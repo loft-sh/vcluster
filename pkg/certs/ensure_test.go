@@ -207,6 +207,22 @@ func TestWarnIfCAExpiring(t *testing.T) {
 
 	delete(data, CACertName)
 	warnIfCAExpiring(data)
+
+	// Should handle an expiring external CA bundle
+	rootPEM, intermediatePEM := newCACertPair(t)
+	data[CACertName] = append(append([]byte{}, intermediatePEM...), rootPEM...)
+	warnIfCAExpiring(data)
+}
+
+func TestCARenewalHint(t *testing.T) {
+	rootPEM, intermediatePEM := newCACertPair(t)
+
+	hint := caRenewalHint(parseTestCertificate(t, rootPEM))
+	assert.Assert(t, strings.Contains(hint, "vcluster certs rotate-ca"), hint)
+
+	hint = caRenewalHint(parseTestCertificate(t, intermediatePEM))
+	assert.Assert(t, strings.Contains(hint, "vcluster certs rotate --help"), hint)
+	assert.Assert(t, !strings.Contains(hint, "rotate-ca"), "must not suggest replacing an external CA: %s", hint)
 }
 
 func TestSplitCACertPreservesExistingAliases(t *testing.T) {
