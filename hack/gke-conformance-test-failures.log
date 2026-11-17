@@ -1,0 +1,31 @@
+JUnit report was created: /tmp/results/junit_01.xml
+{"msg":"Test Suite completed","total":311,"completed":305,"skipped":5356,"failed":6,"failures":["[sig-network] Services should be able to create a functioning NodePort service [Conformance]","[sig-network] Services should have session affinity timeout work for NodePort service [LinuxOnly] [Conformance]","[sig-scheduling] LimitRange should create a LimitRange with defaults and ensure pod has those defaults applied. [Conformance]","[sig-network] Services should be able to change the type from ExternalName to NodePort [Conformance]","[sig-network] Services should be able to switch session affinity for NodePort service [LinuxOnly] [Conformance]","[sig-network] Services should have session affinity work for NodePort service [LinuxOnly] [Conformance]"]}
+
+
+Summarizing 6 Failures:
+
+[Fail] [sig-network] Services [It] should be able to create a functioning NodePort service [Conformance] 
+/workspace/src/k8s.io/kubernetes/_output/dockerized/go/src/k8s.io/kubernetes/test/e2e/network/service.go:1179
+
+[Fail] [sig-network] Services [It] should have session affinity timeout work for NodePort service [LinuxOnly] [Conformance] 
+/workspace/src/k8s.io/kubernetes/_output/dockerized/go/src/k8s.io/kubernetes/test/e2e/network/service.go:3365
+
+[Fail] [sig-scheduling] LimitRange [It] should create a LimitRange with defaults and ensure pod has those defaults applied. [Conformance] 
+/workspace/src/k8s.io/kubernetes/_output/dockerized/go/src/k8s.io/kubernetes/test/e2e/scheduling/limit_range.go:233
+
+[Fail] [sig-network] Services [It] should be able to change the type from ExternalName to NodePort [Conformance] 
+/workspace/src/k8s.io/kubernetes/_output/dockerized/go/src/k8s.io/kubernetes/test/e2e/network/service.go:1701
+
+[Fail] [sig-network] Services [It] should be able to switch session affinity for NodePort service [LinuxOnly] [Conformance] 
+/workspace/src/k8s.io/kubernetes/_output/dockerized/go/src/k8s.io/kubernetes/test/e2e/network/service.go:3444
+
+[Fail] [sig-network] Services [It] should have session affinity work for NodePort service [LinuxOnly] [Conformance] 
+/workspace/src/k8s.io/kubernetes/_output/dockerized/go/src/k8s.io/kubernetes/test/e2e/network/service.go:3444
+
+Ran 311 of 5667 Specs in 5485.975 seconds
+FAIL! -- 305 Passed | 6 Failed | 0 Pending | 5356 Skipped
+--- FAIL: TestE2E (5486.03s)
+FAIL
+
+Ginkgo ran 1 suite in 1h31m27.901358066s
+Test Suite Failed

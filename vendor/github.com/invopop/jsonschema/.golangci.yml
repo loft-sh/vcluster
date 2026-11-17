@@ -1,0 +1,80 @@
+version: "2"
+run:
+  tests: true
+linters:
+  enable:
+    - dupl
+    - goconst
+    - gocritic
+    - gocyclo
+    - nakedret
+    - revive
+    - unconvert
+    - unparam
+  settings:
+    dupl:
+      threshold: 100
+    goconst:
+      min-len: 8
+      min-occurrences: 3
+    gocritic:
+      disabled-checks:
+        - ifElseChain
+    gocyclo:
+      min-complexity: 20
+    govet:
+      enable:
+        - shadow
+  exclusions:
+    generated: lax
+    rules:
+      - path: (.+)\.go$
+        text: '^(G104|G204):'
+      - path: (.+)\.go$
+        text: Error return value of .(.*\.Help|.*\.MarkFlagRequired|(os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*Print(f|ln|)|os\.(Un)?Setenv). is not checked
+      - path: (.+)\.go$
+        text: 'internal error: no range for'
+      - path: (.+)\.go$
+        text: exported method `.*\.(MarshalJSON|UnmarshalJSON|URN|Payload|GoString|Close|Provides|Requires|ExcludeFromHash|MarshalText|UnmarshalText|Description|Check|Poll|Severity)` should have comment or be unexported
+      - path: (.+)\.go$
+        text: composite literal uses unkeyed fields
+      - path: (.+)\.go$
+        text: declaration of "err" shadows declaration
+      - path: (.+)\.go$
+        text: by other packages, and that stutters
+      - path: (.+)\.go$
+        text: Potential file inclusion via variable
+      - path: (.+)\.go$
+        text: at least one file in a package should have a package comment
+      - path: (.+)\.go$
+        text: bad syntax for struct tag pair
+    paths:
+      - cmd/protopkg/main.go
+      - resources
+      - old
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 50
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    gofmt:
+      rewrite-rules:
+        - pattern: interface{}
+          replacement: any
+        - pattern: a[b:len(a)]
+          replacement: a[b:]
+  exclusions:
+    generated: lax
+    paths:
+      - cmd/protopkg/main.go
+      - resources
+      - old
+      - third_party$
+      - builtin$
+      - examples$

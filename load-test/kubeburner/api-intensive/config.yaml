@@ -1,0 +1,24 @@
+---
+global:
+  indexerConfig:
+    type: local
+  measurements:
+    - name: podLatency
+jobs:
+  - name: api-intensive
+    jobIterations: 10
+    qps: 200
+    burst: 300
+    namespacedIterations: true
+    namespace: api-intensive
+    podWait: false
+    cleanup: true
+    jobPause: 1m
+    waitWhenFinished: true
+    objects:
+      - objectTemplate: templates/secret.yaml
+        replicas: 500
+    churnPercent: 10
+    churnDuration: 5m 
+    churnDelay: 15s
+    churn: true

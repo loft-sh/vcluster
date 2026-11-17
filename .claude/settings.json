@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "loft-sh": {
+      "source": {
+        "source": "github",
+        "repo": "loft-sh/ai-skills"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "e2e-tdd-workflow@loft-sh": true
+  }
+}

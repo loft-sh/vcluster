@@ -1,0 +1,9 @@
+embeddedEtcd:
+  enabled: true
+replicas: 3
+pro: true
+syncer:
+  image: facchettos/pro-test:latest
+monitoring:
+  serviceMonitor:
+    enabled: true

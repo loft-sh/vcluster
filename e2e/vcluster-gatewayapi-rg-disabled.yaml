@@ -1,0 +1,23 @@
+controlPlane:
+  statefulSet:
+    image:
+      registry: ""
+      repository: {{ .Repository }}
+      tag: {{ .Tag }}
+sync:
+  fromHost:
+    gatewayClasses:
+      enabled: true
+      selector:
+        matchLabels:
+          e2e.vcluster.loft.sh/gatewayclass: gatewayapi-rgdisabled
+  toHost:
+    services:
+      enabled: true
+    gatewayApi:
+      gateways:
+        enabled: true
+      httpRoutes:
+        enabled: true
+      referenceGrants:
+        enabled: false

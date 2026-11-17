@@ -1,0 +1,47 @@
+controlPlane:
+  statefulSet:
+    image:
+      registry: ""
+      repository: {{ .Repository }}
+      tag: {{ .Tag }}
+sync:
+  fromHost:
+    gatewayClasses:
+      enabled: true
+      selector:
+        matchLabels:
+          e2e.vcluster.loft.sh/gatewayclass: gatewayapi-import
+    gateways:
+      enabled: true
+      mappings:
+        byName:
+          # Wildcard source namespace: any host Gateway in gwapi-host is imported
+          # into gwapi-import under the same name (allows random per-spec names).
+          "gwapi-host/*": "gwapi-import/*"
+          # Exact mappings for policy-override and rename cases (fixed names).
+          "gwapi-host-policy/selector-edge": "gwapi-import-policy/selector-edge"
+          "gwapi-host-policy/hostname-edge": "gwapi-import-policy/hostname-edge"
+          "gwapi-host-rename/source-edge": "gwapi-import-rename/renamed-edge"
+      allowedRoutes:
+        defaultVirtualNamespacePolicy:
+          from: All
+        overrides:
+          - hostNamespace: gwapi-host-policy
+            name: selector-edge
+            virtualNamespacePolicy:
+              from: Selector
+              selector:
+                matchLabels:
+                  team: apps
+          - hostNamespace: gwapi-host-policy
+            name: hostname-edge
+            allowedHostnames:
+              - "*.team-a.apps.example.com"
+      sanitize:
+        certificateRefs: true
+  toHost:
+    services:
+      enabled: true
+    gatewayApi:
+      httpRoutes:
+        enabled: true

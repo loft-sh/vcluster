@@ -1,0 +1,19 @@
+name: Check for unresolved conflicts
+
+on:
+  pull_request:
+    branches:
+      - 'v**'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  conflict-check:
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: loft-sh/github-actions/.github/workflows/conflict-check.yaml@conflict-check/v1
+    secrets:
+      gh-access-token: ${{ secrets.GH_ACCESS_TOKEN }}

@@ -1,0 +1,84 @@
+suite: ControlPlane Ingress
+templates:
+  - ingress.yaml
+
+tests:
+  - it: should not create ingress by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: ingress defaults
+    set:
+      controlPlane:
+        ingress:
+          enabled: true
+    release:
+      name: my-release
+      namespace: my-namespace
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: metadata.name
+          value: my-release
+      - equal:
+          path: metadata.namespace
+          value: my-namespace
+
+  - it: overwrite ingress tls
+    set:
+      controlPlane:
+        ingress:
+          enabled: true
+          host: my-host
+          spec:
+            tls:
+              - hosts:
+                - ingress-demo.example.com
+                secretName: ingress-demo-tls
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: spec.tls
+          count: 1
+      - equal:
+          path: spec.rules[0].host
+          value: my-host
+      - contains:
+          path: spec.tls
+          count: 1
+          content:
+            hosts:
+              - ingress-demo.example.com
+            secretName: ingress-demo-tls
+
+  - it: template ingress spec
+    set:
+      controlPlane:
+        ingress:
+          enabled: true
+          host: my-host
+          spec:
+            tls:
+              - hosts:
+                  - ingress-demo.example.com
+                secretName: '{{ .Release.Name }}-ingress-demo-tls'
+    asserts:
+      - hasDocuments:
+          count: 1
+      - lengthEqual:
+          path: spec.tls
+          count: 1
+      - equal:
+          path: spec.rules[0].host
+          value: my-host
+      - contains:
+          path: spec.tls
+          count: 1
+          content:
+            hosts:
+              - ingress-demo.example.com
+            secretName: RELEASE-NAME-ingress-demo-tls
+
