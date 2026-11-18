@@ -55,7 +55,7 @@ func NewRootCmd(log log.Logger) *cobra.Command {
 
 			// start telemetry — skip for completion commands
 			if !isCompletionCommand(cobraCmd) {
-				telemetry.StartCLI(globalFlags.LoadedConfig(log))
+				telemetry.StartCLI(globalFlags.LoadedConfig(log), cobraCmd)
 			}
 
 			if globalFlags.Silent {
