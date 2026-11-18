@@ -2,6 +2,7 @@
 package kubeletproxy
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -15,11 +16,14 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/prometheus/common/expfmt"
+	"github.com/prometheus/common/model"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	statsv1alpha1 "k8s.io/kubelet/pkg/apis/stats/v1alpha1"
 )
 
 // KubeletProxySpec registers the spec.
@@ -38,15 +42,7 @@ func KubeletProxySpec() {
 			})
 
 			It("GET /healthz via node proxy returns ok for every virtual node", func(ctx context.Context) {
-				var nodes *corev1.NodeList
-				By("waiting for at least one virtual node to be registered", func() {
-					Eventually(func(g Gomega) {
-						var err error
-						nodes, err = vClusterClientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
-						g.Expect(err).To(Succeed(), "failed to list virtual nodes")
-						g.Expect(nodes.Items).NotTo(BeEmpty(), "expected at least one virtual node")
-					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
-				})
+				nodes := waitForVirtualNodes(ctx, vClusterClientset)
 
 				By("checking /healthz returns ok for each node", func() {
 					for _, node := range nodes.Items {
@@ -60,9 +56,7 @@ func KubeletProxySpec() {
 			})
 
 			It("GET /pods via node proxy returns only pods belonging to this vcluster", func(ctx context.Context) {
-				nodes, err := vClusterClientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
-				Expect(err).To(Succeed())
-				Expect(nodes.Items).NotTo(BeEmpty())
+				nodes := waitForVirtualNodes(ctx, vClusterClientset)
 
 				var virtualPodKeys map[string]bool
 				By("collecting all virtual pod identities", func() {
@@ -94,9 +88,7 @@ func KubeletProxySpec() {
 			})
 
 			It("GET /runningpods via node proxy returns only pods belonging to this vcluster", func(ctx context.Context) {
-				nodes, err := vClusterClientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
-				Expect(err).To(Succeed())
-				Expect(nodes.Items).NotTo(BeEmpty())
+				nodes := waitForVirtualNodes(ctx, vClusterClientset)
 
 				virtualPods, err := vClusterClientset.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
 				Expect(err).To(Succeed())
@@ -125,9 +117,7 @@ func KubeletProxySpec() {
 			})
 
 			It("GET /containerLogs for a non-existent pod returns 403 Forbidden", func(ctx context.Context) {
-				nodes, err := vClusterClientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
-				Expect(err).To(Succeed())
-				Expect(nodes.Items).NotTo(BeEmpty())
+				nodes := waitForVirtualNodes(ctx, vClusterClientset)
 
 				By("requesting container logs for a pod that does not exist in the virtual cluster", func() {
 					_, err := vClusterClientset.RESTClient().Get().
@@ -140,8 +130,37 @@ func KubeletProxySpec() {
 				})
 			})
 
-			// The following two specs share a running pod, so they run sequentially in an Ordered
-			// context. BeforeAll creates the pod once; both It blocks depend on it existing.
+			// A single-encoded %2e%2e decodes to a literal ".." segment and is rejected with 400 before
+			// the path is classified. The double-encoded form decodes to a literal "%2e%2e" segment, so
+			// it passes the dot-segment check and only the exact subpath match rejects it.
+			It("GET with a double-encoded traversal ending in /healthz returns 403 Forbidden", func(ctx context.Context) {
+				nodes := waitForVirtualNodes(ctx, vClusterClientset)
+
+				By("requesting a path that names /configz but ends in the allowed /healthz", func() {
+					rawPath := fmt.Sprintf("/api/v1/nodes/%s/proxy/configz/%%252e%%252e/healthz", nodes.Items[0].Name)
+					code, body := getRawPath(ctx, rawPath)
+					Expect(code).To(Equal(http.StatusForbidden),
+						"expected 403 for %q, got %d: %s", rawPath, code, body)
+					Expect(body).To(ContainSubstring("proxy subpath not permitted in shared mode"),
+						"unexpected response body for %q", rawPath)
+				})
+			})
+
+			It("GET a path that only ends in /healthz returns 403 Forbidden", func(ctx context.Context) {
+				nodes := waitForVirtualNodes(ctx, vClusterClientset)
+
+				By("requesting a kubelet /logs path whose last segment is healthz", func() {
+					_, err := vClusterClientset.RESTClient().Get().
+						AbsPath(fmt.Sprintf("/api/v1/nodes/%s/proxy/logs/x/healthz", nodes.Items[0].Name)).
+						DoRaw(ctx)
+					Expect(err).To(HaveOccurred(), "expected 403 for a path that only ends in /healthz")
+					Expect(kerrors.IsForbidden(err)).To(BeTrue(),
+						"expected 403 Forbidden, got: %v", err)
+				})
+			})
+
+			// The following specs share a running pod, so they run sequentially in an Ordered
+			// context. BeforeAll creates the pod once; every It block depends on it existing.
 			Context("with a running test pod", Ordered, func() {
 				var (
 					nsName   string
@@ -242,6 +261,67 @@ func KubeletProxySpec() {
 					})
 				})
 
+				// The kubelet collects pod stats and resource metrics on an interval, so the test pod
+				// can take a few collection cycles to show up.
+				It("GET /stats/summary via node proxy returns only pods belonging to this vcluster", func(ctx context.Context) {
+					By("polling the kubelet /stats/summary until the test pod is reported", func() {
+						Eventually(func(g Gomega) {
+							data := getNodeProxyOK(ctx, g, vClusterClientset, nodeName, "stats/summary")
+
+							summary := &statsv1alpha1.Summary{}
+							g.Expect(json.Unmarshal(data, summary)).To(Succeed(), "failed to decode /stats/summary response")
+
+							virtualPodKeys := listVirtualPodKeys(ctx, g, vClusterClientset)
+							reported := make([]string, 0, len(summary.Pods))
+							for _, pod := range summary.Pods {
+								key := pod.PodRef.Namespace + "/" + pod.PodRef.Name
+								g.Expect(virtualPodKeys).To(HaveKey(key),
+									"kubelet /stats/summary response contains pod %q which is not in this virtual cluster, cross-tenant leak detected", key)
+								reported = append(reported, key)
+							}
+							g.Expect(reported).To(ContainElement(nsName+"/"+podName),
+								"expected the test pod in the /stats/summary response for node %s", nodeName)
+						}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+					})
+				})
+
+				It("GET /metrics/resource via node proxy returns only pods belonging to this vcluster", func(ctx context.Context) {
+					By("polling the kubelet /metrics/resource until the test pod is reported", func() {
+						Eventually(func(g Gomega) {
+							data := getNodeProxyOK(ctx, g, vClusterClientset, nodeName, "metrics/resource")
+
+							parser := expfmt.NewTextParser(model.UTF8Validation)
+							families, err := parser.TextToMetricFamilies(bytes.NewReader(data))
+							g.Expect(err).To(Succeed(), "failed to decode /metrics/resource response")
+
+							virtualPodKeys := listVirtualPodKeys(ctx, g, vClusterClientset)
+							reported := []string{}
+							for name, family := range families {
+								for _, metric := range family.GetMetric() {
+									var pod, namespace string
+									for _, label := range metric.GetLabel() {
+										switch label.GetName() {
+										case "pod":
+											pod = label.GetValue()
+										case "namespace":
+											namespace = label.GetValue()
+										}
+									}
+									if pod == "" {
+										continue
+									}
+									key := namespace + "/" + pod
+									g.Expect(virtualPodKeys).To(HaveKey(key),
+										"kubelet /metrics/resource metric %s references pod %q which is not in this virtual cluster, cross-tenant leak detected", name, key)
+									reported = append(reported, key)
+								}
+							}
+							g.Expect(reported).To(ContainElement(nsName+"/"+podName),
+								"expected the test pod in the /metrics/resource response for node %s", nodeName)
+						}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+					})
+				})
+
 				// client-go cleans "." and ".." out of AbsPath, and the vcluster's ServeMux redirects
 				// literal dot segments to the cleaned path, so these specs send the traversal with
 				// encoded slashes over raw HTTP.
@@ -288,6 +368,51 @@ func KubeletProxySpec() {
 			})
 		},
 	)
+}
+
+// waitForVirtualNodes waits until at least one node is registered in the vcluster and returns the
+// node list. A bare List can run before the syncer has registered a node and return an empty list.
+func waitForVirtualNodes(ctx context.Context, clientset kubernetes.Interface) *corev1.NodeList {
+	GinkgoHelper()
+
+	var nodes *corev1.NodeList
+	By("waiting for at least one virtual node to be registered", func() {
+		Eventually(func(g Gomega) {
+			var err error
+			nodes, err = clientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+			g.Expect(err).To(Succeed(), "failed to list virtual nodes")
+			g.Expect(nodes.Items).NotTo(BeEmpty(), "expected at least one virtual node")
+		}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+	})
+	return nodes
+}
+
+// getNodeProxyOK sends a GET for subpath through the node proxy of nodeName and expects 200 OK.
+func getNodeProxyOK(ctx context.Context, g Gomega, clientset kubernetes.Interface, nodeName, subpath string) []byte {
+	GinkgoHelper()
+
+	var code int
+	result := clientset.CoreV1().RESTClient().Get().
+		AbsPath(fmt.Sprintf("/api/v1/nodes/%s/proxy/%s", nodeName, subpath)).
+		Do(ctx).
+		StatusCode(&code)
+	data, err := result.Raw()
+	g.Expect(err).To(Succeed(), "GET /%s should succeed for node %s", subpath, nodeName)
+	g.Expect(code).To(Equal(http.StatusOK), "GET /%s should return 200 for node %s", subpath, nodeName)
+	return data
+}
+
+// listVirtualPodKeys returns the namespace/name of every pod in the vcluster.
+func listVirtualPodKeys(ctx context.Context, g Gomega, clientset kubernetes.Interface) map[string]bool {
+	GinkgoHelper()
+
+	virtualPods, err := clientset.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
+	g.Expect(err).To(Succeed(), "failed to list virtual pods")
+	keys := make(map[string]bool, len(virtualPods.Items))
+	for _, p := range virtualPods.Items {
+		keys[p.Namespace+"/"+p.Name] = true
+	}
+	return keys
 }
 
 // expectEncodedTraversalRejected requests the logs of the owned logger container with suffix
