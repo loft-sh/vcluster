@@ -1049,7 +1049,7 @@ func backupFolder(ctx context.Context, dir string) error {
 		return err
 	}
 
-	return os.MkdirAll(dir, 0777)
+	return os.MkdirAll(dir, 0700)
 }
 
 func restoreBackupFolder(ctx context.Context, dir string) error {
