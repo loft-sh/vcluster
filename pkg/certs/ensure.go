@@ -394,12 +394,12 @@ func downloadCertsFromSecret(
 		}
 
 		name = filepath.Join(certificateDir, name)
-		err := os.MkdirAll(filepath.Dir(name), 0777)
+		err := os.MkdirAll(filepath.Dir(name), 0o700)
 		if err != nil {
 			return fmt.Errorf("create directory %s", filepath.Dir(name))
 		}
 
-		err = os.WriteFile(name, fileBytes, 0666)
+		err = os.WriteFile(name, fileBytes, 0o600)
 		if err != nil {
 			return fmt.Errorf("write %s: %w", name, err)
 		}
@@ -585,7 +585,7 @@ func copyFileIfNotExists(src, dst string) error {
 			return fmt.Errorf("read %s: %w", src, err)
 		}
 
-		return os.WriteFile(dst, srcBytes, 0666)
+		return os.WriteFile(dst, srcBytes, 0o600)
 	}
 	return nil
 }
