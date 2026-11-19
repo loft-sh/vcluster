@@ -24,6 +24,17 @@ tests:
           path: spec.template.spec.containers[0].image
           value: docker.io/loft-sh/vcluster-pro:0.0.1
 
+  - it: priorityClassName is rendered once
+    set:
+      controlPlane:
+        statefulSet:
+          scheduling:
+            priorityClassName: system-cluster-critical
+    asserts:
+      - equal:
+          path: spec.template.spec.priorityClassName
+          value: system-cluster-critical
+
   - it: custom tag
     set:
       controlPlane:
