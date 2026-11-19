@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/loft-sh/vcluster/pkg/constants"
+	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -180,7 +181,7 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 				klog.Errorf("Error listing pods: %v", err)
 			} else {
 				for _, pod := range podList.Items {
-					isManaged, err := s.IsManaged(ctx, &pod)
+					isManaged, err := mappings.IsManaged(ctx, &pod)
 					if err != nil {
 						klog.FromContext(ctx).Error(err, "is pod managed")
 					}
@@ -212,6 +213,9 @@ func (s *nodeSyncer) translateUpdateStatus(ctx *synccontext.SyncContext, pNode *
 			allocatable[corev1.ResourcePods] -= nonVClusterPods
 			if allocatable[corev1.ResourcePods] > 0 {
 				translatedStatus.Allocatable[corev1.ResourcePods] = *resource.NewQuantity(allocatable[corev1.ResourcePods], resource.DecimalSI)
+			} else if _, ok := translatedStatus.Allocatable[corev1.ResourcePods]; ok {
+				// host pods fill the node, so there is no room left for virtual pods
+				translatedStatus.Allocatable[corev1.ResourcePods] = *resource.NewQuantity(0, resource.DecimalSI)
 			}
 			if allocatable[corev1.ResourceCPU] > 0 {
 				translatedStatus.Allocatable[corev1.ResourceCPU] = *resource.NewMilliQuantity(allocatable[corev1.ResourceCPU], resource.DecimalSI)
