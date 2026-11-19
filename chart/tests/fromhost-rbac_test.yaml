@@ -1,0 +1,232 @@
+suite: fromHost namespace scoped RBAC
+templates:
+  - clusterrole.yaml
+  - fromhost-rbac.yaml
+
+release:
+  name: my-vc
+  namespace: vcluster-my-vc
+
+tests:
+  - it: creates a role and role binding per mapped namespace
+    template: fromhost-rbac.yaml
+    set:
+      sync:
+        fromHost:
+          configMaps:
+            enabled: true
+            mappings:
+              byName:
+                "tenant-c/*": "default/*"
+          secrets:
+            enabled: true
+            mappings:
+              byName:
+                "tenant-a/my-secret": "default/my-secret"
+                "tenant-c/other": "default/other"
+    asserts:
+      - hasDocuments:
+          count: 4
+      - isKind:
+          of: Role
+        documentIndex: 0
+      - equal:
+          path: metadata.name
+          value: vc-my-vc-v-vcluster-my-vc-fromhost
+        documentIndex: 0
+      - equal:
+          path: metadata.namespace
+          value: tenant-a
+        documentIndex: 0
+      - equal:
+          path: rules
+          value:
+            - apiGroups: [ "" ]
+              resources: [ "secrets" ]
+              verbs: [ "get", "list", "watch" ]
+        documentIndex: 0
+      - isKind:
+          of: RoleBinding
+        documentIndex: 1
+      - equal:
+          path: metadata.namespace
+          value: tenant-a
+        documentIndex: 1
+      - equal:
+          path: subjects
+          value:
+            - kind: ServiceAccount
+              name: vc-my-vc
+              namespace: vcluster-my-vc
+        documentIndex: 1
+      - equal:
+          path: roleRef
+          value:
+            kind: Role
+            name: vc-my-vc-v-vcluster-my-vc-fromhost
+            apiGroup: rbac.authorization.k8s.io
+        documentIndex: 1
+      - equal:
+          path: metadata.namespace
+          value: tenant-c
+        documentIndex: 2
+      - equal:
+          path: rules
+          value:
+            - apiGroups: [ "" ]
+              resources: [ "configmaps", "secrets" ]
+              verbs: [ "get", "list", "watch" ]
+        documentIndex: 2
+
+  - it: skips the vCluster namespace
+    template: fromhost-rbac.yaml
+    set:
+      sync:
+        fromHost:
+          configMaps:
+            enabled: true
+            mappings:
+              byName:
+                "": "my-ns"
+                "vcluster-my-vc/my-cm": "default/my-cm"
+          secrets:
+            enabled: true
+            mappings:
+              byName:
+                "/my-secret": "default/my-secret"
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: uses the custom service account name
+    template: fromhost-rbac.yaml
+    set:
+      controlPlane:
+        advanced:
+          serviceAccount:
+            name: custom-sa
+      sync:
+        fromHost:
+          secrets:
+            enabled: true
+            mappings:
+              byName:
+                "tenant-a/my-secret": "default/my-secret"
+    asserts:
+      - equal:
+          path: subjects[0].name
+          value: custom-sa
+        documentIndex: 1
+
+  - it: renders nothing when fromHost configmap and secret sync are disabled
+    template: fromhost-rbac.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders nothing with overwritten cluster role rules
+    template: fromhost-rbac.yaml
+    set:
+      rbac:
+        clusterRole:
+          overwriteRules:
+            - apiGroups: [ "" ]
+              resources: [ "secrets" ]
+              verbs: [ "get", "list", "watch" ]
+      sync:
+        fromHost:
+          secrets:
+            enabled: true
+            mappings:
+              byName:
+                "tenant-a/my-secret": "default/my-secret"
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders nothing in multi-namespace mode
+    template: fromhost-rbac.yaml
+    set:
+      sync:
+        toHost:
+          namespaces:
+            enabled: true
+            mappings:
+              byName:
+                "*": "tenant-${name}"
+        fromHost:
+          secrets:
+            enabled: true
+            mappings:
+              byName:
+                "tenant-a/my-secret": "default/my-secret"
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: removes the cluster wide secret and configmap rules
+    template: clusterrole.yaml
+    set:
+      sync:
+        fromHost:
+          configMaps:
+            enabled: true
+            mappings:
+              byName:
+                "tenant-c/*": "default/*"
+          secrets:
+            enabled: true
+            mappings:
+              byName:
+                "tenant-a/my-secret": "default/my-secret"
+    asserts:
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resources: [ "secrets" ]
+            verbs: [ "list", "watch" ]
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resources: [ "configmaps" ]
+            verbs: [ "list", "watch" ]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resources: [ "namespaces" ]
+            resourceNames: [ "tenant-a" ]
+            verbs: [ "get", "list", "watch" ]
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resources: [ "namespaces" ]
+            resourceNames: [ "tenant-c" ]
+            verbs: [ "get", "list", "watch" ]
+
+  - it: keeps the cluster wide rules in multi-namespace mode
+    template: clusterrole.yaml
+    set:
+      sync:
+        toHost:
+          namespaces:
+            enabled: true
+            mappings:
+              byName:
+                "*": "tenant-${name}"
+        fromHost:
+          secrets:
+            enabled: true
+            mappings:
+              byName:
+                "tenant-a/my-secret": "default/my-secret"
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: [ "" ]
+            resources: [ "secrets" ]
+            verbs: [ "list", "watch" ]

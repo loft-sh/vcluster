@@ -1,0 +1,48 @@
+{{- if include "vcluster.rbac.fromHostScoped" . }}
+{{- $name := include "vcluster.rbac.fromHostRoleName" . }}
+{{- $serviceAccount := include "vcluster.rbac.controlPlaneServiceAccountName" . }}
+{{- range $namespace, $resources := include "vcluster.rbac.fromHostNamespaceResources" . | fromJson }}
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ $name }}
+  namespace: {{ $namespace }}
+  labels:
+    app: vcluster
+    chart: "{{ include "vcluster.version.label" $ }}"
+    release: "{{ $.Release.Name }}"
+    heritage: "{{ $.Release.Service }}"
+  {{- if $.Values.controlPlane.advanced.globalMetadata.annotations }}
+  annotations:
+{{ toYaml $.Values.controlPlane.advanced.globalMetadata.annotations | indent 4 }}
+  {{- end }}
+rules:
+  - apiGroups: [""]
+    resources: {{ toJson $resources }}
+    verbs: ["get", "list", "watch"]
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ $name }}
+  namespace: {{ $namespace }}
+  labels:
+    app: vcluster
+    chart: "{{ include "vcluster.version.label" $ }}"
+    release: "{{ $.Release.Name }}"
+    heritage: "{{ $.Release.Service }}"
+  {{- if $.Values.controlPlane.advanced.globalMetadata.annotations }}
+  annotations:
+{{ toYaml $.Values.controlPlane.advanced.globalMetadata.annotations | indent 4 }}
+  {{- end }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $serviceAccount }}
+    namespace: {{ $.Release.Namespace }}
+roleRef:
+  kind: Role
+  name: {{ $name }}
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}
+{{- end }}

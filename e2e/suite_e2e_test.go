@@ -10,6 +10,7 @@ import (
 	"github.com/loft-sh/e2e-framework/pkg/setup/cluster"
 	"github.com/loft-sh/vcluster/e2e/clusters"
 	"github.com/loft-sh/vcluster/e2e/labels"
+	"github.com/loft-sh/vcluster/e2e/setup"
 	"github.com/loft-sh/vcluster/e2e/setup/lazyvcluster"
 	"github.com/loft-sh/vcluster/e2e/test_core/coredns"
 	"github.com/loft-sh/vcluster/e2e/test_core/metrics"
@@ -32,7 +33,16 @@ func suiteCommonVCluster() {
 		cluster.Use(clusters.HostCluster),
 		func() {
 			BeforeAll(func(ctx context.Context) context.Context {
-				return lazyvcluster.LazyVCluster(ctx, commonVClusterName, commonVClusterYAML)
+				// The namespaces mapped by fromHost configmap and secret sync in vcluster-default.yaml.
+				return lazyvcluster.LazyVCluster(ctx, commonVClusterName, commonVClusterYAML,
+					lazyvcluster.WithPreSetup(setup.HostNamespacesPreSetup(
+						"from-host-sync-test",
+						"from-host-sync-test-2",
+						"from-host-sync-test-3",
+						"my-ns",
+						"same-ns",
+					)),
+				)
 			})
 
 			test_core.PodSyncSpec()

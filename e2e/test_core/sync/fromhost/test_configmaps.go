@@ -381,21 +381,10 @@ func FromHostConfigMapsSpec() {
 				hostNS := "my-ns"
 				cmName := "to-be-deleted"
 
+				// The suite creates my-ns before installing the vCluster, so the chart can grant access to it.
+				// Deleting it would also delete that access, so leave deletion to vcluster teardown.
 				By("creating my-ns namespace on host", func() {
-					_, err := hostClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
-						ObjectMeta: metav1.ObjectMeta{Name: hostNS},
-					}, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
-					DeferCleanup(func(ctx context.Context) {
-						err := hostClient.CoreV1().Namespaces().Delete(ctx, hostNS, metav1.DeleteOptions{})
-						if !kerrors.IsNotFound(err) {
-							Expect(err).To(Succeed())
-						}
-						Eventually(func(g Gomega) {
-							_, err := hostClient.CoreV1().Namespaces().Get(ctx, hostNS, metav1.GetOptions{})
-							g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
-						}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
-					})
+					ensureNamespace(ctx, hostNS)
 				})
 
 				By("creating the to-be-deleted CM in my-ns on host", func() {
@@ -434,21 +423,10 @@ func FromHostConfigMapsSpec() {
 				ns := "same-ns"
 				cmName := "cm-same-ns"
 
+				// The suite creates same-ns before installing the vCluster, so the chart can grant access to it.
+				// Deleting it would also delete that access, so leave deletion to vcluster teardown.
 				By("creating same-ns namespace on host", func() {
-					_, err := hostClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
-						ObjectMeta: metav1.ObjectMeta{Name: ns},
-					}, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
-					DeferCleanup(func(ctx context.Context) {
-						err := hostClient.CoreV1().Namespaces().Delete(ctx, ns, metav1.DeleteOptions{})
-						if !kerrors.IsNotFound(err) {
-							Expect(err).To(Succeed())
-						}
-						Eventually(func(g Gomega) {
-							_, err := hostClient.CoreV1().Namespaces().Get(ctx, ns, metav1.GetOptions{})
-							g.Expect(kerrors.IsNotFound(err)).To(BeTrue())
-						}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeoutLong).Should(Succeed())
-					})
+					ensureNamespace(ctx, ns)
 				})
 
 				By("creating cm-same-ns CM in same-ns namespace on host", func() {

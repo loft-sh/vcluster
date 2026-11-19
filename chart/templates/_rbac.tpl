@@ -241,6 +241,60 @@
 {{- end -}}
 
 {{/*
+  Name of the service account the control plane runs as
+*/}}
+{{- define "vcluster.rbac.controlPlaneServiceAccountName" -}}
+{{- .Values.controlPlane.advanced.serviceAccount.name | default (printf "vc-%s" .Release.Name) -}}
+{{- end -}}
+
+{{/*
+  Whether fromHost configmap and secret sync use namespace scoped access. In this mode the vCluster cluster role does
+  not grant access to configmaps or secrets; the chart creates a role and role binding in each mapped host namespace
+  instead. Mapped namespaces therefore have to exist before the vCluster is installed. Multi-namespace mode keeps the
+  cluster wide rules, as its role already grants access to all namespaces.
+*/}}
+{{- define "vcluster.rbac.fromHostScoped" -}}
+{{- $configMaps := dig "fromHost" "configMaps" dict (.Values.sync | default dict) -}}
+{{- $secrets := dig "fromHost" "secrets" dict (.Values.sync | default dict) -}}
+{{- if and
+    (or
+      (and $configMaps.enabled (dig "mappings" "byName" dict $configMaps))
+      (and $secrets.enabled (dig "mappings" "byName" dict $secrets)))
+    (not (dig "toHost" "namespaces" "enabled" false (.Values.sync | default dict)))
+    (not .Values.rbac.clusterRole.overwriteRules)
+    (include "vcluster.createClusterRole" .)
+     -}}
+{{- true -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+  Name of the role and role binding created in each host namespace mapped by fromHost configmap and secret sync
+*/}}
+{{- define "vcluster.rbac.fromHostRoleName" -}}
+{{- printf "vc-%s-v-%s-fromhost" .Release.Name .Release.Namespace | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{/*
+  Host namespaces mapped by fromHost configmap and secret sync, with the resources mapped from each of them, as a JSON
+  object. The vCluster namespace is left out, the vCluster role already grants access to it.
+*/}}
+{{- define "vcluster.rbac.fromHostNamespaceResources" -}}
+{{- $result := dict -}}
+{{- range $resourceName, $resource := dict "configmaps" $.Values.sync.fromHost.configMaps "secrets" $.Values.sync.fromHost.secrets -}}
+{{- if and $resource.enabled $resource.mappings.byName -}}
+{{- range $key, $val := $resource.mappings.byName -}}
+  {{- $sourceNs := splitList "/" $key | first -}}
+  {{- if and (ne $sourceNs "") (ne $sourceNs $.Release.Namespace) -}}
+    {{- $_ := set $result $sourceNs (append (get $result $sourceNs | default list) $resourceName | uniq) -}}
+  {{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- $result | toJson -}}
+{{- end -}}
+
+{{/*
   Cluster role rules needed for fromHost sync (containing namespaces + configmaps/secret/other core resources)
 */}}
 {{- define "vcluster.rbac.rulesForFromHostSyncerForGivenCoreResource" -}}
@@ -272,6 +326,7 @@
   resources: [ "namespaces" ]
   resourceNames: [ {{ join "," $nsList }} ]
   verbs: ["get", "list", "watch"]
+{{- if not (include "vcluster.rbac.fromHostScoped" $root) }}
 - apiGroups: [""]
   resources: [ {{ $kind | quote }} ]
   verbs: ["list", "watch"]
@@ -280,6 +335,7 @@
   verbs: ["get"]
 {{- if $addResourceNames }}
   resourceNames: [ {{ join "," $objList }} ]
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

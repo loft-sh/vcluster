@@ -588,7 +588,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 6
+          count: 4
       - contains:
           path: rules
           content:
@@ -596,13 +596,13 @@ tests:
             resourceNames: ["NAMESPACE", "my-ns"]
             resources: [ "namespaces" ]
             verbs: [ "get", "list", "watch" ]
-      - contains:
+      - notContains:
           path: rules
           content:
             apiGroups: [ "" ]
             resources: [ "configmaps" ]
             verbs: [ "list", "watch" ]
-      - contains:
+      - notContains:
           path: rules
           content:
             apiGroups: [ "" ]
@@ -624,7 +624,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 6
+          count: 4
       - contains:
           path: rules
           content:
@@ -632,13 +632,13 @@ tests:
             resourceNames: ["my-ns", "my-ns-2"]
             resources: [ "namespaces" ]
             verbs: [ "get", "list", "watch" ]
-      - contains:
+      - notContains:
           path: rules
           content:
             apiGroups: [ "" ]
             resources: [ "configmaps" ]
             verbs: [ "list", "watch" ]
-      - contains:
+      - notContains:
           path: rules
           content:
             apiGroups: [ "" ]
@@ -660,7 +660,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 6
+          count: 4
       - contains:
           path: rules
           content:
@@ -668,13 +668,13 @@ tests:
             resourceNames: [ "my-ns", "my-ns-3" ]
             resources: [ "namespaces" ]
             verbs: [ "get", "list", "watch" ]
-      - contains:
+      - notContains:
           path: rules
           content:
             apiGroups: [ "" ]
             resources: [ "configmaps" ]
             verbs: [ "list", "watch" ]
-      - contains:
+      - notContains:
           path: rules
           content:
             apiGroups: [ "" ]
@@ -707,7 +707,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 6
+          count: 4
       - contains:
           path: rules
           content:
@@ -715,13 +715,13 @@ tests:
             resourceNames: ["NAMESPACE", "my-ns"]
             resources: [ "namespaces" ]
             verbs: [ "get", "list", "watch" ]
-      - contains:
+      - notContains:
           path: rules
           content:
             apiGroups: [ "" ]
             resources: [ "secrets" ]
             verbs: [ "list", "watch" ]
-      - contains:
+      - notContains:
           path: rules
           content:
             apiGroups: [ "" ]
@@ -743,7 +743,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 6
+          count: 4
       - contains:
           path: rules
           content:
@@ -751,13 +751,13 @@ tests:
             resourceNames: ["my-ns", "my-ns-2"]
             resources: [ "namespaces" ]
             verbs: [ "get", "list", "watch" ]
-      - contains:
+      - notContains:
           path: rules
           content:
             apiGroups: [ "" ]
             resources: [ "secrets" ]
             verbs: [ "list", "watch" ]
-      - contains:
+      - notContains:
           path: rules
           content:
             apiGroups: [ "" ]
@@ -779,7 +779,7 @@ tests:
           count: 1
       - lengthEqual:
           path: rules
-          count: 6
+          count: 4
       - contains:
           path: rules
           content:
@@ -787,13 +787,13 @@ tests:
             resourceNames: [ "my-ns", "my-ns-3" ]
             resources: [ "namespaces" ]
             verbs: [ "get", "list", "watch" ]
-      - contains:
+      - notContains:
           path: rules
           content:
             apiGroups: [ "" ]
             resources: [ "secrets" ]
             verbs: [ "list", "watch" ]
-      - contains:
+      - notContains:
           path: rules
           content:
             apiGroups: [ "" ]
