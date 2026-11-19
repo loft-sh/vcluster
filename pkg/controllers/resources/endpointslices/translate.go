@@ -15,12 +15,15 @@ func (s *endpointSliceSyncer) translate(ctx *synccontext.SyncContext, vObj clien
 		s.excludedAnnotations...)
 
 	virtualSvcName := endpointSlice.GetLabels()[translate.K8sServiceNameLabel]
-	vcName := endpointSlice.GetLabels()[translate.MarkerLabel]
 	namespace := endpointSlice.GetLabels()[translate.NamespaceLabel]
-	hostSvcName := translateSvcName(virtualSvcName, namespace, vcName)
 
-	// in case of selector-less service, we need to add "kubernetes.io/service-name" label manually
-	endpointSlice.Labels[translate.K8sServiceNameLabel] = hostSvcName
+	// For a selector-less service we must set the kubernetes.io/service-name label ourselves.
+	// Resolve the ACTUAL host Service name through the service mapping so the label matches the
+	// host Service in every naming mode: single-namespace (SafeConcatName, hashed when >63 bytes)
+	// AND multi-namespace (name preserved, namespace remapped). Re-deriving the name with
+	// SafeConcatName here would be correct only in single-namespace mode and would point the
+	// EndpointSlice at a non-existent host Service under multi-namespace.
+	endpointSlice.Labels[translate.K8sServiceNameLabel] = mappings.VirtualToHostName(ctx, virtualSvcName, namespace, mappings.Services())
 	s.translateSpec(ctx, endpointSlice)
 	return endpointSlice
 }
@@ -42,8 +45,4 @@ func (s *endpointSliceSyncer) translateUpdate(ctx *synccontext.SyncContext, pObj
 	s.translateSpec(ctx, translated)
 	pObj.Endpoints = translated.Endpoints
 	return nil
-}
-
-func translateSvcName(virtualSvcName, namespace, vcName string) string {
-	return virtualSvcName + "-x-" + namespace + "-x-" + vcName
 }
