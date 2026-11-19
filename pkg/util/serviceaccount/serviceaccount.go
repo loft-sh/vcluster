@@ -24,13 +24,13 @@ func CreateServiceAccountToken(
 	clusterRole string,
 	expiration int64,
 	log log.Logger,
-) (string, error) {
+) (authenticationv1.TokenRequestStatus, error) {
 	audiences := []string{"https://kubernetes.default.svc.cluster.local", "https://kubernetes.default.svc", "https://kubernetes.default"}
 	expirationSeconds := int64(10 * 365 * 24 * 60 * 60)
 	if expiration > 0 {
 		expirationSeconds = expiration
 	}
-	token := ""
+	status := authenticationv1.TokenRequestStatus{}
 	log.Infof("Create service account token for %s/%s", serviceAccountNamespace, serviceAccount)
 	err := wait.PollUntilContextTimeout(ctx, time.Second, time.Minute*3, false, func(ctx context.Context) (bool, error) {
 		// check if namespace exists
@@ -136,12 +136,12 @@ func CreateServiceAccountToken(
 			return false, nil
 		}
 
-		token = result.Status.Token
+		status = result.Status
 		return true, nil
 	})
 	if err != nil {
-		return "", fmt.Errorf("create service account token: %w", err)
+		return authenticationv1.TokenRequestStatus{}, fmt.Errorf("create service account token: %w", err)
 	}
 
-	return token, nil
+	return status, nil
 }
