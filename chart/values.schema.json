@@ -5820,7 +5820,7 @@
         },
         "useSecretsForSATokens": {
           "type": "boolean",
-          "description": "UseSecretsForSATokens will use secrets to save the generated service account tokens by virtual cluster instead of using a\npod annotation."
+          "description": "UseSecretsForSATokens will use secrets to save the generated service account tokens by virtual cluster instead of using a\npod annotation. The annotation is readable by everyone who can read pods in the host namespace."
         },
         "runtimeClassName": {
           "type": "string",
