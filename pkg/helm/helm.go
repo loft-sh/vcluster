@@ -243,7 +243,7 @@ func (c *client) logout(ctx context.Context, options UpgradeOptions) {
 }
 
 func (c *client) execute(ctx context.Context, args []string, operation string, workdir string) error {
-	c.log.Debug("execute command: helm " + strings.Join(args, " "))
+	c.log.Debug("execute command: helm " + redactHelmArgs(args))
 	cmd := exec.CommandContext(ctx, c.helmPath, args...)
 
 	if workdir != "" {
@@ -256,7 +256,7 @@ func (c *client) execute(ctx context.Context, args []string, operation string, w
 		return fmt.Errorf(errorTimeout, string(output), operation)
 	}
 	if err != nil {
-		return fmt.Errorf(errorExecutingHelm, strings.Join(args, " "), string(output))
+		return fmt.Errorf(errorExecutingHelm, redactHelmArgs(args), string(output))
 	}
 	return nil
 }
@@ -385,4 +385,24 @@ func WriteKubeConfig(configRaw *clientcmdapi.Config) (string, error) {
 	}
 
 	return tempFile.Name(), nil
+}
+
+func redactHelmArgs(args []string) string {
+	redacted := make([]string, len(args))
+	redactNext := false
+	for i, arg := range args {
+		switch {
+		case redactNext:
+			redacted[i] = "*****"
+			redactNext = false
+		case arg == "--password":
+			redacted[i] = arg
+			redactNext = true
+		case strings.HasPrefix(arg, "--password="):
+			redacted[i] = "--password=*****"
+		default:
+			redacted[i] = arg
+		}
+	}
+	return strings.Join(redacted, " ")
 }
