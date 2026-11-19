@@ -85,6 +85,32 @@ func TestDeleteReference(t *testing.T) {
 	assert.Equal(t, 0, len(store.ReferencesTo(ctx, otherSecretMapping.Virtual())))
 }
 
+func TestDeleteReferenceWithoutReferences(t *testing.T) {
+	ctx := context.TODO()
+	vClient := testingutil.NewFakeClient(scheme.Scheme)
+	pClient := testingutil.NewFakeClient(scheme.Scheme)
+	genericStore, err := NewStore(ctx, vClient, pClient, NewMemoryBackend())
+	assert.NilError(t, err)
+
+	store, ok := genericStore.(*Store)
+	assert.Equal(t, true, ok)
+
+	secretMapping := NewRandomMapping(corev1.SchemeGroupVersion.WithKind("Secret"))
+	podMapping := NewRandomMapping(corev1.SchemeGroupVersion.WithKind("Pod"))
+
+	// the owner mapping exists, but holds no references yet
+	err = store.AddReference(ctx, podMapping, podMapping)
+	assert.NilError(t, err)
+	assert.Equal(t, 0, len(store.mappings[podMapping].References))
+
+	// deleting a reference that was never added must be a no-op and must not panic
+	err = store.DeleteReference(ctx, secretMapping, podMapping)
+	assert.NilError(t, err)
+	assert.Equal(t, 1, len(store.mappings))
+	assert.Equal(t, 1, len(store.hostToVirtualName))
+	assert.Equal(t, 1, len(store.virtualToHostName))
+}
+
 func TestWatching(t *testing.T) {
 	ctx := context.TODO()
 	vClient := testingutil.NewFakeClient(scheme.Scheme)
