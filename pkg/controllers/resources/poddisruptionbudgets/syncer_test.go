@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 )
 
 func TestSync(t *testing.T) {
@@ -78,8 +79,44 @@ func TestSync(t *testing.T) {
 		ObjectMeta: hostClusterSyncedPDB.ObjectMeta,
 		Spec: policyv1.PodDisruptionBudgetSpec{
 			MaxUnavailable: vclusterUpdatedSelectorPDB.Spec.MaxUnavailable,
-			Selector:       translate.HostLabelSelector(vclusterUpdatedSelectorPDB.Spec.Selector),
+			Selector: &metav1.LabelSelector{MatchLabels: map[string]string{
+				"app":                    "nginx",
+				translate.NamespaceLabel: vObjectMeta.Namespace,
+				translate.MarkerLabel:    translate.VClusterName,
+			}},
 		},
+	}
+
+	vclusterSelectAllPDB := &policyv1.PodDisruptionBudget{
+		ObjectMeta: vclusterPDB.ObjectMeta,
+		Spec: policyv1.PodDisruptionBudgetSpec{
+			MinAvailable: &intstr.IntOrString{Type: intstr.Int, IntVal: int32(10)},
+			Selector:     &metav1.LabelSelector{},
+		},
+	}
+
+	hostClusterSyncedSelectAllPDB := &policyv1.PodDisruptionBudget{
+		ObjectMeta: pObjectMeta,
+		Spec: policyv1.PodDisruptionBudgetSpec{
+			MinAvailable: vclusterSelectAllPDB.Spec.MinAvailable,
+			Selector: &metav1.LabelSelector{MatchLabels: map[string]string{
+				translate.NamespaceLabel: vObjectMeta.Namespace,
+				translate.MarkerLabel:    translate.VClusterName,
+			}},
+		},
+	}
+
+	vclusterUpdatedPolicyPDB := &policyv1.PodDisruptionBudget{
+		ObjectMeta: vclusterPDB.ObjectMeta,
+		Spec: policyv1.PodDisruptionBudgetSpec{
+			MinAvailable:               vclusterPDB.Spec.MinAvailable,
+			UnhealthyPodEvictionPolicy: ptr.To(policyv1.AlwaysAllow),
+		},
+	}
+
+	hostClusterSyncedUpdatedPolicyPDB := &policyv1.PodDisruptionBudget{
+		ObjectMeta: hostClusterSyncedPDB.ObjectMeta,
+		Spec:       vclusterUpdatedPolicyPDB.Spec,
 	}
 
 	syncertesting.RunTests(t, []*syncertesting.SyncTest{
@@ -121,6 +158,42 @@ func TestSync(t *testing.T) {
 					hostClusterSyncedPDB.DeepCopy(),
 					vclusterUpdatedPDB.DeepCopy(),
 					vclusterUpdatedPDB.DeepCopy(),
+				))
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name: "Create Host Cluster PodDisruptionBudget that selects all pods of the namespace",
+			InitialVirtualState: []runtime.Object{
+				vclusterSelectAllPDB.DeepCopy(),
+			},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				policyv1.SchemeGroupVersion.WithKind("PodDisruptionBudget"): {hostClusterSyncedSelectAllPDB.DeepCopy()},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*pdbSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vclusterSelectAllPDB.DeepCopy()))
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name: "Update Host Cluster PodDisruptionBudget's UnhealthyPodEvictionPolicy",
+			InitialVirtualState: []runtime.Object{
+				vclusterUpdatedPolicyPDB.DeepCopy(),
+			},
+			InitialPhysicalState: []runtime.Object{
+				hostClusterSyncedPDB.DeepCopy(),
+			},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				policyv1.SchemeGroupVersion.WithKind("PodDisruptionBudget"): {hostClusterSyncedUpdatedPolicyPDB.DeepCopy()},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+				_, err := syncer.(*pdbSyncer).Sync(syncCtx, synccontext.NewSyncEventWithOld(
+					hostClusterSyncedPDB.DeepCopy(),
+					hostClusterSyncedPDB.DeepCopy(),
+					vclusterPDB.DeepCopy(),
+					vclusterUpdatedPolicyPDB.DeepCopy(),
 				))
 				assert.NilError(t, err)
 			},
