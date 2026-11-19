@@ -845,6 +845,7 @@ type Integrations struct {
 	CertManager CertManager `json:"certManager,omitempty"`
 
 	// Istio syncs DestinationRules, Gateways and VirtualServices from virtual cluster to the host.
+	// Deprecated: The Istio integration is deprecated and will be removed in a future release.
 	Istio Istio `json:"istio,omitempty"`
 
 	// Netris integration helps configuring netris networking for vCluster.

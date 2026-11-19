@@ -6,8 +6,6 @@ require (
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/blang/semver/v4 v4.0.0
 	github.com/denisbrodbeck/machineid v1.0.1
-	github.com/docker/cli v29.8.0+incompatible
-	github.com/docker/docker v28.5.2+incompatible
 	github.com/dustin/go-humanize v1.0.1
 	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/ghodss/yaml v1.0.0
@@ -123,7 +121,9 @@ require (
 	github.com/containers/storage v1.58.1-0.20250515004000-78f4258b2bd9 // indirect
 	github.com/creack/pty v1.1.21 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
+	github.com/docker/cli v29.8.0+incompatible // indirect
 	github.com/docker/distribution v2.8.3+incompatible // indirect
+	github.com/docker/docker v28.5.2+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.9.3 // indirect
 	github.com/docker/go-connections v0.5.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect

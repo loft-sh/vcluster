@@ -98,6 +98,8 @@ var legacyResources = []string{
 	"nodeenvironments",
 	"tasks",
 	"spaceconstraints",
+	// shared secrets were removed in 5.0; an upgraded install can still serve the leftover CRD
+	"sharedsecrets",
 	"localclusteraccesses",
 	"localteams",
 	"localusers",

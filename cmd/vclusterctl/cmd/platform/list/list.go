@@ -19,7 +19,7 @@ func NewListCmd(globalFlags *flags.GlobalFlags, defaults *pdefaults.Defaults) *c
 
 	listCmd.AddCommand(newClustersCmd(globalFlags))
 	listCmd.AddCommand(newProjectsCmd(globalFlags))
-	listCmd.AddCommand(newSharedSecretsCmd(globalFlags))
+	listCmd.AddCommand(newSecretsCmd(globalFlags))
 	listCmd.AddCommand(newTeamsCmd(globalFlags))
 	listCmd.AddCommand(newVClustersCmd(globalFlags, defaults))
 	listCmd.AddCommand(newNamespacesCmd(globalFlags))

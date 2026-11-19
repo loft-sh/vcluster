@@ -139,6 +139,9 @@ func (cmd *ManagementCmd) run(cobraCmd *cobra.Command) error {
 	if !slices.Contains(cmd.Skip, "platformsecrets") {
 		cmd.Log.Infof("The backup includes the platform's identity secrets (%s). When restoring into a different cluster, apply it before the platform's first start or restart the platform afterwards; use --skip platformsecrets to leave them out", strings.Join(backup.PlatformSecretNames, ", "))
 	}
+	if backup.IncludesSharedSecrets(objects) {
+		cmd.Log.Info("The backup includes shared secrets, which vCluster Platform 5.0 no longer serves. To restore it into a 5.0 platform, remove them from the backup or back up again with --skip sharedsecrets")
+	}
 	return nil
 }
 

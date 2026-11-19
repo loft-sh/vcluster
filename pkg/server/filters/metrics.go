@@ -133,13 +133,26 @@ func enforceKubeletSubpathAllowlist(
 		return false
 	}
 
+	// reject empty segments before classifying the path: "/proxy/%2Fpods" decodes to "//pods"
+	if hasEmptySegment(reqPath) {
+		responsewriters.ErrorNegotiated(
+			kerrors.NewBadRequest("proxy path must not contain empty segments"),
+			s, corev1.SchemeGroupVersion, w, req,
+		)
+		return false
+	}
+
 	switch {
 	case IsKubeletHealthz(reqPath):
 		// allowed — health check, no tenant data, forward as-is in all modes
+		// drop the client-supplied encoding so the proxied URL is built from the validated path
+		req.URL.RawPath = ""
 		return true
 
 	case IsKubeletMetrics(reqPath), IsKubeletStats(reqPath), IsKubeletPods(reqPath):
 		// allowed — response is filtered tenant-scoped inside handleNodeRequest
+		// drop the client-supplied encoding so the proxied URL is built from the validated path
+		req.URL.RawPath = ""
 		return true
 
 	case IsKubeletContainerLogs(reqPath):
@@ -367,21 +380,44 @@ func isNodesProxy(r *request.RequestInfo) bool {
 		r.Subresource == "proxy"
 }
 
+var kubeletMetricsSubpaths = map[string]bool{
+	"/metrics":                   true,
+	"/metrics/cadvisor":          true,
+	"/metrics/probes":            true,
+	"/metrics/resource":          true,
+	"/metrics/resource/v1alpha1": true,
+	"/metrics/resource/v1beta1":  true,
+}
+
+// kubeletSubpath returns the kubelet-local path for p. A node proxy path
+// (/api/v1/nodes/{node}/proxy/...) is reduced to the part after /proxy; any other
+// path is returned unchanged and treated as already kubelet-local.
+func kubeletSubpath(p string) string {
+	parts := strings.SplitN(p, "/", 7)
+	if len(parts) < 6 || parts[0] != "" || parts[1] != "api" || parts[2] != "v1" || parts[3] != "nodes" || parts[4] == "" || parts[5] != "proxy" {
+		return p
+	}
+	if len(parts) == 6 {
+		return ""
+	}
+	return "/" + parts[6]
+}
+
 func IsKubeletHealthz(path string) bool {
-	return strings.HasSuffix(path, "/healthz")
+	return kubeletSubpath(path) == "/healthz"
 }
 
 func IsKubeletStats(path string) bool {
-	return strings.HasSuffix(path, "/stats/summary")
+	return kubeletSubpath(path) == "/stats/summary"
 }
 
 func IsKubeletMetrics(path string) bool {
-	return strings.HasSuffix(path, "/metrics") || strings.HasSuffix(path, "/metrics/cadvisor") || strings.HasSuffix(path, "/metrics/probes") || strings.HasSuffix(path, "/metrics/resource") || strings.HasSuffix(path, "/metrics/resource/v1alpha1") || strings.HasSuffix(path, "/metrics/resource/v1beta1")
+	return kubeletMetricsSubpaths[kubeletSubpath(path)]
 }
 
 func IsKubeletPods(path string) bool {
-	p := strings.TrimRight(path, "/")
-	return strings.HasSuffix(p, "/pods") || strings.HasSuffix(p, "/runningpods")
+	p := strings.TrimRight(kubeletSubpath(path), "/")
+	return p == "/pods" || p == "/runningpods"
 }
 
 const kubeletContainerLogsSegment = "/proxy/containerLogs/"
@@ -429,6 +465,12 @@ func hasDotSegment(reqPath string) bool {
 		}
 	}
 	return false
+}
+
+// hasEmptySegment reports whether reqPath contains an empty "/"-separated segment, such as the
+// one in "/proxy//pods"
+func hasEmptySegment(reqPath string) bool {
+	return strings.Contains(reqPath, "//")
 }
 
 func rewritePods(ctx *synccontext.SyncContext, data []byte) ([]byte, error) {
