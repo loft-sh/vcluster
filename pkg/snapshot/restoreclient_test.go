@@ -725,3 +725,28 @@ func TestNewRestoreEtcdClientRefusesServingEmbeddedDatabase(t *testing.T) {
 		t.Errorf("refused restore moved the database aside: stat backup err = %v", err)
 	}
 }
+
+func TestBackupFolderRecreatesPrivateDir(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "etcd")
+	if err := os.MkdirAll(filepath.Join(dir, "member"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "member", "db"), []byte("old"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := backupFolder(t.Context(), dir); err != nil {
+		t.Fatalf("backupFolder() = %v; want no error", err)
+	}
+
+	info, err := os.Stat(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if perm := info.Mode().Perm(); perm != 0700 {
+		t.Errorf("recreated data dir mode = %v; want %v", perm, os.FileMode(0700))
+	}
+	if _, err := os.Stat(filepath.Join(dir+".backup", "member", "db")); err != nil {
+		t.Errorf("previous data dir not kept as backup: %v", err)
+	}
+}
