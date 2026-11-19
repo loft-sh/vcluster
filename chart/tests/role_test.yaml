@@ -52,6 +52,9 @@ tests:
                 - apiGroups: [""]
                   resources: ["test"]
                   verbs: ["test"]
+    capabilities:
+      majorVersion: 1
+      minorVersion: 34
     asserts:
       - hasDocuments:
           count: 1
@@ -81,6 +84,9 @@ tests:
             - apiGroups: [""]
               resources: ["test"]
               verbs: ["test"]
+    capabilities:
+      majorVersion: 1
+      minorVersion: 34
     asserts:
       - hasDocuments:
           count: 1
@@ -296,6 +302,9 @@ tests:
     release:
       name: my-release
       namespace: my-namespace
+    capabilities:
+      majorVersion: 1
+      minorVersion: 34
     asserts:
       - hasDocuments:
           count: 1
