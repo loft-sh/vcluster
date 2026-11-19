@@ -2,7 +2,7 @@ package telemetry
 
 import (
 	"encoding/json"
-	"os"
+	"maps"
 	"runtime"
 	"time"
 
@@ -11,6 +11,7 @@ import (
 	"github.com/loft-sh/vcluster/pkg/cli/config"
 	"github.com/loft-sh/vcluster/pkg/upgrade"
 	"github.com/loft-sh/vcluster/pkg/util/loghelper"
+	"github.com/spf13/cobra"
 )
 
 type ErrorSeverityType string
@@ -31,15 +32,18 @@ type CLICollector interface {
 	Flush()
 }
 
-// StartCLI starts collecting events and sending them to the backend from the CLI
-func StartCLI(cliConfig *config.CLI) {
+// StartCLI starts collecting events and sending them to the backend from the
+// CLI. cmd is the command about to run. What is recorded about the command
+// line is taken here, before the command can change the variables its flags
+// are bound to.
+func StartCLI(cliConfig *config.CLI, cmd *cobra.Command) {
 	// if disabled, we return noop collector
 	if cliConfig.TelemetryDisabled || upgrade.GetVersion() == upgrade.DevelopmentVersion {
 		return
 	}
 
 	// create a new default collector
-	collector, err := newCLICollector()
+	collector, err := newCLICollector(client.NewClient(), cliConfig, cmd)
 	if err != nil {
 		// Log the problem but don't fail - use disabled Collector instead
 		loghelper.New("telemetry").Infof("%s", err.Error())
@@ -48,10 +52,12 @@ func StartCLI(cliConfig *config.CLI) {
 	}
 }
 
-func newCLICollector() (*cliCollector, error) {
+func newCLICollector(analyticsClient client.Client, cliConfig *config.CLI, cmd *cobra.Command) (*cliCollector, error) {
 	defaultCollector := &cliCollector{
-		analyticsClient: client.NewClient(),
-		log:             loghelper.New("telemetry"),
+		analyticsClient:   analyticsClient,
+		log:               loghelper.New("telemetry"),
+		commandProperties: cliCommandProperties(cliConfig, cmd),
+		startTime:         time.Now(),
 	}
 
 	return defaultCollector, nil
@@ -61,6 +67,9 @@ type cliCollector struct {
 	analyticsClient client.Client
 
 	log loghelper.Logger
+
+	commandProperties map[string]interface{}
+	startTime         time.Time
 }
 
 func (d *cliCollector) Flush() {
@@ -69,17 +78,16 @@ func (d *cliCollector) Flush() {
 
 func (d *cliCollector) RecordCLI(cliConfig *config.CLI, self *managementv1.Self, err error) {
 	timezone, _ := time.Now().Zone()
-	eventProperties := map[string]interface{}{
-		"command": os.Args,
-		"version": upgrade.GetVersion(),
-	}
+	eventProperties := maps.Clone(d.commandProperties)
+	eventProperties["version"] = upgrade.GetVersion()
+	eventProperties["duration_ms"] = time.Since(d.startTime).Milliseconds()
 	userProperties := map[string]interface{}{
 		"os_name":  runtime.GOOS,
 		"os_arch":  runtime.GOARCH,
 		"timezone": timezone,
 	}
 	if err != nil {
-		eventProperties["error"] = err.Error()
+		eventProperties["error"] = errorCategory(err)
 	}
 
 	// build the event and record
