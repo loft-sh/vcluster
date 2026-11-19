@@ -29,6 +29,7 @@ func init() {
 	// (no cluster.Use dependency needed).
 	lifecycle.TenantClusterLifecycleSpec()
 	lifecycle.PauseResumeScaledDownSpec()
+	lifecycle.PauseResumeDeployedEtcdSpec()
 }
 
 // Ordered because PauseResumeSpec is destructive - it kills the vcluster pods
