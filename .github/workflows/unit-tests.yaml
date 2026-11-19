@@ -30,7 +30,8 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: Install Helm Unit Test Plugin
         run: |
-          helm plugin install https://github.com/helm-unittest/helm-unittest --version v0.4.4
+          gpg --dearmor --output "$RUNNER_TEMP/helm-unittest.gpg" .github/helm-unittest-public-key.asc
+          helm plugin install https://github.com/helm-unittest/helm-unittest/releases/download/v1.2.1/unittest-1.2.1.tgz --keyring "$RUNNER_TEMP/helm-unittest.gpg"
       - name: Run Helm Unit Tests
         run: |
           helm unittest chart
