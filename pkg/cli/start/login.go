@@ -4,12 +4,10 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	netUrl "net/url"
-	"os/exec"
 	"strings"
 
 	types "github.com/loft-sh/api/v5/pkg/auth"
@@ -21,6 +19,15 @@ import (
 )
 
 const defaultUser = "admin"
+const retryCount = 3
+
+// Variables for testing purposes. They are set to the default implementations, but can be overridden in tests.
+var (
+	// openURL opens a URL in the default browser.
+	openURL = open.Run
+	// cliLogin logs the CLI into the platform.
+	cliLogin = (*LoftStarter).loginViaCLI
+)
 
 func (l *LoftStarter) login(url string) error {
 	if !strings.HasPrefix(url, "https://") {
@@ -29,30 +36,18 @@ func (l *LoftStarter) login(url string) error {
 
 	// check if we are already logged in
 	if l.isLoggedIn(url) {
-		// still open the UI
-		err := open.Run(url)
-		if errors.Is(err, exec.ErrNotFound) {
-			l.Log.Warnf("Couldn't open the login page in a browser. No browser found: %v", err)
-		} else if err != nil {
-			return fmt.Errorf("couldn't open the login page in a browser: %w", err)
-		}
-
-		l.Log.Infof("If the browser does not open automatically, please navigate to %s", url)
-
+		// still open the browser
+		l.openBrowser(url, url)
 		return nil
 	}
 
 	// log into the CLI
-	err := l.loginViaCLI(url)
-	if err != nil {
+	if err := cliLogin(l, url); err != nil {
 		return err
 	}
 
 	// log into the UI
-	err = l.loginUI(url)
-	if err != nil {
-		return err
-	}
+	l.loginUI(url)
 
 	return nil
 }
@@ -71,9 +66,8 @@ func (l *LoftStarter) loginViaCLI(url string) error {
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: config.Platform.Insecure},
 	}}
 
-	// try a couple of times to login
 	accessKey := &types.AccessKey{}
-	for i := 0; i < 3; i++ {
+	for range retryCount {
 		resp, err := httpClient.Post(url+"/auth/password/login", "application/json", bytes.NewBuffer(loginRequestBytes))
 		if err != nil {
 			return err
@@ -113,18 +107,18 @@ func (l *LoftStarter) loginViaCLI(url string) error {
 	return nil
 }
 
-func (l *LoftStarter) loginUI(url string) error {
+func (l *LoftStarter) loginUI(url string) {
 	queryString := fmt.Sprintf("username=%s&password=%s", defaultUser, netUrl.QueryEscape(l.Password))
 	loginURL := fmt.Sprintf("%s/login#%s", url, queryString)
 
-	err := open.Run(loginURL)
-	if errors.Is(err, exec.ErrNotFound) {
-		l.Log.Warnf("Couldn't open the login page in a browser. No browser found: %v", err)
-	} else if err != nil {
-		return fmt.Errorf("couldn't open the login page in a browser: %w", err)
+	l.openBrowser(loginURL, url)
+}
+
+// openBrowser tries to open target in the default browser. Failures are logged, not returned.
+// displayURL is what gets logged, and it differs from target when target holds secrets such as a password.
+func (l *LoftStarter) openBrowser(target, displayURL string) {
+	if err := openURL(target); err != nil {
+		l.Log.Warnf("Couldn't open %s in a browser: %v", displayURL, err)
 	}
-
-	l.Log.Infof("If the browser does not open automatically, please navigate to %s", url)
-
-	return nil
+	l.Log.Infof("If the browser does not open automatically, please navigate to %s", displayURL)
 }
