@@ -184,7 +184,7 @@ func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualCl
 					// such as AWS or GCP or we fallback to our in-built cloud controller manager.
 					args = append(args, "--cloud-provider=external")
 				} else if vConfig.IsVirtualSchedulerEnabled() {
-					controllers := "--controllers=*,-nodeipam,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle,-ttl"
+					controllers := "--controllers=*,-nodeipam,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-ttl"
 					if vConfig.Sync.ToHost.ResourceClaimTemplates.Enabled {
 						// if resource claim templates are synced, we need to disable resourceclaim controller in the virtual cluster
 						controllers += ",-resourceclaim-controller"
@@ -195,7 +195,7 @@ func StartK8S(ctx context.Context, serviceCIDR string, vConfig *config.VirtualCl
 					args = append(args, "--pvclaimbinder-sync-period=60s")
 					args = append(args, "--horizontal-pod-autoscaler-sync-period=60s")
 				} else {
-					controllers := "--controllers=*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-cloud-node-lifecycle,-ttl"
+					controllers := "--controllers=*,-nodeipam,-nodelifecycle,-persistentvolume-binder,-attachdetach,-persistentvolume-expander,-ttl"
 					if vConfig.Sync.ToHost.ResourceClaimTemplates.Enabled {
 						// if resource claim templates are synced, we need to disable resourceclaim controller in the virtual cluster
 						controllers += ",-resourceclaim-controller"
