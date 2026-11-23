@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"fmt"
+	"regexp"
 
 	"github.com/denisbrodbeck/machineid"
 	managementv1 "github.com/loft-sh/api/v4/pkg/apis/management/v1"
@@ -17,6 +18,15 @@ import (
 )
 
 var SyncerVersion = "dev"
+
+// What a Kubernetes server reports as its version is text its operator can
+// set, so only the part with a fixed form is sent. For the git version that is
+// the start, up to the name of the distribution if it is one of these.
+var (
+	kubernetesMajorVersion = regexp.MustCompile(`^\d{1,3}$`)
+	kubernetesMinorVersion = regexp.MustCompile(`^\d{1,3}\+?$`)
+	kubernetesGitVersion   = regexp.MustCompile(`^v\d{1,3}\.\d{1,3}\.\d{1,5}(-(alpha|beta|rc)\.\d{1,4})?([-+](eks|gke|k3s|rke2|k0s))?`)
+)
 
 // getVClusterID provides instance ID based on the UID of the service
 func getVClusterID(ctx context.Context, hostClient kubernetes.Interface, vClusterNamespace, vClusterService string) (string, error) {
@@ -79,9 +89,9 @@ func toKubernetesVersion(vi *version.Info) *KubernetesVersion {
 		return nil
 	}
 	return &KubernetesVersion{
-		Major:      vi.Major,
-		Minor:      vi.Minor,
-		GitVersion: vi.GitVersion,
+		Major:      kubernetesMajorVersion.FindString(vi.Major),
+		Minor:      kubernetesMinorVersion.FindString(vi.Minor),
+		GitVersion: kubernetesGitVersion.FindString(vi.GitVersion),
 	}
 }
 

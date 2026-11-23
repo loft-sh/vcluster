@@ -3,7 +3,9 @@ package telemetry
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"runtime"
+	"strconv"
 	"time"
 
 	"github.com/loft-sh/analytics-client/client"
@@ -20,8 +22,20 @@ import (
 
 var CollectorControlPlane ControlPlaneCollector = &noopCollector{}
 
+// ErrLeaderElectionLost is what RecordError is given when the control plane
+// stops because it lost the leader election.
+var ErrLeaderElectionLost = errors.New("leader election lost")
+
+// isInstanceCreator accepts what the CLI and the platform write to
+// telemetry.instanceCreator.
+var isInstanceCreator = oneOf("vclusterctl", "loft")
+
 type ControlPlaneCollector interface {
 	RecordStart(ctx context.Context, config *config.VirtualClusterConfig)
+
+	// RecordError records the kind of err, never its text. With PanicSeverity
+	// it has to be called from the deferred function that recovered the panic,
+	// because it records the functions on the stack of its caller.
 	RecordError(ctx context.Context, config *config.VirtualClusterConfig, severity ErrorSeverityType, err error)
 
 	// Flush makes sure all events are sent to the backend
@@ -117,18 +131,19 @@ func (d *controlPlaneCollector) RecordStart(ctx context.Context, config *config.
 		return
 	}
 
-	chartInfo := d.getChartInfo(config)
+	creationMethod := config.Telemetry.InstanceCreator
+	if creationMethod != "" && !isInstanceCreator(creationMethod) {
+		creationMethod = "other"
+	}
 	properties := map[string]interface{}{
 		"vcluster_version":            SyncerVersion,
 		"vcluster_k8s_distro_version": d.getVirtualClusterVersion(),
 		"host_cluster_k8s_version":    d.getHostClusterVersion(),
 		"os_arch":                     runtime.GOOS + "/" + runtime.GOARCH,
-		"creation_method":             config.Telemetry.InstanceCreator,
+		"creation_method":             creationMethod,
 		"creation_timestamp":          d.getVClusterCreationTimestamp(ctx),
-	}
-	if chartInfo != nil {
-		properties["vcluster_k8s_distro"] = chartInfo.Name
-		properties["helm_values"] = chartInfo.Values
+		"vcluster_k8s_distro":         translate.VClusterName,
+		"helm_values":                 configSummary(&config.Config),
 	}
 
 	// build the event and record
@@ -157,16 +172,15 @@ func (d *controlPlaneCollector) RecordError(ctx context.Context, config *config.
 	}
 
 	properties := map[string]interface{}{
-		"severity": string(severity),
-		"message":  err.Error(),
+		"vcluster_version": SyncerVersion,
+		"severity":         string(severity),
+		"message":          errorCategory(err),
 	}
-
-	// if panic or fatal we add the helm values
 	if severity == PanicSeverity || severity == FatalSeverity {
-		chartInfo := d.getChartInfo(config)
-		if chartInfo != nil {
-			properties["helm_values"] = chartInfo.Values
-		}
+		properties["helm_values"] = configSummary(&config.Config)
+	}
+	if severity == PanicSeverity {
+		properties["stack"] = callerFunctions()
 	}
 
 	// build the event and record
@@ -208,14 +222,6 @@ func (d *controlPlaneCollector) getHostClusterVersion() *KubernetesVersion {
 	}
 
 	return hostVersion
-}
-
-func (d *controlPlaneCollector) getChartInfo(config *config.VirtualClusterConfig) *ChartInfo {
-	return &ChartInfo{
-		Name:    translate.VClusterName,
-		Version: SyncerVersion,
-		Values:  config,
-	}
 }
 
 func (d *controlPlaneCollector) getVClusterID(ctx context.Context) string {
@@ -280,4 +286,21 @@ func (d *controlPlaneCollector) getMetrics(ctx context.Context) map[string]inter
 	}
 
 	return retMap
+}
+
+// callerFunctions names the functions on the stack of the goroutine, starting
+// at the caller of the function that calls it, each with its line. Unlike a
+// stack trace it has no argument values and no panic message.
+func callerFunctions() []string {
+	programCounters := make([]uintptr, 64)
+	frames := runtime.CallersFrames(programCounters[:runtime.Callers(3, programCounters)])
+
+	functions := []string{}
+	for {
+		frame, more := frames.Next()
+		functions = append(functions, frame.Function+":"+strconv.Itoa(frame.Line))
+		if !more {
+			return functions
+		}
+	}
 }
