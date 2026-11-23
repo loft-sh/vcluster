@@ -395,6 +395,8 @@ func TestErrorCategory(t *testing.T) {
 		expected string
 	}{
 		{name: "plain error", err: errors.New(commandLineValue), expected: "other"},
+		{name: "leader election lost", err: wrap(ErrLeaderElectionLost), expected: "leader_election_lost"},
+		{name: "text of the leader election error without its value", err: errors.New(ErrLeaderElectionLost.Error()), expected: "other"},
 		{name: "vcluster not found", err: wrap(&find.VClusterNotFoundError{Name: commandLineValue}), expected: "vcluster_not_found"},
 		{name: "kubernetes unauthorized", err: wrap(kerrors.NewUnauthorized(commandLineValue)), expected: "kubernetes_unauthorized"},
 		{name: "kubernetes forbidden", err: wrap(kerrors.NewForbidden(secretsResource, commandLineValue, errors.New(commandLineValue))), expected: "kubernetes_forbidden"},

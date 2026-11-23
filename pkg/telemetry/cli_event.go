@@ -97,6 +97,8 @@ func errorCategory(err error) string {
 	)
 
 	switch {
+	case errors.Is(err, ErrLeaderElectionLost):
+		return "leader_election_lost"
 	case errors.Is(err, context.Canceled):
 		return "canceled"
 	case errors.Is(err, context.DeadlineExceeded):
