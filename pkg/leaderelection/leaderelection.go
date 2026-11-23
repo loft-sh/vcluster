@@ -2,7 +2,6 @@ package leaderelection
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"time"
 
