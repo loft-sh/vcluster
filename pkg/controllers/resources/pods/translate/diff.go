@@ -24,8 +24,8 @@ func (t *translator) Diff(ctx *synccontext.SyncContext, event *synccontext.SyncE
 	// Sync conditions. We only keep the reconciled host side; the virtual conditions are
 	// recomputed below when vPod.Status is overwritten with the host status.
 	_, event.Host.Status.Conditions = t.conditionsCopyBidirectional(
-		event.VirtualOld.Status.Conditions,
-		event.Virtual.Status.Conditions,
+		hostConditionGenerations(event.HostOld, event.VirtualOld, event.VirtualOld.Status.Conditions),
+		hostConditionGenerations(event.Host, event.Virtual, event.Virtual.Status.Conditions),
 		event.HostOld.Status.Conditions,
 		event.Host.Status.Conditions,
 	)
@@ -36,7 +36,7 @@ func (t *translator) Diff(ctx *synccontext.SyncContext, event *synccontext.SyncE
 
 	// copy the host status onto the virtual pod, keeping the virtual values the host
 	// must not overwrite
-	vPod.Status = t.DesiredVirtualStatus(pPod.Status, vPod.Status)
+	vPod.Status = t.DesiredVirtualPodStatus(pPod, vPod)
 	err := t.convertResourceClaimStatuses(ctx, vPod, pPod.GetNamespace())
 	if err != nil {
 		return err
@@ -104,7 +104,7 @@ func (t *translator) Diff(ctx *synccontext.SyncContext, event *synccontext.SyncE
 }
 
 func GetExcludedAnnotations(pPod *corev1.Pod) []string {
-	annotations := []string{ClusterAutoScalerAnnotation, OwnerReferences, OwnerSetKind, NamespaceAnnotation, NameAnnotation, UIDAnnotation, ServiceAccountNameAnnotation, HostsRewrittenAnnotation, VClusterLabelsAnnotation}
+	annotations := []string{PodGenerationMappingAnnotation, ClusterAutoScalerAnnotation, OwnerReferences, OwnerSetKind, NamespaceAnnotation, NameAnnotation, UIDAnnotation, ServiceAccountNameAnnotation, HostsRewrittenAnnotation, VClusterLabelsAnnotation}
 	if pPod != nil {
 		for _, v := range pPod.Spec.Volumes {
 			if v.Projected != nil {

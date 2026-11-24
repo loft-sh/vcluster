@@ -35,6 +35,7 @@ import (
 )
 
 const (
+	PodGenerationMappingAnnotation       = "vcluster.loft.sh/pod-generation-mapping"
 	OwnerReferences                      = "vcluster.loft.sh/owner-references"
 	OwnerSetKind                         = "vcluster.loft.sh/owner-set-kind"
 	NamespaceAnnotation                  = "vcluster.loft.sh/namespace"
@@ -68,6 +69,7 @@ type Translator interface {
 	Diff(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Pod]) error
 	TranslateContainerEnv(ctx *synccontext.SyncContext, envVar []corev1.EnvVar, envFrom []corev1.EnvFromSource, vPod *corev1.Pod, serviceEnvMap map[string]string) ([]corev1.EnvVar, []corev1.EnvFromSource, error)
 	DesiredVirtualStatus(hostStatus, virtualStatus corev1.PodStatus) corev1.PodStatus
+	DesiredVirtualPodStatus(hostPod, virtualPod *corev1.Pod) corev1.PodStatus
 }
 
 func NewTranslator(ctx *synccontext.RegisterContext, eventRecorder events.EventRecorder) (Translator, error) {
@@ -214,6 +216,9 @@ func (t *translator) Translate(ctx *synccontext.SyncContext, vPod *corev1.Pod, s
 
 	// convert to core object
 	pPod := translate.HostMetadata(vPod, mappings.VirtualToHost(ctx, vPod.Name, vPod.Namespace, mappings.Pods()))
+
+	// A child must not seed the host-owned generation receipt.
+	delete(pPod.Annotations, PodGenerationMappingAnnotation)
 
 	// override pod fields
 	pPod.Status = corev1.PodStatus{}

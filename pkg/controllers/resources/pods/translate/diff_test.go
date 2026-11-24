@@ -316,6 +316,8 @@ func TestDiffPodStatusObservedGeneration(t *testing.T) {
 				ObservedGeneration: tc.hostObservedGeneration,
 			}}
 
+			stampGenerationMapping(t, pOld, vOld, tc.hostObservedGeneration)
+			stampGenerationMapping(t, pNew, vNew, tc.hostObservedGeneration)
 			event := synccontext.NewSyncEventWithOld(pOld, pNew, vOld, vNew)
 			assert.NilError(t, tr.Diff(syncCtx, event))
 
@@ -398,6 +400,8 @@ func TestDiffConditionsCacheInformerDivergence(t *testing.T) {
 			pNew := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "testpod-x-testns", Namespace: "test"}}
 			pNew.Status.Conditions = []corev1.PodCondition{readyGen1}
 
+			stampGenerationMapping(t, pOld, vOld, 1)
+			stampGenerationMapping(t, pNew, vNew, 1)
 			event := synccontext.NewSyncEventWithOld(pOld, pNew, vOld, vNew)
 			assert.NilError(t, tr.Diff(syncCtx, event))
 
