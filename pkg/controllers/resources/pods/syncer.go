@@ -390,7 +390,7 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 			}
 		}
 
-		if retErr != nil {
+		if retErr != nil && !kerrors.IsConflict(retErr) {
 			s.EventRecorder().Eventf(
 				event.Virtual,
 				nil,
