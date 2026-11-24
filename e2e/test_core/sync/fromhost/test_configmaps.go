@@ -10,6 +10,7 @@ import (
 	"github.com/loft-sh/vcluster/e2e/constants"
 	"github.com/loft-sh/vcluster/e2e/labels"
 	"github.com/loft-sh/vcluster/pkg/util/podhelper"
+	"github.com/loft-sh/vcluster/pkg/util/random"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -452,6 +453,34 @@ func FromHostConfigMapsSpec() {
 						g.Expect(err).To(Succeed())
 						g.Expect(cm.Data["key7"]).To(Equal("value7"))
 					}).WithPolling(constants.PollingInterval).WithTimeout(constants.PollingTimeout).Should(Succeed())
+				})
+			})
+
+			It("only lets the vCluster service account read configmaps in mapped host namespaces", func(ctx context.Context) {
+				// from-host-sync-test/* is a wildcard configmap mapping in the vcluster config.
+				mappedNS := "from-host-sync-test"
+				// from-host-sync-test-2/* is only mapped for secrets.
+				secretsOnlyNS := "from-host-sync-test-2"
+				unmappedNS := "from-host-unmapped-" + random.String(6)
+				canListConfigMaps := func(namespace string) bool {
+					GinkgoHelper()
+					return vClusterCanList(ctx, hostClient, vClusterHostNS, vClusterName, "configmaps", namespace)
+				}
+
+				By("allowing to list configmaps in a mapped host namespace", func() {
+					Expect(canListConfigMaps(mappedNS)).To(BeTrue(), "the vCluster service account must read configmaps in %s", mappedNS)
+				})
+
+				By("denying to list configmaps in a host namespace only mapped for secrets", func() {
+					Expect(canListConfigMaps(secretsOnlyNS)).To(BeFalse(), "the vCluster service account must not read configmaps in %s", secretsOnlyNS)
+				})
+
+				By("denying to list configmaps in an unmapped host namespace", func() {
+					Expect(canListConfigMaps(unmappedNS)).To(BeFalse(), "the vCluster service account must not read configmaps in %s", unmappedNS)
+				})
+
+				By("denying to list configmaps across all host namespaces", func() {
+					Expect(canListConfigMaps(metav1.NamespaceAll)).To(BeFalse(), "the vCluster service account must not read configmaps cluster wide")
 				})
 			})
 		})

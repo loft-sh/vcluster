@@ -277,15 +277,17 @@
 
 {{/*
   Host namespaces mapped by fromHost configmap and secret sync, with the resources mapped from each of them, as a JSON
-  object. The vCluster namespace is left out, the vCluster role already grants access to it.
+  object. A key without a namespace maps from the vCluster namespace. The vCluster namespace is left out when the
+  default vCluster role grants access to it, and kept when that role is disabled or its rules are overwritten.
 */}}
 {{- define "vcluster.rbac.fromHostNamespaceResources" -}}
 {{- $result := dict -}}
+{{- $roleCoversReleaseNamespace := and .Values.rbac.role.enabled (not .Values.rbac.role.overwriteRules) -}}
 {{- range $resourceName, $resource := dict "configmaps" $.Values.sync.fromHost.configMaps "secrets" $.Values.sync.fromHost.secrets -}}
 {{- if and $resource.enabled $resource.mappings.byName -}}
 {{- range $key, $val := $resource.mappings.byName -}}
-  {{- $sourceNs := splitList "/" $key | first -}}
-  {{- if and (ne $sourceNs "") (ne $sourceNs $.Release.Namespace) -}}
+  {{- $sourceNs := splitList "/" $key | first | default $.Release.Namespace -}}
+  {{- if not (and $roleCoversReleaseNamespace (eq $sourceNs $.Release.Namespace)) -}}
     {{- $_ := set $result $sourceNs (append (get $result $sourceNs | default list) $resourceName | uniq) -}}
   {{- end -}}
 {{- end -}}

@@ -98,6 +98,90 @@ tests:
       - hasDocuments:
           count: 0
 
+  - it: keeps the vCluster namespace with the vCluster role disabled
+    template: fromhost-rbac.yaml
+    set:
+      rbac:
+        role:
+          enabled: false
+      sync:
+        fromHost:
+          configMaps:
+            enabled: true
+            mappings:
+              byName:
+                "vcluster-my-vc/my-cm": "default/my-cm"
+          secrets:
+            enabled: true
+            mappings:
+              byName:
+                "/my-secret": "default/my-secret"
+    asserts:
+      - hasDocuments:
+          count: 2
+      - isKind:
+          of: Role
+        documentIndex: 0
+      - equal:
+          path: metadata.namespace
+          value: vcluster-my-vc
+        documentIndex: 0
+      - equal:
+          path: rules
+          value:
+            - apiGroups: [ "" ]
+              resources: [ "configmaps", "secrets" ]
+              verbs: [ "get", "list", "watch" ]
+        documentIndex: 0
+      - isKind:
+          of: RoleBinding
+        documentIndex: 1
+      - equal:
+          path: metadata.namespace
+          value: vcluster-my-vc
+        documentIndex: 1
+
+  - it: keeps the vCluster namespace with overwritten vCluster role rules
+    template: fromhost-rbac.yaml
+    set:
+      rbac:
+        role:
+          overwriteRules:
+            - apiGroups: [ "" ]
+              resources: [ "pods" ]
+              verbs: [ "get" ]
+      sync:
+        fromHost:
+          secrets:
+            enabled: true
+            mappings:
+              byName:
+                "/my-secret": "default/my-secret"
+    asserts:
+      - hasDocuments:
+          count: 2
+      - isKind:
+          of: Role
+        documentIndex: 0
+      - equal:
+          path: metadata.namespace
+          value: vcluster-my-vc
+        documentIndex: 0
+      - equal:
+          path: rules
+          value:
+            - apiGroups: [ "" ]
+              resources: [ "secrets" ]
+              verbs: [ "get", "list", "watch" ]
+        documentIndex: 0
+      - equal:
+          path: subjects
+          value:
+            - kind: ServiceAccount
+              name: vc-my-vc
+              namespace: vcluster-my-vc
+        documentIndex: 1
+
   - it: uses the custom service account name
     template: fromhost-rbac.yaml
     set:
@@ -133,6 +217,23 @@ tests:
             - apiGroups: [ "" ]
               resources: [ "secrets" ]
               verbs: [ "get", "list", "watch" ]
+      sync:
+        fromHost:
+          secrets:
+            enabled: true
+            mappings:
+              byName:
+                "tenant-a/my-secret": "default/my-secret"
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders nothing with the cluster role disabled
+    template: fromhost-rbac.yaml
+    set:
+      rbac:
+        clusterRole:
+          enabled: false
       sync:
         fromHost:
           secrets:

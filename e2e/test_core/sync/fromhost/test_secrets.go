@@ -12,7 +12,6 @@ import (
 	"github.com/loft-sh/vcluster/pkg/util/random"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	authorizationv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -395,31 +394,22 @@ func FromHostSecretsSpec() {
 			})
 
 			It("only lets the vCluster service account read secrets in mapped host namespaces", func(ctx context.Context) {
-				// from-host-sync-test-2/* is a wildcard mapping in the vcluster config.
+				// from-host-sync-test-2/* is a wildcard secret mapping in the vcluster config.
 				mappedNS := "from-host-sync-test-2"
+				// from-host-sync-test/* is only mapped for configmaps.
+				configMapsOnlyNS := "from-host-sync-test"
 				unmappedNS := "from-host-unmapped-" + random.String(6)
-				serviceAccountNS := vClusterHostNS
-				serviceAccount := "system:serviceaccount:" + serviceAccountNS + ":vc-" + vClusterName
-
 				canListSecrets := func(namespace string) bool {
 					GinkgoHelper()
-					review, err := hostClient.AuthorizationV1().SubjectAccessReviews().Create(ctx, &authorizationv1.SubjectAccessReview{
-						Spec: authorizationv1.SubjectAccessReviewSpec{
-							User:   serviceAccount,
-							Groups: []string{"system:serviceaccounts", "system:serviceaccounts:" + serviceAccountNS, "system:authenticated"},
-							ResourceAttributes: &authorizationv1.ResourceAttributes{
-								Namespace: namespace,
-								Verb:      "list",
-								Resource:  "secrets",
-							},
-						},
-					}, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
-					return review.Status.Allowed
+					return vClusterCanList(ctx, hostClient, vClusterHostNS, vClusterName, "secrets", namespace)
 				}
 
 				By("allowing to list secrets in a mapped host namespace", func() {
 					Expect(canListSecrets(mappedNS)).To(BeTrue(), "the vCluster service account must read secrets in %s", mappedNS)
+				})
+
+				By("denying to list secrets in a host namespace only mapped for configmaps", func() {
+					Expect(canListSecrets(configMapsOnlyNS)).To(BeFalse(), "the vCluster service account must not read secrets in %s", configMapsOnlyNS)
 				})
 
 				By("denying to list secrets in an unmapped host namespace", func() {

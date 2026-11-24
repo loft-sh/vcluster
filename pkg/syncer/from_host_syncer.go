@@ -218,8 +218,9 @@ func additionalPermissionMissingHandler() toolscache.WatchErrorHandlerWithContex
 	return func(ctx context.Context, r *toolscache.Reflector, err error) {
 		if kerrors.IsForbidden(err) {
 			klog.FromContext(ctx).Error(err,
-				"trying to watch on a namespace that does not exists / have no permissions. "+
-					"Please either re-create it or remove the namespace from mappings in the vcluster.yaml and restart vCluster.")
+				"trying to watch on a namespace that does not exist / has no permissions. "+
+					"If the namespace was deleted, re-create it and run helm upgrade for the vCluster to restore access to it, "+
+					"or remove the namespace from the mappings in the vcluster.yaml.")
 		} else {
 			toolscache.DefaultWatchErrorHandler(ctx, r, err)
 		}
