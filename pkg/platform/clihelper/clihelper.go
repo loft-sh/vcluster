@@ -23,6 +23,7 @@ import (
 	"github.com/loft-sh/api/v5/pkg/product"
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/log/survey"
+	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/platform/kubeconfig"
 	utilhttp "github.com/loft-sh/vcluster/pkg/util/http"
 	"github.com/loft-sh/vcluster/pkg/util/portforward"
@@ -652,6 +653,7 @@ func EnsureIngressController(ctx context.Context, kubeClient kubernetes.Interfac
 			"controller.config.hsts=false",
 			"--wait",
 		}
+		args = append(args, helm.ClientSideApplyArgs(ctx, "helm", log)...)
 		log.WriteString(logrus.InfoLevel, "\n")
 		log.Infof("Executing command: helm %s\n", strings.Join(args, " "))
 		log.Info("Waiting for ingress controller deployment, this can take several minutes...")
@@ -728,6 +730,7 @@ func UpgradeLoft(ctx context.Context, kubeClient kubernetes.Interface, chartName
 	if chartRepo != "" {
 		args = append(args, "--repo", chartRepo)
 	}
+	args = append(args, helm.ClientSideApplyArgs(ctx, "helm", log)...)
 	args = append(args, extraArgs...)
 
 	log.WriteString(logrus.InfoLevel, "\n")

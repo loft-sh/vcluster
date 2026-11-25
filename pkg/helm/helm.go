@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/loft-sh/log"
@@ -60,6 +61,69 @@ type client struct {
 	config   *clientcmdapi.Config
 	log      log.Logger
 	helmPath string
+
+	// helmV4 caches whether helmPath is helm 4 once the version has been read.
+	// The CLI runs whichever helm the user has, so flags that only helm 4 knows
+	// are added only when it is helm 4.
+	helmV4Mu    sync.Mutex
+	helmV4Known bool
+	helmV4      bool
+}
+
+// clientSideApply keeps helm 4 on client-side apply, as helm 3 did. Helm 4
+// defaults new releases to server-side apply, which changes field ownership and
+// can conflict with other writers. Helm 3 does not know the flag.
+const clientSideApply = "--server-side=false"
+
+// isHelmV4 reports whether the helm binary is helm 4. A successful read is
+// cached for the life of the client. A failed read is not cached, so a
+// long-lived client, such as the deploy controller's, reads again on its next
+// call instead of keeping helm 3 arguments for good.
+func (c *client) isHelmV4(ctx context.Context) bool {
+	c.helmV4Mu.Lock()
+	defer c.helmV4Mu.Unlock()
+	if c.helmV4Known {
+		return c.helmV4
+	}
+
+	helmV4, err := helmIsV4(ctx, c.helmPath)
+	if err != nil {
+		c.log.Debugf("could not read the helm version, assuming helm 3 for this call: %v", err)
+		return false
+	}
+	c.helmV4, c.helmV4Known = helmV4, true
+	return c.helmV4
+}
+
+// readHelmV4 reports whether the helm binary at helmPath is helm 4. If the
+// version cannot be read it assumes helm 3, whose flags helm 4 still accepts.
+func readHelmV4(ctx context.Context, helmPath string, log log.Logger) bool {
+	helmV4, err := helmIsV4(ctx, helmPath)
+	if err != nil {
+		log.Debugf("could not read the helm version, assuming helm 3: %v", err)
+		return false
+	}
+	return helmV4
+}
+
+// helmIsV4 runs helm version and reports whether the binary is helm 4.
+func helmIsV4(ctx context.Context, helmPath string) (bool, error) {
+	out, err := exec.CommandContext(ctx, helmPath, "version", "--template", "{{.Version}}").Output()
+	if err != nil {
+		return false, err
+	}
+	return strings.HasPrefix(strings.TrimSpace(string(out)), "v4."), nil
+}
+
+// ClientSideApplyArgs returns the arguments that keep a helm install or
+// upgrade on client-side apply: clientSideApply for helm 4, nothing for helm 3
+// or a helm whose version cannot be read. Use it for helm calls that do not go
+// through Client.
+func ClientSideApplyArgs(ctx context.Context, helmPath string, log log.Logger) []string {
+	if readHelmV4(ctx, helmPath, log) {
+		return []string{clientSideApply}
+	}
+	return nil
 }
 
 // NewClient creates a new helm client from the given config
@@ -72,11 +136,19 @@ func NewClient(config *clientcmdapi.Config, log log.Logger, commandPath string) 
 }
 
 func (c *client) Install(ctx context.Context, name, namespace string, options UpgradeOptions) error {
-	return c.run(ctx, name, namespace, options, "install", []string{"--repository-config=''"})
+	return c.run(ctx, name, namespace, options, "install", c.applyArgs(ctx, "--repository-config=''"))
 }
 
 func (c *client) Upgrade(ctx context.Context, name, namespace string, options UpgradeOptions) error {
-	return c.run(ctx, name, namespace, options, "upgrade", []string{"--install", "--repository-config=''"})
+	return c.run(ctx, name, namespace, options, "upgrade", c.applyArgs(ctx, "--install", "--repository-config=''"))
+}
+
+// applyArgs appends clientSideApply to args when the binary is helm 4.
+func (c *client) applyArgs(ctx context.Context, args ...string) []string {
+	if c.isHelmV4(ctx) {
+		args = append(args, clientSideApply)
+	}
+	return args
 }
 
 func (c *client) Pull(ctx context.Context, name string, options UpgradeOptions) error {
@@ -84,7 +156,7 @@ func (c *client) Pull(ctx context.Context, name string, options UpgradeOptions) 
 }
 
 func (c *client) Rollback(ctx context.Context, name, namespace string) error {
-	return c.run(ctx, name, namespace, UpgradeOptions{}, "rollback", []string{})
+	return c.run(ctx, name, namespace, UpgradeOptions{}, "rollback", c.applyArgs(ctx))
 }
 
 func (c *client) run(ctx context.Context, name, namespace string, options UpgradeOptions, command string, extraArgs []string) error {
@@ -161,12 +233,20 @@ func (c *client) run(ctx context.Context, name, namespace string, options Upgrad
 		args = append(args, "--set-string", value)
 	}
 
-	// force
+	// force; helm 4 deprecated --force and --atomic in favour of the new names
 	if options.Force {
-		args = append(args, "--force")
+		if c.isHelmV4(ctx) {
+			args = append(args, "--force-replace")
+		} else {
+			args = append(args, "--force")
+		}
 	}
 	if options.Atomic {
-		args = append(args, "--atomic")
+		if c.isHelmV4(ctx) {
+			args = append(args, "--rollback-on-failure")
+		} else {
+			args = append(args, "--atomic")
+		}
 	}
 	if options.Debug {
 		args = append(args, "--debug")

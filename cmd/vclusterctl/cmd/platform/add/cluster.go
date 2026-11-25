@@ -18,6 +18,7 @@ import (
 	"github.com/loft-sh/log"
 	"github.com/loft-sh/vcluster/pkg/cli/flags"
 	"github.com/loft-sh/vcluster/pkg/cli/util"
+	"github.com/loft-sh/vcluster/pkg/helm"
 	"github.com/loft-sh/vcluster/pkg/platform"
 	"github.com/loft-sh/vcluster/pkg/platform/clihelper"
 	"github.com/loft-sh/vcluster/pkg/platform/kube"
@@ -254,6 +255,8 @@ func (cmd *ClusterCmd) Run(ctx context.Context, args []string) error {
 	if cmd.Context != "" {
 		helmArgs = append(helmArgs, "--kube-context", cmd.Context)
 	}
+
+	helmArgs = append(helmArgs, helm.ClientSideApplyArgs(ctx, "helm", cmd.Log)...)
 
 	kubeClientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
 
