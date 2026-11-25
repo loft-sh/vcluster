@@ -36,6 +36,7 @@ func suiteCommonVCluster() {
 
 			test_core.PodSyncSpec()
 			test_core.SyncErrorSanitisationSpec()
+			test_core.HostNameCollisionSpec()
 			test_core.NetworkPolicySyncSpec()
 			test_core.PVCSyncSpec()
 			test_core.K8sDefaultEndpointSpec()

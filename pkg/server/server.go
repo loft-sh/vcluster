@@ -154,7 +154,7 @@ func NewServer(ctx *synccontext.ControllerContext) (*Server, error) {
 		uncachedLocalClient = pluginhookclient.WrapPhysicalClient(uncachedLocalClient)
 
 		h = filters.WithServiceCreateRedirect(h, registerCtx, uncachedLocalClient, uncachedVirtualClient)
-		h = filters.WithRedirect(h, registerCtx, uncachedVirtualClient, admissionHandler, s.redirectResources)
+		h = filters.WithRedirect(h, registerCtx, uncachedLocalClient, uncachedVirtualClient, admissionHandler, s.redirectResources)
 		h = filters.WithMetricsProxy(h, registerCtx)
 
 		// inject apis

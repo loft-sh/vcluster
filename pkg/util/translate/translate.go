@@ -151,6 +151,19 @@ func addHostAnnotations(retMap map[string]string, vObj, pObj client.Object) {
 	}
 }
 
+// BelongsToOtherVirtualObject checks if the host object was synced from a different virtual object of the same kind
+func BelongsToOtherVirtualObject(pObj client.Object, vName types.NamespacedName, kind string) bool {
+	pAnnotations := pObj.GetAnnotations()
+	if pAnnotations[NameAnnotation] == "" {
+		return false
+	}
+	if pAnnotations[KindAnnotation] != "" && pAnnotations[KindAnnotation] != kind {
+		return false
+	}
+
+	return pAnnotations[NameAnnotation] != vName.Name || pAnnotations[NamespaceAnnotation] != vName.Namespace
+}
+
 func ShouldDeleteHostObject(pObj client.Object) bool {
 	// if host object is deleting we should delete it
 	if pObj.GetDeletionTimestamp() != nil {

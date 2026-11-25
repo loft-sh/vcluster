@@ -1,6 +1,7 @@
 package filters
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -20,6 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apiserver/pkg/endpoints/handlers/negotiation"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
@@ -153,6 +155,11 @@ func updateService(ctx *synccontext.SyncContext, req *http.Request, decoder enco
 		}
 
 		return nil, err
+	}
+
+	// another virtual service might map to the same host name, so don't change its host service
+	if translate.BelongsToOtherVirtualObject(pService, types.NamespacedName{Namespace: oldVService.Namespace, Name: oldVService.Name}, serviceGVK.String()) {
+		return nil, kerrors.NewConflict(corev1.Resource("services"), oldVService.Name, errors.New("another object in this cluster already maps to the same host name, rename this object to change its type"))
 	}
 
 	// we try to patch the service as this has the best chances to go through
