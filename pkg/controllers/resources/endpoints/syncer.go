@@ -178,6 +178,11 @@ func (s *endpointsSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.
 			return true, nil
 		}
 
+		// another virtual object might map to the same host name, so don't delete its endpoints
+		if translate.BelongsToOtherVirtualObject(endpoints, req.NamespacedName, s.GroupVersionKind().String()) {
+			return true, nil
+		}
+
 		// check if endpoints were created by us
 		if endpoints.Annotations != nil && endpoints.Annotations[translate.NameAnnotation] != "" {
 			// Deleting the endpoints is necessary here as some clusters would not correctly maintain
@@ -193,6 +198,15 @@ func (s *endpointsSyncer) ReconcileStart(ctx *synccontext.SyncContext, req ctrl.
 			}
 		}
 
+		return true, nil
+	}
+
+	// another virtual service might map to the same host name, so don't touch the endpoints of its host service
+	hostService := &corev1.Service{}
+	err = ctx.HostClient.Get(ctx, mappings.VirtualToHost(ctx, req.Name, req.Namespace, mappings.Services()), hostService)
+	if err != nil && !kerrors.IsNotFound(err) {
+		return true, err
+	} else if err == nil && translate.BelongsToOtherVirtualObject(hostService, req.NamespacedName, corev1.SchemeGroupVersion.WithKind("Service").String()) {
 		return true, nil
 	}
 

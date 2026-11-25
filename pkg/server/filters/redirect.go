@@ -11,11 +11,13 @@ import (
 	"github.com/loft-sh/vcluster/pkg/server/handler"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	requestpkg "github.com/loft-sh/vcluster/pkg/util/request"
+	"github.com/loft-sh/vcluster/pkg/util/translate"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
@@ -23,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func WithRedirect(h http.Handler, registerCtx *synccontext.RegisterContext, uncachedVirtualClient client.Client, admit admission.Interface, resources []delegatingauthorizer.GroupVersionResourceVerb) http.Handler {
+func WithRedirect(h http.Handler, registerCtx *synccontext.RegisterContext, uncachedLocalClient, uncachedVirtualClient client.Client, admit admission.Interface, resources []delegatingauthorizer.GroupVersionResourceVerb) http.Handler {
 	s := serializer.NewCodecFactory(scheme.Scheme)
 	parameterCodec := runtime.NewParameterCodec(uncachedVirtualClient.Scheme())
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -55,7 +57,14 @@ func WithRedirect(h http.Handler, registerCtx *synccontext.RegisterContext, unca
 				}
 
 				// exchange namespace & name
-				pName := mappings.VirtualToHost(registerCtx.ToSyncContext("redirect"), splitted[6], info.Namespace, mappings.Pods())
+				// use an uncached host client, so a host pod that's missing from the cache can't pass the owner check
+				syncContext := registerCtx.ToSyncContext("redirect")
+				syncContext.HostClient = uncachedLocalClient
+				pName, err := hostPodName(syncContext, splitted[6], info.Namespace)
+				if err != nil {
+					responsewriters.ErrorNegotiated(err, s, corev1.SchemeGroupVersion, w, req)
+					return
+				}
 				splitted[4] = pName.Namespace
 				splitted[6] = pName.Name
 				req.URL.Path = strings.Join(splitted, "/")
@@ -80,6 +89,27 @@ func WithRedirect(h http.Handler, registerCtx *synccontext.RegisterContext, unca
 
 		h.ServeHTTP(w, req)
 	})
+}
+
+// hostPodName returns the host name of the virtual pod and fails if the host pod was synced from another virtual pod
+func hostPodName(ctx *synccontext.SyncContext, name, namespace string) (types.NamespacedName, error) {
+	pName := mappings.VirtualToHost(ctx, name, namespace, mappings.Pods())
+	pPod := &corev1.Pod{}
+	err := ctx.HostClient.Get(ctx, pName, pPod)
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return pName, nil
+		}
+
+		return types.NamespacedName{}, err
+	}
+
+	// another virtual pod might map to the same host name, so don't redirect to its host pod
+	if translate.BelongsToOtherVirtualObject(pPod, types.NamespacedName{Namespace: namespace, Name: name}, corev1.SchemeGroupVersion.WithKind("Pod").String()) {
+		return types.NamespacedName{}, kerrors.NewNotFound(corev1.Resource("pods"), name)
+	}
+
+	return pName, nil
 }
 
 func callAdmissionWebhooks(req *http.Request, info *request.RequestInfo, parameterCodec runtime.ParameterCodec, admit admission.Interface, uncachedVirtualClient client.Client) error {

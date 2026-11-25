@@ -139,6 +139,10 @@ func (s *endpointSliceSyncer) ReconcileStart(ctx *synccontext.SyncContext, req c
 				}
 				return true, nil
 			}
+			// another virtual object might map to the same host name, so don't delete its endpointSlice
+			if translate.BelongsToOtherVirtualObject(hostEps, req.NamespacedName, s.GroupVersionKind().String()) {
+				return true, nil
+			}
 			err = ctx.HostClient.Delete(ctx, hostEps)
 			if err != nil {
 				return true, fmt.Errorf("error deleting endpointSlice from host %s: %w", eps.Name, err)
@@ -177,6 +181,11 @@ func (s *endpointSliceSyncer) ReconcileStart(ctx *synccontext.SyncContext, req c
 			return true, nil
 		}
 
+		// another virtual object might map to the same host name, so don't delete its endpointSlice
+		if translate.BelongsToOtherVirtualObject(endpointSlice, req.NamespacedName, s.GroupVersionKind().String()) {
+			return true, nil
+		}
+
 		// check if endpoints were created by us
 		if endpointSlice.Annotations != nil && endpointSlice.Annotations[translate.NameAnnotation] != "" {
 			// Deleting the endpointSlice is necessary here as some clusters would not correctly maintain
@@ -191,6 +200,15 @@ func (s *endpointSliceSyncer) ReconcileStart(ctx *synccontext.SyncContext, req c
 			}
 		}
 
+		return true, nil
+	}
+
+	// another virtual service might map to the same host name, so don't touch the endpointSlices of its host service
+	hostService := &corev1.Service{}
+	err = ctx.HostClient.Get(ctx, mappings.VirtualToHost(ctx, svcName, req.Namespace, mappings.Services()), hostService)
+	if err != nil && !kerrors.IsNotFound(err) {
+		return true, fmt.Errorf("error retrieving host service: %w", err)
+	} else if err == nil && translate.BelongsToOtherVirtualObject(hostService, types.NamespacedName{Namespace: req.Namespace, Name: svcName}, corev1.SchemeGroupVersion.WithKind("Service").String()) {
 		return true, nil
 	}
 

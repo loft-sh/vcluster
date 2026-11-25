@@ -286,6 +286,22 @@ func (r *SyncController) getObjects(ctx *synccontext.SyncContext, vReq, pReq ctr
 		return nil, nil, nil, nil, nil
 	}
 
+	// two virtual objects might map to the same host name, so make sure the host object belongs to the requested one
+	if pObj != nil && translate.BelongsToOtherVirtualObject(pObj, vReq.NamespacedName, r.syncer.GroupVersionKind().String()) {
+		klog.FromContext(ctx).Info("Skip reconcile, because host object belongs to another virtual object", "host", client.ObjectKeyFromObject(pObj).String())
+		if vObj != nil {
+			r.vEventRecorder.Eventf(
+				vObj,
+				nil,
+				"Warning",
+				"SyncError",
+				"Sync"+r.syncer.GroupVersionKind().Kind,
+				"Another object in this cluster already maps to the same host name, rename this object to sync it",
+			)
+		}
+		return nil, nil, nil, nil, nil
+	}
+
 	// retrieve the old objects
 	if r.objectCache != nil {
 		var ok bool

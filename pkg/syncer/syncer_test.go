@@ -297,6 +297,9 @@ func TestReconcile(t *testing.T) {
 
 		Compare syncertesting.Compare
 
+		// ExpectedEvents are the events recorded on virtual objects, nil skips the check
+		ExpectedEvents []string
+
 		shouldErr bool
 		errMsg    string
 	}
@@ -535,6 +538,252 @@ func TestReconcile(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name:   "should not touch host object that belongs to another virtual object",
+			Syncer: NewMockSyncer,
+
+			EnqueueObjs: []types.NamespacedName{
+				{Name: "a", Namespace: namespaceInVClusterA},
+			},
+
+			InitialVirtualState: []runtime.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "a",
+						Namespace: namespaceInVClusterA,
+						UID:       "456",
+					},
+				},
+			},
+
+			InitialPhysicalState: []runtime.Object{
+				// host object with the same host name, synced from a different virtual object
+				otherVirtualObjectHostSecret(translator.HostName(nil, "a", namespaceInVClusterA).Name),
+			},
+
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				// host object should remain untouched
+				corev1.SchemeGroupVersion.WithKind("Secret"): {
+					otherVirtualObjectHostSecret(translator.HostName(nil, "a", namespaceInVClusterA).Name),
+				},
+			},
+
+			// the event must not reveal the host name
+			ExpectedEvents: []string{
+				"Warning SyncError default/a: Another object in this cluster already maps to the same host name, rename this object to sync it",
+			},
+		},
+		{
+			Name:   "should not delete host object of another virtual object when virtual object is missing",
+			Syncer: NewMockSyncer,
+
+			EnqueueObjs: []types.NamespacedName{
+				{Name: "a", Namespace: namespaceInVClusterA},
+			},
+
+			InitialPhysicalState: []runtime.Object{
+				// host object with the same host name, synced from a different virtual object
+				otherVirtualObjectHostSecret(translator.HostName(nil, "a", namespaceInVClusterA).Name),
+			},
+
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				// host object should remain untouched
+				corev1.SchemeGroupVersion.WithKind("Secret"): {
+					otherVirtualObjectHostSecret(translator.HostName(nil, "a", namespaceInVClusterA).Name),
+				},
+			},
+
+			// there is no virtual object to record an event on
+			ExpectedEvents: []string{},
+		},
+		{
+			Name:   "should sync host object of another kind with the same name",
+			Syncer: NewMockSyncer,
+
+			EnqueueObjs: []types.NamespacedName{
+				{Name: "a", Namespace: namespaceInVClusterA},
+			},
+
+			InitialVirtualState: []runtime.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "a",
+						Namespace: namespaceInVClusterA,
+						UID:       "456",
+					},
+				},
+			},
+
+			InitialPhysicalState: []runtime.Object{
+				// host object synced from a virtual object of another kind is left to the existing sync logic
+				otherVirtualObjectHostSecretWithKind(translator.HostName(nil, "a", namespaceInVClusterA).Name, corev1.SchemeGroupVersion.WithKind("ConfigMap").String()),
+			},
+
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				// host object is synced from the requested virtual object
+				corev1.SchemeGroupVersion.WithKind("Secret"): {
+					&corev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      translator.HostName(nil, "a", namespaceInVClusterA).Name,
+							Namespace: testingutil.DefaultTestTargetNamespace,
+							Annotations: map[string]string{
+								translate.NameAnnotation:          "a",
+								translate.NamespaceAnnotation:     namespaceInVClusterA,
+								translate.UIDAnnotation:           "456",
+								translate.KindAnnotation:          corev1.SchemeGroupVersion.WithKind("Secret").String(),
+								translate.HostNameAnnotation:      translator.HostName(nil, "a", namespaceInVClusterA).Name,
+								translate.HostNamespaceAnnotation: testingutil.DefaultTestTargetNamespace,
+							},
+							Labels: map[string]string{
+								translate.NamespaceLabel: namespaceInVClusterA,
+							},
+						},
+						Data: map[string][]byte{
+							"datakey1": []byte("datavalue1"),
+						},
+					},
+				},
+			},
+
+			ExpectedEvents: []string{},
+		},
+		{
+			Name:   "should delete stale host object of the same virtual object",
+			Syncer: NewMockSyncer,
+
+			EnqueueObjs: []types.NamespacedName{
+				{Name: "a", Namespace: namespaceInVClusterA},
+			},
+
+			InitialVirtualState: []runtime.Object{
+				// virtual object was recreated, so its uid changed
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "a",
+						Namespace: namespaceInVClusterA,
+						UID:       "456",
+					},
+				},
+			},
+
+			InitialPhysicalState: []runtime.Object{
+				ownHostSecret(translator.HostName(nil, "a", namespaceInVClusterA).Name, "123", "datavalue1"),
+			},
+
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				// stale host object should be deleted
+				corev1.SchemeGroupVersion.WithKind("Secret"): {},
+			},
+
+			ExpectedEvents: []string{},
+		},
+		{
+			Name:   "should sync host object of the same virtual object",
+			Syncer: NewMockSyncer,
+
+			EnqueueObjs: []types.NamespacedName{
+				{Name: "a", Namespace: namespaceInVClusterA},
+			},
+
+			InitialVirtualState: []runtime.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "a",
+						Namespace: namespaceInVClusterA,
+						UID:       "123",
+					},
+					Data: map[string][]byte{
+						"datakey1": []byte("datavalue1"),
+					},
+				},
+			},
+
+			InitialPhysicalState: []runtime.Object{
+				// host object synced from the requested virtual object, without the host name annotations and labels
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      translator.HostName(nil, "a", namespaceInVClusterA).Name,
+						Namespace: testingutil.DefaultTestTargetNamespace,
+						Annotations: map[string]string{
+							translate.NameAnnotation:      "a",
+							translate.NamespaceAnnotation: namespaceInVClusterA,
+							translate.UIDAnnotation:       "123",
+							translate.KindAnnotation:      corev1.SchemeGroupVersion.WithKind("Secret").String(),
+						},
+					},
+					Data: map[string][]byte{
+						"datakey1": []byte("datavalue1"),
+					},
+				},
+			},
+
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				// sync should add the missing annotations and labels
+				corev1.SchemeGroupVersion.WithKind("Secret"): {
+					ownHostSecret(translator.HostName(nil, "a", namespaceInVClusterA).Name, "123", "datavalue1"),
+				},
+			},
+
+			ExpectedEvents: []string{},
+		},
+		{
+			Name:   "should not touch host object of another virtual object without kind annotation",
+			Syncer: NewMockSyncer,
+
+			EnqueueObjs: []types.NamespacedName{
+				{Name: "a", Namespace: namespaceInVClusterA},
+			},
+
+			InitialVirtualState: []runtime.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "a",
+						Namespace: namespaceInVClusterA,
+						UID:       "456",
+					},
+				},
+			},
+
+			InitialPhysicalState: []runtime.Object{
+				// host objects synced by older versions might not have a kind annotation
+				otherVirtualObjectHostSecretWithKind(translator.HostName(nil, "a", namespaceInVClusterA).Name, ""),
+			},
+
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				// host object should remain untouched
+				corev1.SchemeGroupVersion.WithKind("Secret"): {
+					otherVirtualObjectHostSecretWithKind(translator.HostName(nil, "a", namespaceInVClusterA).Name, ""),
+				},
+			},
+
+			ExpectedEvents: []string{
+				"Warning SyncError default/a: Another object in this cluster already maps to the same host name, rename this object to sync it",
+			},
+		},
+		{
+			Name:   "should delete host object of the same virtual object when virtual object is missing",
+			Syncer: NewMockSyncer,
+
+			EnqueueObjs: []types.NamespacedName{
+				{Name: "a", Namespace: namespaceInVClusterA},
+			},
+
+			InitialPhysicalState: []runtime.Object{
+				// without the virtual object there is no name mapping, so the host object needs the marker label to be managed
+				func() *corev1.Secret {
+					secret := ownHostSecret(translator.HostName(nil, "a", namespaceInVClusterA).Name, "123", "datavalue1")
+					secret.Labels[translate.MarkerLabel] = translate.VClusterName
+					return secret
+				}(),
+			},
+
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				// host object of the deleted virtual object should be deleted
+				corev1.SchemeGroupVersion.WithKind("Secret"): {},
+			},
+
+			ExpectedEvents: []string{},
+		},
 	}
 	sort.SliceStable(testCases, func(i, j int) bool {
 		// place focused tests first
@@ -565,13 +814,14 @@ func TestReconcile(t *testing.T) {
 		syncer, err := tc.Syncer(fakeContext)
 		assert.NilError(t, err)
 
+		eventRecorder := &recordingEventRecorder{events: []string{}}
 		controller := &SyncController{
 			syncer: syncer,
 
 			genericSyncer: syncer.Syncer(),
 
 			log:            loghelper.New(syncer.Name()),
-			vEventRecorder: &testingutil.FakeEventRecorder{},
+			vEventRecorder: eventRecorder,
 			physicalClient: pClient,
 
 			hostNameRequestLookup: map[ctrl.Request]ctrl.Request{},
@@ -626,5 +876,71 @@ func TestReconcile(t *testing.T) {
 				}
 			}
 		}
+		if tc.ExpectedEvents != nil {
+			assert.DeepEqual(t, eventRecorder.events, tc.ExpectedEvents)
+		}
 	}
+}
+
+// recordingEventRecorder records events as "<type> <reason> <namespace>/<name>: <note>"
+type recordingEventRecorder struct {
+	events []string
+}
+
+func (r *recordingEventRecorder) Eventf(regarding runtime.Object, _ runtime.Object, eventtype, reason, _, note string, args ...interface{}) {
+	obj := regarding.(client.Object)
+	r.events = append(r.events, fmt.Sprintf("%s %s %s/%s: %s", eventtype, reason, obj.GetNamespace(), obj.GetName(), fmt.Sprintf(note, args...)))
+}
+
+func ownHostSecret(name, uid, data string) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: testingutil.DefaultTestTargetNamespace,
+			Annotations: map[string]string{
+				translate.NameAnnotation:          "a",
+				translate.NamespaceAnnotation:     namespaceInVClusterA,
+				translate.UIDAnnotation:           uid,
+				translate.KindAnnotation:          corev1.SchemeGroupVersion.WithKind("Secret").String(),
+				translate.HostNameAnnotation:      name,
+				translate.HostNamespaceAnnotation: testingutil.DefaultTestTargetNamespace,
+			},
+			Labels: map[string]string{
+				translate.NamespaceLabel: namespaceInVClusterA,
+			},
+		},
+		Data: map[string][]byte{
+			"datakey1": []byte(data),
+		},
+	}
+}
+
+func otherVirtualObjectHostSecret(name string) *corev1.Secret {
+	return otherVirtualObjectHostSecretWithKind(name, corev1.SchemeGroupVersion.WithKind("Secret").String())
+}
+
+// otherVirtualObjectHostSecretWithKind returns a host secret synced from other-namespace/other, without a kind annotation if kind is empty
+func otherVirtualObjectHostSecretWithKind(name, kind string) *corev1.Secret {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: testingutil.DefaultTestTargetNamespace,
+			Annotations: map[string]string{
+				translate.NameAnnotation:      "other",
+				translate.NamespaceAnnotation: "other-namespace",
+				translate.UIDAnnotation:       "123",
+				translate.KindAnnotation:      kind,
+			},
+			Labels: map[string]string{
+				translate.MarkerLabel: translate.VClusterName,
+			},
+		},
+		Data: map[string][]byte{
+			"datakey1": []byte("datavalue1"),
+		},
+	}
+	if kind == "" {
+		delete(secret.Annotations, translate.KindAnnotation)
+	}
+	return secret
 }
