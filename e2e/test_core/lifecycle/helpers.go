@@ -44,7 +44,16 @@ func createArgs(name, namespace string) []string {
 }
 
 func runVClusterCmd(ctx context.Context, args ...string) (string, error) {
+	return runVClusterCmdEnv(ctx, nil, args...)
+}
+
+// runVClusterCmdEnv runs the vcluster CLI with env added to this process's
+// environment, for example to put a different helm first on PATH.
+func runVClusterCmdEnv(ctx context.Context, env []string, args ...string) (string, error) {
 	cmd := exec.CommandContext(ctx, vclusterBinPath(), args...)
+	if env != nil {
+		cmd.Env = append(os.Environ(), env...)
+	}
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return string(out), fmt.Errorf("vcluster %s failed: %w\noutput: %s", strings.Join(args, " "), err, string(out))
