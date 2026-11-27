@@ -2527,3 +2527,205 @@ func TestValidateKubeOvnCloudControllerManager(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateCoreDNSAutoscaling(t *testing.T) {
+	const path = "controlPlane.coredns.deployment.autoscaling"
+
+	coreDNS := func(change func(*config.CoreDNS)) config.CoreDNS {
+		coreDNS := config.CoreDNS{
+			Enabled: true,
+			Deployment: config.CoreDNSDeployment{
+				Autoscaling: config.CoreDNSAutoscaling{
+					Enabled:         true,
+					NodesPerReplica: 16,
+					MinReplicas:     2,
+					MaxReplicas:     100,
+				},
+			},
+		}
+		change(&coreDNS)
+		return coreDNS
+	}
+
+	testCases := []struct {
+		name     string
+		coreDNS  config.CoreDNS
+		checkErr func(t *testing.T, err error)
+	}{
+		{
+			name:     "Valid: autoscaling enabled",
+			coreDNS:  coreDNS(func(*config.CoreDNS) {}),
+			checkErr: noErrExpected,
+		},
+		{
+			name: "Valid: minReplicas equal to maxReplicas",
+			coreDNS: coreDNS(func(c *config.CoreDNS) {
+				c.Deployment.Autoscaling.MinReplicas = 4
+				c.Deployment.Autoscaling.MaxReplicas = 4
+			}),
+			checkErr: noErrExpected,
+		},
+		{
+			name: "Valid: settings are not read while autoscaling is disabled",
+			coreDNS: coreDNS(func(c *config.CoreDNS) {
+				c.Embedded = true
+				c.Deployment.Autoscaling = config.CoreDNSAutoscaling{}
+			}),
+			checkErr: noErrExpected,
+		},
+		{
+			name: "Valid: settings are not read while coredns is disabled",
+			coreDNS: coreDNS(func(c *config.CoreDNS) {
+				c.Enabled = false
+				c.Deployment.Autoscaling.NodesPerReplica = 0
+			}),
+			checkErr: noErrExpected,
+		},
+		{
+			name: "Valid: mode Nodes set explicitly",
+			coreDNS: coreDNS(func(c *config.CoreDNS) {
+				c.Deployment.Autoscaling.Mode = config.CoreDNSAutoscalingModeNodes
+			}),
+			checkErr: noErrExpected,
+		},
+		{
+			name: "Valid: mode External does not read the settings of the nodes autoscaler",
+			coreDNS: coreDNS(func(c *config.CoreDNS) {
+				c.Deployment.Autoscaling = config.CoreDNSAutoscaling{Enabled: true, Mode: config.CoreDNSAutoscalingModeExternal}
+			}),
+			checkErr: noErrExpected,
+		},
+		{
+			name: "Invalid: unknown mode",
+			coreDNS: coreDNS(func(c *config.CoreDNS) {
+				c.Deployment.Autoscaling.Mode = "Load"
+			}),
+			checkErr: expectErr(path + `.mode must be Nodes or External, got "Load"`),
+		},
+		{
+			name: "Invalid: mode External with embedded coredns",
+			coreDNS: coreDNS(func(c *config.CoreDNS) {
+				c.Embedded = true
+				c.Deployment.Autoscaling.Mode = config.CoreDNSAutoscalingModeExternal
+			}),
+			checkErr: expectErr(path + ".enabled cannot be used with controlPlane.coredns.embedded, because embedded coredns has no deployment to scale"),
+		},
+		{
+			name: "Invalid: embedded coredns has no deployment to scale",
+			coreDNS: coreDNS(func(c *config.CoreDNS) {
+				c.Embedded = true
+			}),
+			checkErr: expectErr(path + ".enabled cannot be used with controlPlane.coredns.embedded, because embedded coredns has no deployment to scale"),
+		},
+		{
+			name: "Invalid: custom manifests set the replica count",
+			coreDNS: coreDNS(func(c *config.CoreDNS) {
+				c.OverwriteManifests = "apiVersion: apps/v1\nkind: Deployment"
+			}),
+			checkErr: expectErr(path + ".enabled cannot be used with controlPlane.coredns.overwriteManifests, because the custom manifests set the replica count"),
+		},
+		{
+			name: "Invalid: mode External with custom manifests",
+			coreDNS: coreDNS(func(c *config.CoreDNS) {
+				c.OverwriteManifests = "apiVersion: apps/v1\nkind: Deployment"
+				c.Deployment.Autoscaling.Mode = config.CoreDNSAutoscalingModeExternal
+			}),
+			checkErr: expectErr(path + ".enabled cannot be used with controlPlane.coredns.overwriteManifests, because the custom manifests set the replica count"),
+		},
+		{
+			name: "Invalid: nodesPerReplica below 1",
+			coreDNS: coreDNS(func(c *config.CoreDNS) {
+				c.Deployment.Autoscaling.NodesPerReplica = 0
+			}),
+			checkErr: expectErr(path + ".nodesPerReplica must be at least 1, got 0"),
+		},
+		{
+			name: "Invalid: minReplicas below 1",
+			coreDNS: coreDNS(func(c *config.CoreDNS) {
+				c.Deployment.Autoscaling.MinReplicas = 0
+			}),
+			checkErr: expectErr(path + ".minReplicas must be at least 1, got 0"),
+		},
+		{
+			name: "Invalid: maxReplicas below minReplicas",
+			coreDNS: coreDNS(func(c *config.CoreDNS) {
+				c.Deployment.Autoscaling.MinReplicas = 5
+				c.Deployment.Autoscaling.MaxReplicas = 4
+			}),
+			checkErr: expectErr(path + ".maxReplicas must not be lower than minReplicas (5), got 4"),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.checkErr(t, validateCoreDNSAutoscaling(tc.coreDNS))
+		})
+	}
+}
+
+// TestValidateConfigAndSetDefaultsChecksCoreDNSAutoscaling checks that the control plane runs
+// the coredns autoscaling checks. The chart schema cannot express them, so without this call
+// the controller would start with a setting it cannot honor.
+func TestValidateConfigAndSetDefaultsChecksCoreDNSAutoscaling(t *testing.T) {
+	const path = "controlPlane.coredns.deployment.autoscaling"
+
+	testCases := []struct {
+		name     string
+		change   func(*config.CoreDNS)
+		checkErr func(t *testing.T, err error)
+	}{
+		{
+			name:     "Valid: autoscaling with the chart defaults",
+			change:   func(*config.CoreDNS) {},
+			checkErr: noErrExpected,
+		},
+		{
+			name: "Invalid: embedded coredns has no deployment to scale",
+			change: func(c *config.CoreDNS) {
+				c.Embedded = true
+			},
+			checkErr: expectErr(path + ".enabled cannot be used with controlPlane.coredns.embedded, because embedded coredns has no deployment to scale"),
+		},
+		{
+			name: "Invalid: custom manifests set the replica count",
+			change: func(c *config.CoreDNS) {
+				c.OverwriteManifests = "apiVersion: apps/v1\nkind: Deployment"
+			},
+			checkErr: expectErr(path + ".enabled cannot be used with controlPlane.coredns.overwriteManifests, because the custom manifests set the replica count"),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			defaults, err := config.NewDefaultConfig()
+			if err != nil {
+				t.Fatalf("load default config: %v", err)
+			}
+
+			vConfig := &VirtualClusterConfig{Config: *defaults}
+			vConfig.ControlPlane.CoreDNS.Enabled = true
+			vConfig.ControlPlane.CoreDNS.Deployment.Autoscaling.Enabled = true
+			tc.change(&vConfig.ControlPlane.CoreDNS)
+
+			tc.checkErr(t, ValidateConfigAndSetDefaults(vConfig))
+		})
+	}
+}
+
+// TestCoreDNSAutoscalingDefaults pins the chart defaults: the feature is opt-in,
+// and turning it on without further settings must pass validation.
+func TestCoreDNSAutoscalingDefaults(t *testing.T) {
+	defaults, err := config.NewDefaultConfig()
+	if err != nil {
+		t.Fatalf("load default config: %v", err)
+	}
+
+	autoscaling := defaults.ControlPlane.CoreDNS.Deployment.Autoscaling
+	expected := config.CoreDNSAutoscaling{Mode: config.CoreDNSAutoscalingModeNodes, NodesPerReplica: 16, MinReplicas: 2, MaxReplicas: 100}
+	if autoscaling != expected {
+		t.Fatalf("unexpected autoscaling defaults: got %+v, want %+v", autoscaling, expected)
+	}
+
+	defaults.ControlPlane.CoreDNS.Deployment.Autoscaling.Enabled = true
+	noErrExpected(t, validateCoreDNSAutoscaling(defaults.ControlPlane.CoreDNS))
+}

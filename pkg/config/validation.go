@@ -197,6 +197,11 @@ func ValidateConfigAndSetDefaults(vConfig *VirtualClusterConfig) error {
 		return err
 	}
 
+	err = validateCoreDNSAutoscaling(vConfig.ControlPlane.CoreDNS)
+	if err != nil {
+		return err
+	}
+
 	// check config for exporting kubeconfig Secrets
 	err = validateExportKubeConfig(vConfig.ExportKubeConfig)
 	if err != nil {
@@ -1094,6 +1099,49 @@ func validateAdvancedControlPlaneConfig(controlPlaneAdvanced config.ControlPlane
 		controlPlaneAdvanced.PodDisruptionBudget.MaxUnavailable != nil &&
 		controlPlaneAdvanced.PodDisruptionBudget.MinAvailable != nil {
 		return fmt.Errorf("minAvailable and maxUnavailable cannot be used together in a podDisruptionBudget")
+	}
+
+	return nil
+}
+
+// validateCoreDNSAutoscaling checks the autoscaling of the coredns deployment.
+// The settings are only read while both coredns and its autoscaling are enabled.
+func validateCoreDNSAutoscaling(coreDNS config.CoreDNS) error {
+	autoscaling := coreDNS.Deployment.Autoscaling
+	if !coreDNS.Enabled || !autoscaling.Enabled {
+		return nil
+	}
+
+	const path = "controlPlane.coredns.deployment.autoscaling"
+	if coreDNS.Embedded {
+		return fmt.Errorf("%s.enabled cannot be used with controlPlane.coredns.embedded, because embedded coredns has no deployment to scale", path)
+	}
+	if coreDNS.OverwriteManifests != "" {
+		// the custom manifests are applied as they are, so every control plane start would reset the replica count they set
+		return fmt.Errorf("%s.enabled cannot be used with controlPlane.coredns.overwriteManifests, because the custom manifests set the replica count", path)
+	}
+
+	switch autoscaling.Mode {
+	case config.CoreDNSAutoscalingModeExternal:
+		// the ratio and the bounds only steer the autoscaler that vCluster runs
+		return nil
+	case "", config.CoreDNSAutoscalingModeNodes:
+		return validateCoreDNSNodeAutoscaling(path, autoscaling)
+	default:
+		return fmt.Errorf("%s.mode must be %s or %s, got %q", path, config.CoreDNSAutoscalingModeNodes, config.CoreDNSAutoscalingModeExternal, autoscaling.Mode)
+	}
+}
+
+// validateCoreDNSNodeAutoscaling checks the settings of the autoscaler that vCluster runs with mode Nodes.
+func validateCoreDNSNodeAutoscaling(path string, autoscaling config.CoreDNSAutoscaling) error {
+	if autoscaling.NodesPerReplica < 1 {
+		return fmt.Errorf("%s.nodesPerReplica must be at least 1, got %d", path, autoscaling.NodesPerReplica)
+	}
+	if autoscaling.MinReplicas < 1 {
+		return fmt.Errorf("%s.minReplicas must be at least 1, got %d", path, autoscaling.MinReplicas)
+	}
+	if autoscaling.MaxReplicas < autoscaling.MinReplicas {
+		return fmt.Errorf("%s.maxReplicas must not be lower than minReplicas (%d), got %d", path, autoscaling.MinReplicas, autoscaling.MaxReplicas)
 	}
 
 	return nil

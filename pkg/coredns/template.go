@@ -181,7 +181,7 @@ metadata:
 {{ toYaml .Values.controlPlane.coredns.deployment.labels | indent 4 }}
     {{- end }}
 spec:
-  replicas: {{ .Values.controlPlane.coredns.deployment.replicas }}
+  replicas: {{ .REPLICAS }}
   strategy:
     type: RollingUpdate
     rollingUpdate:

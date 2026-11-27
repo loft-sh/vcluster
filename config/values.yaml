@@ -265,6 +265,12 @@ controlPlane:
       labels: {}
       image: ""
       replicas: 1
+      autoscaling:
+        enabled: false
+        mode: Nodes
+        nodesPerReplica: 16
+        minReplicas: 2
+        maxReplicas: 100
       pods:
         labels: {}
         annotations: {}

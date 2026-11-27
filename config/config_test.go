@@ -505,3 +505,65 @@ func TestStoreType_Shared(t *testing.T) {
 			"%s: a non-shared store must keep extra control plane pods out of the Service", storeType)
 	}
 }
+
+func TestCoreDNS_NodeAutoscalingEnabled(t *testing.T) {
+	coreDNS := func(change func(*CoreDNS)) CoreDNS {
+		coreDNS := CoreDNS{Enabled: true}
+		coreDNS.Deployment.Autoscaling.Enabled = true
+		change(&coreDNS)
+		return coreDNS
+	}
+
+	tests := []struct {
+		name     string
+		coreDNS  CoreDNS
+		expected bool
+	}{
+		{
+			name:     "autoscaling without a mode scales with nodes",
+			coreDNS:  coreDNS(func(*CoreDNS) {}),
+			expected: true,
+		},
+		{
+			name: "mode Nodes",
+			coreDNS: coreDNS(func(c *CoreDNS) {
+				c.Deployment.Autoscaling.Mode = CoreDNSAutoscalingModeNodes
+			}),
+			expected: true,
+		},
+		{
+			name: "mode External leaves the replica count to another autoscaler",
+			coreDNS: coreDNS(func(c *CoreDNS) {
+				c.Deployment.Autoscaling.Mode = CoreDNSAutoscalingModeExternal
+			}),
+			expected: false,
+		},
+		{
+			name: "autoscaling disabled",
+			coreDNS: coreDNS(func(c *CoreDNS) {
+				c.Deployment.Autoscaling.Enabled = false
+			}),
+			expected: false,
+		},
+		{
+			name: "embedded coredns has no deployment",
+			coreDNS: coreDNS(func(c *CoreDNS) {
+				c.Embedded = true
+			}),
+			expected: false,
+		},
+		{
+			name: "coredns disabled",
+			coreDNS: coreDNS(func(c *CoreDNS) {
+				c.Enabled = false
+			}),
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.coreDNS.NodeAutoscalingEnabled(), tt.expected)
+		})
+	}
+}
