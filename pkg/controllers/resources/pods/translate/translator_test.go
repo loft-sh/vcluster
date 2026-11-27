@@ -1044,3 +1044,43 @@ func TestTranslateEnforcedTolerationDedup(t *testing.T) {
 	}
 	assert.Equal(t, count, 1, "enforced toleration must appear exactly once on the physical pod, got %d", count)
 }
+
+func TestImageVolumeTranslation(t *testing.T) {
+	imageTranslator, err := NewImageTranslator(map[string]string{
+		"registry.example.com/models/llm:v1": "mirror.internal/models/llm:v1",
+	})
+	assert.NilError(t, err)
+
+	pClient := testingutil.NewFakeClient(scheme.Scheme)
+	vClient := testingutil.NewFakeClient(scheme.Scheme)
+	registerCtx := generictesting.NewFakeRegisterContext(testingutil.NewFakeConfig(), pClient, vClient)
+	tr := &translator{
+		eventRecorder:   events.NewFakeRecorder(10),
+		log:             loghelper.New("pods-syncer-translator-test"),
+		pClient:         pClient,
+		imageTranslator: imageTranslator,
+	}
+
+	vPod := corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "pod-name", Namespace: "test-ns"},
+		Spec: corev1.PodSpec{
+			Volumes: []corev1.Volume{
+				{
+					Name:         "model",
+					VolumeSource: corev1.VolumeSource{Image: &corev1.ImageVolumeSource{Reference: "registry.example.com/models/llm:v1", PullPolicy: corev1.PullIfNotPresent}},
+				},
+				{
+					Name:         "other",
+					VolumeSource: corev1.VolumeSource{Image: &corev1.ImageVolumeSource{Reference: "registry.example.com/models/other:v1"}},
+				},
+			},
+		},
+	}
+
+	pPod := vPod.DeepCopy()
+	err = tr.translateVolumes(registerCtx.ToSyncContext("pods-syncer-translator-test"), pPod, &vPod)
+	assert.NilError(t, err)
+	assert.Equal(t, pPod.Spec.Volumes[0].Image.Reference, "mirror.internal/models/llm:v1")
+	assert.Equal(t, pPod.Spec.Volumes[0].Image.PullPolicy, corev1.PullIfNotPresent)
+	assert.Equal(t, pPod.Spec.Volumes[1].Image.Reference, "registry.example.com/models/other:v1")
+}
