@@ -157,12 +157,16 @@ func StartControllers(controllerContext *synccontext.ControllerContext, syncers 
 
 func ApplyCoreDNS(controllerContext *synccontext.ControllerContext) {
 	_ = wait.ExponentialBackoffWithContext(controllerContext.Context, wait.Backoff{Duration: time.Second, Factor: 1.5, Cap: time.Minute, Steps: math.MaxInt32}, func(ctx context.Context) (bool, error) {
+		// liveDeployment stays nil if there is no coredns deployment yet
+		var liveDeployment *appsv1.Deployment
 		dnsDeployment := &appsv1.Deployment{}
 		err := controllerContext.VirtualManager.GetClient().Get(controllerContext.Context, types.NamespacedName{Namespace: "kube-system", Name: "coredns"}, dnsDeployment)
 		if err != nil && !kerrors.IsNotFound(err) {
 			return false, err
 		}
 		if err == nil {
+			liveDeployment = dnsDeployment
+
 			// dns pod labels were changed to avoid conflict with apps running in the host cluster that select for the "kube-dns" label, e.g. cilium.
 			// If the deployment already exists with a label selector that is not "vcluster-kube-dns" then it needs to be deleted because the selector field is immutable.
 			// Otherwise, dns will break because the dns service will target the updated label but not match any deployments.
@@ -174,8 +178,9 @@ func ApplyCoreDNS(controllerContext *synccontext.ControllerContext) {
 			}
 		}
 
-		// apply coredns manifests
-		err = coredns.ApplyManifest(ctx, &controllerContext.Config.Config, controllerContext.Config.ControlPlane.Advanced.DefaultImageRegistry, controllerContext.VirtualManager.GetConfig(), controllerContext.VirtualClusterVersion)
+		// apply coredns manifests. With autoscaling enabled, the manifest keeps the replica count of the
+		// live deployment, because a count taken from the config would undo the autoscaler on every start.
+		err = coredns.ApplyManifest(ctx, &controllerContext.Config.Config, controllerContext.Config.ControlPlane.Advanced.DefaultImageRegistry, controllerContext.VirtualManager.GetConfig(), controllerContext.VirtualClusterVersion, coredns.WithLiveDeployment(liveDeployment))
 		if err != nil {
 			if errors.Is(err, coredns.ErrNoCoreDNSManifests) {
 				klog.Infof("No CoreDNS manifests found, skipping CoreDNS configuration")

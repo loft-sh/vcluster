@@ -10,6 +10,7 @@ import (
 	"github.com/loft-sh/vcluster/config"
 	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/util/applier"
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/version"
@@ -31,17 +32,46 @@ const (
 	VarLogInDebug        = "LOG_IN_DEBUG"
 	defaultUID           = int64(1001)
 	defaultGID           = int64(1001)
+
+	// VarReplicas is the replica count the coredns deployment is rendered with.
+	VarReplicas = "REPLICAS"
+
+	// initialAutoscaledReplicas is the replica count vCluster's own autoscaler
+	// starts coredns with. It is what that autoscaler runs for a cluster without
+	// nodes.
+	initialAutoscaledReplicas = int32(1)
 )
 
 var ErrNoCoreDNSManifests = fmt.Errorf("no coredns manifests found")
 
-func ApplyManifest(ctx context.Context, config *config.Config, defaultImageRegistry string, inClusterConfig *rest.Config, serverVersion *version.Info) error {
+// manifestOptions is what the caller of ApplyManifest knows about the cluster
+// the manifests are applied to.
+type manifestOptions struct {
+	// liveDeployment is the coredns deployment that currently exists, or nil
+	liveDeployment *appsv1.Deployment
+}
+
+// ManifestOption tells ApplyManifest about the cluster the manifests are applied to.
+type ManifestOption func(options *manifestOptions)
+
+// WithLiveDeployment passes the coredns deployment that currently exists in the
+// cluster, or nil if there is none. While autoscaling is enabled, the manifest
+// is rendered with the replica count of that deployment instead of
+// controlPlane.coredns.deployment.replicas. Applying the manifest then leaves
+// the count alone that an autoscaler has set.
+func WithLiveDeployment(deployment *appsv1.Deployment) ManifestOption {
+	return func(options *manifestOptions) {
+		options.liveDeployment = deployment
+	}
+}
+
+func ApplyManifest(ctx context.Context, config *config.Config, defaultImageRegistry string, inClusterConfig *rest.Config, serverVersion *version.Info, options ...ManifestOption) error {
 	if !config.ControlPlane.CoreDNS.Enabled {
 		return nil
 	}
 
 	// get the manifest variables
-	vars := getManifestVariables(defaultImageRegistry, serverVersion)
+	vars := manifestVariables(config, defaultImageRegistry, serverVersion, options...)
 
 	// process the corefile and manifests
 	output, err := processManifests(vars, config)
@@ -50,6 +80,44 @@ func ApplyManifest(ctx context.Context, config *config.Config, defaultImageRegis
 	}
 
 	return applier.ApplyManifest(ctx, inClusterConfig, output)
+}
+
+// manifestVariables returns the variables the coredns manifests are rendered with.
+func manifestVariables(vConfig *config.Config, defaultImageRegistry string, serverVersion *version.Info, options ...ManifestOption) map[string]any {
+	opts := &manifestOptions{}
+	for _, option := range options {
+		option(opts)
+	}
+
+	vars := getManifestVariables(defaultImageRegistry, serverVersion)
+	vars[VarReplicas] = deploymentReplicas(vConfig.ControlPlane.CoreDNS, opts.liveDeployment)
+	return vars
+}
+
+// deploymentReplicas returns the replica count the coredns deployment is rendered with.
+//
+// Without autoscaling it is controlPlane.coredns.deployment.replicas. With autoscaling it is
+// the count of the live deployment, so that applying the manifest does not undo what an
+// autoscaler has set. Without a live deployment it is the count the autoscaler takes over from.
+func deploymentReplicas(coreDNS config.CoreDNS, liveDeployment *appsv1.Deployment) int32 {
+	// Never create coredns without a replica. A count of 0 used to render no count at
+	// all, which the API server defaults to 1.
+	configured := int32(max(coreDNS.Deployment.Replicas, 1))
+	if !coreDNS.Deployment.Autoscaling.Enabled {
+		return configured
+	}
+
+	if liveDeployment != nil && liveDeployment.Spec.Replicas != nil {
+		return *liveDeployment.Spec.Replicas
+	}
+
+	// vCluster's own autoscaler takes over from a single replica
+	if coreDNS.NodeAutoscalingEnabled() {
+		return initialAutoscaledReplicas
+	}
+
+	// an external autoscaler takes over from the configured count
+	return configured
 }
 
 func getManifestVariables(defaultImageRegistry string, serverVersion *version.Info) map[string]any {

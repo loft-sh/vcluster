@@ -34,6 +34,7 @@ func TestProcessManifests(t *testing.T) {
 				"IMAGE":        "my-image",
 				"RUN_AS_USER":  1001,
 				"RUN_AS_GROUP": 1001,
+				"REPLICAS":     1,
 			},
 			want: `apiVersion: v1
 kind: ServiceAccount
@@ -302,6 +303,7 @@ spec:
 				"IMAGE":        "my-image",
 				"RUN_AS_USER":  1001,
 				"RUN_AS_GROUP": 1001,
+				"REPLICAS":     1,
 			},
 			config: mustNewDefaultConfig(func(config *config.Config) {
 				config.Networking.Advanced.ClusterDomain = "cluster.local"
@@ -519,6 +521,7 @@ spec:
 				"IMAGE":        "my-image",
 				"RUN_AS_USER":  1001,
 				"RUN_AS_GROUP": 1001,
+				"REPLICAS":     1,
 			},
 			config: mustNewDefaultConfig(func(config *config.Config) {
 				config.Networking.Advanced.ClusterDomain = "custom.local"
@@ -733,7 +736,8 @@ spec:
 		{
 			name: "should correctly set coreDNS security context",
 			vars: map[string]interface{}{
-				"IMAGE": "my-image",
+				"IMAGE":    "my-image",
+				"REPLICAS": 1,
 			},
 			config: mustNewDefaultConfig(func(config *config.Config) {
 				config.ControlPlane.CoreDNS.Security.PodSecurityContext = map[string]interface{}{

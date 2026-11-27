@@ -2512,6 +2512,15 @@ func (c CoreDNS) JSONSchemaExtend(base *jsonschema.Schema) {
 	addProToJSONSchema(base, reflect.TypeOf(c))
 }
 
+// NodeAutoscalingEnabled reports whether vCluster itself scales the coredns
+// deployment with the number of nodes. Embedded coredns runs inside the control
+// plane and has no deployment, and with mode External another autoscaler sets
+// the replica count.
+func (c CoreDNS) NodeAutoscalingEnabled() bool {
+	autoscaling := c.Deployment.Autoscaling
+	return c.Enabled && !c.Embedded && autoscaling.Enabled && autoscaling.Mode != CoreDNSAutoscalingModeExternal
+}
+
 type CoreDNSService struct {
 	// Spec holds extra options for the coredns service
 	Spec map[string]interface{} `json:"spec,omitempty"`
@@ -2523,8 +2532,11 @@ type CoreDNSDeployment struct {
 	// Image is the coredns image to use
 	Image string `json:"image,omitempty"`
 
-	// Replicas is the amount of coredns pods to run.
+	// Replicas is the amount of coredns pods to run. While autoscaling is enabled, it is only used with mode External, as the amount coredns is created with.
 	Replicas int `json:"replicas,omitempty"`
+
+	// Autoscaling lets an autoscaler set the amount of coredns pods instead of replicas.
+	Autoscaling CoreDNSAutoscaling `json:"autoscaling,omitempty"`
 
 	// NodeSelector is the node selector to use for coredns.
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
@@ -2545,6 +2557,33 @@ type CoreDNSDeployment struct {
 
 	// TopologySpreadConstraints are the topology spread constraints for the CoreDNS pod.
 	TopologySpreadConstraints []interface{} `json:"topologySpreadConstraints,omitempty"`
+}
+
+// CoreDNSAutoscalingMode is the autoscaler that sets the amount of coredns pods while autoscaling is enabled.
+type CoreDNSAutoscalingMode string
+
+const (
+	// CoreDNSAutoscalingModeNodes lets vCluster scale coredns with the number of nodes in the cluster.
+	CoreDNSAutoscalingModeNodes CoreDNSAutoscalingMode = "Nodes"
+	// CoreDNSAutoscalingModeExternal leaves the amount of coredns pods to an autoscaler that vCluster does not run.
+	CoreDNSAutoscalingModeExternal CoreDNSAutoscalingMode = "External"
+)
+
+type CoreDNSAutoscaling struct {
+	// Enabled defines if an autoscaler sets the amount of coredns pods instead of replicas. Mode selects the autoscaler.
+	Enabled bool `json:"enabled,omitempty"`
+
+	// Mode is the autoscaler that sets the amount of coredns pods. With Nodes, vCluster scales coredns with the number of nodes in the cluster and corrects an amount that something else has set. With External, vCluster creates coredns with replicas and then keeps the amount that is set on the coredns deployment, so that a HorizontalPodAutoscaler or another autoscaler can scale it. Defaults to Nodes.
+	Mode CoreDNSAutoscalingMode `json:"mode,omitempty" jsonschema:"enum=Nodes,enum=External"`
+
+	// NodesPerReplica is the number of nodes that one coredns pod serves. vCluster runs one coredns pod for every nodesPerReplica nodes, rounded up. A lower value runs more coredns pods. On shared nodes, unless sync.fromHost.nodes selects all nodes, the cluster only lists the nodes that run its pods, coredns pods included, so with a value of 1 every new coredns pod can add a node and the amount of coredns pods can keep growing up to maxReplicas. Only used with mode Nodes.
+	NodesPerReplica int `json:"nodesPerReplica,omitempty"`
+
+	// MinReplicas is the lowest amount of coredns pods to run. A cluster with fewer than two nodes runs a single coredns pod regardless. Only used with mode Nodes.
+	MinReplicas int `json:"minReplicas,omitempty"`
+
+	// MaxReplicas is the highest amount of coredns pods to run. Only used with mode Nodes.
+	MaxReplicas int `json:"maxReplicas,omitempty"`
 }
 
 type ControlPlaneProxy struct {
