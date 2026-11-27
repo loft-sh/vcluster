@@ -52,7 +52,7 @@ func (t *translator) Diff(ctx *synccontext.SyncContext, event *synccontext.SyncE
 	}
 
 	// spec diff
-	t.calcSpecDiff(pPod, vPod)
+	t.calcSpecDiff(pPod, event.VirtualOld, vPod)
 
 	// bi-directionally sync labels & annotations
 	event.Virtual.Annotations, event.Host.Annotations = translate.AnnotationsBidirectionalUpdate(
@@ -104,7 +104,7 @@ func (t *translator) Diff(ctx *synccontext.SyncContext, event *synccontext.SyncE
 }
 
 func GetExcludedAnnotations(pPod *corev1.Pod) []string {
-	annotations := []string{ClusterAutoScalerAnnotation, OwnerReferences, OwnerSetKind, NamespaceAnnotation, NameAnnotation, UIDAnnotation, ServiceAccountNameAnnotation, HostsRewrittenAnnotation, VClusterLabelsAnnotation}
+	annotations := []string{ClusterAutoScalerAnnotation, OwnerReferences, OwnerSetKind, NamespaceAnnotation, NameAnnotation, UIDAnnotation, ServiceAccountNameAnnotation, HostsRewrittenAnnotation, VClusterLabelsAnnotation, ManagedSchedulingGatesAnnotation}
 	if pPod != nil {
 		for _, v := range pPod.Spec.Volumes {
 			if v.Projected != nil {
@@ -135,9 +135,10 @@ func GetExcludedAnnotations(pPod *corev1.Pod) []string {
 // - spec.initContainers[*].image
 // - spec.activeDeadlineSeconds
 // - spec.tolerations (can be added not removed)
+// - spec.schedulingGates (can be removed not added)
 //
 // TODO: check for ephemereal containers
-func (t *translator) calcSpecDiff(pObj, vObj *corev1.Pod) {
+func (t *translator) calcSpecDiff(pObj, vObjOld, vObj *corev1.Pod) {
 	// active deadlines different?
 	pObj.Spec.ActiveDeadlineSeconds = vObj.Spec.ActiveDeadlineSeconds
 
@@ -160,7 +161,32 @@ func (t *translator) calcSpecDiff(pObj, vObj *corev1.Pod) {
 		pObj.Spec.InitContainers = updatedContainer
 	}
 
-	pObj.Spec.SchedulingGates = vObj.Spec.SchedulingGates
+	var virtualOldGates []corev1.PodSchedulingGate
+	if vObjOld != nil {
+		virtualOldGates = vObjOld.Spec.SchedulingGates
+	}
+	mergedGates, unknownOwnership := mergeSchedulingGates(
+		pObj.Spec.SchedulingGates,
+		virtualOldGates,
+		vObj.Spec.SchedulingGates,
+		pObj.Annotations,
+	)
+	pObj.Spec.SchedulingGates = mergedGates
+	if unknownOwnership && t.eventRecorder != nil {
+		t.eventRecorder.Eventf(vObj, nil, corev1.EventTypeWarning, "InvalidSchedulingGateOwnership", "SyncSchedulingGates",
+			"Cannot parse %s; retaining host scheduling gates with unknown ownership. Verify gate ownership before removing any gate.", ManagedSchedulingGatesAnnotation)
+	}
+
+	// Keep ownership only for gates still present on both Pods. The ledger and
+	// gate removals are part of the same host update, so a failed update retains
+	// the historical ownership needed to retry, including after a restart.
+	var managedGates []corev1.PodSchedulingGate
+	for _, gate := range pObj.Spec.SchedulingGates {
+		if hasSchedulingGate(vObj.Spec.SchedulingGates, gate.Name) {
+			managedGates = append(managedGates, gate)
+		}
+	}
+	setManagedSchedulingGates(pObj, managedGates)
 
 	newTolerations := append([]corev1.Toleration{}, vObj.Spec.Tolerations...)
 	for _, hostTol := range pObj.Spec.Tolerations {
@@ -272,7 +298,82 @@ func (t *translator) convertResourceClaimStatuses(ctx *synccontext.SyncContext, 
 	return nil
 }
 
-// hasToleration reports whether tol is already present in the slice (full equality).
+// mergeSchedulingGates only removes host gates known to have been managed by
+// vCluster and absent from the current virtual Pod. Persisted ownership and the
+// old virtual snapshot are complementary: on a cache miss, VirtualOld is a copy
+// of current Virtual and may no longer contain gates removed during downtime.
+// Never add a gate, even if it remains on the virtual Pod: the Kubernetes API
+// only permits deletion of scheduling gates after Pod creation.
+// The boolean reports whether a malformed ledger left unknown host gates intact.
+func mergeSchedulingGates(hostGates, virtualOldGates, virtualGates []corev1.PodSchedulingGate, hostAnnotations map[string]string) ([]corev1.PodSchedulingGate, bool) {
+	persistedGates, err := parseSchedulingGatesAnnotation(hostAnnotations[ManagedSchedulingGatesAnnotation])
+	managedGates := append(persistedGates, virtualOldGates...)
+
+	var merged []corev1.PodSchedulingGate
+	var unknownOwnership bool
+	for _, hostGate := range hostGates {
+		managed := hasSchedulingGate(managedGates, hostGate.Name)
+		current := hasSchedulingGate(virtualGates, hostGate.Name)
+		if managed && !current {
+			continue
+		}
+		if err != nil && !managed && !current {
+			unknownOwnership = true
+		}
+		merged = append(merged, hostGate)
+	}
+	return merged, unknownOwnership
+}
+
+func setManagedSchedulingGates(pod *corev1.Pod, gates []corev1.PodSchedulingGate) {
+	if pod.Annotations == nil {
+		pod.Annotations = make(map[string]string)
+	}
+	if len(gates) == 0 {
+		delete(pod.Annotations, ManagedSchedulingGatesAnnotation)
+	} else {
+		pod.Annotations[ManagedSchedulingGatesAnnotation] = formatSchedulingGatesAnnotation(gates)
+	}
+}
+
+func hasSchedulingGate(gates []corev1.PodSchedulingGate, name string) bool {
+	for _, gate := range gates {
+		if gate.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+// formatSchedulingGatesAnnotation serialises gate names into the annotation value
+// (a JSON array of strings, e.g. `["gate-a","gate-b"]`).
+func formatSchedulingGatesAnnotation(gates []corev1.PodSchedulingGate) string {
+	names := make([]string, 0, len(gates))
+	for _, g := range gates {
+		names = append(names, g.Name)
+	}
+	data, _ := json.Marshal(names)
+	return string(data)
+}
+
+// parseSchedulingGatesAnnotation deserialises the annotation value back into
+// scheduling gates. An absent ledger is normal; a malformed one is not evidence
+// of ownership, including any partially decoded entries.
+func parseSchedulingGatesAnnotation(annotation string) ([]corev1.PodSchedulingGate, error) {
+	if annotation == "" {
+		return nil, nil
+	}
+	var names []string
+	if err := json.Unmarshal([]byte(annotation), &names); err != nil {
+		return nil, err
+	}
+	gates := make([]corev1.PodSchedulingGate, 0, len(names))
+	for _, name := range names {
+		gates = append(gates, corev1.PodSchedulingGate{Name: name})
+	}
+	return gates, nil
+}
+
 func hasToleration(tolerations []corev1.Toleration, tol corev1.Toleration) bool {
 	for _, t := range tolerations {
 		if apiequality.Semantic.DeepEqual(t, tol) {
