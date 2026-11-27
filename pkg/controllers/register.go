@@ -36,6 +36,14 @@ func RegisterControllers(ctx *synccontext.ControllerContext, syncers []syncertyp
 		return err
 	}
 
+	// register controller that scales the CoreDNS deployment with the number of nodes
+	if ctx.Config.ControlPlane.CoreDNS.NodeAutoscalingEnabled() {
+		err := registerCoreDNSAutoscaler(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
 	// register controller that maintains pod security standard check
 	if ctx.Config.Policies.PodSecurityStandard != "" {
 		err := registerPodSecurityController(ctx)
@@ -241,6 +249,19 @@ func registerCoreDNSController(ctx *synccontext.ControllerContext) error {
 	err := controller.SetupWithManager(ctx.VirtualManager)
 	if err != nil {
 		return fmt.Errorf("unable to setup CoreDNS NodeHosts controller: %w", err)
+	}
+	return nil
+}
+
+func registerCoreDNSAutoscaler(ctx *synccontext.ControllerContext) error {
+	controller := &coredns.AutoscalerReconciler{
+		Client: ctx.VirtualManager.GetClient(),
+		Log:    loghelper.New("corednsautoscaler-controller"),
+		Config: ctx.Config.ControlPlane.CoreDNS.Deployment.Autoscaling,
+	}
+	err := controller.SetupWithManager(ctx.VirtualManager)
+	if err != nil {
+		return fmt.Errorf("unable to setup CoreDNS autoscaler controller: %w", err)
 	}
 	return nil
 }

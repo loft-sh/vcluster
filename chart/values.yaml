@@ -549,8 +549,20 @@ controlPlane:
       labels: {}
       # Image is the coredns image to use
       image: ""
-      # Replicas is the amount of coredns pods to run.
+      # Replicas is the amount of coredns pods to run. While autoscaling is enabled, it is only used with mode External, as the amount coredns is created with.
       replicas: 1
+      # Autoscaling lets an autoscaler set the amount of coredns pods instead of replicas.
+      autoscaling:
+        # Enabled defines if an autoscaler sets the amount of coredns pods instead of replicas. Mode selects the autoscaler.
+        enabled: false
+        # Mode is the autoscaler that sets the amount of coredns pods. With Nodes, vCluster scales coredns with the number of nodes in the cluster and corrects an amount that something else has set. With External, vCluster creates coredns with replicas and then keeps the amount that is set on the coredns deployment, so that a HorizontalPodAutoscaler or another autoscaler can scale it. Defaults to Nodes.
+        mode: Nodes
+        # NodesPerReplica is the number of nodes that one coredns pod serves. vCluster runs one coredns pod for every nodesPerReplica nodes, rounded up. A lower value runs more coredns pods. On shared nodes, unless sync.fromHost.nodes selects all nodes, the cluster only lists the nodes that run its pods, coredns pods included, so with a value of 1 every new coredns pod can add a node and the amount of coredns pods can keep growing up to maxReplicas. Only used with mode Nodes.
+        nodesPerReplica: 16
+        # MinReplicas is the lowest amount of coredns pods to run. A cluster with fewer than two nodes runs a single coredns pod regardless. Only used with mode Nodes.
+        minReplicas: 2
+        # MaxReplicas is the highest amount of coredns pods to run. Only used with mode Nodes.
+        maxReplicas: 100
       # Pods is additional metadata for the coredns pods.
       pods:
         labels: {}
