@@ -259,7 +259,11 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 		return ctrl.Result{}, err
 	}
 
-	return patcher.CreateHostObject(ctx, event.Virtual, pPod, s.EventRecorder(), true)
+	result, err := patcher.CreateHostObject(ctx, event.Virtual, pPod, s.EventRecorder(), true)
+	if err != nil {
+		return result, err
+	}
+	return result, translatepods.RecordPodGenerationMapping(ctx, pPod, event.Virtual)
 }
 
 func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEvent[*corev1.Pod]) (result ctrl.Result, retErr error) {
@@ -303,7 +307,7 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 		//
 		// Compare against the status we actually want the virtual pod to have, not the raw
 		// host status: some fields legitimately differ and must not trigger an update.
-		desiredStatus := s.podTranslator.DesiredVirtualStatus(event.Host.Status, event.Virtual.Status)
+		desiredStatus := s.podTranslator.DesiredVirtualPodStatus(event.Host, event.Virtual)
 
 		if !equality.Semantic.DeepEqual(event.Virtual.Status, desiredStatus) {
 			updated := event.Virtual.DeepCopy()
@@ -378,7 +382,15 @@ func (s *podSyncer) Sync(ctx *synccontext.SyncContext, event *synccontext.SyncEv
 			retErr = utilerrors.NewAggregate([]error{retErr, err})
 		}
 
-		if retErr != nil {
+		if retErr == nil {
+			// Use the API response, including its actual generation and UID, rather
+			// than predicting the version before the host accepted the spec.
+			if err := translatepods.RecordPodGenerationMapping(ctx, patch.HostObject().(*corev1.Pod), event.Virtual); err != nil {
+				retErr = err
+			}
+		}
+
+		if retErr != nil && !kerrors.IsConflict(retErr) {
 			s.EventRecorder().Eventf(
 				event.Virtual,
 				nil,

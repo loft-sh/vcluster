@@ -161,6 +161,12 @@ func (r *cacheRebase) apply(ctx *synccontext.SyncContext) {
 	r.cache.Put(rebased)
 }
 
+// HostObject returns the host object after a successful Patch, including the
+// metadata returned by the API server. Callers must not mutate the returned copy.
+func (h *SyncerPatcher) HostObject() client.Object {
+	return h.pPatcher.beforeObject.DeepCopyObject().(client.Object)
+}
+
 // Patcher is a utility for ensuring the proper patching of objects.
 type Patcher struct {
 	client       client.Client
