@@ -563,6 +563,19 @@ func (t *translator) translateProjectedVolume(
 	tokenSecrets map[string]string,
 ) error {
 	for i := range projectedVolume.Sources {
+		if source := unsupportedProjectedSource(projectedVolume.Sources[i]); source != "" {
+			t.eventRecorder.Eventf(
+				vPod,
+				nil,
+				"Warning",
+				"SyncWarning",
+				"PodSyncWarning",
+				"did not sync pod %q to host because projected volume %q uses a %s source, which vcluster does not translate",
+				vPod.Name,
+				volumeName,
+				source)
+			return fmt.Errorf("projected volume %q: %s sources are not supported", volumeName, source)
+		}
 		if projectedVolume.Sources[i].Secret != nil {
 			projectedVolume.Sources[i].Secret.Name = mappings.VirtualToHostName(ctx, projectedVolume.Sources[i].Secret.Name, vPod.Namespace, mappings.Secrets())
 		}
@@ -668,6 +681,19 @@ func (t *translator) translateProjectedVolume(
 	}
 
 	return nil
+}
+
+// unsupportedProjectedSource names a projection source that would be resolved
+// by the host cluster instead of the virtual one.
+func unsupportedProjectedSource(source corev1.VolumeProjection) string {
+	switch {
+	case source.ClusterTrustBundle != nil:
+		return "clusterTrustBundle"
+	case source.PodCertificate != nil:
+		return "podCertificate"
+	}
+
+	return ""
 }
 
 func translateFieldRef(fieldSelector *corev1.ObjectFieldSelector) {
