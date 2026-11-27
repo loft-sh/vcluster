@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/loft-sh/vcluster/pkg/config"
+	"github.com/loft-sh/vcluster/pkg/constants"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	syncertesting "github.com/loft-sh/vcluster/pkg/syncer/testing"
 	testingutil "github.com/loft-sh/vcluster/pkg/util/testing"
@@ -351,6 +352,93 @@ func TestSync(t *testing.T) {
 				assert.NilError(t, err)
 
 				_, err = syncer.(*persistentVolumeClaimSyncer).Sync(syncCtx, synccontext.NewSyncEvent(pPVC.DeepCopy(), vPVC.DeepCopy()))
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name: "Use host PV name for VolumeName of host-originated PV",
+			AdjustConfig: func(vConfig *config.VirtualClusterConfig) {
+				vConfig.Sync.ToHost.PersistentVolumes.Enabled = true
+			},
+			InitialVirtualState: []runtime.Object{
+				&corev1.PersistentVolume{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "pvc-abc123",
+						Annotations: map[string]string{
+							constants.HostClusterPersistentVolumeAnnotation: "host-pv-1",
+						},
+					},
+				},
+				&corev1.PersistentVolumeClaim{
+					ObjectMeta: vObjectMeta,
+					Spec: corev1.PersistentVolumeClaimSpec{
+						VolumeName: "pvc-abc123",
+					},
+				},
+			},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"): {
+					&corev1.PersistentVolumeClaim{
+						ObjectMeta: pObjectMeta,
+						Spec: corev1.PersistentVolumeClaimSpec{
+							VolumeName: "host-pv-1",
+						},
+					},
+				},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+
+				vPvc := &corev1.PersistentVolumeClaim{}
+				err := syncCtx.VirtualClient.Get(syncCtx, types.NamespacedName{
+					Namespace: vObjectMeta.Namespace,
+					Name:      vObjectMeta.Name,
+				}, vPvc)
+				assert.NilError(t, err)
+
+				_, err = syncer.(*persistentVolumeClaimSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vPvc.DeepCopy()))
+				assert.NilError(t, err)
+			},
+		},
+		{
+			Name: "Translate VolumeName of virtual-created PV to namespaced host name",
+			AdjustConfig: func(vConfig *config.VirtualClusterConfig) {
+				vConfig.Sync.ToHost.PersistentVolumes.Enabled = true
+			},
+			InitialVirtualState: []runtime.Object{
+				&corev1.PersistentVolume{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "pvc-abc123",
+					},
+				},
+				&corev1.PersistentVolumeClaim{
+					ObjectMeta: vObjectMeta,
+					Spec: corev1.PersistentVolumeClaimSpec{
+						VolumeName: "pvc-abc123",
+					},
+				},
+			},
+			ExpectedPhysicalState: map[schema.GroupVersionKind][]runtime.Object{
+				corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"): {
+					&corev1.PersistentVolumeClaim{
+						ObjectMeta: pObjectMeta,
+						Spec: corev1.PersistentVolumeClaimSpec{
+							VolumeName: "vcluster-pvc-abc123-x-test-x-suffix",
+						},
+					},
+				},
+			},
+			Sync: func(ctx *synccontext.RegisterContext) {
+				syncCtx, syncer := syncertesting.FakeStartSyncer(t, ctx, New)
+
+				vPvc := &corev1.PersistentVolumeClaim{}
+				err := syncCtx.VirtualClient.Get(syncCtx, types.NamespacedName{
+					Namespace: vObjectMeta.Namespace,
+					Name:      vObjectMeta.Name,
+				}, vPvc)
+				assert.NilError(t, err)
+
+				_, err = syncer.(*persistentVolumeClaimSyncer).SyncToHost(syncCtx, synccontext.NewSyncToHostEvent(vPvc.DeepCopy()))
 				assert.NilError(t, err)
 			},
 		},
