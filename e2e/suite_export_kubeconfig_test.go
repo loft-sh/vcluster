@@ -40,13 +40,14 @@ func suiteExportKubeConfigVCluster() {
 			})
 
 			export_kubeconfig.ExportKubeConfigSpec()
+			export_kubeconfig.ExportPermissionsSpec()
+			export_kubeconfig.ServiceAccountExportSpec()
 		},
 	)
 }
 
-// exportKubeConfigPreSetup creates the target namespace and RBAC so that
-// the vCluster's cross-namespace additional-secret export can reach
-// export_kubeconfig.TargetNS before the syncer first runs.
+// exportKubeConfigPreSetup provisions the legacy cross-namespace destination.
+// The chart provisions the rotating destination and its scoped permissions.
 func exportKubeConfigPreSetup(ctx context.Context) error {
 	hostCluster := cluster.From(ctx, constants.GetHostClusterName())
 	if hostCluster == nil {
@@ -63,40 +64,34 @@ func exportKubeConfigPreSetup(ctx context.Context) error {
 	if err != nil && !kerrors.IsAlreadyExists(err) {
 		return fmt.Errorf("create namespace %s: %w", export_kubeconfig.TargetNS, err)
 	}
-
-	saName := "vc-" + export_kubeconfig.VClusterName
-	vClusterNS := "vcluster-" + export_kubeconfig.VClusterName
-	roleName := export_kubeconfig.VClusterName + "-secret-access"
-
-	_, err = hostClient.RbacV1().Roles(export_kubeconfig.TargetNS).Create(ctx, &rbacv1.Role{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      roleName,
-			Namespace: export_kubeconfig.TargetNS,
-		},
-		Rules: []rbacv1.PolicyRule{
-			{APIGroups: []string{"*"}, Resources: []string{"*"}, Verbs: []string{"*"}},
-		},
+	_, err = hostClient.CoreV1().Secrets(export_kubeconfig.TargetNS).Create(ctx, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: export_kubeconfig.CrossNSSecretName},
 	}, metav1.CreateOptions{})
 	if err != nil && !kerrors.IsAlreadyExists(err) {
-		return fmt.Errorf("create role: %w", err)
+		return fmt.Errorf("create legacy export Secret: %w", err)
 	}
-
-	_, err = hostClient.RbacV1().RoleBindings(export_kubeconfig.TargetNS).Create(ctx, &rbacv1.RoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      roleName,
-			Namespace: export_kubeconfig.TargetNS,
-		},
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: rbacv1.GroupName,
-			Kind:     "Role",
-			Name:     roleName,
-		},
-		Subjects: []rbacv1.Subject{
-			{Kind: "ServiceAccount", Name: saName, Namespace: vClusterNS},
-		},
+	_, err = hostClient.RbacV1().Roles(export_kubeconfig.TargetNS).Create(ctx, &rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{Name: export_kubeconfig.CrossNSSecretName},
+		Rules: []rbacv1.PolicyRule{{
+			APIGroups: []string{""}, Resources: []string{"secrets"},
+			ResourceNames: []string{export_kubeconfig.CrossNSSecretName}, Verbs: []string{"get", "patch"},
+		}},
 	}, metav1.CreateOptions{})
 	if err != nil && !kerrors.IsAlreadyExists(err) {
-		return fmt.Errorf("create role binding: %w", err)
+		return fmt.Errorf("create legacy export Role: %w", err)
+	}
+	_, err = hostClient.RbacV1().RoleBindings(export_kubeconfig.TargetNS).Create(ctx, &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: export_kubeconfig.CrossNSSecretName},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: rbacv1.GroupName, Kind: "Role", Name: export_kubeconfig.CrossNSSecretName,
+		},
+		Subjects: []rbacv1.Subject{{
+			Kind: "ServiceAccount", Name: "vc-" + export_kubeconfig.VClusterName,
+			Namespace: "vcluster-" + export_kubeconfig.VClusterName,
+		}},
+	}, metav1.CreateOptions{})
+	if err != nil && !kerrors.IsAlreadyExists(err) {
+		return fmt.Errorf("create legacy export RoleBinding: %w", err)
 	}
 
 	return nil
