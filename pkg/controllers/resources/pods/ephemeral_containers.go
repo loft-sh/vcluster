@@ -59,6 +59,7 @@ func (s *podSyncer) syncEphemeralContainers(ctx *synccontext.SyncContext, physic
 		}
 		ephemeralContainer.Env = envVar
 		ephemeralContainer.EnvFrom = envFrom
+		ephemeralContainer.Image = s.podTranslator.TranslateImage(ephemeralContainer.Image)
 		physicalPod.Spec.EphemeralContainers = append(physicalPod.Spec.EphemeralContainers, ephemeralContainer)
 	}
 
