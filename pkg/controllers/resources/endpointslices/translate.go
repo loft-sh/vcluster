@@ -1,6 +1,8 @@
 package endpointslices
 
 import (
+	"maps"
+
 	"github.com/loft-sh/vcluster/pkg/mappings"
 	"github.com/loft-sh/vcluster/pkg/syncer/synccontext"
 	"github.com/loft-sh/vcluster/pkg/util/translate"
@@ -41,6 +43,17 @@ func (s *endpointSliceSyncer) translateUpdate(ctx *synccontext.SyncContext, pObj
 	translated := vObj.DeepCopy()
 	s.translateSpec(ctx, translated)
 	pObj.Endpoints = translated.Endpoints
+
+	virtualSvcName, ok := vObj.GetLabels()[translate.K8sServiceNameLabel]
+	if ok && virtualSvcName != "" {
+		if pObj.Labels == nil {
+			pObj.Labels = map[string]string{}
+		} else {
+			pObj.Labels = maps.Clone(pObj.Labels)
+		}
+		pObj.Labels[translate.K8sServiceNameLabel] = translateSvcName(virtualSvcName, vObj.GetNamespace(), translate.VClusterName)
+	}
+
 	return nil
 }
 
