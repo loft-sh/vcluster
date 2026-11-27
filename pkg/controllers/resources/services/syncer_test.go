@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 )
 
 func TestSync(t *testing.T) {
@@ -66,7 +67,10 @@ func TestSync(t *testing.T) {
 		SessionAffinityConfig: &corev1.SessionAffinityConfig{
 			ClientIP: &corev1.ClientIPConfig{},
 		},
-		HealthCheckNodePort: 112,
+		HealthCheckNodePort:           112,
+		InternalTrafficPolicy:         ptr.To(corev1.ServiceInternalTrafficPolicyLocal),
+		TrafficDistribution:           ptr.To(corev1.ServiceTrafficDistributionPreferSameZone),
+		AllocateLoadBalancerNodePorts: ptr.To(false),
 	}
 
 	updateForwardService := &corev1.Service{
