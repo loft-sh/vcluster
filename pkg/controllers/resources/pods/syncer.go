@@ -210,17 +210,16 @@ func (s *podSyncer) SyncToHost(ctx *synccontext.SyncContext, event *synccontext.
 
 	// ensure node selector
 	if s.nodeSelector != nil {
-		// 2 cases:
-		// 1. Pod already has a nodeName -> then we check if the node exists in the virtual cluster
-		// 2. Pod has no nodeName -> then we set the nodeSelector
-		if pPod.Spec.NodeName == "" {
-			if pPod.Spec.NodeSelector == nil {
-				pPod.Spec.NodeSelector = map[string]string{}
-			}
-			for k, v := range s.nodeSelector.MatchLabels {
-				pPod.Spec.NodeSelector[k] = v
-			}
-		} else {
+		// the selector is applied to pinned pods as well: the kubelet checks it at admission even when
+		// nodeName is set, so a pod pinned to a node outside the selector is rejected instead of run
+		if pPod.Spec.NodeSelector == nil {
+			pPod.Spec.NodeSelector = map[string]string{}
+		}
+		for k, v := range s.nodeSelector.MatchLabels {
+			pPod.Spec.NodeSelector[k] = v
+		}
+
+		if pPod.Spec.NodeName != "" {
 			// make sure the node does exist in the virtual cluster
 			err = ctx.VirtualClient.Get(ctx, types.NamespacedName{Name: pPod.Spec.NodeName}, &corev1.Node{})
 			if err != nil {
