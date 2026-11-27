@@ -1,15 +1,56 @@
 name: Automatic backport action
 
 on:
-  pull_request_target:
-    types: ["labeled", "closed"]
+  # Merges still reach backporting when the PR signal cannot run, for example
+  # while the PR has conflicts. The resolver verifies merged default-branch PRs.
+  push:
+    branches: [main]
+  workflow_run: # zizmor: ignore[dangerous-triggers] -- API-verified merged PRs only; no PR code or artifacts are executed
+    workflows: ["Pull request events"]
+    types: [completed]
 
-permissions:
-  contents: read
+permissions: {}
+
+cache-mode: none
 
 jobs:
+  event:
+    if: >-
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch) &&
+      endsWith(github.workflow_ref, format('@refs/heads/{0}', github.event.repository.default_branch)) &&
+      (github.event_name == 'push' ||
+       (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+    outputs:
+      eligible: ${{ steps.event.outputs.eligible }}
+      events-json: ${{ steps.event.outputs.events-json }}
+    steps:
+      - name: Resolve merged pull requests from GitHub
+        id: event
+        uses: loft-sh/github-actions/.github/actions/resolve-pr-event@resolve-pr-event/v1
+        with:
+          source-workflow: .github/workflows/pull-request-events.yaml
+
   backport:
-    uses: loft-sh/github-actions/.github/workflows/backport.yaml@backport/v1
+    needs: event
+    if: needs.event.outputs.eligible == 'true'
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+    strategy:
+      fail-fast: false
+      matrix:
+        event: ${{ fromJSON(needs.event.outputs.events-json) }}
+    uses: loft-sh/github-actions/.github/workflows/backport.yaml@backport/v2
+    with:
+      pr-event: ${{ toJSON(matrix.event) }}
+      source-workflow: .github/workflows/pull-request-events.yaml
     secrets:
       gh-access-token: ${{ secrets.GH_ACCESS_TOKEN }}
       linear-token: ${{ secrets.LINEAR_TOKEN }}

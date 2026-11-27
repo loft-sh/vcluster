@@ -5,11 +5,11 @@ on:
     types:
       - closed
 
-permissions:
-  actions: write
+permissions: {}
 
 jobs:
   clean-github-cache:
+    if: github.event.pull_request.head.repo.full_name == github.repository
     permissions:
       actions: write
     uses: loft-sh/github-actions/.github/workflows/clean-github-cache.yaml@clean-github-cache/v1

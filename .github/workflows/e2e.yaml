@@ -1,5 +1,8 @@
 name: E2E CI
 
+permissions:
+  contents: read
+
 on:
   pull_request:
     branches:
@@ -20,6 +23,9 @@ env:
 
 jobs:
   detect_changes:
+    permissions:
+      contents: read
+      pull-requests: read
     # PR-only: the release path is a workflow_dispatch --ref <tag> dispatch that
     # always validates, so it bypasses change detection. Entry jobs break the
     # skip-propagation with !cancelled().
@@ -51,6 +57,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
+          persist-credentials: false
           fetch-depth: 0
 
       - run: git fetch --force --tags
@@ -102,6 +109,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
       - id: set-paths-matrix
         run: |
           set -x
@@ -134,6 +143,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4
         name: Setup Helm
@@ -225,6 +236,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4
         name: Setup Helm
